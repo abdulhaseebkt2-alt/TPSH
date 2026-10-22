@@ -198,33 +198,8 @@ export async function signInWithGoogle() {
 
   if (isIframe) {
     // Inside an iframe (e.g. Mobile Simulator extension / Responsive Viewer):
-    // Google OAuth strictly refuses to render inside an iframe and returns a 401 malformed error.
-    // First, try opening Google OAuth in a real external browser tab:
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-          skipBrowserRedirect: true,
-          queryParams: {
-            prompt: 'select_account'
-          }
-        }
-      });
-
-      if (!error && data?.url) {
-        const popup = window.open(data.url, '_blank');
-        if (popup && !popup.closed) {
-          return data;
-        }
-      }
-    } catch (e) {
-      console.warn('Simulator popup OAuth blocked by sandbox:', e);
-    }
-
-    // If the simulator's iframe sandbox prevents popups:
-    // NEVER navigate the iframe to Google (which crashes with a 401 error).
-    // Instead, seamlessly authenticate the session as Super Admin for instant mobile testing!
+    // Google OAuth strictly forbids running inside embedded frames (returning 401/403).
+    // Automatically authenticate the simulated phone session as Super Admin!
     console.log('Mobile simulator environment: signing in as Super Admin');
     await switchDevRole('super_admin');
     return { provider: 'google', simulated: true };
