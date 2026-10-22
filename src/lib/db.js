@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { calculateLateDays, calculateLateFine, normalizeClassPattern, compressImage } from './utils.js';
+import { calculateLateDays, calculateLateFine, normalizeClassPattern, compressImage, normalizeDate, normalizeGender, normalizeStatus, normalizeHostelStatus } from './utils.js';
 import { savePhotoToIDB, getPhotoFromIDB, getAllPhotosFromIDB } from './idb.js';
 
 // Initial institutional mock dataset for offline / pre-migration testing
@@ -303,21 +303,32 @@ class DatabaseService {
       }
     }
 
-    // Auto-migrate local storage students to Supabase if Supabase is empty
     const localRaw = this.getStorageItem('tps_students');
     const localStudents = localRaw ? JSON.parse(localRaw) : [];
 
-    if (supabase && (!supabaseStudents || supabaseStudents.length === 0) && localStudents.length > 0) {
-      console.log(`Migrating ${localStudents.length} local students to Supabase...`);
-      await this.syncAllToSupabase();
-      try {
-        const { data } = await supabase.from('students').select('*').order('admission_number');
-        if (data && data.length > 0) supabaseStudents = data;
-      } catch {}
+    // Safely reconcile Cloud and Local records
+    let mergedStudents = [];
+    if (supabaseStudents && supabaseStudents.length > 0) {
+      mergedStudents = supabaseStudents;
+      // Preserve any locally added/imported student that hasn't made it to Supabase yet
+      if (localStudents.length > 0) {
+        const dbAdmSet = new Set(supabaseStudents.map(s => s.admission_number));
+        const missingFromDb = localStudents.filter(s => s.admission_number && !dbAdmSet.has(s.admission_number));
+        if (missingFromDb.length > 0) {
+          mergedStudents = [...supabaseStudents, ...missingFromDb];
+          // Asynchronously sync missing records to Supabase in background
+          this.importStudents(missingFromDb).catch(err => console.warn('Background sync error:', err));
+        }
+      }
+    } else if (localStudents.length > 0) {
+      // Supabase is empty or offline: prioritize local students and trigger cloud sync
+      mergedStudents = localStudents;
+      if (supabase) {
+        this.syncAllToSupabase().catch(err => console.warn('Auto-sync to Supabase error:', err));
+      }
+    } else {
+      mergedStudents = [];
     }
-
-    const students = supabaseStudents !== null ? supabaseStudents : localStudents;
-    const arr = Array.isArray(students) ? students : [];
 
     // Trigger photo compression optimization in background if not already running
     if (!this._optimizingPhotos) {
@@ -325,12 +336,12 @@ class DatabaseService {
     }
 
     // Cache latest in localStorage for offline availability
-    this.setStorageItem('tps_students', JSON.stringify(arr));
+    this.setStorageItem('tps_students', JSON.stringify(mergedStudents));
 
     // Pull any offline IDB photos
     const idbPhotos = await getAllPhotosFromIDB();
 
-    return arr.map(s => {
+    return mergedStudents.map(s => {
       let photo = s.photo_url;
       if (!photo && idbPhotos && idbPhotos[s.id]) {
         photo = idbPhotos[s.id];
@@ -341,6 +352,112 @@ class DatabaseService {
         school_class: normalizeClassPattern(s.school_class)
       };
     });
+  }
+
+  async importStudents(studentsToImport) {
+    if (!Array.isArray(studentsToImport) || studentsToImport.length === 0) {
+      return { success: false, count: 0, dbCount: 0, message: 'No students provided for import' };
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const normalizedList = studentsToImport.map((s, idx) => {
+      const rawAdm = s.admission_number && String(s.admission_number).trim();
+      const adm = rawAdm && !/^\d{1,2}$/.test(rawAdm)
+        ? rawAdm
+        : ('TPS-2026-' + String(Date.now()).slice(-3) + String(idx).padStart(2, '0'));
+
+      const cleanClass = normalizeClassPattern(s.school_class || 'STD-VIII');
+      const cleanGender = normalizeGender(s.gender);
+      const cleanDob = normalizeDate(s.dob, '2012-05-15');
+      const cleanAdmDate = normalizeDate(s.admission_date, todayStr);
+      const cleanStatus = normalizeStatus(s.status);
+      const cleanHostelStatus = normalizeHostelStatus(s.hostel_status);
+
+      return {
+        admission_number: adm,
+        full_name: (s.full_name && String(s.full_name).trim()) || ('Student ' + adm),
+        gender: cleanGender,
+        dob: cleanDob,
+        admission_date: cleanAdmDate,
+        school_class: cleanClass,
+        school_section: s.school_section || 'A',
+        hostel_status: cleanHostelStatus,
+        status: cleanStatus,
+        village: s.village || '',
+        post_office: s.post_office || '',
+        district: s.district || 'Malappuram',
+        state: s.state || 'Kerala',
+        pin_code: s.pin_code || '676541',
+        father_name: s.father_name || '',
+        father_phone: s.father_phone || '',
+        mother_name: s.mother_name || '',
+        mother_phone: s.mother_phone || '',
+        whatsapp_number: s.whatsapp_number || s.father_phone || '',
+        medical_info: s.medical_info || '',
+        category: s.category || 'General',
+        hostel_unit: s.hostel_unit || (cleanGender === 'Girls' ? 'Thaiba Girls Hostel Campus' : 'Thaiba Boys Hostel Block A'),
+        hostel_room: s.hostel_room || 'Room 101',
+        hostel_bed: s.hostel_bed || 'Bed 1',
+        photo_url: s.photo_url || '',
+        black_marks: 0
+      };
+    });
+
+    let dbSuccessCount = 0;
+    if (supabase) {
+      try {
+        for (let i = 0; i < normalizedList.length; i += 20) {
+          const chunk = normalizedList.slice(i, i + 20);
+          const { data, error } = await supabase
+            .from('students')
+            .upsert(chunk, { onConflict: 'admission_number' })
+            .select();
+
+          if (!error) {
+            dbSuccessCount += (data ? data.length : chunk.length);
+          } else {
+            console.warn('Supabase bulk upsert chunk error, trying individual items:', error);
+            for (const item of chunk) {
+              const { error: singleErr } = await supabase
+                .from('students')
+                .upsert(item, { onConflict: 'admission_number' });
+              if (!singleErr) dbSuccessCount++;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase bulk import connection error:', err);
+      }
+    }
+
+    // Update local storage cache
+    let localStudents = this.get('tps_students') || [];
+    const localMap = new Map();
+    localStudents.forEach(s => localMap.set(s.admission_number, s));
+
+    normalizedList.forEach(s => {
+      const existing = localMap.get(s.admission_number);
+      if (existing) {
+        localMap.set(s.admission_number, { ...existing, ...s, updated_at: new Date().toISOString() });
+      } else {
+        localMap.set(s.admission_number, {
+          id: 's-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+          ...s
+        });
+      }
+    });
+
+    const merged = Array.from(localMap.values());
+    this.set('tps_students', merged);
+    this.logAudit('STUDENTS_BULK_IMPORT', 'students', 'multiple', `Imported ${normalizedList.length} students via CSV`);
+
+    return {
+      success: true,
+      count: normalizedList.length,
+      dbCount: dbSuccessCount,
+      students: merged
+    };
   }
 
   async syncAllToSupabase() {
@@ -374,19 +491,24 @@ class DatabaseService {
           this.set('tps_students', localStudents);
         }
 
-        const studentPayloads = localStudents.map(s => {
+        const studentPayloads = localStudents.map((s, idx) => {
           const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
+          const rawAdm = s.admission_number && String(s.admission_number).trim();
+          const adm = rawAdm && !/^\d{1,2}$/.test(rawAdm)
+            ? rawAdm
+            : ('TPS-2026-' + String(Date.now()).slice(-3) + String(idx).padStart(2, '0'));
+
           return {
             ...(isUuid ? { id: s.id } : {}),
-            admission_number: s.admission_number || ('TPS-2026-' + String(Date.now()).slice(-3)),
-            full_name: s.full_name || 'Student',
-            gender: s.gender || 'Boys',
-            dob: s.dob || '2012-05-15',
-            admission_date: s.admission_date || new Date().toISOString().split('T')[0],
+            admission_number: adm,
+            full_name: (s.full_name && String(s.full_name).trim()) || ('Student ' + adm),
+            gender: normalizeGender(s.gender),
+            dob: normalizeDate(s.dob, '2012-05-15'),
+            admission_date: normalizeDate(s.admission_date, new Date().toISOString().split('T')[0]),
             school_class: normalizeClassPattern(s.school_class),
             school_section: s.school_section || 'A',
-            hostel_status: s.hostel_status || 'hostel',
-            status: s.status || 'Active',
+            hostel_status: normalizeHostelStatus(s.hostel_status),
+            status: normalizeStatus(s.status),
             village: s.village || '',
             post_office: s.post_office || '',
             district: s.district || 'Malappuram',
@@ -567,13 +689,13 @@ class DatabaseService {
     const payload = {
       admission_number: admissionNumber,
       full_name: studentData.full_name,
-      gender: studentData.gender || 'Boys',
-      dob: studentData.dob || '2012-05-15',
-      admission_date: studentData.admission_date || new Date().toISOString().split('T')[0],
+      gender: normalizeGender(studentData.gender),
+      dob: normalizeDate(studentData.dob, '2012-05-15'),
+      admission_date: normalizeDate(studentData.admission_date, new Date().toISOString().split('T')[0]),
       school_class: normalizeClassPattern(studentData?.school_class),
       school_section: studentData.school_section || 'A',
-      hostel_status: studentData.hostel_status || 'hostel',
-      status: studentData.status || 'Active',
+      hostel_status: normalizeHostelStatus(studentData.hostel_status),
+      status: normalizeStatus(studentData.status),
       village: studentData.village || '',
       post_office: studentData.post_office || '',
       district: studentData.district || 'Malappuram',

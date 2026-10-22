@@ -302,3 +302,202 @@ export function compressImage(fileOrDataUrl, maxWidth = 280, maxHeight = 320, qu
     }
   });
 }
+
+export function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if ((ch === ',' || ch === '\t' || ch === ';') && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+export function normalizeDate(dateStr, fallbackDate = '2012-05-15') {
+  if (!dateStr || typeof dateStr !== 'string') return fallbackDate;
+  const clean = dateStr.trim();
+  if (!clean) return fallbackDate;
+
+  // 1. If YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(clean)) {
+    const parts = clean.split('-');
+    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+  }
+
+  // 2. If YYYY/MM/DD
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(clean)) {
+    const parts = clean.split('/');
+    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+  }
+
+  // 3. If DD/MM/YYYY or DD-MM-YYYY (Common in Indian school registers)
+  const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmyMatch) {
+    const d = dmyMatch[1].padStart(2, '0');
+    const m = dmyMatch[2].padStart(2, '0');
+    const y = dmyMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  // 4. Try parsing with parseDate
+  const parsed = parseDate(clean);
+  if (parsed && !isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  return fallbackDate;
+}
+
+export function normalizeGender(genderStr) {
+  if (!genderStr || typeof genderStr !== 'string') return 'Boys';
+  const g = genderStr.trim().toLowerCase();
+  if (g.startsWith('f') || g.includes('girl') || g.includes('female') || g.includes('woman')) {
+    return 'Girls';
+  }
+  return 'Boys';
+}
+
+export function normalizeStatus(statusStr) {
+  if (!statusStr || typeof statusStr !== 'string') return 'Active';
+  const s = statusStr.trim().toLowerCase();
+  if (s.includes('leave')) return 'On Approved Leave';
+  if (s.includes('break')) return 'Temporary Break';
+  if (s.includes('drop') || s.includes('inact')) return 'Inactive';
+  return 'Active';
+}
+
+export function normalizeHostelStatus(statusStr) {
+  if (!statusStr || typeof statusStr !== 'string') return 'hostel';
+  const s = statusStr.trim().toLowerCase();
+  if (s.includes('day') || s.includes('scholar')) return 'day_scholar';
+  if (s.includes('break')) return 'temporary_break';
+  return 'hostel';
+}
+
+export function parseStudentsCSV(csvText) {
+  if (!csvText || typeof csvText !== 'string') return [];
+
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length === 0) return [];
+
+  const rawHeaders = parseCSVLine(lines[0]);
+  const headerMap = {};
+
+  rawHeaders.forEach((h, idx) => {
+    const clean = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (clean.includes('admission') || clean.includes('admno') || clean.includes('regno') || clean === 'id' || clean === 'admid' || clean === 'admnumber') {
+      headerMap['admission_number'] = idx;
+    } else if (clean.includes('fullname') || clean.includes('studentname') || clean === 'name' || clean === 'student') {
+      headerMap['full_name'] = idx;
+    } else if (clean.includes('gender') || clean === 'sex') {
+      headerMap['gender'] = idx;
+    } else if (clean.includes('dob') || clean.includes('birth')) {
+      headerMap['dob'] = idx;
+    } else if (clean.includes('class') || clean.includes('std') || clean.includes('grade') || clean === 'standard') {
+      headerMap['school_class'] = idx;
+    } else if (clean.includes('sec') || clean.includes('division')) {
+      headerMap['school_section'] = idx;
+    } else if (clean.includes('hostel') || clean.includes('campus') || clean.includes('block') || clean.includes('unit')) {
+      headerMap['hostel_unit'] = idx;
+    } else if (clean.includes('room')) {
+      headerMap['hostel_room'] = idx;
+    } else if (clean.includes('bed')) {
+      headerMap['hostel_bed'] = idx;
+    } else if (clean.includes('father') || clean.includes('parent') || clean.includes('guardian')) {
+      if (clean.includes('phone') || clean.includes('mob') || clean.includes('num') || clean.includes('contact')) {
+        headerMap['father_phone'] = idx;
+      } else {
+        headerMap['father_name'] = idx;
+      }
+    } else if (clean.includes('phone') || clean.includes('mobile') || clean.includes('contact') || clean.includes('whatsapp')) {
+      if (!('father_phone' in headerMap)) {
+        headerMap['father_phone'] = idx;
+      }
+    } else if (clean.includes('mother')) {
+      if (clean.includes('phone') || clean.includes('mob') || clean.includes('num')) {
+        headerMap['mother_phone'] = idx;
+      } else {
+        headerMap['mother_name'] = idx;
+      }
+    } else if (clean.includes('village') || clean.includes('place') || clean.includes('town') || clean.includes('city') || clean.includes('address')) {
+      headerMap['village'] = idx;
+    } else if (clean.includes('category') || clean === 'cat') {
+      headerMap['category'] = idx;
+    } else if (clean.includes('status')) {
+      headerMap['status'] = idx;
+    }
+  });
+
+  const hasMappedHeaders = Object.keys(headerMap).length >= 2;
+  const startIndex = hasMappedHeaders ? 1 : 0;
+  const parsedStudents = [];
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length === 0 || (cols.length === 1 && !cols[0])) continue;
+
+    let studentObj = {};
+
+    if (hasMappedHeaders) {
+      studentObj = {
+        admission_number: headerMap.admission_number !== undefined ? cols[headerMap.admission_number] : '',
+        full_name: headerMap.full_name !== undefined ? cols[headerMap.full_name] : '',
+        gender: headerMap.gender !== undefined ? cols[headerMap.gender] : '',
+        dob: headerMap.dob !== undefined ? cols[headerMap.dob] : '',
+        school_class: headerMap.school_class !== undefined ? cols[headerMap.school_class] : '',
+        school_section: headerMap.school_section !== undefined ? cols[headerMap.school_section] : 'A',
+        category: headerMap.category !== undefined ? cols[headerMap.category] : 'General',
+        hostel_unit: headerMap.hostel_unit !== undefined ? cols[headerMap.hostel_unit] : '',
+        hostel_room: headerMap.hostel_room !== undefined ? cols[headerMap.hostel_room] : '',
+        hostel_bed: headerMap.hostel_bed !== undefined ? cols[headerMap.hostel_bed] : '',
+        father_name: headerMap.father_name !== undefined ? cols[headerMap.father_name] : '',
+        father_phone: headerMap.father_phone !== undefined ? cols[headerMap.father_phone] : '',
+        mother_name: headerMap.mother_name !== undefined ? cols[headerMap.mother_name] : '',
+        mother_phone: headerMap.mother_phone !== undefined ? cols[headerMap.mother_phone] : '',
+        village: headerMap.village !== undefined ? cols[headerMap.village] : '',
+        status: headerMap.status !== undefined ? cols[headerMap.status] : 'Active'
+      };
+    } else {
+      studentObj = {
+        admission_number: cols[0] || '',
+        full_name: cols[1] || '',
+        gender: cols[2] || '',
+        dob: cols[3] || '',
+        school_class: cols[4] || '',
+        category: cols[5] || 'General',
+        hostel_unit: cols[6] || '',
+        hostel_room: cols[7] || '',
+        hostel_bed: cols[8] || '',
+        father_name: cols[9] || '',
+        father_phone: cols[10] || '',
+        status: cols[11] || 'Active'
+      };
+    }
+
+    if (studentObj.full_name || studentObj.admission_number) {
+      if (!studentObj.admission_number || /^\d{1,2}$/.test(String(studentObj.admission_number).trim())) {
+        studentObj.admission_number = `TPS-2026-${String(parsedStudents.length + 1).padStart(3, '0')}`;
+      }
+      parsedStudents.push(studentObj);
+    }
+  }
+
+  return parsedStudents;
+}

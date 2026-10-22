@@ -1,5 +1,6 @@
 import { db } from '../../lib/db.js';
-import { formatDate, exportToCSV, STANDARD_CLASSES, normalizeClassPattern, compressImage } from '../../lib/utils.js';
+import { formatDate, exportToCSV, STANDARD_CLASSES, normalizeClassPattern, compressImage, parseStudentsCSV } from '../../lib/utils.js';
+import * as XLSX from 'xlsx';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -35,9 +36,9 @@ export async function renderStudentsModule(container, { onNavigate }) {
       <div class="page-actions" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
         <button class="btn btn-outline" id="btn-import-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Import Students (CSV)
+          Import Students (CSV / Excel)
         </button>
-        <input type="file" id="input-import-csv" accept=".csv" style="display: none;" />
+        <input type="file" id="input-import-csv" accept=".csv, .xlsx, .xls, text/csv" style="display: none;" />
 
         <button class="btn btn-outline" id="btn-export-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -681,59 +682,64 @@ export async function renderStudentsModule(container, { onNavigate }) {
     toast.success('Enrolled hostel students exported to CSV successfully.');
   });
 
-  // Import CSV Handler
+  // Import CSV / Excel Handler
   const fileInput = container.querySelector('#input-import-csv');
   container.querySelector('#btn-import-csv')?.addEventListener('click', () => {
     fileInput?.click();
   });
 
-  fileInput?.addEventListener('change', (e) => {
+  fileInput?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const text = evt.target.result;
-        const lines = text.split('\n').filter(l => l.trim().length > 0);
-        if (lines.length <= 1) {
-          toast.error('Uploaded CSV is empty or has only headers.');
-          return;
-        }
+    try {
+      toast.info('Reading student data file...');
+      let csvContent = '';
 
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        let importedCount = 0;
-
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-          if (cols.length >= 2) {
-            await db.addStudent({
-              admission_number: cols[0] || `TPS2026${100 + i}`,
-              full_name: cols[1] || 'Imported Student',
-              gender: cols[2] || 'Boys',
-              dob: cols[3] || '2012-05-15',
-              school_class: normalizeClassPattern(cols[4] || 'STD-VIII'),
-              category: cols[5] || 'General',
-              hostel_unit: cols[6] || 'Boys Hostel',
-              hostel_room: cols[7] || 'Room 101',
-              hostel_bed: cols[8] || 'Bed 1',
-              father_name: cols[9] || 'Parent',
-              father_phone: cols[10] || '+91 98470 00000',
-              status: cols[11] || 'active'
-            });
-            importedCount++;
-          }
-        }
-
-        toast.success(`Successfully imported ${importedCount} student records.`);
-        students = await db.getStudents();
-        renderTable();
-      } catch (err) {
-        toast.error('Failed to parse CSV file: ' + err.message);
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        csvContent = XLSX.utils.sheet_to_csv(sheet);
+      } else {
+        csvContent = await file.text();
       }
-    };
-    reader.readAsText(file);
-    fileInput.value = '';
+
+      if (!csvContent || !csvContent.trim()) {
+        toast.error('The uploaded file is empty.');
+        fileInput.value = '';
+        return;
+      }
+
+      const parsedStudents = parseStudentsCSV(csvContent);
+      if (!parsedStudents || parsedStudents.length === 0) {
+        toast.error('No valid student rows found in file. Please ensure there is at least a name column.');
+        fileInput.value = '';
+        return;
+      }
+
+      toast.info(`Importing ${parsedStudents.length} student records...`);
+      const result = await db.importStudents(parsedStudents);
+
+      if (result.success) {
+        const cloudNote = result.dbCount > 0 ? ` (${result.dbCount} synced to Cloud DB)` : '';
+        toast.success(`Successfully imported ${result.count} students!${cloudNote}`);
+
+        const updatedAll = await db.getStudents();
+        students = isParent
+          ? updatedAll.filter(s => s.father_phone === '+91 98470 11223' || s.full_name === 'Mohammed Rayan' || s.full_name === 'Muhammad Rayyan')
+          : updatedAll;
+        renderTable();
+      } else {
+        toast.error(`Import failed: ${result.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('File import error:', err);
+      toast.error('Failed to import file: ' + err.message);
+    } finally {
+      fileInput.value = '';
+    }
   });
 
   renderTable();

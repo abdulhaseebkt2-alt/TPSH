@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { calculateLateDays, calculateLateFine, formatDate, formatCurrency } from '../src/lib/utils.js';
+import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS } from '../src/lib/permissions.js';
 import { db } from '../src/lib/db.js';
 
@@ -155,6 +155,52 @@ describe('3. Student Admissions & Lifecycle Database Tests', () => {
 
     // Clean up created student & photo
     await db.deleteStudent(student.id);
+  });
+
+  it('Parses CSV with arbitrary headers and Indian date formats correctly', () => {
+    const csvSample = `Sl No,Student Name,Admission No,Sex,Standard,Birth Date,Parent Contact,Place
+1,Aadil Rahman,TPS-2026-101,Male,Class 5,15/05/2012,+91 98470 12345,Edavanna
+2,Fathima Zehra,TPS-2026-102,Female,STD 6,22-08-2013,+91 98470 67890,Manjeri`;
+
+    const parsed = parseStudentsCSV(csvSample);
+    expect(parsed.length).toBe(2);
+    expect(parsed[0].full_name).toBe('Aadil Rahman');
+    expect(parsed[0].admission_number).toBe('TPS-2026-101');
+    expect(parsed[0].gender).toBe('Male');
+    expect(parsed[0].dob).toBe('15/05/2012');
+
+    expect(parsed[1].full_name).toBe('Fathima Zehra');
+    expect(parsed[1].admission_number).toBe('TPS-2026-102');
+  });
+
+  it('Bulk imports 30 students and persists them reliably in getStudents() without data loss', async () => {
+    const mock30 = [];
+    for (let i = 1; i <= 30; i++) {
+      mock30.push({
+        admission_number: `TPS-2026-CSV-${String(i).padStart(3, '0')}`,
+        full_name: `CSV Student ${i}`,
+        gender: i % 2 === 0 ? 'Female' : 'Male',
+        dob: `${String(10 + (i % 18)).padStart(2, '0')}/05/2012`, // Indian date format DD/MM/YYYY
+        school_class: `Class ${5 + (i % 5)}`,
+        father_phone: `+91 98470 ${String(10000 + i)}`,
+        status: 'Active'
+      });
+    }
+
+    const res = await db.importStudents(mock30);
+    expect(res.success).toBe(true);
+    expect(res.count).toBe(30);
+
+    const students = await db.getStudents();
+    const importedFound = students.filter(s => s.admission_number?.startsWith('TPS-2026-CSV-'));
+    expect(importedFound.length).toBe(30);
+
+    // Verify date normalization converted DD/MM/YYYY to ISO YYYY-MM-DD
+    expect(importedFound[0].dob).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Cleanup imported students
+    const ids = importedFound.map(s => s.id);
+    await db.deleteStudents(ids);
   });
 
   it('Correctly puts student on temporary break and restores upon rejoining', async () => {
