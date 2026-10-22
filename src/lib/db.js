@@ -222,13 +222,46 @@ class DatabaseService {
 
   // --- STUDENTS ---
   async getStudents() {
-    const students = this.get('tps_students');
+    let supabaseStudents = null;
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .order('admission_number');
+        if (!error && Array.isArray(data)) {
+          supabaseStudents = data;
+        } else if (error) {
+          console.warn('Supabase getStudents query error:', error);
+        }
+      } catch (err) {
+        console.warn('Supabase getStudents connection fallback:', err);
+      }
+    }
+
+    // Auto-migrate local storage students to Supabase if Supabase is empty
+    const localRaw = this.getStorageItem('tps_students');
+    const localStudents = localRaw ? JSON.parse(localRaw) : [];
+
+    if (supabase && (!supabaseStudents || supabaseStudents.length === 0) && localStudents.length > 0) {
+      console.log(`Migrating ${localStudents.length} local students to Supabase...`);
+      await this.syncAllToSupabase();
+      try {
+        const { data } = await supabase.from('students').select('*').order('admission_number');
+        if (data && data.length > 0) supabaseStudents = data;
+      } catch {}
+    }
+
+    const students = supabaseStudents !== null ? supabaseStudents : localStudents;
     const arr = Array.isArray(students) ? students : [];
 
     // Trigger photo compression optimization in background if not already running
     if (!this._optimizingPhotos) {
       this.optimizeStoredPhotos();
     }
+
+    // Cache latest in localStorage for offline availability
+    this.setStorageItem('tps_students', JSON.stringify(arr));
 
     // Pull any offline IDB photos
     const idbPhotos = await getAllPhotosFromIDB();
@@ -246,6 +279,71 @@ class DatabaseService {
     });
   }
 
+  async syncAllToSupabase() {
+    if (!supabase) return { success: false, message: 'Supabase is not configured' };
+    const stats = { students: 0, leaves: 0, discipline: 0 };
+
+    try {
+      // 1. Sync Students from local storage
+      const localStudents = this.get('tps_students') || [];
+      if (localStudents.length > 0) {
+        const studentPayloads = localStudents.map(s => {
+          const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
+          return {
+            ...(isUuid ? { id: s.id } : {}),
+            admission_number: s.admission_number || ('TPS-2026-' + String(Date.now()).slice(-3)),
+            full_name: s.full_name || 'Student',
+            gender: s.gender || 'Boys',
+            dob: s.dob || '2012-05-15',
+            admission_date: s.admission_date || new Date().toISOString().split('T')[0],
+            school_class: normalizeClassPattern(s.school_class),
+            school_section: s.school_section || 'A',
+            hostel_status: s.hostel_status || 'hostel',
+            status: s.status || 'Active',
+            village: s.village || '',
+            post_office: s.post_office || '',
+            district: s.district || 'Malappuram',
+            state: s.state || 'Kerala',
+            pin_code: s.pin_code || '676541',
+            father_name: s.father_name || '',
+            father_phone: s.father_phone || '',
+            mother_name: s.mother_name || '',
+            mother_phone: s.mother_phone || '',
+            whatsapp_number: s.whatsapp_number || s.father_phone || '',
+            medical_info: s.medical_info || '',
+            category: s.category || 'General',
+            hostel_unit: s.hostel_unit || 'Boys Hostel',
+            hostel_room: s.hostel_room || 'Room 101',
+            hostel_bed: s.hostel_bed || 'Bed 1',
+            photo_url: s.photo_url || '',
+            black_marks: s.black_marks || 0
+          };
+        });
+
+        for (let i = 0; i < studentPayloads.length; i += 20) {
+          const chunk = studentPayloads.slice(i, i + 20);
+          const { error } = await supabase.from('students').upsert(chunk, { onConflict: 'admission_number' });
+          if (!error) {
+            stats.students += chunk.length;
+          } else {
+            console.warn('Sync student chunk error:', error);
+          }
+        }
+      }
+
+      // Re-fetch students from Supabase and cache locally
+      const { data: dbStudents } = await supabase.from('students').select('*').order('admission_number');
+      if (dbStudents && dbStudents.length > 0) {
+        this.set('tps_students', dbStudents);
+      }
+
+      return { success: true, stats };
+    } catch (err) {
+      console.error('syncAllToSupabase error:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   async optimizeStoredPhotos() {
     this._optimizingPhotos = true;
     try {
@@ -256,10 +354,8 @@ class DatabaseService {
 
       for (const s of students) {
         if (s.photo_url) {
-          // Always ensure backup in IndexedDB
           savePhotoToIDB(s.id, s.photo_url);
 
-          // If photo is huge (> 25KB), compress it down to ~12KB
           if (s.photo_url.length > 25000) {
             try {
               const compressed = await compressImage(s.photo_url, 280, 320, 0.75);
@@ -285,6 +381,22 @@ class DatabaseService {
   }
 
   async deleteStudent(id) {
+    if (supabase) {
+      try {
+        const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+        if (isUuid) {
+          await supabase.from('students').delete().eq('id', id);
+        } else {
+          const s = (this.get('tps_students') || []).find(item => item.id === id);
+          if (s?.admission_number) {
+            await supabase.from('students').delete().eq('admission_number', s.admission_number);
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase deleteStudent error:', err);
+      }
+    }
+
     let students = this.get('tps_students') || [];
     const student = students.find(s => s.id === id);
     students = students.filter(s => s.id !== id);
@@ -296,6 +408,17 @@ class DatabaseService {
   }
 
   async deleteStudents(ids) {
+    if (supabase && ids && ids.length > 0) {
+      try {
+        const uuidList = ids.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
+        if (uuidList.length > 0) {
+          await supabase.from('students').delete().in('id', uuidList);
+        }
+      } catch (err) {
+        console.warn('Supabase deleteStudents error:', err);
+      }
+    }
+
     let students = this.get('tps_students') || [];
     const idsSet = new Set(ids);
     students = students.filter(s => !idsSet.has(s.id));
@@ -310,47 +433,100 @@ class DatabaseService {
   }
 
   async addStudent(studentData) {
-    const students = this.get('tps_students');
     let photo = studentData?.photo_url || '';
     if (photo && photo.length > 25000) {
       photo = await compressImage(photo, 280, 320, 0.75);
     }
 
-    const newStudent = {
-      id: 's-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      admission_number: 'TPS-2026-' + String(students.length + 1).padStart(3, '0'),
-      status: 'Active',
-      black_marks: 0,
-      admission_date: new Date().toISOString().split('T')[0],
-      ...studentData,
+    const payload = {
+      admission_number: studentData.admission_number || ('TPS-2026-' + String(Date.now()).slice(-3)),
+      full_name: studentData.full_name,
+      gender: studentData.gender || 'Boys',
+      dob: studentData.dob || '2012-05-15',
+      admission_date: studentData.admission_date || new Date().toISOString().split('T')[0],
+      school_class: normalizeClassPattern(studentData?.school_class),
+      school_section: studentData.school_section || 'A',
+      hostel_status: studentData.hostel_status || 'hostel',
+      status: studentData.status || 'Active',
+      village: studentData.village || '',
+      post_office: studentData.post_office || '',
+      district: studentData.district || 'Malappuram',
+      state: studentData.state || 'Kerala',
+      pin_code: studentData.pin_code || '676541',
+      father_name: studentData.father_name || '',
+      father_phone: studentData.father_phone || '',
+      mother_name: studentData.mother_name || '',
+      mother_phone: studentData.mother_phone || '',
+      whatsapp_number: studentData.whatsapp_number || studentData.father_phone || '',
+      medical_info: studentData.medical_info || '',
+      category: studentData.category || 'General',
+      hostel_unit: studentData.hostel_unit || 'Boys Hostel',
+      hostel_room: studentData.hostel_room || 'Room 101',
+      hostel_bed: studentData.hostel_bed || 'Bed 1',
       photo_url: photo,
-      school_class: normalizeClassPattern(studentData?.school_class)
+      black_marks: 0
     };
 
-    if (photo) {
-      savePhotoToIDB(newStudent.id, photo);
+    let createdStudent = null;
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('students').insert([payload]).select().single();
+        if (!error && data) {
+          createdStudent = data;
+        } else if (error) {
+          console.warn('Supabase addStudent insert error:', error);
+        }
+      } catch (err) {
+        console.warn('Supabase addStudent error:', err);
+      }
     }
 
-    students.unshift(newStudent);
+    if (!createdStudent) {
+      createdStudent = {
+        id: 's-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+        ...payload
+      };
+    }
+
+    if (photo) {
+      savePhotoToIDB(createdStudent.id, photo);
+    }
+
+    const students = this.get('tps_students');
+    students.unshift(createdStudent);
     this.set('tps_students', students);
-    this.logAudit('STUDENT_ADMISSION', 'students', newStudent.id, `Admitted ${newStudent.full_name}`);
-    return newStudent;
+    this.logAudit('STUDENT_ADMISSION', 'students', createdStudent.id, `Admitted ${createdStudent.full_name}`);
+    return createdStudent;
   }
 
   async updateStudent(id, updates) {
+    const sanitizedUpdates = { ...updates };
+    if (sanitizedUpdates.school_class !== undefined) {
+      sanitizedUpdates.school_class = normalizeClassPattern(sanitizedUpdates.school_class);
+    }
+    if (sanitizedUpdates.photo_url) {
+      if (sanitizedUpdates.photo_url.length > 25000) {
+        sanitizedUpdates.photo_url = await compressImage(sanitizedUpdates.photo_url, 280, 320, 0.75);
+      }
+      savePhotoToIDB(id, sanitizedUpdates.photo_url);
+    }
+
+    if (supabase) {
+      try {
+        const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+        if (isUuid) {
+          await supabase.from('students').update(sanitizedUpdates).eq('id', id);
+        } else if (sanitizedUpdates.admission_number) {
+          await supabase.from('students').update(sanitizedUpdates).eq('admission_number', sanitizedUpdates.admission_number);
+        }
+      } catch (err) {
+        console.warn('Supabase updateStudent error:', err);
+      }
+    }
+
     const students = this.get('tps_students');
     const idx = students.findIndex(s => s.id === id);
     if (idx >= 0) {
-      const sanitizedUpdates = { ...updates };
-      if (sanitizedUpdates.school_class !== undefined) {
-        sanitizedUpdates.school_class = normalizeClassPattern(sanitizedUpdates.school_class);
-      }
-      if (sanitizedUpdates.photo_url) {
-        if (sanitizedUpdates.photo_url.length > 25000) {
-          sanitizedUpdates.photo_url = await compressImage(sanitizedUpdates.photo_url, 280, 320, 0.75);
-        }
-        savePhotoToIDB(id, sanitizedUpdates.photo_url);
-      }
       students[idx] = { ...students[idx], ...sanitizedUpdates, updated_at: new Date().toISOString() };
       this.set('tps_students', students);
       this.logAudit('STUDENT_UPDATE', 'students', id, `Updated student record`);
@@ -480,23 +656,18 @@ class DatabaseService {
       };
       createdRecords.push(rec);
 
-      // Update student hostel presence to On Approved Leave
-      const sidx = students.findIndex(s => s.id === sid);
-      if (sidx >= 0) {
-        students[sidx].status = 'On Approved Leave';
-      }
+      // Update student status to On Approved Leave in database & local
+      await this.updateStudent(sid, { status: 'On Approved Leave' });
     }
 
     leaves.push(...createdRecords);
     this.set('tps_leaves', leaves);
-    this.set('tps_students', students);
     this.logAudit('CREATE_LEAVE', 'student_leave_records', createdRecords[0]?.id, `Leave approved for ${createdRecords.length} student(s)`);
     return createdRecords;
   }
 
   async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '') {
     const leaves = this.get('tps_leaves');
-    const students = this.get('tps_students');
     const idx = leaves.findIndex(l => l.id === leave_record_id);
     if (idx === -1) throw new Error('Leave record not found');
 
@@ -513,15 +684,10 @@ class DatabaseService {
     leave.status = 'Returned';
     leave.remarks = remarks;
 
-    // Reactivate student hostel status
-    const sidx = students.findIndex(s => s.id === leave.student_id);
-    if (sidx >= 0) {
-      students[sidx].status = 'Active';
-      students[sidx].hostel_status = 'resident';
-    }
+    // Reactivate student hostel status in database & local
+    await this.updateStudent(leave.student_id, { status: 'Active', hostel_status: 'resident' });
 
     this.set('tps_leaves', leaves);
-    this.set('tps_students', students);
     this.logAudit('RECORD_RETURN', 'student_leave_records', leave_record_id, `Return recorded. Late days: ${lateDays}, Fine: ₹${fine}`);
     return leave;
   }

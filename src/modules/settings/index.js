@@ -1,3 +1,4 @@
+import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { openCropModal } from '../../components/crop-modal.js';
@@ -173,6 +174,32 @@ export async function renderSettingsModule(container, { onNavigate }) {
         </div>
       </div>
     </div>
+
+    <!-- Cloud Database & Supabase Sync -->
+    <div class="card-panel">
+      <div class="card-panel-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <h3>Cloud Database (Supabase PostgreSQL)</h3>
+        </div>
+        <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700;">🟢 Connected</span>
+      </div>
+      <div class="card-panel-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          All student records, hostel registers, and institutional data are synchronized directly to your live Supabase cloud database (<strong>txbjraknaaokenyvbaak.supabase.co</strong>).
+        </p>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1rem; background: var(--bg-surface-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div>
+            <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">Manual Cloud Synchronization</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Push all local browser cache records directly into Supabase PostgreSQL</div>
+          </div>
+          <button class="btn btn-primary" id="btn-sync-supabase">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+            Sync All Data to Supabase
+          </button>
+        </div>
+      </div>
+    </div>
   `;
 
   const fileInput = container.querySelector('#inst-logo-file-input');
@@ -296,5 +323,25 @@ export async function renderSettingsModule(container, { onNavigate }) {
 
   container.querySelector('#btn-save-settings')?.addEventListener('click', () => {
     toast.success('Institutional settings and attendance policies saved successfully.');
+  });
+
+  container.querySelector('#btn-sync-supabase')?.addEventListener('click', async () => {
+    const btn = container.querySelector('#btn-sync-supabase');
+    btn.disabled = true;
+    btn.textContent = 'Syncing to Supabase...';
+    toast.info('Starting cloud database synchronization...');
+    try {
+      const res = await db.syncAllToSupabase();
+      if (res.success) {
+        toast.success(`Cloud sync completed! Synced ${res.stats?.students || 0} students to Supabase.`);
+      } else {
+        toast.error(`Sync error: ${res.message || res.error || 'Failed'}`);
+      }
+    } catch (err) {
+      toast.error('Sync failed: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg> Sync All Data to Supabase`;
+    }
   });
 }
