@@ -1,0 +1,78 @@
+// TPS Hostel ERP - Granular Role & Permission Access Matrix
+
+export const MODULE_DEFINITIONS = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'users', label: 'User & Permissions', icon: 'shield-check', roles: ['super_admin'] },
+  { key: 'admissions', label: 'Student Admissions', icon: 'user-plus', roles: ['super_admin', 'admin'] },
+  { key: 'students', label: 'Student Directory', icon: 'users', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
+  { key: 'sections', label: 'Sections & Classrooms', icon: 'folder-tree', roles: ['super_admin', 'admin'] },
+  { key: 'assignments', label: 'Student Assignments', icon: 'user-check', roles: ['super_admin', 'admin'] },
+  { key: 'timetable', label: 'Teacher Timetable', icon: 'calendar-clock', roles: ['super_admin', 'admin', 'teacher'] },
+  { key: 'attendance', label: 'Attendance Management', icon: 'check-square', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'leaves', label: 'Hostel Leave Register', icon: 'plane-takeoff', roles: ['super_admin', 'admin', 'mentor', 'parent', 'student', 'hostel_leader'] },
+  { key: 'fines', label: 'Late Fine Management', icon: 'receipt', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
+  { key: 'discipline', label: 'Discipline & Black Marks', icon: 'alert-triangle', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
+  { key: 'exams', label: 'Exam Management', icon: 'file-text', roles: ['super_admin', 'admin', 'teacher', 'student'] },
+  { key: 'marks', label: 'Marks & Results', icon: 'award', roles: ['super_admin', 'admin', 'teacher', 'parent', 'student'] },
+  { key: 'hostel', label: 'Hostel Rooms & Beds', icon: 'bed', roles: ['super_admin', 'admin', 'mentor', 'hostel_leader'] },
+  { key: 'fees', label: 'Fees & Payments', icon: 'credit-card', roles: ['super_admin', 'admin', 'parent'] },
+  { key: 'notices', label: 'Notices & WhatsApp', icon: 'bell', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'maintenance', label: 'Hostel Maintenance', icon: 'wrench', roles: ['super_admin', 'admin', 'mentor', 'hostel_leader'] },
+  { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor'] },
+  { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
+  { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
+];
+
+export function canAccessModule(profile, moduleKey) {
+  if (!profile) return false;
+  if (profile.approval_status !== 'approved') return false;
+  if (profile.is_super_admin || profile.role === 'super_admin') return true;
+
+  const moduleDef = MODULE_DEFINITIONS.find(m => m.key === moduleKey);
+  if (!moduleDef) return false;
+
+  return moduleDef.roles.includes(profile.role);
+}
+
+export function getVisibleModules(profile) {
+  if (!profile || profile.approval_status !== 'approved') return [];
+  return MODULE_DEFINITIONS.filter(m => canAccessModule(profile, m.key));
+}
+
+export function canPerformAction(profile, moduleKey, action) {
+  if (!profile || profile.approval_status !== 'approved') return false;
+  if (profile.is_super_admin || profile.role === 'super_admin') return true;
+
+  // View action is governed by module access
+  if (action === 'view') {
+    return canAccessModule(profile, moduleKey);
+  }
+
+  // Admin action rules
+  if (profile.role === 'admin') {
+    if (['override', 'delete_user', 'change_super_admin'].includes(action)) return false;
+    return true;
+  }
+
+  // Mentor action rules
+  if (profile.role === 'mentor') {
+    if (['leaves', 'discipline', 'hostel', 'maintenance'].includes(moduleKey)) {
+      return ['view', 'create', 'edit', 'record_return'].includes(action);
+    }
+    return action === 'view';
+  }
+
+  // Teacher action rules
+  if (profile.role === 'teacher') {
+    if (moduleKey === 'attendance') {
+      return ['view', 'submit_attendance'].includes(action);
+    }
+    if (moduleKey === 'marks') {
+      return ['view', 'enter_marks', 'edit_draft'].includes(action);
+    }
+    return action === 'view';
+  }
+
+  // Parents and students have view-only access to their authorized records
+  return action === 'view';
+}

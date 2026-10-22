@@ -1,0 +1,696 @@
+/* ============================================================
+   TPS LOGIN PORTAL - SPLIT CARD RE-DESIGN (MATCHING REFERENCE)
+   ============================================================ */
+.tps-login-viewport {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #EEF4FB;
+  background-image: 
+    radial-gradient(ellipse at 85% 90%, rgba(16, 185, 129, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 15% 15%, rgba(5, 150, 105, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, #F1F6FD 0%, #EEF4FB 100%);
+  padding: 2rem 1.5rem;
+  box-sizing: border-box;
+}
+
+.tps-login-card {
+  max-width: 1060px;
+  width: 100%;
+  background: #FFFFFF;
+  border-radius: 36px;
+  padding: 18px;
+  box-shadow: 0 30px 70px -15px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 18px;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+/* Hidden on desktop: desktop login has no logo above form heading */
+@media (min-width: 961px) {
+  .tps-mobile-brand-center {
+    display: none !important;
+  }
+}
+
+.tps-mobile-social-row {
+  display: none;
+}
+
+/* Mobile-only compact brand header */
+.tps-mobile-brand-header {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.tps-mobile-badge {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.tps-mobile-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.2;
+}
+
+.tps-mobile-sub {
+  font-size: 0.75rem;
+  color: #059669;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Left Hero Showcase */
+.tps-login-hero {
+  border-radius: 28px;
+  background: linear-gradient(155deg, #10B981 0%, #059669 35%, #0F5132 75%, #064E3B 100%);
+  padding: 2.75rem 2.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  min-height: 560px;
+  box-sizing: border-box;
+}
+
+/* Subtle background hexagons */
+.tps-hero-bg-shapes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0.18;
+}
+
+.tps-hex-shape {
+  position: absolute;
+  width: 76px;
+  height: 88px;
+  background: rgba(255, 255, 255, 0.22);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  backdrop-filter: blur(4px);
+}
+
+.tps-hex-1 { top: 22%; right: 18%; transform: scale(1.1) rotate(12deg); }
+.tps-hex-2 { top: 32%; right: 8%; transform: scale(0.85) rotate(-8deg); }
+.tps-hex-3 { top: 46%; right: 15%; transform: scale(1.3) rotate(15deg); }
+.tps-hex-4 { top: 62%; right: 5%; transform: scale(0.9) rotate(5deg); }
+
+.tps-login-hero-header {
+  position: relative;
+  z-index: 2;
+}
+
+.tps-login-hero-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.tps-login-headline {
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin-top: 0;
+  color: #FFFFFF;
+  max-width: 420px;
+}
+
+.tps-login-subtext {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.5;
+  margin-top: 0.75rem;
+  max-width: 400px;
+}
+
+/* Hero Showcase Illustration Scene */
+.tps-login-scene {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 310px;
+  margin-top: 1.5rem;
+}
+
+.tps-scene-shadow {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  height: 24px;
+  background: radial-gradient(ellipse at center, rgba(6, 78, 59, 0.55) 0%, transparent 75%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.tps-scene-stage {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+/* Character & Plant (Left Side) */
+.tps-character-col {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 3;
+  margin-bottom: 8px;
+}
+
+/* Floating Tablet Display (Right Side) */
+.tps-tablet-wrap {
+  flex: 1;
+  max-width: 320px;
+  position: relative;
+  perspective: 1000px;
+  z-index: 2;
+}
+
+.tps-tablet-frame {
+  background: #FFFFFF;
+  border-radius: 20px;
+  border: 5px solid #F1F5F9;
+  box-shadow: 
+    0 24px 40px -10px rgba(6, 78, 59, 0.35),
+    0 10px 20px -5px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+  padding: 14px 14px 16px;
+  color: #0F172A;
+  transform: perspective(1000px) rotateY(-10deg) rotateX(4deg);
+  transition: transform 0.4s ease;
+  position: relative;
+}
+
+.tps-tablet-frame:hover {
+  transform: perspective(1000px) rotateY(-4deg) rotateX(2deg);
+}
+
+.tps-tablet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tps-tablet-pill {
+  width: 32px;
+  height: 6px;
+  background: #059669;
+  border-radius: 9999px;
+}
+
+.tps-tablet-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.tps-t-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tps-t-dot.green { background: #10B981; }
+.tps-t-dot.amber { background: #F59E0B; }
+.tps-t-dot.red { background: #EF4444; }
+
+.tps-tablet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+}
+
+.tps-t-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.tps-t-card-dark {
+  background: #0B132B;
+  border: 1px solid #1E293B;
+  border-radius: 10px;
+  padding: 10px;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 85px;
+}
+
+.tps-t-avatar-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tps-t-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ECFDF5;
+  border: 2px solid #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #059669;
+}
+
+/* 3D Circular Floating Knob Widget */
+.tps-floating-knob {
+  position: absolute;
+  bottom: 14px;
+  left: -18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10B981 0%, #059669 50%, #047857 100%);
+  border: 4px solid #FFFFFF;
+  box-shadow: 0 10px 20px rgba(5, 150, 105, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  z-index: 5;
+}
+
+/* Right Sign-in Form Panel */
+.tps-login-form-panel {
+  padding: 2.75rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #FFFFFF;
+  box-sizing: border-box;
+}
+
+.tps-form-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.35rem;
+}
+
+.tps-form-desc {
+  font-size: 0.875rem;
+  color: #64748B;
+  line-height: 1.5;
+  margin-bottom: 1.75rem;
+}
+
+.tps-form-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tps-form-label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.tps-form-input {
+  width: 100%;
+  height: 46px;
+  padding: 0 16px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #0F172A;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+}
+
+.tps-form-input:focus {
+  background: #FFFFFF;
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+.tps-pw-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tps-pw-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.tps-pw-toggle:hover {
+  color: #0F172A;
+}
+
+.tps-terms-text {
+  font-size: 0.8rem;
+  color: #64748B;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.tps-terms-text a {
+  color: #059669;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tps-terms-text a:hover {
+  text-decoration: underline;
+}
+
+.tps-btn-login {
+  width: 100%;
+  height: 48px;
+  background: #059669;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+  transition: all var(--transition-fast);
+}
+
+.tps-btn-login:hover {
+  background: #047857;
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.4);
+  transform: translateY(-1px);
+}
+
+.tps-btn-login:active {
+  transform: translateY(0);
+}
+
+.tps-login-sep {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.25rem 0;
+  color: #94A3B8;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.tps-login-sep::before,
+.tps-login-sep::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.tps-login-sep span {
+  padding: 0 12px;
+}
+
+.tps-btn-google-oauth {
+  width: 100%;
+  height: 46px;
+  background: #FFFFFF;
+  color: #1E293B;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all var(--transition-fast);
+}
+
+.tps-btn-google-oauth:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.tps-login-footer-auth {
+  margin-top: 1.5rem;
+  font-size: 0.825rem;
+  color: #64748B;
+  text-align: center;
+}
+
+.tps-login-footer-auth a {
+  color: #059669;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.tps-login-footer-auth a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   MOBILE RESPONSIVE VIEW (MAX-WIDTH: 960PX)
+   Clean single-card layout with centered brand and no overflows
+   ============================================================ */
+@media (max-width: 960px) {
+  .tps-login-viewport {
+    padding: 1.5rem 1rem !important;
+    min-height: 100vh !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: #EEF4FB !important;
+    background-image: none !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .tps-login-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 380px !important;
+    margin: 0 auto !important;
+    padding: 2.25rem 1.5rem 1.75rem !important;
+    border-radius: 28px !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Completely remove heavy illustration and hero banner on mobile */
+  .tps-login-hero {
+    display: none !important;
+  }
+
+  /* Reset inner form panel so it does not add nested padding or background */
+  .tps-login-form-panel {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Centered mobile brand logo */
+  .tps-mobile-brand-center {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin-bottom: 1.5rem !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+  }
+
+  .tps-mobile-brand-center img {
+    max-height: 52px !important;
+    max-width: 220px !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  .tps-mobile-brand-header {
+    display: none !important;
+  }
+
+  .tps-form-title {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    color: #1E293B !important;
+    margin-bottom: 1.25rem !important;
+    letter-spacing: -0.01em !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .tps-form-desc {
+    display: none !important;
+  }
+
+  .tps-form-group {
+    margin-bottom: 1rem !important;
+  }
+
+  .tps-form-label {
+    display: none !important;
+  }
+
+  .tps-form-input {
+    height: 50px !important;
+    border-radius: 12px !important;
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+    font-size: 0.95rem !important;
+    padding: 0 1.15rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .tps-form-input:focus {
+    background: #FFFFFF !important;
+    border-color: #059669 !important;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12) !important;
+  }
+
+  .tps-terms-text {
+    display: none !important;
+  }
+
+  .tps-btn-login {
+    height: 50px !important;
+    border-radius: 12px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    margin-top: 0.5rem !important;
+    background: #059669 !important;
+    box-shadow: 0 8px 20px rgba(5, 150, 105, 0.28) !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .tps-btn-login svg {
+    display: none !important;
+  }
+
+  .tps-login-sep {
+    margin: 1.5rem 0 1.25rem !important;
+    color: #94A3B8 !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    text-align: center !important;
+    border: none !important;
+  }
+
+  .tps-login-sep::before,
+  .tps-login-sep::after {
+    display: none !important;
+  }
+
+  /* Full-width Google button on mobile (equal size to Sign In button) */
+  .tps-btn-google-oauth {
+    display: flex !important;
+    width: 100% !important;
+    height: 50px !important;
+    border-radius: 12px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #1E293B !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    box-sizing: border-box !important;
+  }
+
+  .tps-btn-google-oauth:hover {
+    border-color: #CBD5E1 !important;
+    background: #F8FAFC !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .tps-mobile-social-row {
+    display: none !important;
+  }
+
+  .tps-login-footer-auth {
+    margin-top: 1.25rem !important;
+    font-size: 0.8rem !important;
+    color: #64748B !important;
+    text-align: center !important;
+  }
+
+  .tps-login-footer-auth a {
+    color: #059669 !important;
+    font-weight: 600 !important;
+  }
+}

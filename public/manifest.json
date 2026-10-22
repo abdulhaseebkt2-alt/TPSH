@@ -1,0 +1,17 @@
+{
+  "name": "TPS Hostel ERP - Thaiba Public School",
+  "short_name": "TPS ERP",
+  "description": "Hostel ERP, Attendance, Examination & Result Management System for Thaiba Public School",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
