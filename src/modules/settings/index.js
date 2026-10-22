@@ -333,7 +333,8 @@ export async function renderSettingsModule(container, { onNavigate }) {
     try {
       const res = await db.syncAllToSupabase();
       if (res.success) {
-        toast.success(`Cloud sync completed! Synced ${res.stats?.students || 0} students to Supabase.`);
+        const photoMsg = res.stats?.photos ? ` and ${res.stats.photos} photos to Storage` : '';
+        toast.success(`Cloud sync completed! Synced ${res.stats?.students || 0} students${photoMsg} to Supabase.`);
       } else {
         toast.error(`Sync error: ${res.message || res.error || 'Failed'}`);
       }

@@ -130,6 +130,33 @@ describe('3. Student Admissions & Lifecycle Database Tests', () => {
     expect(student.status).toBe('Active');
   });
 
+  it('Uploads student photo base64 to Supabase student-photos bucket and saves CDN URL', async () => {
+    const dummyBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const student = await db.addStudent({
+      full_name: 'Photo Test Student',
+      gender: 'Boys',
+      dob: '2015-01-01',
+      school_class: 'STD-V',
+      school_section: 'A',
+      father_name: 'Parent Photo',
+      father_phone: '+91 99999 00000',
+      village: 'Wandoor',
+      photo_url: dummyBase64
+    });
+
+    expect(student.photo_url).toMatch(/^https:\/\/[^/]+\/storage\/v1\/object\/public\/student-photos\//);
+
+    // Verify updating photo also uploads and updates URL
+    const secondPhoto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP8z8BQD8TAwMAAJhkAAHkCA/5k893bAAAAAElFTkSuQmCC';
+    const updated = await db.updateStudent(student.id, {
+      photo_url: secondPhoto
+    });
+    expect(updated.photo_url).toMatch(/^https:\/\/[^/]+\/storage\/v1\/object\/public\/student-photos\//);
+
+    // Clean up created student & photo
+    await db.deleteStudent(student.id);
+  });
+
   it('Correctly puts student on temporary break and restores upon rejoining', async () => {
     const student = await db.addStudent({
       full_name: 'Break Test Student',

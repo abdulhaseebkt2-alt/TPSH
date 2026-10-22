@@ -93,6 +93,70 @@ const INITIAL_AUDIT = [
   }
 ];
 
+export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
+  if (!supabase || !base64OrBlob) return base64OrBlob || '';
+  if (typeof base64OrBlob === 'string' && base64OrBlob.startsWith('http')) {
+    return base64OrBlob;
+  }
+  try {
+    let fileBody = null;
+    let contentType = 'image/jpeg';
+    let ext = 'jpg';
+
+    if (typeof base64OrBlob === 'string' && base64OrBlob.startsWith('data:')) {
+      const parts = base64OrBlob.split(',');
+      const match = parts[0].match(/:(.*?);/);
+      if (match) contentType = match[1] || 'image/jpeg';
+      if (contentType.includes('png')) ext = 'png';
+      else if (contentType.includes('webp')) ext = 'webp';
+
+      const base64Data = parts[1] || '';
+      if (typeof atob !== 'undefined') {
+        const binaryStr = atob(base64Data);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        if (typeof Blob !== 'undefined') {
+          fileBody = new Blob([bytes], { type: contentType });
+        } else {
+          fileBody = bytes;
+        }
+      } else if (typeof Buffer !== 'undefined') {
+        fileBody = Buffer.from(base64Data, 'base64');
+      }
+    } else if (typeof Blob !== 'undefined' && base64OrBlob instanceof Blob) {
+      fileBody = base64OrBlob;
+      contentType = base64OrBlob.type || 'image/jpeg';
+      if (contentType.includes('png')) ext = 'png';
+      else if (contentType.includes('webp')) ext = 'webp';
+    } else {
+      return base64OrBlob;
+    }
+
+    if (!fileBody) return base64OrBlob;
+
+    const cleanId = String(identifier || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const path = `${cleanId}_${Date.now()}.${ext}`;
+
+    const { error } = await supabase.storage.from('student-photos').upload(path, fileBody, {
+      contentType,
+      upsert: true
+    });
+
+    if (error) {
+      console.warn('Supabase storage upload error:', error);
+      return base64OrBlob;
+    }
+
+    const { data: pubData } = supabase.storage.from('student-photos').getPublicUrl(path);
+    return pubData?.publicUrl || base64OrBlob;
+  } catch (err) {
+    console.warn('uploadStudentPhotoToSupabase error:', err);
+    return base64OrBlob;
+  }
+}
+
 class DatabaseService {
   constructor() {
     this.memoryStore = new Map();
@@ -281,12 +345,35 @@ class DatabaseService {
 
   async syncAllToSupabase() {
     if (!supabase) return { success: false, message: 'Supabase is not configured' };
-    const stats = { students: 0, leaves: 0, discipline: 0 };
+    const stats = { students: 0, photos: 0, leaves: 0, discipline: 0 };
 
     try {
-      // 1. Sync Students from local storage
+      // 1. Sync Students from local storage and IDB
       const localStudents = this.get('tps_students') || [];
+      const idbPhotos = await getAllPhotosFromIDB();
+
       if (localStudents.length > 0) {
+        let hasPhotoUpdates = false;
+        for (const s of localStudents) {
+          let currentPhoto = s.photo_url || idbPhotos[s.id] || '';
+          if (currentPhoto && currentPhoto.startsWith('data:')) {
+            try {
+              const publicUrl = await uploadStudentPhotoToSupabase(s.admission_number || s.id, currentPhoto);
+              if (publicUrl && publicUrl.startsWith('http')) {
+                s.photo_url = publicUrl;
+                hasPhotoUpdates = true;
+                stats.photos++;
+                savePhotoToIDB(s.id, publicUrl);
+              }
+            } catch (pErr) {
+              console.warn('Sync photo migration error for student:', s.id, pErr);
+            }
+          }
+        }
+        if (hasPhotoUpdates) {
+          this.set('tps_students', localStudents);
+        }
+
         const studentPayloads = localStudents.map(s => {
           const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
           return {
@@ -350,16 +437,37 @@ class DatabaseService {
       const raw = this.getStorageItem('tps_students');
       if (!raw) return;
       const students = JSON.parse(raw);
+      const idbPhotos = await getAllPhotosFromIDB();
       let needsResave = false;
 
       for (const s of students) {
-        if (s.photo_url) {
-          savePhotoToIDB(s.id, s.photo_url);
+        let photo = s.photo_url || idbPhotos[s.id] || '';
+        if (photo) {
+          savePhotoToIDB(s.id, photo);
 
-          if (s.photo_url.length > 25000) {
+          if (supabase && photo.startsWith('data:')) {
             try {
-              const compressed = await compressImage(s.photo_url, 280, 320, 0.75);
-              if (compressed && compressed.length < s.photo_url.length) {
+              const publicUrl = await uploadStudentPhotoToSupabase(s.admission_number || s.id, photo);
+              if (publicUrl && publicUrl.startsWith('http')) {
+                s.photo_url = publicUrl;
+                photo = publicUrl;
+                needsResave = true;
+                savePhotoToIDB(s.id, publicUrl);
+
+                const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
+                if (isUuid) {
+                  supabase.from('students').update({ photo_url: publicUrl }).eq('id', s.id).then();
+                } else if (s.admission_number) {
+                  supabase.from('students').update({ photo_url: publicUrl }).eq('admission_number', s.admission_number).then();
+                }
+              }
+            } catch (err) {
+              console.warn('optimizeStoredPhotos storage upload error:', err);
+            }
+          } else if (photo.length > 25000 && photo.startsWith('data:')) {
+            try {
+              const compressed = await compressImage(photo, 280, 320, 0.75);
+              if (compressed && compressed.length < photo.length) {
                 s.photo_url = compressed;
                 needsResave = true;
               }
@@ -381,15 +489,25 @@ class DatabaseService {
   }
 
   async deleteStudent(id) {
+    let students = this.get('tps_students') || [];
+    const student = students.find(s => s.id === id);
+
     if (supabase) {
       try {
         const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
         if (isUuid) {
           await supabase.from('students').delete().eq('id', id);
         } else {
-          const s = (this.get('tps_students') || []).find(item => item.id === id);
-          if (s?.admission_number) {
-            await supabase.from('students').delete().eq('admission_number', s.admission_number);
+          if (student?.admission_number) {
+            await supabase.from('students').delete().eq('admission_number', student.admission_number);
+          }
+        }
+
+        if (student?.photo_url && student.photo_url.includes('/student-photos/')) {
+          const parts = student.photo_url.split('/student-photos/');
+          if (parts[1]) {
+            const fileName = parts[1].split('?')[0];
+            await supabase.storage.from('student-photos').remove([fileName]);
           }
         }
       } catch (err) {
@@ -397,8 +515,6 @@ class DatabaseService {
       }
     }
 
-    let students = this.get('tps_students') || [];
-    const student = students.find(s => s.id === id);
     students = students.filter(s => s.id !== id);
     this.set('tps_students', students);
     if (student) {
@@ -434,12 +550,22 @@ class DatabaseService {
 
   async addStudent(studentData) {
     let photo = studentData?.photo_url || '';
-    if (photo && photo.length > 25000) {
+    if (photo && photo.length > 25000 && photo.startsWith('data:')) {
       photo = await compressImage(photo, 280, 320, 0.75);
     }
 
+    const admissionNumber = studentData.admission_number || ('TPS-2026-' + String(Date.now()).slice(-3));
+
+    // Upload to Supabase Storage bucket if photo is base64
+    if (supabase && photo && photo.startsWith('data:')) {
+      const publicUrl = await uploadStudentPhotoToSupabase(admissionNumber, photo);
+      if (publicUrl && publicUrl.startsWith('http')) {
+        photo = publicUrl;
+      }
+    }
+
     const payload = {
-      admission_number: studentData.admission_number || ('TPS-2026-' + String(Date.now()).slice(-3)),
+      admission_number: admissionNumber,
       full_name: studentData.full_name,
       gender: studentData.gender || 'Boys',
       dob: studentData.dob || '2012-05-15',
@@ -505,8 +631,14 @@ class DatabaseService {
       sanitizedUpdates.school_class = normalizeClassPattern(sanitizedUpdates.school_class);
     }
     if (sanitizedUpdates.photo_url) {
-      if (sanitizedUpdates.photo_url.length > 25000) {
+      if (sanitizedUpdates.photo_url.length > 25000 && sanitizedUpdates.photo_url.startsWith('data:')) {
         sanitizedUpdates.photo_url = await compressImage(sanitizedUpdates.photo_url, 280, 320, 0.75);
+      }
+      if (supabase && sanitizedUpdates.photo_url.startsWith('data:')) {
+        const uploadedUrl = await uploadStudentPhotoToSupabase(sanitizedUpdates.admission_number || id, sanitizedUpdates.photo_url);
+        if (uploadedUrl && uploadedUrl.startsWith('http')) {
+          sanitizedUpdates.photo_url = uploadedUrl;
+        }
       }
       savePhotoToIDB(id, sanitizedUpdates.photo_url);
     }
