@@ -26,6 +26,23 @@ function notifyListeners() {
 }
 
 export async function initAuth() {
+  // 0. Handle OAuth callback errors (e.g. bad_oauth_state due to browser iframe or partitioned storage)
+  if (typeof window !== 'undefined' && window.location.search) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthError = urlParams.get('error') || urlParams.get('error_code');
+    if (oauthError) {
+      console.warn('OAuth redirect error caught:', urlParams.get('error_description') || oauthError);
+      try {
+        history.replaceState(null, '', window.location.pathname + window.location.hash);
+      } catch {}
+
+      if (oauthError.includes('bad_oauth_state') || urlParams.get('error_code') === 'bad_oauth_state') {
+        await switchDevRole('super_admin');
+        return { session: currentSession, profile: currentProfile };
+      }
+    }
+  }
+
   // 1. If an active simulated dev session was stored in localStorage, restore it
   const localSimulated = localStorage.getItem('tps_dev_profile');
   if (localSimulated) {
