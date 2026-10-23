@@ -37,14 +37,16 @@ export function confirmDialog({ title, message, confirmText = 'Confirm', cancelT
   });
 }
 
-export function openModal({ title, contentHtml, size = 'md', onMount, onClose }) {
+export function openModal({ title, contentHtml, size = 'md', modalClass = '', onMount, onClose }) {
   const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay open';
+  const overlayClass = modalClass ? `modal-overlay open has-${modalClass}` : 'modal-overlay open';
+  overlay.className = overlayClass;
 
   const sizeClass = size === 'lg' ? 'modal-lg' : size === 'xl' ? 'modal-xl' : '';
+  const dialogClasses = ['modal-dialog', sizeClass, modalClass].filter(Boolean).join(' ');
 
   overlay.innerHTML = `
-    <div class="modal-dialog ${sizeClass}">
+    <div class="${dialogClasses}">
       <div class="modal-header">
         <h3>${title}</h3>
         <button class="modal-close-btn" id="modal-close-x">✕</button>

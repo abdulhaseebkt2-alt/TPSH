@@ -588,6 +588,13 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
     const prog = programs.find(p => p.id === (cls.program_id || selectedProgramId));
     const allStudents = await db.getStudents();
+    // Sort students by admission number for natural sequence
+    allStudents.sort((a, b) => {
+      const admA = a.admission_number || '';
+      const admB = b.admission_number || '';
+      return admA.localeCompare(admB, undefined, { numeric: true });
+    });
+
     const currentAssigned = await db.getClassroomStudents(classroomId);
     const selectedIds = new Set(currentAssigned);
 
@@ -595,12 +602,12 @@ export async function renderSectionsModule(container, { onNavigate }) {
     let searchQuery = '';
 
     const silhouetteBoySvg = `
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
       </svg>
     `;
     const silhouetteGirlSvg = `
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
       </svg>
     `;
@@ -608,56 +615,64 @@ export async function renderSectionsModule(container, { onNavigate }) {
     openModal({
       title: `Assign Students — ${cls.name}`,
       size: 'lg',
+      modalClass: 'assign-students-modal',
       contentHtml: `
-        <div style="margin-bottom: 0.85rem;">
-          <div style="font-size: 0.85rem; color: #64748B; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span>${prog ? prog.name : 'Section'}</span>
-            <span style="color: #CBD5E1;">•</span>
-            <span style="background: #F1F5F9; color: #334155; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">${cls.gender_eligibility || 'Mixed'}</span>
-            <span style="color: #CBD5E1;">•</span>
-            <span id="assign-counter-banner" style="color: #0284C7; font-weight: 700;">
-              ${selectedIds.size} of ${allStudents.length} students assigned
-            </span>
-          </div>
-        </div>
-
-        <!-- Toolbar: Search and Filter Chips -->
-        <div class="assign-students-toolbar">
-          <div class="assign-search-row">
-            <div class="assign-search-box">
-              <svg class="assign-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="assign-search-input" class="form-control" placeholder="Search student by name, DOB, or admission no..." />
+        <div class="assign-modal-wrapper">
+          <!-- Top Section (Fixed) -->
+          <div class="assign-modal-top">
+            <div class="assign-meta-bar">
+              <div class="assign-meta-left">
+                <span class="assign-section-tag">${prog ? prog.name : 'Section'}</span>
+                <span class="assign-gender-tag">${cls.gender_eligibility || 'Mixed'}</span>
+              </div>
+              <div class="assign-meta-right">
+                <span id="assign-counter-banner" class="assign-count-pill">
+                  <strong>${selectedIds.size}</strong>/${allStudents.length} assigned
+                </span>
+              </div>
             </div>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-select-visible" style="white-space: nowrap; font-size: 0.78rem;">Select All</button>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-deselect-visible" style="white-space: nowrap; font-size: 0.78rem;">Clear All</button>
+
+            <!-- Search and Action Buttons Row -->
+            <div class="assign-search-bar-container">
+              <div class="assign-search-box">
+                <svg class="assign-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="assign-search-input" class="form-control" placeholder="Search student name, DOB..." />
+              </div>
+              <div class="assign-quick-actions">
+                <button type="button" class="btn btn-outline btn-sm btn-quick-action" id="btn-select-visible">Select All</button>
+                <button type="button" class="btn btn-outline btn-sm btn-quick-action" id="btn-deselect-visible">Clear All</button>
+              </div>
+            </div>
+
+            <!-- Single Horizontal Swipeable Filter Strip -->
+            <div class="assign-filter-chips">
+              <button type="button" class="assign-chip active" data-filter="all">All (${allStudents.length})</button>
+              <button type="button" class="assign-chip" data-filter="assigned">Assigned (<span id="filter-assigned-count">${selectedIds.size}</span>)</button>
+              <button type="button" class="assign-chip" data-filter="unassigned">Unassigned (<span id="filter-unassigned-count">${allStudents.length - selectedIds.size}</span>)</button>
+              <button type="button" class="assign-chip" data-filter="boys">Boys</button>
+              <button type="button" class="assign-chip" data-filter="girls">Girls</button>
+            </div>
           </div>
 
-          <div class="assign-filter-chips">
-            <button type="button" class="assign-chip active" data-filter="all">All (${allStudents.length})</button>
-            <button type="button" class="assign-chip" data-filter="assigned">Assigned (<span id="filter-assigned-count">${selectedIds.size}</span>)</button>
-            <button type="button" class="assign-chip" data-filter="unassigned">Unassigned (<span id="filter-unassigned-count">${allStudents.length - selectedIds.size}</span>)</button>
-            <button type="button" class="assign-chip" data-filter="boys">Boys</button>
-            <button type="button" class="assign-chip" data-filter="girls">Girls</button>
+          <!-- Scrollable 2-Column Students List (Flex 1) -->
+          <div class="assign-students-grid-container">
+            <div class="assign-students-grid" id="assign-students-list"></div>
+            <div id="assign-empty-state" style="display: none; padding: 2.5rem 1rem; text-align: center; color: #94A3B8; font-size: 0.88rem;">
+              No students match your search or filter.
+            </div>
           </div>
-        </div>
 
-        <!-- 2-Column Students List (Matching UI Model) -->
-        <div class="assign-students-grid" id="assign-students-list"></div>
-
-        <div id="assign-empty-state" style="display: none; padding: 2.5rem; text-align: center; color: #94A3B8; font-size: 0.9rem;">
-          No students match your search or filter criteria.
-        </div>
-
-        <!-- Footer -->
-        <div class="assign-footer-bar">
-          <div style="font-size: 0.85rem; color: #475569;">
-            <strong id="assign-footer-count">${selectedIds.size}</strong> students selected for this classroom
-          </div>
-          <div style="display: flex; gap: 0.5rem;">
-            <button type="button" class="btn btn-outline" id="btn-modal-cancel">Cancel</button>
-            <button type="button" class="btn btn-primary" id="btn-save-assignments" style="background: #00A3E0; border-color: #00A3E0; padding: 0.5rem 1.25rem;">
-              Save Assignments
-            </button>
+          <!-- Pinned Fixed Footer -->
+          <div class="assign-footer-bar">
+            <div class="assign-footer-info">
+              <strong id="assign-footer-count">${selectedIds.size}</strong> selected
+            </div>
+            <div class="assign-footer-btns">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-modal-cancel">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-save-assignments" style="background: #00A3E0; border-color: #00A3E0; font-weight: 600;">
+                Save Assignments
+              </button>
+            </div>
           </div>
         </div>
       `,
@@ -672,8 +687,8 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
         function updateCounts() {
           const count = selectedIds.size;
-          counterBanner.textContent = `${count} of ${allStudents.length} students assigned`;
-          footerCount.textContent = count;
+          if (counterBanner) counterBanner.innerHTML = `<strong>${count}</strong>/${allStudents.length} assigned`;
+          if (footerCount) footerCount.textContent = count;
           if (assignedCountSpan) assignedCountSpan.textContent = count;
           if (unassignedCountSpan) unassignedCountSpan.textContent = allStudents.length - count;
         }
@@ -721,7 +736,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
               <div class="assign-student-row ${isAssigned ? 'is-assigned' : ''}" data-sid="${s.id}">
                 <!-- Tick Button in front of students data -->
                 <div class="student-assign-tick ${isAssigned ? 'checked' : ''}" data-sid="${s.id}" role="checkbox" aria-checked="${isAssigned}">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </div>
