@@ -22,7 +22,7 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
     },
     {
       title: 'Student & Academic',
-      keys: ['admissions', 'students', 'sections', 'assignments', 'timetable', 'attendance']
+      keys: ['admissions', 'students', 'sections', 'timetable', 'attendance']
     },
     {
       title: 'Hostel Operations',

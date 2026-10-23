@@ -174,6 +174,8 @@ export async function renderSectionsModule(container, { onNavigate }) {
                       <span style="color: #CBD5E1;">•</span>
                       <span style="color: #64748B;"><strong>${cls.capacity}</strong> seats</span>
                     ` : ''}
+                    <span style="color: #CBD5E1;">•</span>
+                    <span style="color: #0284C7; font-weight: 600;"><strong>${(cls.student_ids || []).length}</strong> students</span>
                   </div>
                 </div>
 
@@ -236,14 +238,19 @@ export async function renderSectionsModule(container, { onNavigate }) {
     // Take Attendance
     container.querySelectorAll('.btn-att-cls').forEach(btn => {
       btn.addEventListener('click', () => {
+        const clsId = btn.getAttribute('data-cls-id');
+        if (clsId) {
+          sessionStorage.setItem('tps_active_att_cls', clsId);
+        }
         onNavigate('attendance');
       });
     });
 
-    // Assign Students
+    // Assign Students (Opens dedicated 2-column student picker modal)
     container.querySelectorAll('.btn-manage-cls').forEach(btn => {
       btn.addEventListener('click', () => {
-        onNavigate('assignments');
+        const clsId = btn.getAttribute('data-cls-id');
+        openAssignStudentsModal(clsId);
       });
     });
 
@@ -570,6 +577,258 @@ export async function renderSectionsModule(container, { onNavigate }) {
           close();
           await refreshData();
           renderFullUI();
+        });
+      }
+    });
+  }
+
+  async function openAssignStudentsModal(classroomId) {
+    const cls = classrooms.find(c => c.id === classroomId);
+    if (!cls) return;
+
+    const prog = programs.find(p => p.id === (cls.program_id || selectedProgramId));
+    const allStudents = await db.getStudents();
+    const currentAssigned = await db.getClassroomStudents(classroomId);
+    const selectedIds = new Set(currentAssigned);
+
+    let activeFilter = 'all'; // 'all', 'assigned', 'unassigned', 'boys', 'girls'
+    let searchQuery = '';
+
+    const silhouetteBoySvg = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `;
+    const silhouetteGirlSvg = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `;
+
+    openModal({
+      title: `Assign Students — ${cls.name}`,
+      size: 'lg',
+      contentHtml: `
+        <div style="margin-bottom: 0.85rem;">
+          <div style="font-size: 0.85rem; color: #64748B; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span>${prog ? prog.name : 'Section'}</span>
+            <span style="color: #CBD5E1;">•</span>
+            <span style="background: #F1F5F9; color: #334155; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">${cls.gender_eligibility || 'Mixed'}</span>
+            <span style="color: #CBD5E1;">•</span>
+            <span id="assign-counter-banner" style="color: #0284C7; font-weight: 700;">
+              ${selectedIds.size} of ${allStudents.length} students assigned
+            </span>
+          </div>
+        </div>
+
+        <!-- Toolbar: Search and Filter Chips -->
+        <div class="assign-students-toolbar">
+          <div class="assign-search-row">
+            <div class="assign-search-box">
+              <svg class="assign-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="assign-search-input" class="form-control" placeholder="Search student by name, DOB, or admission no..." />
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-select-visible" style="white-space: nowrap; font-size: 0.78rem;">Select All</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-deselect-visible" style="white-space: nowrap; font-size: 0.78rem;">Clear All</button>
+          </div>
+
+          <div class="assign-filter-chips">
+            <button type="button" class="assign-chip active" data-filter="all">All (${allStudents.length})</button>
+            <button type="button" class="assign-chip" data-filter="assigned">Assigned (<span id="filter-assigned-count">${selectedIds.size}</span>)</button>
+            <button type="button" class="assign-chip" data-filter="unassigned">Unassigned (<span id="filter-unassigned-count">${allStudents.length - selectedIds.size}</span>)</button>
+            <button type="button" class="assign-chip" data-filter="boys">Boys</button>
+            <button type="button" class="assign-chip" data-filter="girls">Girls</button>
+          </div>
+        </div>
+
+        <!-- 2-Column Students List (Matching UI Model) -->
+        <div class="assign-students-grid" id="assign-students-list"></div>
+
+        <div id="assign-empty-state" style="display: none; padding: 2.5rem; text-align: center; color: #94A3B8; font-size: 0.9rem;">
+          No students match your search or filter criteria.
+        </div>
+
+        <!-- Footer -->
+        <div class="assign-footer-bar">
+          <div style="font-size: 0.85rem; color: #475569;">
+            <strong id="assign-footer-count">${selectedIds.size}</strong> students selected for this classroom
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-outline" id="btn-modal-cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-save-assignments" style="background: #00A3E0; border-color: #00A3E0; padding: 0.5rem 1.25rem;">
+              Save Assignments
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        const listContainer = modalBody.querySelector('#assign-students-list');
+        const emptyState = modalBody.querySelector('#assign-empty-state');
+        const searchInput = modalBody.querySelector('#assign-search-input');
+        const counterBanner = modalBody.querySelector('#assign-counter-banner');
+        const footerCount = modalBody.querySelector('#assign-footer-count');
+        const assignedCountSpan = modalBody.querySelector('#filter-assigned-count');
+        const unassignedCountSpan = modalBody.querySelector('#filter-unassigned-count');
+
+        function updateCounts() {
+          const count = selectedIds.size;
+          counterBanner.textContent = `${count} of ${allStudents.length} students assigned`;
+          footerCount.textContent = count;
+          if (assignedCountSpan) assignedCountSpan.textContent = count;
+          if (unassignedCountSpan) unassignedCountSpan.textContent = allStudents.length - count;
+        }
+
+        function getFilteredStudents() {
+          return allStudents.filter(s => {
+            const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
+            const gen = isGirl ? 'girls' : 'boys';
+            const isAssigned = selectedIds.has(s.id);
+
+            if (activeFilter === 'assigned' && !isAssigned) return false;
+            if (activeFilter === 'unassigned' && isAssigned) return false;
+            if (activeFilter === 'boys' && gen !== 'boys') return false;
+            if (activeFilter === 'girls' && gen !== 'girls') return false;
+
+            if (searchQuery) {
+              const q = searchQuery.toLowerCase().trim();
+              const matchName = (s.full_name || '').toLowerCase().includes(q);
+              const matchAdm = (s.admission_number || '').replace(/-/g, '').toLowerCase().includes(q);
+              const matchDob = (s.dob || '').toLowerCase().includes(q);
+              const matchClass = (s.school_class || '').toLowerCase().includes(q);
+              if (!matchName && !matchAdm && !matchDob && !matchClass) return false;
+            }
+            return true;
+          });
+        }
+
+        function renderRows() {
+          const filtered = getFilteredStudents();
+          if (filtered.length === 0) {
+            listContainer.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+          }
+
+          listContainer.style.display = 'grid';
+          emptyState.style.display = 'none';
+
+          listContainer.innerHTML = filtered.map(s => {
+            const isAssigned = selectedIds.has(s.id);
+            const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
+            const genderLabel = isGirl ? 'Girl' : 'Boy';
+
+            return `
+              <div class="assign-student-row ${isAssigned ? 'is-assigned' : ''}" data-sid="${s.id}">
+                <!-- Tick Button in front of students data -->
+                <div class="student-assign-tick ${isAssigned ? 'checked' : ''}" data-sid="${s.id}" role="checkbox" aria-checked="${isAssigned}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+
+                <!-- Avatar: Student Photo or Gender Silhouette -->
+                <div class="assign-student-avatar">
+                  ${s.photo_url ? `
+                    <img src="${s.photo_url}" alt="${s.full_name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                    <div class="avatar-silhouette ${isGirl ? 'girl' : 'boy'}" style="display: none;">
+                      ${isGirl ? silhouetteGirlSvg : silhouetteBoySvg}
+                    </div>
+                  ` : `
+                    <div class="avatar-silhouette ${isGirl ? 'girl' : 'boy'}">
+                      ${isGirl ? silhouetteGirlSvg : silhouetteBoySvg}
+                    </div>
+                  `}
+                </div>
+
+                <!-- Student Data -->
+                <div class="assign-student-details">
+                  <div class="assign-student-name" title="${s.full_name}">${s.full_name}</div>
+                  <div class="assign-student-meta">
+                    <span>${genderLabel}</span>
+                    <span class="meta-dot">•</span>
+                    <span>DOB: ${s.dob || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Bind row clicking to toggle selection
+          listContainer.querySelectorAll('.assign-student-row').forEach(row => {
+            row.addEventListener('click', () => {
+              const sid = row.getAttribute('data-sid');
+              if (selectedIds.has(sid)) {
+                selectedIds.delete(sid);
+                row.classList.remove('is-assigned');
+                const tick = row.querySelector('.student-assign-tick');
+                tick?.classList.remove('checked');
+                tick?.setAttribute('aria-checked', 'false');
+              } else {
+                selectedIds.add(sid);
+                row.classList.add('is-assigned');
+                const tick = row.querySelector('.student-assign-tick');
+                tick?.classList.add('checked');
+                tick?.setAttribute('aria-checked', 'true');
+              }
+              updateCounts();
+            });
+          });
+        }
+
+        renderRows();
+
+        // Search Input
+        searchInput.addEventListener('input', (e) => {
+          searchQuery = e.target.value;
+          renderRows();
+        });
+
+        // Filter chips
+        modalBody.querySelectorAll('.assign-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            modalBody.querySelectorAll('.assign-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeFilter = chip.getAttribute('data-filter');
+            renderRows();
+          });
+        });
+
+        // Select visible
+        modalBody.querySelector('#btn-select-visible')?.addEventListener('click', () => {
+          const visible = getFilteredStudents();
+          visible.forEach(s => selectedIds.add(s.id));
+          updateCounts();
+          renderRows();
+        });
+
+        // Deselect visible
+        modalBody.querySelector('#btn-deselect-visible')?.addEventListener('click', () => {
+          const visible = getFilteredStudents();
+          visible.forEach(s => selectedIds.delete(s.id));
+          updateCounts();
+          renderRows();
+        });
+
+        // Cancel
+        modalBody.querySelector('#btn-modal-cancel')?.addEventListener('click', close);
+
+        // Save Assignments
+        modalBody.querySelector('#btn-save-assignments')?.addEventListener('click', async () => {
+          const saveBtn = modalBody.querySelector('#btn-save-assignments');
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Saving...';
+
+          try {
+            await db.assignStudentsToClassroom(classroomId, Array.from(selectedIds));
+            toast.success(`Assigned ${selectedIds.size} students to ${cls.name}`);
+            close();
+            await refreshData();
+            renderFullUI();
+          } catch (err) {
+            toast.error(err.message || 'Failed to save student assignments.');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Assignments';
+          }
         });
       }
     });

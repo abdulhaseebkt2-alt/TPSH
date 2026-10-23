@@ -1054,6 +1054,13 @@ class DatabaseService {
       this.set('tps_classrooms', classrooms);
     }
 
+    const assignments = this.get('tps_classroom_assignments') || {};
+    classrooms.forEach(c => {
+      if (!Array.isArray(c.student_ids)) {
+        c.student_ids = assignments[c.id] || [];
+      }
+    });
+
     return classrooms;
   }
 
@@ -1237,6 +1244,43 @@ class DatabaseService {
 
     this.logAudit('DELETE_CLASSROOM', 'classrooms', classroomId, `Deleted classroom ${cls.name}`);
     return true;
+  }
+
+  // --- CLASSROOM STUDENT ASSIGNMENTS ---
+  async getClassroomStudents(classroomId) {
+    const classrooms = this.get('tps_classrooms') || [];
+    const cls = classrooms.find(c => c.id === classroomId);
+    const assignments = this.get('tps_classroom_assignments') || {};
+    if (cls && Array.isArray(cls.student_ids)) {
+      return cls.student_ids;
+    }
+    return assignments[classroomId] || [];
+  }
+
+  async assignStudentsToClassroom(classroomId, studentIds) {
+    const cleanIds = Array.isArray(studentIds) ? Array.from(new Set(studentIds)) : [];
+    let classrooms = this.get('tps_classrooms') || [];
+    const idx = classrooms.findIndex(c => c.id === classroomId);
+    if (idx !== -1) {
+      classrooms[idx].student_ids = cleanIds;
+      this.set('tps_classrooms', classrooms);
+    }
+    const assignments = this.get('tps_classroom_assignments') || {};
+    assignments[classroomId] = cleanIds;
+    this.set('tps_classroom_assignments', assignments);
+
+    if (supabase) {
+      try {
+        await supabase.from('classrooms').update({
+          updated_at: new Date().toISOString()
+        }).eq('id', classroomId);
+      } catch (err) {
+        console.warn('Supabase assignStudentsToClassroom sync warning:', err);
+      }
+    }
+
+    this.logAudit('ASSIGN_CLASSROOM_STUDENTS', 'classrooms', classroomId, `Assigned ${cleanIds.length} students to classroom`);
+    return cleanIds;
   }
 
   // --- ATTENDANCE ---

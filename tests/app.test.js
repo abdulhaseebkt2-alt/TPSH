@@ -543,3 +543,40 @@ describe('11. Wheel / Drum Time Picker Engine Tests', () => {
     expect(format12Hour(6, 5, 'AM')).toBe('06:05 AM');
   });
 });
+
+describe('12. Classroom Student Assignments Tests', () => {
+  it('assignStudentsToClassroom stores student assignments and getClassroomStudents retrieves them', async () => {
+    const prog = await db.addProgram({ name: 'Coaching Unit Alpha' });
+    const cls = await db.addClassroom({
+      program_id: prog.id,
+      name: 'Classroom Test Assignment',
+      start_time: '08:00',
+      end_time: '09:00'
+    });
+
+    // Initial state: empty array
+    const initialAssigned = await db.getClassroomStudents(cls.id);
+    expect(Array.isArray(initialAssigned)).toBe(true);
+
+    // Assign students
+    const studentIds = ['s-test-1', 's-test-2', 's-test-3'];
+    await db.assignStudentsToClassroom(cls.id, studentIds);
+
+    const updatedAssigned = await db.getClassroomStudents(cls.id);
+    expect(updatedAssigned).toEqual(studentIds);
+
+    // Verify classrooms list reflects student_ids
+    const classrooms = await db.getClassrooms();
+    const targetCls = classrooms.find(c => c.id === cls.id);
+    expect(targetCls.student_ids).toEqual(studentIds);
+
+    // Update assignment to new list
+    const newStudentIds = ['s-test-2'];
+    await db.assignStudentsToClassroom(cls.id, newStudentIds);
+    expect(await db.getClassroomStudents(cls.id)).toEqual(newStudentIds);
+
+    // Clean up
+    await db.deleteClassroom(cls.id);
+    await db.deleteProgram(prog.id);
+  });
+});

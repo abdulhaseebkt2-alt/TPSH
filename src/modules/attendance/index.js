@@ -13,6 +13,17 @@ export async function renderAttendanceModule(container, { onNavigate }) {
   const initialProgCls = classrooms.filter(c => c.program_id === activeProgramId);
   let activeClassroomId = initialProgCls[0]?.id || classrooms[0]?.id || 'cls-1';
 
+  // Check if directed from a specific classroom card
+  const preselectedClsId = sessionStorage.getItem('tps_active_att_cls');
+  if (preselectedClsId) {
+    sessionStorage.removeItem('tps_active_att_cls');
+    const target = classrooms.find(c => c.id === preselectedClsId);
+    if (target) {
+      activeClassroomId = target.id;
+      if (target.program_id) activeProgramId = target.program_id;
+    }
+  }
+
   // Default to ABSENT when opening attendance module as requested by user
   let attendanceState = {};
   students.forEach(s => {
@@ -133,9 +144,21 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     </div>
   `;
 
+  function getEligibleStudents() {
+    const targetCls = classrooms.find(c => c.id === activeClassroomId);
+    if (targetCls && Array.isArray(targetCls.student_ids) && targetCls.student_ids.length > 0) {
+      const assignedSet = new Set(targetCls.student_ids);
+      const filtered = students.filter(s => assignedSet.has(s.id));
+      if (filtered.length > 0) return filtered;
+    }
+    return students;
+  }
+
   function updateCounters() {
+    const activeList = getEligibleStudents();
     const counts = { Present: 0, Absent: 0, Leave: 0 };
-    Object.values(attendanceState).forEach(st => {
+    activeList.forEach(s => {
+      const st = attendanceState[s.id] || 'Absent';
       if (st === 'Leave' || st === 'Approved Leave' || st === 'Late' || st === 'Excused') {
         counts.Leave = (counts.Leave || 0) + 1;
       } else if (st === 'Present') {
@@ -145,7 +168,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       }
     });
 
-    const total = students.length;
+    const total = activeList.length;
     const countersContainer = container.querySelector('#att-counters');
     if (!countersContainer) return;
 
@@ -184,7 +207,8 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     const cardsContainer = container.querySelector('#att-cards-container');
     if (!cardsContainer) return;
 
-    cardsContainer.innerHTML = students.map(s => {
+    const activeList = getEligibleStudents();
+    cardsContainer.innerHTML = activeList.map(s => {
       const currentStatus = attendanceState[s.id] || 'Absent';
       const isGirl = s.gender === 'Female' || s.gender === 'Girls' || s.gender === 'Girl';
       const genderLabel = isGirl ? 'Girl' : 'Boy';
@@ -396,7 +420,16 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       }
 
       toast.info(`Switched to ${btn.textContent.trim()}`);
+      renderCards();
+      updateCounters();
     });
+  });
+
+  // Classroom dropdown change
+  container.querySelector('#att-cls-select')?.addEventListener('change', (e) => {
+    activeClassroomId = e.target.value;
+    renderCards();
+    updateCounters();
   });
 
   renderCards();
