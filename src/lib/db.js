@@ -459,9 +459,9 @@ class DatabaseService {
         whatsapp_number: s.whatsapp_number || s.father_phone || '',
         medical_info: s.medical_info || '',
         category: s.category || 'General',
-        hostel_unit: s.hostel_unit || (cleanGender === 'Girls' ? 'Thaiba Girls Hostel Campus' : 'Thaiba Boys Hostel Block A'),
-        hostel_room: s.hostel_room || 'Room 101',
-        hostel_bed: s.hostel_bed || 'Bed 1',
+        hostel_unit: s.hostel_unit || '',
+        hostel_room: s.hostel_room || '',
+        hostel_bed: s.hostel_bed || '',
         photo_url: s.photo_url || '',
         black_marks: 0
       };
@@ -584,9 +584,9 @@ class DatabaseService {
             whatsapp_number: s.whatsapp_number || s.father_phone || '',
             medical_info: s.medical_info || '',
             category: s.category || 'General',
-            hostel_unit: s.hostel_unit || 'Boys Hostel',
-            hostel_room: s.hostel_room || 'Room 101',
-            hostel_bed: s.hostel_bed || 'Bed 1',
+            hostel_unit: s.hostel_unit || '',
+            hostel_room: s.hostel_room || '',
+            hostel_bed: s.hostel_bed || '',
             photo_url: s.photo_url || '',
             black_marks: s.black_marks || 0
           };
@@ -776,9 +776,9 @@ class DatabaseService {
       whatsapp_number: studentData.whatsapp_number || studentData.father_phone || '',
       medical_info: studentData.medical_info || '',
       category: studentData.category || 'General',
-      hostel_unit: studentData.hostel_unit || 'Boys Hostel',
-      hostel_room: studentData.hostel_room || 'Room 101',
-      hostel_bed: studentData.hostel_bed || 'Bed 1',
+      hostel_unit: studentData.hostel_unit || '',
+      hostel_room: studentData.hostel_room || '',
+      hostel_bed: studentData.hostel_bed || '',
       photo_url: photo,
       black_marks: 0
     };

@@ -251,10 +251,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
                 <td style="padding: 0.85rem 1rem;">
                   <div>
                     <div style="font-weight: 700; color: #1E293B; font-size: 0.825rem;">
-                      ${s.hostel_unit || (isGirl ? 'Girls Hostel' : 'Boys Hostel')}
+                      ${s.hostel_unit || (s.hostel_status === 'day_scholar' ? 'Day Scholar' : (isGirl ? 'Girls Hostel' : 'Boys Hostel'))}
                     </div>
                     <div style="color: #64748B; font-size: 0.72rem;">
-                      ${s.hostel_room || 'Room 101'} • ${s.hostel_bed || 'Bed 1'}
+                      ${s.hostel_room ? `${s.hostel_room} • ${s.hostel_bed || 'Bed'}` : (s.hostel_status === 'day_scholar' ? 'Non-Resident' : '<span style="color: #94A3B8; font-style: italic;">Bed not assigned</span>')}
                     </div>
                   </div>
                 </td>
@@ -417,7 +417,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
             </div>
             <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
               <div>Gender: <strong>${student.gender}</strong> • DOB: <strong>${formatDate(student.dob)}</strong> • Class: <strong>${normalizeClassPattern(student.school_class)}</strong></div>
-              <div>Hostel: <strong>${student.hostel_unit}</strong> • Room: <strong>${student.hostel_room || 'Room 101'}</strong> • Bed: <strong>${student.hostel_bed || 'Bed 1'}</strong></div>
+              <div>Hostel: <strong>${student.hostel_unit || (student.hostel_status === 'day_scholar' ? 'Day Scholar' : 'Hostel Resident')}</strong> • Room: <strong>${student.hostel_room || 'Not assigned'}</strong> • Bed: <strong>${student.hostel_bed || 'Not assigned'}</strong></div>
             </div>
           </div>
         </div>
@@ -524,14 +524,14 @@ export async function renderStudentsModule(container, { onNavigate }) {
               <input type="text" id="edit-cat" class="form-control" value="${student.category || 'General'}" required />
             </div>
             <div class="form-group">
-              <label class="form-label required">Hostel Unit</label>
-              <input type="text" id="edit-hostel" class="form-control" value="${student.hostel_unit || 'Boys Hostel'}" required />
+              <label class="form-label">Hostel Unit</label>
+              <input type="text" id="edit-hostel" class="form-control" value="${student.hostel_unit || ''}" placeholder="e.g. Thaiba Boys Hostel Block A" />
             </div>
             <div class="form-group">
-              <label class="form-label required">Room & Bed</label>
+              <label class="form-label">Room & Bed</label>
               <div style="display: flex; gap: 0.5rem;">
-                <input type="text" id="edit-room" class="form-control" value="${student.hostel_room || 'Room 101'}" placeholder="Room" required />
-                <input type="text" id="edit-bed" class="form-control" value="${student.hostel_bed || 'Bed 1'}" placeholder="Bed" required />
+                <input type="text" id="edit-room" class="form-control" value="${student.hostel_room || ''}" placeholder="Room (e.g. Room 101)" />
+                <input type="text" id="edit-bed" class="form-control" value="${student.hostel_bed || ''}" placeholder="Bed (e.g. Bed 1)" />
               </div>
             </div>
             <div class="form-group">

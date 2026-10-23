@@ -169,32 +169,6 @@ export async function renderAdmissionsModule(container, { onNavigate }) {
             </div>
           </div>
 
-          <!-- SECTION 4: HOSTEL UNIT & BED ALLOCATION -->
-          <h4 style="font-size: 1rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
-            4. Hostel Residential Assignment
-          </h4>
-
-          <div class="form-grid" style="margin-bottom: 2rem;">
-            <div class="form-group">
-              <label class="form-label">Hostel Unit</label>
-              <select class="form-control" id="adm-hostel-unit">
-                <option value="Thaiba Boys Hostel Block A">Thaiba Boys Hostel Block A</option>
-                <option value="Thaiba Boys Hostel Block B">Thaiba Boys Hostel Block B</option>
-                <option value="Thaiba Girls Hostel Campus">Thaiba Girls Hostel Campus</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Room Number</label>
-              <input type="text" class="form-control" id="adm-room" placeholder="e.g. Room 101" />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Bed Identifier</label>
-              <input type="text" class="form-control" id="adm-bed" placeholder="e.g. Bed 1" />
-            </div>
-          </div>
-
           <!-- Submit Buttons -->
           <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
             <button type="button" class="btn btn-outline" id="btn-cancel-adm">Cancel</button>
@@ -270,10 +244,6 @@ export async function renderAdmissionsModule(container, { onNavigate }) {
     const whatsapp = container.querySelector('#adm-whatsapp').value.trim();
     const medical = container.querySelector('#adm-medical').value.trim();
 
-    const hostelUnit = container.querySelector('#adm-hostel-unit').value;
-    const hostelRoom = container.querySelector('#adm-room').value.trim();
-    const hostelBed = container.querySelector('#adm-bed').value.trim();
-
     if (!fullName || !dob || !fatherName || !fatherPhone || !village) {
       toast.error('Please fill in all mandatory admission fields.');
       return;
@@ -298,9 +268,9 @@ export async function renderAdmissionsModule(container, { onNavigate }) {
       mother_phone: motherPhone,
       whatsapp_number: whatsapp,
       medical_info: medical,
-      hostel_unit: hostelUnit,
-      hostel_room: hostelRoom,
-      hostel_bed: hostelBed,
+      hostel_unit: '',
+      hostel_room: '',
+      hostel_bed: '',
       photo_url: selectedPhotoBase64
     };
 
