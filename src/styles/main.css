@@ -2355,113 +2355,203 @@ a {
 
 
 /* ============================================================
-   VISUAL RBAC PERMISSION MATRIX (SUPER ADMIN CONTROL CENTER)
+   SIMPLE & INTUITIVE ROLE WINDOW ASSIGNMENT (RBAC)
    ============================================================ */
-.rbac-table-container {
+.role-pill-nav {
+  display: flex;
+  gap: 0.65rem;
   overflow-x: auto;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-xs);
+  padding: 0.25rem 0.25rem 0.75rem 0.25rem;
   margin-bottom: 1.5rem;
-  max-width: 100%;
+  scrollbar-width: thin;
 }
 
-.rbac-matrix-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  text-align: left;
-  font-size: 0.85rem;
-}
-
-.rbac-matrix-table th {
-  background-color: #F8FAFC;
-  padding: 0.85rem 0.65rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid var(--border-subtle);
-  border-right: 1px solid #F1F5F9;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  text-align: center;
-}
-
-.rbac-matrix-table th.role-col-header {
-  position: sticky;
-  left: 0;
-  z-index: 20;
-  background-color: #F1F5F9;
-  min-width: 260px;
-  max-width: 280px;
-  border-right: 2px solid var(--border-medium);
-  text-align: left;
-  padding-left: 1.25rem;
-}
-
-.rbac-matrix-table td {
-  padding: 0.75rem 0.5rem;
-  border-bottom: 1px solid var(--border-subtle);
-  border-right: 1px solid #F8FAFC;
-  vertical-align: middle;
-  text-align: center;
-  transition: background var(--transition-fast);
-}
-
-.rbac-matrix-table td.role-col-cell {
-  position: sticky;
-  left: 0;
-  z-index: 5;
-  background-color: #FFFFFF;
-  text-align: left;
-  border-right: 2px solid var(--border-medium);
-  padding: 0.85rem 1.25rem;
-}
-
-.rbac-matrix-table tr:hover td {
-  background-color: #F8FAFC;
-}
-
-.rbac-matrix-table tr:hover td.role-col-cell {
-  background-color: #F1F5F9;
-}
-
-/* Custom Emerald RBAC Checkbox matching user photo */
-.rbac-checkbox {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: 2px solid #CBD5E1;
-  background: #FFFFFF;
-  display: inline-flex;
+.role-pill-btn {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.role-pill-btn:hover {
+  border-color: #10B981;
+  color: #0F172A;
+  background: #F0FDF4;
+}
+
+.role-pill-btn.active {
+  background: #10B981;
+  border-color: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+.role-pill-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.07);
+  color: inherit;
+  font-weight: 800;
+}
+
+.role-pill-btn.active .role-pill-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+/* Category Card */
+.perm-category-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.perm-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.perm-category-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 0.85rem;
+}
+
+/* Individual Window Item */
+.perm-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1.5px solid #E2E8F0;
+  background: #FFFFFF;
   cursor: pointer;
   transition: all var(--transition-fast);
   user-select: none;
-  color: #FFFFFF;
-  margin: 0 auto;
+  gap: 0.75rem;
 }
 
-.rbac-checkbox:hover:not(.locked) {
-  border-color: #10B981;
-  transform: scale(1.1);
+.perm-item:hover {
+  border-color: #A7F3D0;
+  background: #F8FAFC;
 }
 
-.rbac-checkbox.checked {
+.perm-item.active {
+  border-color: #6EE7B7;
+  background: #F0FDF4;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);
+}
+
+.perm-item-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.perm-item-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #F1F5F9;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.perm-item.active .perm-item-icon {
+  background: #D1FAE5;
+  color: #047857;
+}
+
+.perm-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.perm-item-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.perm-item.active .perm-item-name {
+  color: #065F46;
+}
+
+.perm-item-desc {
+  font-size: 0.74rem;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+/* Modern iOS Style Toggle Switch */
+.perm-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 9999px;
+  background: #CBD5E1;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.perm-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition-fast);
+}
+
+.perm-item.active .perm-switch {
   background: #10B981;
-  border-color: #10B981;
-  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.35);
 }
 
-.rbac-checkbox.locked {
-  background: #0F172A;
-  border-color: #0F172A;
-  cursor: not-allowed;
-  opacity: 0.9;
+.perm-item.active .perm-switch::after {
+  transform: translateX(20px);
 }
