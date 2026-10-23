@@ -2864,7 +2864,7 @@ a {
 }
 
 /* ============================================================
-   ASSIGN STUDENTS MODAL & 2-COLUMN GRID (Matching UI Model)
+   ASSIGN STUDENTS MODAL (Clean 1-Column Spacious Layout)
    ============================================================ */
 .modal-dialog.assign-students-modal {
   height: 90vh;
@@ -2874,7 +2874,7 @@ a {
 }
 
 .modal-dialog.assign-students-modal .modal-body {
-  padding: 0.75rem 1rem 0.5rem;
+  padding: 0.75rem 1.25rem 0.5rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2897,9 +2897,9 @@ a {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.45rem;
-  padding-bottom: 0.45rem;
+  gap: 0.55rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid #E2E8F0;
 }
 
@@ -2922,7 +2922,7 @@ a {
 .assign-section-tag {
   color: #475569;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 
 .assign-gender-tag {
@@ -2930,7 +2930,7 @@ a {
   color: #1D4ED8;
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 0.1rem 0.45rem;
+  padding: 0.12rem 0.5rem;
   border-radius: 4px;
 }
 
@@ -2943,34 +2943,27 @@ a {
   background: #F0FDF4;
   color: #059669;
   border: 1px solid #BBF7D0;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 700;
   padding: 0.15rem 0.55rem;
   border-radius: 12px;
 }
 
-/* Search Bar & Action Buttons */
-.assign-search-bar-container {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-}
-
+/* Full Width Search Box */
 .assign-search-box {
   position: relative;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
 }
 
 .assign-search-box input {
-  padding-left: 2rem;
-  padding-right: 0.5rem;
-  height: 35px;
-  font-size: 0.82rem;
+  padding-left: 2.2rem;
+  padding-right: 0.75rem;
+  height: 38px;
+  font-size: 0.85rem;
   border-radius: 8px;
   border: 1px solid #CBD5E1;
   width: 100%;
+  background: #FFFFFF;
 }
 
 .assign-search-box input:focus {
@@ -2981,111 +2974,98 @@ a {
 
 .assign-search-icon {
   position: absolute;
-  left: 0.65rem;
+  left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
   color: #94A3B8;
   pointer-events: none;
 }
 
-.assign-quick-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-shrink: 0;
+/* Two Dropdowns Row: Class and Gender */
+.assign-dropdowns-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  width: 100%;
 }
 
-.btn-quick-action {
-  padding: 0.3rem 0.55rem;
-  font-size: 0.73rem;
-  font-weight: 600;
-  height: 35px;
-  border-radius: 8px;
-  white-space: nowrap;
-  background: #FFFFFF;
-  border: 1px solid #CBD5E1;
+.assign-select {
+  height: 36px;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: #334155;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  background-color: #FFFFFF;
+  padding: 0.35rem 0.75rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  width: 100%;
 }
 
-.btn-quick-action:hover {
-  background: #F8FAFC;
-  border-color: #94A3B8;
+.assign-select:focus {
+  border-color: #00A3E0;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 163, 224, 0.15);
 }
 
-/* Horizontal Swipeable Filter Chips */
-.assign-filter-chips {
+/* Quick Action Row (Visible count & Select All / Clear All) */
+.assign-quick-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  overflow-x: auto;
-  padding-bottom: 0.15rem;
-  flex-wrap: nowrap;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #64748B;
+  padding-top: 0.15rem;
 }
 
-.assign-filter-chips::-webkit-scrollbar {
-  display: none;
+.assign-quick-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.assign-chip {
-  flex-shrink: 0;
-  border: 1px solid #E2E8F0;
-  background: #F8FAFC;
-  color: #475569;
-  font-size: 0.75rem;
+.btn-text-action {
+  background: none;
+  border: none;
+  color: #00A3E0;
+  font-size: 0.78rem;
   font-weight: 600;
-  padding: 0.22rem 0.65rem;
-  border-radius: 20px;
   cursor: pointer;
-  white-space: nowrap;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
   transition: all 0.15s ease;
-  user-select: none;
 }
 
-.assign-chip:hover {
-  background: #EEF2F6;
-  border-color: #CBD5E1;
+.btn-text-action:hover {
+  background: #E0F2FE;
+  text-decoration: underline;
 }
 
-.assign-chip.active {
-  background: #00A3E0;
-  border-color: #00A3E0;
-  color: #FFFFFF;
-}
-
-/* Scrollable Students Grid Container */
-.assign-students-grid-container {
+/* Scrollable 1-Column Spacious Students List Container */
+.assign-students-list-container {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
   -webkit-overflow-scrolling: touch;
-  padding: 0.2rem 0.15rem;
+  padding-right: 0.25rem;
 }
 
-/* 2-Column Grid Matching Photo */
-.assign-students-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 0.75rem;
-  row-gap: 0;
+.assign-students-list {
+  display: flex;
+  flex-direction: column;
   width: 100%;
 }
 
 .assign-student-row {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.35rem;
+  gap: 0.85rem;
+  padding: 0.7rem 0.5rem;
   border-bottom: 1px solid #F1F5F9;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.12s ease;
   user-select: none;
-  min-width: 0;
 }
 
 .assign-student-row:hover {
@@ -3098,8 +3078,8 @@ a {
 
 /* Leading Tick Button in front of student data */
 .student-assign-tick {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid #CBD5E1;
   background: #FFFFFF;
@@ -3124,8 +3104,8 @@ a {
 }
 
 .assign-student-avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   flex-shrink: 0;
   display: flex;
@@ -3165,11 +3145,10 @@ a {
   flex-direction: column;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
 }
 
 .assign-student-name {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #0F766E;
   white-space: nowrap;
@@ -3179,12 +3158,12 @@ a {
 }
 
 .assign-student-meta {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: #64748B;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.1rem;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3194,13 +3173,13 @@ a {
   color: #94A3B8;
 }
 
-/* Fixed Pinned Bottom Footer */
+/* Pinned Fixed Bottom Footer */
 .assign-footer-bar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.65rem 0.25rem 0.15rem;
+  padding: 0.75rem 0.25rem 0.15rem;
   border-top: 1px solid #E2E8F0;
   background: #FFFFFF;
   margin-top: auto;
@@ -3208,23 +3187,23 @@ a {
 }
 
 .assign-footer-info {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: #475569;
 }
 
 .assign-footer-btns {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .assign-footer-btns .btn {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
   border-radius: 6px;
 }
 
-/* Mobile Media Queries for Modal & Assignment Dialog */
+/* Mobile Media Queries */
 @media (max-width: 640px) {
   .modal-overlay.has-assign-students-modal {
     padding: 0.5rem;
@@ -3245,25 +3224,29 @@ a {
   }
 
   .modal-dialog.assign-students-modal .modal-header h3 {
-    font-size: 1rem;
+    font-size: 1.05rem;
     line-height: 1.25;
   }
 
   .modal-dialog.assign-students-modal .modal-body {
-    padding: 0.5rem 0.65rem 0.4rem;
+    padding: 0.5rem 0.75rem 0.4rem;
   }
-}
 
-@media (max-width: 380px) {
-  .assign-search-bar-container {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.35rem;
+  .assign-student-row {
+    gap: 0.65rem;
+    padding: 0.65rem 0.35rem;
   }
-  .assign-quick-actions {
-    justify-content: flex-end;
+
+  .assign-student-avatar {
+    width: 38px;
+    height: 38px;
   }
-  .assign-students-grid {
-    column-gap: 0.4rem;
+
+  .assign-student-name {
+    font-size: 0.92rem;
+  }
+
+  .assign-student-meta {
+    font-size: 0.76rem;
   }
 }

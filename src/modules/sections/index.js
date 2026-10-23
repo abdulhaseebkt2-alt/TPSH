@@ -595,10 +595,11 @@ export async function renderSectionsModule(container, { onNavigate }) {
       return admA.localeCompare(admB, undefined, { numeric: true });
     });
 
+    const uniqueClasses = Array.from(new Set(allStudents.map(s => s.school_class).filter(Boolean))).sort();
+
     const currentAssigned = await db.getClassroomStudents(classroomId);
     const selectedIds = new Set(currentAssigned);
 
-    let activeFilter = 'all'; // 'all', 'assigned', 'unassigned', 'boys', 'girls'
     let searchQuery = '';
 
     const silhouetteBoySvg = `
@@ -632,33 +633,41 @@ export async function renderSectionsModule(container, { onNavigate }) {
               </div>
             </div>
 
-            <!-- Search and Action Buttons Row -->
-            <div class="assign-search-bar-container">
-              <div class="assign-search-box">
-                <svg class="assign-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="assign-search-input" class="form-control" placeholder="Search student name, DOB..." />
-              </div>
-              <div class="assign-quick-actions">
-                <button type="button" class="btn btn-outline btn-sm btn-quick-action" id="btn-select-visible">Select All</button>
-                <button type="button" class="btn btn-outline btn-sm btn-quick-action" id="btn-deselect-visible">Clear All</button>
-              </div>
+            <!-- Full Width Clean Search Bar -->
+            <div class="assign-search-box">
+              <svg class="assign-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="assign-search-input" class="form-control" placeholder="Search by student name, DOB, or admission no..." />
             </div>
 
-            <!-- Single Horizontal Swipeable Filter Strip -->
-            <div class="assign-filter-chips">
-              <button type="button" class="assign-chip active" data-filter="all">All (${allStudents.length})</button>
-              <button type="button" class="assign-chip" data-filter="assigned">Assigned (<span id="filter-assigned-count">${selectedIds.size}</span>)</button>
-              <button type="button" class="assign-chip" data-filter="unassigned">Unassigned (<span id="filter-unassigned-count">${allStudents.length - selectedIds.size}</span>)</button>
-              <button type="button" class="assign-chip" data-filter="boys">Boys</button>
-              <button type="button" class="assign-chip" data-filter="girls">Girls</button>
+            <!-- Two Dropdowns: Class & Gender -->
+            <div class="assign-dropdowns-row">
+              <select id="assign-class-select" class="form-control assign-select">
+                <option value="all">All Classes</option>
+                ${uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join('')}
+              </select>
+              <select id="assign-gender-select" class="form-control assign-select">
+                <option value="all">All Genders</option>
+                <option value="Boys" ${cls.gender_eligibility === 'Boys' ? 'selected' : ''}>Boys</option>
+                <option value="Girls" ${cls.gender_eligibility === 'Girls' ? 'selected' : ''}>Girls</option>
+              </select>
+            </div>
+
+            <!-- Quick Action Row -->
+            <div class="assign-quick-row">
+              <span class="assign-visible-count" id="assign-visible-count">Showing ${allStudents.length} students</span>
+              <div class="assign-quick-buttons">
+                <button type="button" class="btn-text-action" id="btn-select-visible">Select All</button>
+                <span style="color: #CBD5E1;">•</span>
+                <button type="button" class="btn-text-action" id="btn-deselect-visible">Clear All</button>
+              </div>
             </div>
           </div>
 
-          <!-- Scrollable 2-Column Students List (Flex 1) -->
-          <div class="assign-students-grid-container">
-            <div class="assign-students-grid" id="assign-students-list"></div>
-            <div id="assign-empty-state" style="display: none; padding: 2.5rem 1rem; text-align: center; color: #94A3B8; font-size: 0.88rem;">
-              No students match your search or filter.
+          <!-- Scrollable Spacious 1-Column Students List (Flex 1) -->
+          <div class="assign-students-list-container">
+            <div class="assign-students-list" id="assign-students-list"></div>
+            <div id="assign-empty-state" style="display: none; padding: 3rem 1rem; text-align: center; color: #94A3B8; font-size: 0.9rem;">
+              No students match your search or filter criteria.
             </div>
           </div>
 
@@ -680,63 +689,73 @@ export async function renderSectionsModule(container, { onNavigate }) {
         const listContainer = modalBody.querySelector('#assign-students-list');
         const emptyState = modalBody.querySelector('#assign-empty-state');
         const searchInput = modalBody.querySelector('#assign-search-input');
+        const classSelect = modalBody.querySelector('#assign-class-select');
+        const genderSelect = modalBody.querySelector('#assign-gender-select');
         const counterBanner = modalBody.querySelector('#assign-counter-banner');
         const footerCount = modalBody.querySelector('#assign-footer-count');
-        const assignedCountSpan = modalBody.querySelector('#filter-assigned-count');
-        const unassignedCountSpan = modalBody.querySelector('#filter-unassigned-count');
+        const visibleCountEl = modalBody.querySelector('#assign-visible-count');
 
         function updateCounts() {
           const count = selectedIds.size;
           if (counterBanner) counterBanner.innerHTML = `<strong>${count}</strong>/${allStudents.length} assigned`;
           if (footerCount) footerCount.textContent = count;
-          if (assignedCountSpan) assignedCountSpan.textContent = count;
-          if (unassignedCountSpan) unassignedCountSpan.textContent = allStudents.length - count;
         }
 
         function getFilteredStudents() {
+          const selectedClass = classSelect.value;
+          const selectedGender = genderSelect.value;
+          const q = searchQuery.toLowerCase().trim();
+
           return allStudents.filter(s => {
             const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
-            const gen = isGirl ? 'girls' : 'boys';
-            const isAssigned = selectedIds.has(s.id);
+            const genderKey = isGirl ? 'Girls' : 'Boys';
 
-            if (activeFilter === 'assigned' && !isAssigned) return false;
-            if (activeFilter === 'unassigned' && isAssigned) return false;
-            if (activeFilter === 'boys' && gen !== 'boys') return false;
-            if (activeFilter === 'girls' && gen !== 'girls') return false;
+            if (selectedClass !== 'all' && (s.school_class || '') !== selectedClass) {
+              return false;
+            }
 
-            if (searchQuery) {
-              const q = searchQuery.toLowerCase().trim();
+            if (selectedGender !== 'all' && genderKey !== selectedGender) {
+              return false;
+            }
+
+            if (q) {
               const matchName = (s.full_name || '').toLowerCase().includes(q);
               const matchAdm = (s.admission_number || '').replace(/-/g, '').toLowerCase().includes(q);
               const matchDob = (s.dob || '').toLowerCase().includes(q);
               const matchClass = (s.school_class || '').toLowerCase().includes(q);
               if (!matchName && !matchAdm && !matchDob && !matchClass) return false;
             }
+
             return true;
           });
         }
 
         function renderRows() {
           const filtered = getFilteredStudents();
+          if (visibleCountEl) {
+            visibleCountEl.textContent = `Showing ${filtered.length} students`;
+          }
+
           if (filtered.length === 0) {
             listContainer.style.display = 'none';
             emptyState.style.display = 'block';
             return;
           }
 
-          listContainer.style.display = 'grid';
+          listContainer.style.display = 'flex';
           emptyState.style.display = 'none';
 
           listContainer.innerHTML = filtered.map(s => {
             const isAssigned = selectedIds.has(s.id);
             const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
             const genderLabel = isGirl ? 'Girl' : 'Boy';
+            const metaClass = s.school_class ? `${s.school_class}` : '';
 
             return `
               <div class="assign-student-row ${isAssigned ? 'is-assigned' : ''}" data-sid="${s.id}">
                 <!-- Tick Button in front of students data -->
                 <div class="student-assign-tick ${isAssigned ? 'checked' : ''}" data-sid="${s.id}" role="checkbox" aria-checked="${isAssigned}">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </div>
@@ -755,11 +774,12 @@ export async function renderSectionsModule(container, { onNavigate }) {
                   `}
                 </div>
 
-                <!-- Student Data -->
+                <!-- Student Data (Clean Spacious Full Width) -->
                 <div class="assign-student-details">
                   <div class="assign-student-name" title="${s.full_name}">${s.full_name}</div>
                   <div class="assign-student-meta">
                     <span>${genderLabel}</span>
+                    ${metaClass ? `<span class="meta-dot">•</span><span>${metaClass}</span>` : ''}
                     <span class="meta-dot">•</span>
                     <span>DOB: ${s.dob || '—'}</span>
                   </div>
@@ -798,15 +818,9 @@ export async function renderSectionsModule(container, { onNavigate }) {
           renderRows();
         });
 
-        // Filter chips
-        modalBody.querySelectorAll('.assign-chip').forEach(chip => {
-          chip.addEventListener('click', () => {
-            modalBody.querySelectorAll('.assign-chip').forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            activeFilter = chip.getAttribute('data-filter');
-            renderRows();
-          });
-        });
+        // Dropdown filters
+        classSelect.addEventListener('change', renderRows);
+        genderSelect.addEventListener('change', renderRows);
 
         // Select visible
         modalBody.querySelector('#btn-select-visible')?.addEventListener('click', () => {
