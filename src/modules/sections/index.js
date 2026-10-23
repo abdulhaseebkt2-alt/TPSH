@@ -2,6 +2,7 @@ import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { formatTime } from '../../lib/utils.js';
 
 export async function renderSectionsModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -159,17 +160,20 @@ export async function renderSectionsModule(container, { onNavigate }) {
                     ` : ''}
                   </div>
 
-                  <!-- Room & Capacity Details (Clean, no dark boxes) -->
-                  <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.85rem; font-size: 0.8rem; color: #64748B;">
-                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #94A3B8;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
-                      <span>Room <strong>${cls.room_number || '–'}</strong></span>
+                  <!-- Class Timing (Mandatory) & Optional Room/Capacity -->
+                  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.82rem; color: #475569;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem; font-weight: 600; color: #0F172A;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>${formatTime(cls.start_time || '06:30')} – ${formatTime(cls.end_time || '07:30')}</span>
                     </div>
-                    <span style="color: #CBD5E1;">•</span>
-                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #94A3B8;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                      <span>Capacity: <strong>${cls.capacity || 35}</strong></span>
-                    </div>
+                    ${cls.room_number ? `
+                      <span style="color: #CBD5E1;">•</span>
+                      <span style="color: #64748B;">Room <strong>${cls.room_number}</strong></span>
+                    ` : ''}
+                    ${cls.capacity ? `
+                      <span style="color: #CBD5E1;">•</span>
+                      <span style="color: #64748B;"><strong>${cls.capacity}</strong> seats</span>
+                    ` : ''}
                   </div>
                 </div>
 
@@ -413,25 +417,35 @@ export async function renderSectionsModule(container, { onNavigate }) {
         </div>
         <div class="form-group" style="margin-bottom: 1rem;">
           <label class="form-label required">Classroom Name</label>
-          <input type="text" id="cls-name-input" class="form-control" placeholder="e.g. Hostel Study Lab 3, Room 10A" required />
+          <input type="text" id="cls-name-input" class="form-control" placeholder="e.g. Hostel Study Lab 1, Room 10A" required />
         </div>
-        <div class="form-grid" style="margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
           <div class="form-group">
-            <label class="form-label">Room / Hall</label>
-            <input type="text" id="cls-room-input" class="form-control" placeholder="e.g. 106, Hall B" />
+            <label class="form-label required">Class Starting Time</label>
+            <input type="time" id="cls-start-input" class="form-control" value="06:30" required />
           </div>
           <div class="form-group">
-            <label class="form-label">Capacity</label>
-            <input type="number" id="cls-cap-input" class="form-control" value="35" min="1" max="150" />
+            <label class="form-label required">Class Ending Time</label>
+            <input type="time" id="cls-end-input" class="form-control" value="07:30" required />
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
+        <div class="form-group" style="margin-bottom: 1rem;">
           <label class="form-label required">Gender</label>
           <select id="cls-gender-select" class="form-control">
             <option value="Mixed">Mixed</option>
             <option value="Boys">Boys</option>
             <option value="Girls">Girls</option>
           </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label">Room / Hall (Optional)</label>
+            <input type="text" id="cls-room-input" class="form-control" placeholder="e.g. 106, Hall B" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Capacity (Optional)</label>
+            <input type="number" id="cls-cap-input" class="form-control" placeholder="e.g. 35" min="1" max="200" />
+          </div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
           <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancel</button>
@@ -443,8 +457,10 @@ export async function renderSectionsModule(container, { onNavigate }) {
         modalBody.querySelector('#btn-save-classroom')?.addEventListener('click', async () => {
           const progId = modalBody.querySelector('#cls-prog-select').value;
           const name = modalBody.querySelector('#cls-name-input').value.trim();
+          const start_time = modalBody.querySelector('#cls-start-input').value || '06:30';
+          const end_time = modalBody.querySelector('#cls-end-input').value || '07:30';
           const room_number = modalBody.querySelector('#cls-room-input').value.trim();
-          const capacity = modalBody.querySelector('#cls-cap-input').value;
+          const capacity = modalBody.querySelector('#cls-cap-input').value.trim();
           const gender_eligibility = modalBody.querySelector('#cls-gender-select').value;
 
           if (!name) {
@@ -455,8 +471,10 @@ export async function renderSectionsModule(container, { onNavigate }) {
           await db.addClassroom({
             program_id: progId,
             name,
+            start_time,
+            end_time,
             room_number,
-            capacity,
+            capacity: capacity ? Number(capacity) : null,
             gender_eligibility
           });
 
@@ -489,23 +507,33 @@ export async function renderSectionsModule(container, { onNavigate }) {
           <label class="form-label required">Classroom Name</label>
           <input type="text" id="edit-cls-name-input" class="form-control" value="${cls.name}" required />
         </div>
-        <div class="form-grid" style="margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
           <div class="form-group">
-            <label class="form-label">Room / Hall</label>
-            <input type="text" id="edit-cls-room-input" class="form-control" value="${cls.room_number || ''}" placeholder="e.g. 101" />
+            <label class="form-label required">Class Starting Time</label>
+            <input type="time" id="edit-cls-start-input" class="form-control" value="${cls.start_time || '06:30'}" required />
           </div>
           <div class="form-group">
-            <label class="form-label">Capacity</label>
-            <input type="number" id="edit-cls-cap-input" class="form-control" value="${cls.capacity || 35}" min="1" max="150" />
+            <label class="form-label required">Class Ending Time</label>
+            <input type="time" id="edit-cls-end-input" class="form-control" value="${cls.end_time || '07:30'}" required />
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
+        <div class="form-group" style="margin-bottom: 1rem;">
           <label class="form-label required">Gender</label>
           <select id="edit-cls-gender-select" class="form-control">
             <option value="Mixed" ${(cls.gender_eligibility || 'Mixed') === 'Mixed' ? 'selected' : ''}>Mixed</option>
             <option value="Boys" ${cls.gender_eligibility === 'Boys' ? 'selected' : ''}>Boys</option>
             <option value="Girls" ${cls.gender_eligibility === 'Girls' ? 'selected' : ''}>Girls</option>
           </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label">Room / Hall (Optional)</label>
+            <input type="text" id="edit-cls-room-input" class="form-control" value="${cls.room_number || ''}" placeholder="e.g. 101" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Capacity (Optional)</label>
+            <input type="number" id="edit-cls-cap-input" class="form-control" value="${cls.capacity || ''}" placeholder="e.g. 35" min="1" max="200" />
+          </div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
           <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancel</button>
@@ -517,8 +545,10 @@ export async function renderSectionsModule(container, { onNavigate }) {
         modalBody.querySelector('#btn-save-edit-classroom')?.addEventListener('click', async () => {
           const progId = modalBody.querySelector('#edit-cls-prog-select').value;
           const name = modalBody.querySelector('#edit-cls-name-input').value.trim();
+          const start_time = modalBody.querySelector('#edit-cls-start-input').value || '06:30';
+          const end_time = modalBody.querySelector('#edit-cls-end-input').value || '07:30';
           const room_number = modalBody.querySelector('#edit-cls-room-input').value.trim();
-          const capacity = modalBody.querySelector('#edit-cls-cap-input').value;
+          const capacity = modalBody.querySelector('#edit-cls-cap-input').value.trim();
           const gender_eligibility = modalBody.querySelector('#edit-cls-gender-select').value;
 
           if (!name) {
@@ -529,8 +559,10 @@ export async function renderSectionsModule(container, { onNavigate }) {
           await db.updateClassroom(classroomId, {
             program_id: progId,
             name,
+            start_time,
+            end_time,
             room_number,
-            capacity,
+            capacity: capacity ? Number(capacity) : null,
             gender_eligibility
           });
 

@@ -50,14 +50,14 @@ const INITIAL_SECTIONS = [
 ];
 
 const INITIAL_CLASSROOMS = [
-  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', room_number: '101', capacity: 35, gender_eligibility: 'Boys' },
-  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', room_number: '102', capacity: 35, gender_eligibility: 'Boys' },
-  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', room_number: '201', capacity: 50, gender_eligibility: 'Girls' },
-  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Hostel Study Lab 1', room_number: '105', capacity: 30, gender_eligibility: 'Boys' },
-  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', room_number: '106', capacity: 30, gender_eligibility: 'Boys' },
-  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', room_number: '205', capacity: 45, gender_eligibility: 'Girls' },
-  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', room_number: '301', capacity: 40, gender_eligibility: 'Mixed' },
-  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', room_number: '302', capacity: 40, gender_eligibility: 'Mixed' }
+  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys' },
+  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys' },
+  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls' },
+  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Hostel Study Lab 1', start_time: '19:30', end_time: '21:00', room_number: '105', capacity: 30, gender_eligibility: 'Boys' },
+  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys' },
+  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls' },
+  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed' },
+  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed' }
 ];
 
 const INITIAL_CLASSES = [
@@ -993,7 +993,7 @@ class DatabaseService {
     let sections = this.get('tps_sections') || [];
     let modified = false;
 
-    // Harmonize program_id and gender_eligibility from backing sections if missing
+    // Harmonize program_id, gender_eligibility, and timings from backing sections if missing
     classrooms.forEach(c => {
       if (!c.program_id && c.section_id) {
         const sec = sections.find(s => s.id === c.section_id);
@@ -1006,24 +1006,44 @@ class DatabaseService {
       if (!c.gender_eligibility) {
         c.gender_eligibility = 'Mixed';
       }
+      // Populate starting and ending times if missing
+      if (!c.start_time || !c.end_time) {
+        if (c.program_id === 'prog-1') {
+          c.start_time = c.start_time || '06:00';
+          c.end_time = c.end_time || '07:00';
+        } else if (c.program_id === 'prog-2') {
+          c.start_time = c.start_time || '19:30';
+          c.end_time = c.end_time || '21:00';
+        } else {
+          c.start_time = c.start_time || '16:30';
+          c.end_time = c.end_time || '18:00';
+        }
+        modified = true;
+      }
       if (c.name && /category/i.test(c.name)) {
         c.name = c.name.replace(/–\s*category\s*/gi, 'Hall ').replace(/category\s*/gi, 'Class ').trim();
         modified = true;
       }
     });
 
-    // Auto-bridge any section that was created (like 'gggg' created by the user!) into a classroom
+    // Auto-bridge any section that was created into a classroom
     sections.forEach(s => {
       const hasCls = classrooms.some(c => c.section_id === s.id || c.name === s.name);
       if (!hasCls && s.program_id) {
         const cleanName = (s.name || 'Classroom').replace(/–\s*category\s*/gi, 'Hall ').replace(/category\s*/gi, 'Class ').trim();
+        let defStart = '06:00', defEnd = '07:00';
+        if (s.program_id === 'prog-2') { defStart = '19:30'; defEnd = '21:00'; }
+        else if (s.program_id === 'prog-3') { defStart = '16:30'; defEnd = '18:00'; }
+
         classrooms.push({
           id: 'cls-' + s.id,
           section_id: s.id,
           program_id: s.program_id,
           name: cleanName,
-          room_number: 'Room 101',
-          capacity: 35,
+          start_time: defStart,
+          end_time: defEnd,
+          room_number: '',
+          capacity: null,
           gender_eligibility: s.gender_eligibility || 'Mixed'
         });
         modified = true;
@@ -1112,7 +1132,7 @@ class DatabaseService {
     return true;
   }
 
-  async addClassroom({ program_id, section_id, name, room_number, capacity, gender_eligibility }) {
+  async addClassroom({ program_id, section_id, name, start_time, end_time, room_number, capacity, gender_eligibility }) {
     const classrooms = this.get('tps_classrooms') || [];
     let sections = this.get('tps_sections') || [];
 
@@ -1137,8 +1157,10 @@ class DatabaseService {
       program_id: program_id || (sections.find(s => s.id === targetSecId)?.program_id) || '',
       section_id: targetSecId || '',
       name,
-      room_number: room_number || 'Room',
-      capacity: Number(capacity) || 35,
+      start_time: start_time || '06:30',
+      end_time: end_time || '07:30',
+      room_number: room_number ? String(room_number).trim() : '',
+      capacity: capacity ? Number(capacity) : null,
       gender_eligibility: gender_eligibility || 'Mixed'
     };
     classrooms.push(newCls);
@@ -1169,7 +1191,7 @@ class DatabaseService {
 
     const sanitized = { ...updates };
     if (sanitized.capacity !== undefined) {
-      sanitized.capacity = Number(sanitized.capacity) || 35;
+      sanitized.capacity = sanitized.capacity ? Number(sanitized.capacity) : null;
     }
 
     classrooms[idx] = { ...classrooms[idx], ...sanitized };

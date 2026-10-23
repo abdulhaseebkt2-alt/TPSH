@@ -467,17 +467,21 @@ describe('6. User Profile Creation & Management Tests', () => {
     });
     expect(prog.id).toBeDefined();
 
-    // 2. Add Classroom Card directly under this Section
+    // 2. Add Classroom Card directly under this Section with start and end times
     const cls = await db.addClassroom({
       program_id: prog.id,
       name: 'Tuition Room 101',
-      room_number: '101',
-      capacity: 32,
+      start_time: '18:30',
+      end_time: '20:00',
+      room_number: '', // non-mandatory
+      capacity: null,  // non-mandatory
       gender_eligibility: 'Boys'
     });
     expect(cls).toBeDefined();
     expect(cls.name).toBe('Tuition Room 101');
     expect(cls.program_id).toBe(prog.id);
+    expect(cls.start_time).toBe('18:30');
+    expect(cls.end_time).toBe('20:00');
     expect(cls.gender_eligibility).toBe('Boys');
 
     // 3. Verify it is returned in getClassrooms()
@@ -485,15 +489,19 @@ describe('6. User Profile Creation & Management Tests', () => {
     const found = allCls.find(c => c.id === cls.id);
     expect(found).toBeDefined();
     expect(found.program_id).toBe(prog.id);
+    expect(found.start_time).toBe('18:30');
+    expect(found.end_time).toBe('20:00');
 
     // 4. Update Classroom
     const updated = await db.updateClassroom(cls.id, {
       name: 'Tuition Hall Beta',
-      capacity: 40,
+      start_time: '19:00',
+      end_time: '20:30',
       gender_eligibility: 'Mixed'
     });
     expect(updated.name).toBe('Tuition Hall Beta');
-    expect(updated.capacity).toBe(40);
+    expect(updated.start_time).toBe('19:00');
+    expect(updated.end_time).toBe('20:30');
     expect(updated.gender_eligibility).toBe('Mixed');
 
     // 5. Delete Classroom
