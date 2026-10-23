@@ -58,7 +58,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
     <div class="student-filter-capsule">
       <div class="capsule-search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="student-search-input" placeholder="Search by name, ID number (e.g. TPS2026056), phone..." />
+        <input type="text" id="student-search-input" placeholder="Search student by name, ID, phone..." />
       </div>
 
       <div class="capsule-filters">
@@ -174,20 +174,20 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
     // Render Table according to Image 2 & 3 contract
     tableContainer.innerHTML = `
-      <table class="data-table" style="width: 100%; border-collapse: collapse;">
+      <table class="data-table student-directory-table" style="width: 100%; min-width: 980px; border-collapse: collapse;">
         <thead>
           <tr style="border-bottom: 1px solid #E2E8F0; background: #F8FAFC;">
-            <th style="padding: 0.85rem 1.25rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 22%;">STUDENT INFO</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 12%;">ID NUMBER</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 10%;">CLASS</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 10%;">CATEGORY</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%;">HOSTEL / BED</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%;">PARENT / CONTACT</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%;">STATUS</th>
-            <th style="padding: 0.85rem 0.5rem; width: 4%; text-align: center;">
+            <th style="padding: 0.85rem 1.25rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 20%; min-width: 210px; white-space: nowrap;">STUDENT INFO</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 12%; min-width: 120px; white-space: nowrap;">ID NUMBER</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 9%; min-width: 95px; white-space: nowrap;">CLASS</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 9%; min-width: 95px; white-space: nowrap;">CATEGORY</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 150px; white-space: nowrap;">HOSTEL / BED</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 160px; white-space: nowrap;">PARENT / CONTACT</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; white-space: nowrap;">STATUS</th>
+            <th style="padding: 0.85rem 0.5rem; width: 3%; min-width: 38px; text-align: center; white-space: nowrap;">
               <input type="checkbox" class="student-checkbox" id="select-all-students" ${isAllSelected ? 'checked' : ''} title="Select All" />
             </th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; text-align: right;">ACTIONS</th>
+            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; text-align: right; white-space: nowrap;">ACTIONS</th>
           </tr>
         </thead>
         <tbody>
@@ -199,19 +199,19 @@ export async function renderStudentsModule(container, { onNavigate }) {
             const statusLower = (s.status || 'active').toLowerCase();
             let statusBadge = '';
             if (statusLower === 'active') {
-              statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600;">active</span>`;
+              statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">active</span>`;
             } else if (statusLower.includes('leave')) {
-              statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600;">on leave</span>`;
+              statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">on leave</span>`;
             } else if (statusLower.includes('break')) {
-              statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600;">break</span>`;
+              statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">break</span>`;
             } else {
-              statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600;">${s.status}</span>`;
+              statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">${s.status}</span>`;
             }
 
             return `
               <tr style="border-bottom: 1px solid #F1F5F9; background: ${isChecked ? '#F0FDF4' : '#FFFFFF'}; transition: background 120ms ease;">
                 <!-- Student Info Column -->
-                <td style="padding: 0.85rem 1.25rem;">
+                <td style="padding: 0.85rem 1.25rem; white-space: nowrap;">
                   <div style="display: flex; align-items: center; gap: 0.75rem;">
                     <!-- Circular Avatar: Boy (Blue) / Girl (Pink) -->
                     <div style="width: 38px; height: 38px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden;">
@@ -225,50 +225,50 @@ export async function renderStudentsModule(container, { onNavigate }) {
                       `}
                     </div>
                     <div>
-                      <strong style="color: #065F46; font-size: 0.875rem; font-weight: 700; display: block; line-height: 1.3;">${s.full_name}</strong>
-                      <span style="color: #64748B; font-size: 0.72rem;">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '2012-05-15'}</span>
+                      <strong style="color: #065F46; font-size: 0.875rem; font-weight: 700; display: block; line-height: 1.3; white-space: nowrap;">${s.full_name}</strong>
+                      <span style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '2012-05-15'}</span>
                     </div>
                   </div>
                 </td>
 
                 <!-- ID Number Column -->
-                <td style="padding: 0.85rem 1rem;">
-                  <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #1E293B; font-weight: 700; font-size: 0.74rem; letter-spacing: 0.04em; padding: 0.25rem 0.65rem; border-radius: 6px;">
+                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                  <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #1E293B; font-weight: 700; font-size: 0.74rem; letter-spacing: 0.04em; padding: 0.25rem 0.65rem; border-radius: 6px; white-space: nowrap; display: inline-block;">
                     ${s.admission_number || 'TPS2026056'}
                   </span>
                 </td>
 
                 <!-- Class Column -->
-                <td style="padding: 0.85rem 1rem;">
-                  <strong style="color: #0F172A; font-size: 0.85rem;">${normalizeClassPattern(s.school_class) || 'STD-VIII'}</strong>
+                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                  <strong style="color: #0F172A; font-size: 0.85rem; white-space: nowrap;">${normalizeClassPattern(s.school_class) || 'STD-VIII'}</strong>
                 </td>
 
                 <!-- Category Column -->
-                <td style="padding: 0.85rem 1rem;">
-                  <span class="badge" style="background: #F1F5F9; color: #475569; border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.72rem; font-weight: 500;">
+                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                  <span class="badge" style="background: #F1F5F9; color: #475569; border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.72rem; font-weight: 500; white-space: nowrap; display: inline-block;">
                     ${s.category || 'General'}
                   </span>
                 </td>
 
                 <!-- Hostel / Bed Column -->
-                <td style="padding: 0.85rem 1rem;">
+                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
                   <div>
-                    <div style="font-weight: 700; color: #1E293B; font-size: 0.825rem;">
+                    <div style="font-weight: 700; color: #1E293B; font-size: 0.825rem; white-space: nowrap;">
                       ${s.hostel_unit || (s.hostel_status === 'day_scholar' ? 'Day Scholar' : (isGirl ? 'Girls Hostel' : 'Boys Hostel'))}
                     </div>
-                    <div style="color: #64748B; font-size: 0.72rem;">
+                    <div style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">
                       ${s.hostel_room ? `${s.hostel_room} • ${s.hostel_bed || 'Bed'}` : (s.hostel_status === 'day_scholar' ? 'Non-Resident' : '<span style="color: #94A3B8; font-style: italic;">Bed not assigned</span>')}
                     </div>
                   </div>
                 </td>
 
                 <!-- Parent / Contact Column -->
-                <td style="padding: 0.85rem 1rem;">
+                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
                   <div>
-                    <div style="font-weight: 600; color: #1E293B; font-size: 0.825rem;">
+                    <div style="font-weight: 600; color: #1E293B; font-size: 0.825rem; white-space: nowrap;">
                       ${s.father_name || 'Abdul Rasheed'}
                     </div>
-                    <div style="color: #64748B; font-size: 0.72rem; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.1rem;">
+                    <div style="color: #64748B; font-size: 0.72rem; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.1rem; white-space: nowrap;">
                       <span>${s.father_phone || '+91 98470 12345'}</span>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="#059669" style="flex-shrink: 0;"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.82.49 3.53 1.34 5L2 22l5.16-1.32c1.43.79 3.06 1.32 4.84 1.32 5.52 0 10-4.48 10-10S17.52 2 12 2zm4.95 14.15c-.21.58-1.2 1.09-1.68 1.15-.45.06-1.02.08-3.28-.85-2.71-1.12-4.45-3.87-4.59-4.05-.14-.19-1.09-1.45-1.09-2.76s.69-1.95.94-2.22c.25-.26.54-.33.72-.33.18 0 .36 0 .52.01.17.01.4.06.6.53.22.52.74 1.82.81 1.95.07.14.12.3.02.48-.09.18-.14.3-.28.46-.14.16-.3.35-.43.47-.14.14-.29.3-.12.59.16.29.73 1.2 1.57 1.94 1.08.96 1.99 1.25 2.28 1.39.29.14.46.12.63-.07.17-.19.74-.86.94-1.15.2-.29.4-.24.67-.14.28.1.75 1.77 1.26.17.09.28.14.32.22.04.09.04.52-.17 1.1z"/></svg>
                     </div>
@@ -276,18 +276,18 @@ export async function renderStudentsModule(container, { onNavigate }) {
                 </td>
 
                 <!-- Status Column -->
-                <td style="padding: 0.85rem 1rem;">
+                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
                   ${statusBadge}
                 </td>
 
                 <!-- Checkbox Column -->
-                <td style="padding: 0.85rem 0.5rem; text-align: center;">
+                <td style="padding: 0.85rem 0.5rem; text-align: center; white-space: nowrap;">
                   <input type="checkbox" class="student-checkbox row-select-checkbox" data-id="${s.id}" ${isChecked ? 'checked' : ''} />
                 </td>
 
                 <!-- Actions Column (View, Edit, Delete) -->
-                <td style="padding: 0.85rem 1rem; text-align: right;">
-                  <div class="student-action-btns" style="justify-content: flex-end;">
+                <td style="padding: 0.85rem 1rem; text-align: right; white-space: nowrap;">
+                  <div class="student-action-btns" style="justify-content: flex-end; display: flex; gap: 0.45rem; align-items: center;">
                     <button class="student-action-btn btn-view-profile" data-id="${s.id}" title="View Student Profile">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
