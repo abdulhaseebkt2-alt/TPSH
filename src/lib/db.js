@@ -917,6 +917,73 @@ class DatabaseService {
     return this.get('tps_programs') || [];
   }
 
+  async addProgram({ name, code, description }) {
+    const programs = this.get('tps_programs') || [];
+    const cleanCode = (code || name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)).toUpperCase();
+    const newProg = {
+      id: 'prog-' + Date.now(),
+      name,
+      code: cleanCode || 'SECTION',
+      description: description || ''
+    };
+    programs.push(newProg);
+    this.set('tps_programs', programs);
+    this.logAudit('CREATE_SECTION', 'programs', newProg.id, `Created section ${name}`);
+    return newProg;
+  }
+
+  async updateProgram(programId, updates) {
+    let programs = this.get('tps_programs') || [];
+    const idx = programs.findIndex(p => p.id === programId);
+    if (idx === -1) return null;
+
+    if (updates.code) {
+      updates.code = updates.code.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    }
+
+    programs[idx] = { ...programs[idx], ...updates };
+    this.set('tps_programs', programs);
+    this.logAudit('UPDATE_SECTION', 'programs', programId, `Updated section ${programs[idx].name}`);
+    return programs[idx];
+  }
+
+  async deleteProgram(programId) {
+    let programs = this.get('tps_programs') || [];
+    const prog = programs.find(p => p.id === programId);
+    if (!prog) return false;
+
+    if (programs.length <= 1) {
+      throw new Error('At least one section must remain configured.');
+    }
+
+    programs = programs.filter(p => p.id !== programId);
+    this.set('tps_programs', programs);
+
+    // Cascade delete any child categories and classrooms
+    let sections = this.get('tps_sections') || [];
+    const childSecIds = sections.filter(s => s.program_id === programId).map(s => s.id);
+    sections = sections.filter(s => s.program_id !== programId);
+    this.set('tps_sections', sections);
+
+    let classrooms = this.get('tps_classrooms') || [];
+    classrooms = classrooms.filter(c => !childSecIds.includes(c.section_id));
+    this.set('tps_classrooms', classrooms);
+
+    if (supabase) {
+      try {
+        if (childSecIds.length > 0) {
+          await supabase.from('classrooms').delete().in('section_id', childSecIds);
+          await supabase.from('program_sections').delete().in('id', childSecIds);
+        }
+      } catch (err) {
+        console.warn('Supabase cascade delete on program error:', err);
+      }
+    }
+
+    this.logAudit('DELETE_SECTION', 'programs', programId, `Deleted section ${prog.name}`);
+    return true;
+  }
+
   async getSections() {
     return this.get('tps_sections') || [];
   }
