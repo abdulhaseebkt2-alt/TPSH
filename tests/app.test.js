@@ -457,4 +457,53 @@ describe('6. User Profile Creation & Management Tests', () => {
     expect(sectionsAfter.some(s => s.id === newSec.id)).toBe(false);
     expect(classroomsAfterCascade.some(c => c.id === clsCascade.id)).toBe(false);
   });
+
+  it('Verifies Classrooms map directly to Sections with gender eligibility and CRUD options', async () => {
+    // 1. Create a Section
+    const prog = await db.addProgram({
+      name: 'Evening Tuition Section',
+      code: 'TUITION',
+      description: 'Daily evening tuition'
+    });
+    expect(prog.id).toBeDefined();
+
+    // 2. Add Classroom Card directly under this Section
+    const cls = await db.addClassroom({
+      program_id: prog.id,
+      name: 'Tuition Room 101',
+      room_number: '101',
+      capacity: 32,
+      gender_eligibility: 'Boys'
+    });
+    expect(cls).toBeDefined();
+    expect(cls.name).toBe('Tuition Room 101');
+    expect(cls.program_id).toBe(prog.id);
+    expect(cls.gender_eligibility).toBe('Boys');
+
+    // 3. Verify it is returned in getClassrooms()
+    const allCls = await db.getClassrooms();
+    const found = allCls.find(c => c.id === cls.id);
+    expect(found).toBeDefined();
+    expect(found.program_id).toBe(prog.id);
+
+    // 4. Update Classroom
+    const updated = await db.updateClassroom(cls.id, {
+      name: 'Tuition Hall Beta',
+      capacity: 40,
+      gender_eligibility: 'Mixed'
+    });
+    expect(updated.name).toBe('Tuition Hall Beta');
+    expect(updated.capacity).toBe(40);
+    expect(updated.gender_eligibility).toBe('Mixed');
+
+    // 5. Delete Classroom
+    const deleted = await db.deleteClassroom(cls.id);
+    expect(deleted).toBe(true);
+
+    const afterDel = await db.getClassrooms();
+    expect(afterDel.some(c => c.id === cls.id)).toBe(false);
+
+    // Clean up program
+    await db.deleteProgram(prog.id);
+  });
 });

@@ -10,7 +10,8 @@ export async function renderAttendanceModule(container, { onNavigate }) {
   const students = await db.getStudents();
 
   let activeProgramId = programs[0]?.id || 'prog-1';
-  let activeClassroomId = classrooms[0]?.id || 'cls-1';
+  const initialProgCls = classrooms.filter(c => c.program_id === activeProgramId);
+  let activeClassroomId = initialProgCls[0]?.id || classrooms[0]?.id || 'cls-1';
 
   // Default to ABSENT when opening attendance module as requested by user
   let attendanceState = {};
@@ -55,7 +56,9 @@ export async function renderAttendanceModule(container, { onNavigate }) {
           <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
             <label class="form-label" style="font-weight: 700; margin: 0;">Classroom Session:</label>
             <select id="att-cls-select" class="form-control" style="width: 250px;">
-              ${classrooms.map(c => `<option value="${c.id}" ${c.id === activeClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
+              ${(classrooms.filter(c => c.program_id === activeProgramId).length > 0 
+                ? classrooms.filter(c => c.program_id === activeProgramId) 
+                : classrooms).map(c => `<option value="${c.id}" ${c.id === activeClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
             </select>
             <span style="font-size: 0.85rem; color: var(--text-secondary);">Date: <strong>${new Date().toISOString().split('T')[0]}</strong></span>
           </div>
@@ -382,6 +385,16 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       container.querySelectorAll('#att-prog-tabs button').forEach(b => {
         b.className = b.getAttribute('data-pid') === activeProgramId ? 'btn btn-primary' : 'btn btn-outline';
       });
+
+      // Update Classroom dropdown for the newly selected Section/Program
+      const clsSelect = container.querySelector('#att-cls-select');
+      if (clsSelect) {
+        const progCls = classrooms.filter(c => c.program_id === activeProgramId);
+        const list = progCls.length > 0 ? progCls : classrooms;
+        clsSelect.innerHTML = list.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        activeClassroomId = list[0]?.id || '';
+      }
+
       toast.info(`Switched to ${btn.textContent.trim()}`);
     });
   });

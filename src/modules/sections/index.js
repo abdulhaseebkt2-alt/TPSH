@@ -28,21 +28,17 @@ export async function renderSectionsModule(container, { onNavigate }) {
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h2>Sections, Programs & Classrooms</h2>
-          <p>Institutional structure: Sections (Programs) → Categories → Classrooms & Halls</p>
+          <h2>Sections & Classrooms</h2>
+          <p>Institutional structure: Sections (top tabs) → Classrooms & Halls (cards)</p>
         </div>
         <div class="page-actions">
           ${canManage ? `
-            <button class="btn btn-primary" id="btn-header-add-section" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700;">
+            <button class="btn btn-outline" id="btn-header-add-section" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               + Add Section
             </button>
-            <button class="btn btn-outline" id="btn-header-add-category" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              + Add Category
-            </button>
-            <button class="btn btn-outline" id="btn-header-add-classroom" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <button class="btn btn-primary" id="btn-header-add-classroom" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               + Add Classroom
             </button>
           ` : ''}
@@ -73,14 +69,14 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
           ${canManage ? `
             <button type="button" class="btn btn-outline" id="btn-add-section-pill" style="border-radius: var(--radius-full); border-style: dashed; color: #059669; border-color: #10B981; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 1rem; white-space: nowrap; flex-shrink: 0;" title="Create New Section">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               + Add Section
             </button>
           ` : ''}
         </div>
       </div>
 
-      <!-- Active Section Display Card & Categories/Classrooms Grid -->
+      <!-- Active Section Display Card & Classrooms Grid -->
       <div id="program-sections-view">
         <!-- Populated dynamically -->
       </div>
@@ -111,11 +107,6 @@ export async function renderSectionsModule(container, { onNavigate }) {
       openAddProgramModal();
     });
 
-    // Add Category button click
-    container.querySelector('#btn-header-add-category')?.addEventListener('click', () => {
-      openAddSectionModal();
-    });
-
     // Add Classroom button click
     container.querySelector('#btn-header-add-classroom')?.addEventListener('click', () => {
       openAddClassroomModal();
@@ -139,8 +130,9 @@ export async function renderSectionsModule(container, { onNavigate }) {
       return;
     }
 
-    const progSections = sections.filter(s => s.program_id === prog.id);
-    const progClassroomsCount = classrooms.filter(c => progSections.some(s => s.id === c.section_id)).length;
+    // Get all classrooms belonging to this Section
+    const progSecIds = sections.filter(s => s.program_id === prog.id).map(s => s.id);
+    const progClassrooms = classrooms.filter(c => c.program_id === prog.id || (c.section_id && progSecIds.includes(c.section_id)));
 
     viewContainer.innerHTML = `
       <!-- Active Section Banner with Edit & Delete Options -->
@@ -156,9 +148,13 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <span class="badge" style="background: #E2E8F0; color: #334155; font-size: 0.76rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 8px;">
-              ${progSections.length} Categories • ${progClassroomsCount} Classrooms
+              ${progClassrooms.length} Classroom${progClassrooms.length !== 1 ? 's' : ''} Configured
             </span>
             ${canManage ? `
+              <button type="button" class="btn btn-primary btn-sm btn-quick-add-cls-banner" title="Add New Classroom" style="display: flex; align-items: center; gap: 0.35rem; font-weight: 700; padding: 0.4rem 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                + Add Classroom
+              </button>
               <button type="button" class="btn btn-outline btn-sm btn-edit-prog" data-prog-id="${prog.id}" title="Edit Section Name & Code" style="display: flex; align-items: center; gap: 0.35rem; font-weight: 700; padding: 0.4rem 0.85rem;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                 Edit Section
@@ -174,109 +170,102 @@ export async function renderSectionsModule(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- Categories & Classrooms Grid -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.5rem;">
-        ${progSections.map(sec => {
-          const secClassrooms = classrooms.filter(c => c.section_id === sec.id);
-          const genderBadge = sec.gender_eligibility === 'Boys' ? 'badge-leave' : sec.gender_eligibility === 'Girls' ? 'badge-pending' : 'badge-active';
+      <!-- Classrooms Grid (Each card is a Classroom) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        ${progClassrooms.map(cls => {
+          const genderBadge = cls.gender_eligibility === 'Boys' ? 'badge-leave' : cls.gender_eligibility === 'Girls' ? 'badge-pending' : 'badge-active';
 
           return `
-            <div class="card-panel" style="margin-bottom: 0; border: 1.5px solid var(--border-subtle); display: flex; flex-direction: column;">
-              <!-- Category Header -->
-              <div class="card-panel-header" style="background: var(--bg-surface-subtle); padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
-                <div>
-                  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                    <h4 style="font-size: 0.95rem; font-weight: 800; color: #0F172A; margin: 0;">${sec.name}</h4>
-                    <span class="badge ${genderBadge}" style="font-size: 0.7rem; padding: 0.15rem 0.5rem;">${sec.gender_eligibility}</span>
-                  </div>
-                  <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: inline-block; margin-top: 0.25rem;">
-                    ${secClassrooms.length} Classroom${secClassrooms.length !== 1 ? 's' : ''} Configured
-                  </span>
-                </div>
-
-                ${canManage ? `
-                  <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <button type="button" class="btn btn-outline btn-sm btn-edit-sec" data-sec-id="${sec.id}" title="Edit Category" style="padding: 0.35rem 0.6rem; font-size: 0.75rem; display: flex; align-items: center; gap: 0.3rem;">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                      Edit
-                    </button>
-                    <button type="button" class="btn btn-outline btn-sm btn-delete-sec" data-sec-id="${sec.id}" title="Delete Category" style="color: #DC2626; border-color: #FECACA; padding: 0.35rem 0.6rem; font-size: 0.75rem; display: flex; align-items: center; gap: 0.3rem;">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      Delete
-                    </button>
-                  </div>
-                ` : ''}
-              </div>
-
-              <!-- Category Classrooms List -->
-              <div class="card-panel-body" style="padding: 1.15rem; flex: 1; display: flex; flex-direction: column;">
-                <div style="display: flex; flex-direction: column; gap: 0.75rem; flex: 1;">
-                  ${secClassrooms.map(c => `
-                    <div style="background: var(--bg-surface); border: 1.5px solid var(--border-subtle); border-radius: 12px; padding: 0.85rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; transition: border-color var(--transition-fast);">
-                      <div style="min-width: 0;">
-                        <strong style="color: #0F172A; font-size: 0.9rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.name}</strong>
-                        <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">
-                          Room: <strong>${c.room_number || 'Room'}</strong> • Capacity: <strong>${c.capacity}</strong>
-                        </div>
-                      </div>
-
-                      <div style="display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">
-                        <button type="button" class="btn btn-outline btn-sm btn-manage-cls" data-cls-id="${c.id}" title="Manage Roster & Roll-Call" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">
-                          Manage
-                        </button>
-                        ${canManage ? `
-                          <button type="button" class="btn btn-outline btn-sm btn-edit-cls" data-cls-id="${c.id}" title="Edit Classroom" style="padding: 0.35rem 0.55rem; color: #475569;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                          </button>
-                          <button type="button" class="btn btn-outline btn-sm btn-delete-cls" data-cls-id="${c.id}" title="Delete Classroom" style="padding: 0.35rem 0.55rem; color: #DC2626; border-color: #FECACA;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                          </button>
-                        ` : ''}
-                      </div>
+            <div class="card-panel classroom-card" style="margin-bottom: 0; border: 1.5px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: space-between; border-radius: 16px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.15s ease, box-shadow 0.15s ease;">
+              <div style="padding: 1.25rem;">
+                <!-- Card Top: Name, Gender Badge & Edit/Delete -->
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem;">
+                  <div style="min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                      <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A; line-height: 1.3;">${cls.name}</h4>
+                      <span class="badge ${genderBadge}" style="font-size: 0.7rem; padding: 0.15rem 0.5rem;">${cls.gender_eligibility || 'Mixed'}</span>
                     </div>
-                  `).join('') || `
-                    <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 1.25rem; background: #F8FAFC; border: 1.5px dashed var(--border-medium); border-radius: 10px;">
-                      No classrooms configured under this category yet.
-                    </div>
-                  `}
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; display: inline-block; margin-top: 0.25rem;">
+                      Section: <strong>${prog.name}</strong>
+                    </span>
+                  </div>
 
                   ${canManage ? `
-                    <button type="button" class="btn btn-outline btn-sm btn-quick-add-cls" data-sec-id="${sec.id}" style="width: 100%; border-style: dashed; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem; color: #059669; border-color: #A7F3D0; font-weight: 700; margin-top: 0.35rem; border-radius: 10px;">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Add Classroom to ${sec.name}
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">
+                      <button type="button" class="btn btn-outline btn-sm btn-edit-cls" data-cls-id="${cls.id}" title="Edit Classroom" style="padding: 0.35rem 0.6rem; font-size: 0.78rem; display: flex; align-items: center; gap: 0.25rem; font-weight: 600;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        Edit
+                      </button>
+                      <button type="button" class="btn btn-outline btn-sm btn-delete-cls" data-cls-id="${cls.id}" title="Delete Classroom" style="color: #DC2626; border-color: #FECACA; padding: 0.35rem 0.6rem; font-size: 0.78rem; display: flex; align-items: center; gap: 0.25rem; font-weight: 600;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Delete
+                      </button>
+                    </div>
                   ` : ''}
                 </div>
+
+                <!-- Room Number & Capacity Info Box -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: #F8FAFC; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.75rem 0.85rem;">
+                  <div>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; display: block; letter-spacing: 0.03em;">Room / Hall</span>
+                    <span style="font-size: 0.95rem; font-weight: 700; color: #0F172A;">${cls.room_number || 'Room'}</span>
+                  </div>
+                  <div>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; display: block; letter-spacing: 0.03em;">Capacity</span>
+                    <span style="font-size: 0.95rem; font-weight: 700; color: #0F172A;">${cls.capacity || 35} Seats</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card Footer: Direct Navigation Actions -->
+              <div style="background: var(--bg-surface-subtle); border-top: 1px solid var(--border-subtle); padding: 0.75rem 1.25rem; display: flex; gap: 0.5rem; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button type="button" class="btn btn-outline btn-sm btn-att-cls" data-cls-id="${cls.id}" style="flex: 1; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  Attendance
+                </button>
+                <button type="button" class="btn btn-outline btn-sm btn-manage-cls" data-cls-id="${cls.id}" style="flex: 1; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Assign Students
+                </button>
               </div>
             </div>
           `;
         }).join('')}
 
-        <!-- Quick Add Category Card -->
+        <!-- Quick Add Classroom Card at end of grid -->
         ${canManage ? `
-          <div class="card-panel" id="card-quick-add-sec" style="border: 2px dashed #CBD5E1; background: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; cursor: pointer; text-align: center; padding: 1.5rem; border-radius: 16px; transition: all var(--transition-fast);">
+          <div class="card-panel" id="card-quick-add-cls" style="border: 2px dashed #CBD5E1; background: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px; cursor: pointer; text-align: center; padding: 1.5rem; border-radius: 16px; transition: all 0.2s ease;">
             <div style="width: 44px; height: 44px; border-radius: 50%; background: #E2E8F0; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; color: #059669;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </div>
-            <strong style="color: #0F172A; font-size: 0.95rem;">+ Add Category under ${prog.name}</strong>
-            <p style="font-size: 0.78rem; color: #64748B; margin-top: 0.25rem; max-width: 240px; margin-bottom: 0;">Create another division or category</p>
+            <strong style="color: #0F172A; font-size: 0.95rem;">+ Add Classroom</strong>
+            <p style="font-size: 0.78rem; color: #64748B; margin-top: 0.25rem; max-width: 220px; margin-bottom: 0;">Add another classroom to ${prog.name}</p>
           </div>
         ` : ''}
       </div>
     `;
 
-    // Manage Classroom Click
-    viewContainer.querySelectorAll('.btn-manage-cls').forEach(btn => {
+    // Banner Add Classroom Click
+    viewContainer.querySelector('.btn-quick-add-cls-banner')?.addEventListener('click', () => {
+      openAddClassroomModal();
+    });
+
+    // Card Quick Add Classroom Click
+    viewContainer.querySelector('#card-quick-add-cls')?.addEventListener('click', () => {
+      openAddClassroomModal();
+    });
+
+    // Take Attendance Click
+    viewContainer.querySelectorAll('.btn-att-cls').forEach(btn => {
       btn.addEventListener('click', () => {
-        onNavigate('assignments');
+        onNavigate('attendance');
       });
     });
 
-    // Quick Add Classroom from Section card button
-    viewContainer.querySelectorAll('.btn-quick-add-cls').forEach(btn => {
+    // Assign Students Click
+    viewContainer.querySelectorAll('.btn-manage-cls').forEach(btn => {
       btn.addEventListener('click', () => {
-        const secId = btn.getAttribute('data-sec-id');
-        openAddClassroomModal(secId);
+        onNavigate('assignments');
       });
     });
 
@@ -288,38 +277,6 @@ export async function renderSectionsModule(container, { onNavigate }) {
     // Delete Section (Program)
     viewContainer.querySelector('.btn-delete-prog')?.addEventListener('click', () => {
       handleDeleteProgram(prog.id);
-    });
-
-    // Edit Category (Child Section)
-    viewContainer.querySelectorAll('.btn-edit-sec').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const secId = btn.getAttribute('data-sec-id');
-        openEditSectionModal(secId);
-      });
-    });
-
-    // Delete Category (Child Section)
-    viewContainer.querySelectorAll('.btn-delete-sec').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const secId = btn.getAttribute('data-sec-id');
-        const sec = sections.find(s => s.id === secId);
-        if (!sec) return;
-
-        const secClassrooms = classrooms.filter(c => c.section_id === sec.id);
-        const confirmed = await confirmDialog({
-          title: 'Delete Category',
-          message: `Are you sure you want to remove category "${sec.name}"? All ${secClassrooms.length} classroom(s) configured inside it will also be permanently deleted.`,
-          confirmText: 'Delete Category',
-          isDanger: true
-        });
-
-        if (confirmed) {
-          await db.deleteSection(secId);
-          toast.success(`Category "${sec.name}" removed successfully.`);
-          await refreshData();
-          renderFullUI();
-        }
-      });
     });
 
     // Edit Classroom Click
@@ -339,7 +296,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
         const confirmed = await confirmDialog({
           title: 'Delete Classroom',
-          message: `Are you sure you want to remove classroom "${cls.name}" (${cls.room_number || 'Room'})?`,
+          message: `Are you sure you want to permanently delete classroom "${cls.name}" (${cls.room_number || 'Room'})?`,
           confirmText: 'Delete Classroom',
           isDanger: true
         });
@@ -348,18 +305,13 @@ export async function renderSectionsModule(container, { onNavigate }) {
           await db.deleteClassroom(clsId);
           toast.success(`Classroom "${cls.name}" removed successfully.`);
           await refreshData();
-          renderActiveProgramView();
+          renderFullUI();
         }
       });
     });
-
-    // Quick Add Category card click
-    viewContainer.querySelector('#card-quick-add-sec')?.addEventListener('click', () => {
-      openAddSectionModal();
-    });
   }
 
-  // --- PROGRAM / SECTION LEVEL ACTIONS ---
+  // --- SECTION LEVEL ACTIONS ---
 
   // Handle Delete Program/Section
   async function handleDeleteProgram(progId) {
@@ -373,7 +325,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
     const confirmed = await confirmDialog({
       title: 'Delete Section',
-      message: `Are you sure you want to permanently delete section "${prog.name}"? All categories and classrooms configured under it will also be removed.`,
+      message: `Are you sure you want to permanently delete section "${prog.name}"? All classrooms configured under it will also be removed.`,
       confirmText: 'Delete Section',
       isDanger: true
     });
@@ -390,7 +342,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
     }
   }
 
-  // Modal: Add New Section (Program)
+  // Modal: Add New Section
   function openAddProgramModal() {
     openModal({
       title: 'Create New Section',
@@ -425,13 +377,6 @@ export async function renderSectionsModule(container, { onNavigate }) {
           }
 
           const created = await db.addProgram({ name, code, description });
-          // Automatically add a default category inside this new section so classrooms can be added immediately
-          await db.addSection({
-            program_id: created.id,
-            name: `${name} – General Batch`,
-            gender_eligibility: 'Mixed'
-          });
-
           toast.success(`Section "${name}" created successfully.`);
           close();
           selectedProgramId = created.id;
@@ -442,7 +387,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
     });
   }
 
-  // Modal: Edit Section (Program)
+  // Modal: Edit Section
   function openEditProgramModal(progId) {
     const prog = programs.find(p => p.id === progId);
     if (!prog) return;
@@ -489,126 +434,42 @@ export async function renderSectionsModule(container, { onNavigate }) {
     });
   }
 
-  // --- CHILD CATEGORY & CLASSROOM MODALS ---
-
-  // Add Category Modal
-  function openAddSectionModal() {
-    const prog = programs.find(p => p.id === selectedProgramId) || programs[0];
-    openModal({
-      title: `Create Category under ${prog?.name || 'Section'}`,
-      contentHtml: `
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label required">Category / Division Name</label>
-          <input type="text" id="sec-name-input" class="form-control" placeholder="e.g. Boys Moral Class – Category 3, Coaching Group 4" required />
-        </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
-          <label class="form-label required">Gender Eligibility</label>
-          <select id="sec-gender-select" class="form-control">
-            <option value="Mixed">Mixed (Boys & Girls)</option>
-            <option value="Boys">Boys Only</option>
-            <option value="Girls">Girls Only</option>
-          </select>
-        </div>
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-          <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancel</button>
-          <button type="button" class="btn btn-primary" id="btn-save-section">Create Category</button>
-        </div>
-      `,
-      onMount: ({ container: modalBody, close }) => {
-        modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
-        modalBody.querySelector('#btn-save-section')?.addEventListener('click', async () => {
-          const name = modalBody.querySelector('#sec-name-input').value.trim();
-          const gender = modalBody.querySelector('#sec-gender-select').value;
-          if (!name) {
-            toast.error('Please enter a category name.');
-            return;
-          }
-          await db.addSection({ program_id: selectedProgramId, name, gender_eligibility: gender });
-          toast.success(`Category "${name}" added.`);
-          close();
-          await refreshData();
-          renderActiveProgramView();
-        });
-      }
-    });
-  }
-
-  // Edit Category Modal
-  function openEditSectionModal(sectionId) {
-    const sec = sections.find(s => s.id === sectionId);
-    if (!sec) return;
-
-    openModal({
-      title: `Edit Category — ${sec.name}`,
-      contentHtml: `
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label required">Category / Division Name</label>
-          <input type="text" id="edit-sec-name-input" class="form-control" value="${sec.name}" required />
-        </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
-          <label class="form-label required">Gender Eligibility</label>
-          <select id="edit-sec-gender-select" class="form-control">
-            <option value="Mixed" ${sec.gender_eligibility === 'Mixed' ? 'selected' : ''}>Mixed (Boys & Girls)</option>
-            <option value="Boys" ${sec.gender_eligibility === 'Boys' ? 'selected' : ''}>Boys Only</option>
-            <option value="Girls" ${sec.gender_eligibility === 'Girls' ? 'selected' : ''}>Girls Only</option>
-          </select>
-        </div>
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-          <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancel</button>
-          <button type="button" class="btn btn-primary" id="btn-save-edit-section">Save Changes</button>
-        </div>
-      `,
-      onMount: ({ container: modalBody, close }) => {
-        modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
-        modalBody.querySelector('#btn-save-edit-section')?.addEventListener('click', async () => {
-          const name = modalBody.querySelector('#edit-sec-name-input').value.trim();
-          const gender = modalBody.querySelector('#edit-sec-gender-select').value;
-          if (!name) {
-            toast.error('Please enter a category name.');
-            return;
-          }
-          await db.updateSection(sectionId, { name, gender_eligibility: gender });
-          toast.success(`Category "${name}" updated.`);
-          close();
-          await refreshData();
-          renderActiveProgramView();
-        });
-      }
-    });
-  }
+  // --- CLASSROOM MODALS ---
 
   // Add Classroom Modal
-  function openAddClassroomModal(preferredSectionId = null) {
-    const progSections = sections.filter(s => s.program_id === selectedProgramId);
-    if (progSections.length === 0) {
-      toast.error('Please create at least one category under this section before adding classrooms.');
-      return;
-    }
-
-    const defaultSecId = preferredSectionId || progSections[0]?.id || '';
+  function openAddClassroomModal() {
+    const currentProg = programs.find(p => p.id === selectedProgramId) || programs[0];
 
     openModal({
-      title: 'Create Classroom',
+      title: `Add Classroom to ${currentProg ? currentProg.name : 'Section'}`,
       contentHtml: `
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label required">Parent Category</label>
-          <select id="cls-sec-select" class="form-control">
-            ${progSections.map(s => `<option value="${s.id}" ${s.id === defaultSecId ? 'selected' : ''}>${s.name} (${s.gender_eligibility})</option>`).join('')}
+          <label class="form-label required">Section</label>
+          <select id="cls-prog-select" class="form-control">
+            ${programs.map(p => `<option value="${p.id}" ${p.id === selectedProgramId ? 'selected' : ''}>${p.name}</option>`).join('')}
           </select>
         </div>
         <div class="form-group" style="margin-bottom: 1rem;">
           <label class="form-label required">Classroom Name</label>
-          <input type="text" id="cls-name-input" class="form-control" placeholder="e.g. Moral Hall A3, Coaching Lab 2" required />
+          <input type="text" id="cls-name-input" class="form-control" placeholder="e.g. Hostel Study Lab 3, Coaching Hall 2, Room 10A" required />
         </div>
-        <div class="form-grid" style="margin-bottom: 1.5rem;">
+        <div class="form-grid" style="margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
-            <label class="form-label">Physical Room Identifier</label>
-            <input type="text" id="cls-room-input" class="form-control" placeholder="e.g. Room 103, Block B" />
+            <label class="form-label">Room / Hall Identifier</label>
+            <input type="text" id="cls-room-input" class="form-control" placeholder="e.g. Room 106, Hall B" />
           </div>
           <div class="form-group">
             <label class="form-label">Student Capacity</label>
             <input type="number" id="cls-cap-input" class="form-control" value="35" min="1" max="150" />
           </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label required">Gender Eligibility</label>
+          <select id="cls-gender-select" class="form-control">
+            <option value="Mixed">Mixed (Boys & Girls)</option>
+            <option value="Boys">Boys Only</option>
+            <option value="Girls">Girls Only</option>
+          </select>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
           <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancel</button>
@@ -618,21 +479,30 @@ export async function renderSectionsModule(container, { onNavigate }) {
       onMount: ({ container: modalBody, close }) => {
         modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
         modalBody.querySelector('#btn-save-classroom')?.addEventListener('click', async () => {
-          const section_id = modalBody.querySelector('#cls-sec-select').value;
+          const progId = modalBody.querySelector('#cls-prog-select').value;
           const name = modalBody.querySelector('#cls-name-input').value.trim();
           const room_number = modalBody.querySelector('#cls-room-input').value.trim();
           const capacity = modalBody.querySelector('#cls-cap-input').value;
+          const gender_eligibility = modalBody.querySelector('#cls-gender-select').value;
 
           if (!name) {
             toast.error('Please enter a classroom name.');
             return;
           }
 
-          await db.addClassroom({ section_id, name, room_number, capacity });
-          toast.success(`Classroom "${name}" created.`);
+          await db.addClassroom({
+            program_id: progId,
+            name,
+            room_number,
+            capacity,
+            gender_eligibility
+          });
+
+          toast.success(`Classroom "${name}" created successfully.`);
           close();
+          selectedProgramId = progId;
           await refreshData();
-          renderActiveProgramView();
+          renderFullUI();
         });
       }
     });
@@ -643,30 +513,38 @@ export async function renderSectionsModule(container, { onNavigate }) {
     const cls = classrooms.find(c => c.id === classroomId);
     if (!cls) return;
 
-    const progSections = sections.filter(s => s.program_id === selectedProgramId);
+    const currentProgId = cls.program_id || selectedProgramId;
 
     openModal({
       title: `Edit Classroom — ${cls.name}`,
       contentHtml: `
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label required">Category</label>
-          <select id="edit-cls-sec-select" class="form-control">
-            ${progSections.map(s => `<option value="${s.id}" ${s.id === cls.section_id ? 'selected' : ''}>${s.name} (${s.gender_eligibility})</option>`).join('')}
+          <label class="form-label required">Section</label>
+          <select id="edit-cls-prog-select" class="form-control">
+            ${programs.map(p => `<option value="${p.id}" ${p.id === currentProgId ? 'selected' : ''}>${p.name}</option>`).join('')}
           </select>
         </div>
         <div class="form-group" style="margin-bottom: 1rem;">
           <label class="form-label required">Classroom Name</label>
           <input type="text" id="edit-cls-name-input" class="form-control" value="${cls.name}" required />
         </div>
-        <div class="form-grid" style="margin-bottom: 1.5rem;">
+        <div class="form-grid" style="margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
-            <label class="form-label">Physical Room Identifier</label>
+            <label class="form-label">Room / Hall Identifier</label>
             <input type="text" id="edit-cls-room-input" class="form-control" value="${cls.room_number || ''}" placeholder="e.g. Room 101" />
           </div>
           <div class="form-group">
             <label class="form-label">Student Capacity</label>
             <input type="number" id="edit-cls-cap-input" class="form-control" value="${cls.capacity || 35}" min="1" max="150" />
           </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label required">Gender Eligibility</label>
+          <select id="edit-cls-gender-select" class="form-control">
+            <option value="Mixed" ${(cls.gender_eligibility || 'Mixed') === 'Mixed' ? 'selected' : ''}>Mixed (Boys & Girls)</option>
+            <option value="Boys" ${cls.gender_eligibility === 'Boys' ? 'selected' : ''}>Boys Only</option>
+            <option value="Girls" ${cls.gender_eligibility === 'Girls' ? 'selected' : ''}>Girls Only</option>
+          </select>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
           <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancel</button>
@@ -676,21 +554,29 @@ export async function renderSectionsModule(container, { onNavigate }) {
       onMount: ({ container: modalBody, close }) => {
         modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
         modalBody.querySelector('#btn-save-edit-classroom')?.addEventListener('click', async () => {
-          const section_id = modalBody.querySelector('#edit-cls-sec-select').value;
+          const progId = modalBody.querySelector('#edit-cls-prog-select').value;
           const name = modalBody.querySelector('#edit-cls-name-input').value.trim();
           const room_number = modalBody.querySelector('#edit-cls-room-input').value.trim();
           const capacity = modalBody.querySelector('#edit-cls-cap-input').value;
+          const gender_eligibility = modalBody.querySelector('#edit-cls-gender-select').value;
 
           if (!name) {
             toast.error('Please enter a classroom name.');
             return;
           }
 
-          await db.updateClassroom(classroomId, { section_id, name, room_number, capacity });
+          await db.updateClassroom(classroomId, {
+            program_id: progId,
+            name,
+            room_number,
+            capacity,
+            gender_eligibility
+          });
+
           toast.success(`Classroom "${name}" updated.`);
           close();
           await refreshData();
-          renderActiveProgramView();
+          renderFullUI();
         });
       }
     });

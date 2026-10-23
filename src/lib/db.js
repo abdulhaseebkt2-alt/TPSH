@@ -50,14 +50,14 @@ const INITIAL_SECTIONS = [
 ];
 
 const INITIAL_CLASSROOMS = [
-  { id: 'cls-1', section_id: 'sec-m1', name: 'Moral Hall A1', room_number: '101', capacity: 35 },
-  { id: 'cls-2', section_id: 'sec-m2', name: 'Moral Hall A2', room_number: '102', capacity: 35 },
-  { id: 'cls-3', section_id: 'sec-m3', name: 'Girls Moral Hall G1', room_number: '201', capacity: 50 },
-  { id: 'cls-4', section_id: 'sec-hc1', name: 'Hostel Study Lab 1', room_number: '105', capacity: 30 },
-  { id: 'cls-5', section_id: 'sec-hc2', name: 'Hostel Study Lab 2', room_number: '106', capacity: 30 },
-  { id: 'cls-6', section_id: 'sec-hc3', name: 'Girls Coaching Hall', room_number: '205', capacity: 45 },
-  { id: 'cls-7', section_id: 'sec-sc1', name: 'Main Academic Lab 1', room_number: '301', capacity: 40 },
-  { id: 'cls-8', section_id: 'sec-sc2', name: 'Main Academic Lab 2', room_number: '302', capacity: 40 }
+  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', room_number: '101', capacity: 35, gender_eligibility: 'Boys' },
+  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', room_number: '102', capacity: 35, gender_eligibility: 'Boys' },
+  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', room_number: '201', capacity: 50, gender_eligibility: 'Girls' },
+  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Hostel Study Lab 1', room_number: '105', capacity: 30, gender_eligibility: 'Boys' },
+  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', room_number: '106', capacity: 30, gender_eligibility: 'Boys' },
+  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', room_number: '205', capacity: 45, gender_eligibility: 'Girls' },
+  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', room_number: '301', capacity: 40, gender_eligibility: 'Mixed' },
+  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', room_number: '302', capacity: 40, gender_eligibility: 'Mixed' }
 ];
 
 const INITIAL_CLASSES = [
@@ -989,7 +989,47 @@ class DatabaseService {
   }
 
   async getClassrooms() {
-    return this.get('tps_classrooms') || [];
+    let classrooms = this.get('tps_classrooms') || [];
+    let sections = this.get('tps_sections') || [];
+    let modified = false;
+
+    // Harmonize program_id and gender_eligibility from backing sections if missing
+    classrooms.forEach(c => {
+      if (!c.program_id && c.section_id) {
+        const sec = sections.find(s => s.id === c.section_id);
+        if (sec) {
+          c.program_id = sec.program_id;
+          if (!c.gender_eligibility) c.gender_eligibility = sec.gender_eligibility || 'Mixed';
+          modified = true;
+        }
+      }
+      if (!c.gender_eligibility) {
+        c.gender_eligibility = 'Mixed';
+      }
+    });
+
+    // Auto-bridge any section that was created (like 'gggg' created by the user!) into a classroom
+    sections.forEach(s => {
+      const hasCls = classrooms.some(c => c.section_id === s.id || c.name === s.name);
+      if (!hasCls && s.program_id) {
+        classrooms.push({
+          id: 'cls-' + s.id,
+          section_id: s.id,
+          program_id: s.program_id,
+          name: s.name,
+          room_number: 'Room 101',
+          capacity: 35,
+          gender_eligibility: s.gender_eligibility || 'Mixed'
+        });
+        modified = true;
+      }
+    });
+
+    if (modified) {
+      this.set('tps_classrooms', classrooms);
+    }
+
+    return classrooms;
   }
 
   async addSection({ program_id, name, gender_eligibility }) {
@@ -1067,14 +1107,34 @@ class DatabaseService {
     return true;
   }
 
-  async addClassroom({ section_id, name, room_number, capacity }) {
+  async addClassroom({ program_id, section_id, name, room_number, capacity, gender_eligibility }) {
     const classrooms = this.get('tps_classrooms') || [];
+    let sections = this.get('tps_sections') || [];
+
+    let targetSecId = section_id;
+    if (!targetSecId && program_id) {
+      let sec = sections.find(s => s.program_id === program_id);
+      if (!sec) {
+        sec = {
+          id: 'sec-' + Date.now(),
+          program_id,
+          name: name,
+          gender_eligibility: gender_eligibility || 'Mixed'
+        };
+        sections.push(sec);
+        this.set('tps_sections', sections);
+      }
+      targetSecId = sec.id;
+    }
+
     const newCls = {
       id: 'cls-' + Date.now(),
-      section_id,
+      program_id: program_id || (sections.find(s => s.id === targetSecId)?.program_id) || '',
+      section_id: targetSecId || '',
       name,
       room_number: room_number || 'Room',
-      capacity: Number(capacity) || 35
+      capacity: Number(capacity) || 35,
+      gender_eligibility: gender_eligibility || 'Mixed'
     };
     classrooms.push(newCls);
     this.set('tps_classrooms', classrooms);
@@ -1083,8 +1143,8 @@ class DatabaseService {
       try {
         await supabase.from('classrooms').insert([{
           id: newCls.id,
-          section_id,
-          name,
+          section_id: newCls.section_id,
+          name: newCls.name,
           room_number: newCls.room_number,
           capacity: newCls.capacity
         }]);
@@ -1109,6 +1169,16 @@ class DatabaseService {
 
     classrooms[idx] = { ...classrooms[idx], ...sanitized };
     this.set('tps_classrooms', classrooms);
+
+    if (classrooms[idx].section_id) {
+      let sections = this.get('tps_sections') || [];
+      const secIdx = sections.findIndex(s => s.id === classrooms[idx].section_id);
+      if (secIdx !== -1) {
+        if (sanitized.name) sections[secIdx].name = sanitized.name;
+        if (sanitized.gender_eligibility) sections[secIdx].gender_eligibility = sanitized.gender_eligibility;
+        this.set('tps_sections', sections);
+      }
+    }
 
     if (supabase) {
       try {
