@@ -2593,3 +2593,16 @@ a {
 .perm-item.active .perm-switch::after {
   transform: translateX(20px);
 }
+
+/* Sections & Classrooms Enhancements */
+#card-quick-add-sec:hover {
+  border-color: #10B981 !important;
+  background: #F0FDF4 !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+}
+
+.btn-quick-add-cls:hover {
+  background: #ECFDF5 !important;
+  border-color: #059669 !important;
+  color: #047857 !important;
+}

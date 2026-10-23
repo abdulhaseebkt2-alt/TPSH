@@ -914,19 +914,19 @@ class DatabaseService {
 
   // --- SECTIONS & CLASSROOMS ---
   async getPrograms() {
-    return this.get('tps_programs');
+    return this.get('tps_programs') || [];
   }
 
   async getSections() {
-    return this.get('tps_sections');
+    return this.get('tps_sections') || [];
   }
 
   async getClassrooms() {
-    return this.get('tps_classrooms');
+    return this.get('tps_classrooms') || [];
   }
 
   async addSection({ program_id, name, gender_eligibility }) {
-    const sections = this.get('tps_sections');
+    const sections = this.get('tps_sections') || [];
     const newSection = {
       id: 'sec-' + Date.now(),
       program_id,
@@ -935,12 +935,73 @@ class DatabaseService {
     };
     sections.push(newSection);
     this.set('tps_sections', sections);
+
+    if (supabase) {
+      try {
+        await supabase.from('program_sections').insert([{
+          id: newSection.id,
+          program_id,
+          name,
+          gender_eligibility: newSection.gender_eligibility
+        }]);
+      } catch (err) {
+        console.warn('Supabase addSection error:', err);
+      }
+    }
+
     this.logAudit('CREATE_SECTION', 'program_sections', newSection.id, `Created section ${name}`);
     return newSection;
   }
 
+  async updateSection(sectionId, updates) {
+    let sections = this.get('tps_sections') || [];
+    const idx = sections.findIndex(s => s.id === sectionId);
+    if (idx === -1) return null;
+
+    sections[idx] = { ...sections[idx], ...updates };
+    this.set('tps_sections', sections);
+
+    if (supabase) {
+      try {
+        await supabase.from('program_sections').update(updates).eq('id', sectionId);
+      } catch (err) {
+        console.warn('Supabase updateSection error:', err);
+      }
+    }
+
+    this.logAudit('UPDATE_SECTION', 'program_sections', sectionId, `Updated section ${sections[idx].name}`);
+    return sections[idx];
+  }
+
+  async deleteSection(sectionId) {
+    let sections = this.get('tps_sections') || [];
+    const sec = sections.find(s => s.id === sectionId);
+    if (!sec) return false;
+
+    // Remove section
+    sections = sections.filter(s => s.id !== sectionId);
+    this.set('tps_sections', sections);
+
+    // Cascade delete any classrooms belonging to this section
+    let classrooms = this.get('tps_classrooms') || [];
+    classrooms = classrooms.filter(c => c.section_id !== sectionId);
+    this.set('tps_classrooms', classrooms);
+
+    if (supabase) {
+      try {
+        await supabase.from('classrooms').delete().eq('section_id', sectionId);
+        await supabase.from('program_sections').delete().eq('id', sectionId);
+      } catch (err) {
+        console.warn('Supabase deleteSection error:', err);
+      }
+    }
+
+    this.logAudit('DELETE_SECTION', 'program_sections', sectionId, `Deleted section ${sec.name} and associated classrooms`);
+    return true;
+  }
+
   async addClassroom({ section_id, name, room_number, capacity }) {
-    const classrooms = this.get('tps_classrooms');
+    const classrooms = this.get('tps_classrooms') || [];
     const newCls = {
       id: 'cls-' + Date.now(),
       section_id,
@@ -950,8 +1011,68 @@ class DatabaseService {
     };
     classrooms.push(newCls);
     this.set('tps_classrooms', classrooms);
+
+    if (supabase) {
+      try {
+        await supabase.from('classrooms').insert([{
+          id: newCls.id,
+          section_id,
+          name,
+          room_number: newCls.room_number,
+          capacity: newCls.capacity
+        }]);
+      } catch (err) {
+        console.warn('Supabase addClassroom error:', err);
+      }
+    }
+
     this.logAudit('CREATE_CLASSROOM', 'classrooms', newCls.id, `Created classroom ${name}`);
     return newCls;
+  }
+
+  async updateClassroom(classroomId, updates) {
+    let classrooms = this.get('tps_classrooms') || [];
+    const idx = classrooms.findIndex(c => c.id === classroomId);
+    if (idx === -1) return null;
+
+    const sanitized = { ...updates };
+    if (sanitized.capacity !== undefined) {
+      sanitized.capacity = Number(sanitized.capacity) || 35;
+    }
+
+    classrooms[idx] = { ...classrooms[idx], ...sanitized };
+    this.set('tps_classrooms', classrooms);
+
+    if (supabase) {
+      try {
+        await supabase.from('classrooms').update(sanitized).eq('id', classroomId);
+      } catch (err) {
+        console.warn('Supabase updateClassroom error:', err);
+      }
+    }
+
+    this.logAudit('UPDATE_CLASSROOM', 'classrooms', classroomId, `Updated classroom ${classrooms[idx].name}`);
+    return classrooms[idx];
+  }
+
+  async deleteClassroom(classroomId) {
+    let classrooms = this.get('tps_classrooms') || [];
+    const cls = classrooms.find(c => c.id === classroomId);
+    if (!cls) return false;
+
+    classrooms = classrooms.filter(c => c.id !== classroomId);
+    this.set('tps_classrooms', classrooms);
+
+    if (supabase) {
+      try {
+        await supabase.from('classrooms').delete().eq('id', classroomId);
+      } catch (err) {
+        console.warn('Supabase deleteClassroom error:', err);
+      }
+    }
+
+    this.logAudit('DELETE_CLASSROOM', 'classrooms', classroomId, `Deleted classroom ${cls.name}`);
+    return true;
   }
 
   // --- ATTENDANCE ---

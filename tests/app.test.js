@@ -400,4 +400,61 @@ describe('6. User Profile Creation & Management Tests', () => {
     expect(calculateLateDays('2026-10-20', '2026-10-22')).toBe(2);
     expect(calculateLateDays('20.Oct.2026', '22.Oct.2026')).toBe(2);
   });
+
+  it('Verifies Sections and Classrooms Add, Update, and Remove options with cascade deletion', async () => {
+    // 1. Add Section
+    const newSec = await db.addSection({
+      program_id: 'prog-1',
+      name: 'Test Moral Category 9',
+      gender_eligibility: 'Boys'
+    });
+    expect(newSec).toBeDefined();
+    expect(newSec.name).toBe('Test Moral Category 9');
+
+    // 2. Add Classroom under section
+    const newCls = await db.addClassroom({
+      section_id: newSec.id,
+      name: 'Test Classroom 901',
+      room_number: '901',
+      capacity: 40
+    });
+    expect(newCls).toBeDefined();
+    expect(newCls.section_id).toBe(newSec.id);
+    expect(newCls.name).toBe('Test Classroom 901');
+
+    // 3. Update Classroom
+    const updatedCls = await db.updateClassroom(newCls.id, {
+      name: 'Renamed Classroom 901',
+      capacity: 45
+    });
+    expect(updatedCls.name).toBe('Renamed Classroom 901');
+    expect(updatedCls.capacity).toBe(45);
+
+    // 4. Update Section
+    const updatedSec = await db.updateSection(newSec.id, {
+      name: 'Renamed Moral Category 9'
+    });
+    expect(updatedSec.name).toBe('Renamed Moral Category 9');
+
+    // 5. Delete Classroom directly
+    const deleteClsRes = await db.deleteClassroom(newCls.id);
+    expect(deleteClsRes).toBe(true);
+    const classroomsAfter = await db.getClassrooms();
+    expect(classroomsAfter.some(c => c.id === newCls.id)).toBe(false);
+
+    // 6. Add another classroom and test cascade delete when section is deleted
+    const clsCascade = await db.addClassroom({
+      section_id: newSec.id,
+      name: 'Cascade Classroom',
+      room_number: '902',
+      capacity: 30
+    });
+    const deleteSecRes = await db.deleteSection(newSec.id);
+    expect(deleteSecRes).toBe(true);
+
+    const sectionsAfter = await db.getSections();
+    const classroomsAfterCascade = await db.getClassrooms();
+    expect(sectionsAfter.some(s => s.id === newSec.id)).toBe(false);
+    expect(classroomsAfterCascade.some(c => c.id === clsCascade.id)).toBe(false);
+  });
 });
