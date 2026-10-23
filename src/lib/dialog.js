@@ -1,4 +1,5 @@
 // TPS Hostel ERP Dialog & Modal Manager
+import { initAllWheelTimePickers } from './wheelTimePicker.js';
 
 export function confirmDialog({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', isDanger = false }) {
   return new Promise((resolve) => {
@@ -69,11 +70,16 @@ export function openModal({ title, contentHtml, size = 'md', onMount, onClose })
     if (e.target === overlay) close();
   });
 
+  const contentContainer = overlay.querySelector('#modal-content-container');
+  initAllWheelTimePickers(contentContainer);
+
   if (onMount) {
     onMount({
-      container: overlay.querySelector('#modal-content-container'),
+      container: contentContainer,
       close
     });
+    // Ensure any time inputs created dynamically in onMount are also upgraded
+    initAllWheelTimePickers(contentContainer);
   }
 
   return { close };

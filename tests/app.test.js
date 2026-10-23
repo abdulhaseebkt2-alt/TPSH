@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, getRBACMatrix, saveRBACMatrix, resetRBACMatrix } from '../src/lib/permissions.js';
+import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.js';
 import { db } from '../src/lib/db.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
@@ -513,5 +514,32 @@ describe('6. User Profile Creation & Management Tests', () => {
 
     // Clean up program
     await db.deleteProgram(prog.id);
+  });
+});
+
+describe('11. Wheel / Drum Time Picker Engine Tests', () => {
+  it('from24Hour correctly parses standard times into 12-hour values', () => {
+    expect(from24Hour('00:00')).toEqual({ hour: 12, minute: 0, period: 'AM' });
+    expect(from24Hour('06:30')).toEqual({ hour: 6, minute: 30, period: 'AM' });
+    expect(from24Hour('12:00')).toEqual({ hour: 12, minute: 0, period: 'PM' });
+    expect(from24Hour('20:00')).toEqual({ hour: 8, minute: 0, period: 'PM' });
+    expect(from24Hour('23:59')).toEqual({ hour: 11, minute: 59, period: 'PM' });
+    // Invalid / empty fallbacks
+    expect(from24Hour(null)).toEqual({ hour: 8, minute: 0, period: 'PM' });
+    expect(from24Hour('')).toEqual({ hour: 8, minute: 0, period: 'PM' });
+  });
+
+  it('to24Hour correctly converts 12-hour values back to 24-hour time strings', () => {
+    expect(to24Hour(12, 0, 'AM')).toBe('00:00');
+    expect(to24Hour(6, 30, 'AM')).toBe('06:30');
+    expect(to24Hour(12, 0, 'PM')).toBe('12:00');
+    expect(to24Hour(8, 0, 'PM')).toBe('20:00');
+    expect(to24Hour(11, 59, 'PM')).toBe('23:59');
+  });
+
+  it('format12Hour formats human-readable 12-hour AM/PM label', () => {
+    expect(format12Hour(8, 0, 'PM')).toBe('08:00 PM');
+    expect(format12Hour(12, 30, 'AM')).toBe('12:30 AM');
+    expect(format12Hour(6, 5, 'AM')).toBe('06:05 AM');
   });
 });
