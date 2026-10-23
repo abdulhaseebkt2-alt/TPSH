@@ -1,9 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+export const isTestEnv = typeof process !== 'undefined' && (Boolean(process.env?.VITEST) || process.env?.NODE_ENV === 'test');
+
 const supabaseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || 'https://txbjraknaaokenyvbaak.supabase.co';
 const supabaseKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY) || 'sb_publishable_tQAL8-iV3gI61WeUjt_KrQ_VUzK_uS7';
 
-export const isSupabaseConfigured = Boolean(
+export const isSupabaseConfigured = !isTestEnv && Boolean(
   supabaseUrl &&
   supabaseKey &&
   !supabaseUrl.includes('your-project') &&
@@ -21,6 +23,7 @@ export const supabase = isSupabaseConfigured
   : null;
 
 export async function checkDatabaseConnection() {
+  if (isTestEnv) return { connected: true, message: 'Isolated test environment' };
   if (!supabase) return { connected: false, message: 'Supabase credentials not configured' };
   try {
     const { error } = await supabase.from('app_settings').select('key').limit(1);

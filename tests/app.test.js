@@ -128,6 +128,9 @@ describe('3. Student Admissions & Lifecycle Database Tests', () => {
     expect(student.id).toBeDefined();
     expect(student.admission_number).toMatch(/^TPS-2026-\d{3}$/);
     expect(student.status).toBe('Active');
+
+    // Clean up
+    await db.deleteStudent(student.id);
   });
 
   it('Uploads student photo base64 to Supabase student-photos bucket and saves CDN URL', async () => {
@@ -229,6 +232,9 @@ describe('3. Student Admissions & Lifecycle Database Tests', () => {
     const restored = await db.endTemporaryBreak(student.id);
     expect(restored.status).toBe('Active');
     expect(restored.hostel_status).toBe('resident');
+
+    // Clean up
+    await db.deleteStudent(student.id);
   });
 
   it('Permanently deletes a single student and multiple students in batch', async () => {
