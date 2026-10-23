@@ -745,7 +745,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         </div>
         <div class="form-group" style="margin-bottom: 1.5rem;">
           <label class="form-label">Scope / Class Assignment</label>
-          <input type="text" id="modal-scope-input" class="form-control" placeholder="e.g. Moral Category 1, Boys Hostel Block A" />
+          <input type="text" id="modal-scope-input" class="form-control" placeholder="e.g. Hostel Moral Class, Study Lab 1, Boys Block A" />
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
           <button class="btn btn-primary" id="btn-confirm-approve">Save & Authorize Access</button>

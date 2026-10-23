@@ -405,11 +405,11 @@ describe('6. User Profile Creation & Management Tests', () => {
     // 1. Add Section
     const newSec = await db.addSection({
       program_id: 'prog-1',
-      name: 'Test Moral Category 9',
+      name: 'Test Moral Division 9',
       gender_eligibility: 'Boys'
     });
     expect(newSec).toBeDefined();
-    expect(newSec.name).toBe('Test Moral Category 9');
+    expect(newSec.name).toBe('Test Moral Division 9');
 
     // 2. Add Classroom under section
     const newCls = await db.addClassroom({
@@ -432,9 +432,9 @@ describe('6. User Profile Creation & Management Tests', () => {
 
     // 4. Update Section
     const updatedSec = await db.updateSection(newSec.id, {
-      name: 'Renamed Moral Category 9'
+      name: 'Renamed Moral Division 9'
     });
-    expect(updatedSec.name).toBe('Renamed Moral Category 9');
+    expect(updatedSec.name).toBe('Renamed Moral Division 9');
 
     // 5. Delete Classroom directly
     const deleteClsRes = await db.deleteClassroom(newCls.id);

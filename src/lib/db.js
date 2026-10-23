@@ -34,19 +34,19 @@ const INITIAL_PROGRAMS = [
 
 const INITIAL_SECTIONS = [
   // Moral
-  { id: 'sec-m1', program_id: 'prog-1', name: 'Boys Moral Class – Category 1', gender_eligibility: 'Boys' },
-  { id: 'sec-m2', program_id: 'prog-1', name: 'Boys Moral Class – Category 2', gender_eligibility: 'Boys' },
-  { id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Class – One combined class', gender_eligibility: 'Girls' },
+  { id: 'sec-m1', program_id: 'prog-1', name: 'Boys Moral Class 1', gender_eligibility: 'Boys' },
+  { id: 'sec-m2', program_id: 'prog-1', name: 'Boys Moral Class 2', gender_eligibility: 'Boys' },
+  { id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Class', gender_eligibility: 'Girls' },
   // Hostel Coaching
-  { id: 'sec-hc1', program_id: 'prog-2', name: 'Boys Hostel Coaching – Category 1', gender_eligibility: 'Boys' },
-  { id: 'sec-hc2', program_id: 'prog-2', name: 'Boys Hostel Coaching – Category 2', gender_eligibility: 'Boys' },
-  { id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Hostel Coaching – One combined class', gender_eligibility: 'Girls' },
+  { id: 'sec-hc1', program_id: 'prog-2', name: 'Boys Hostel Coaching 1', gender_eligibility: 'Boys' },
+  { id: 'sec-hc2', program_id: 'prog-2', name: 'Boys Hostel Coaching 2', gender_eligibility: 'Boys' },
+  { id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Hostel Coaching', gender_eligibility: 'Girls' },
   // School Coaching (Mixed)
-  { id: 'sec-sc1', program_id: 'prog-3', name: 'School Coaching Category 1', gender_eligibility: 'Mixed' },
-  { id: 'sec-sc2', program_id: 'prog-3', name: 'School Coaching Category 2', gender_eligibility: 'Mixed' },
-  { id: 'sec-sc3', program_id: 'prog-3', name: 'School Coaching Category 3', gender_eligibility: 'Mixed' },
-  { id: 'sec-sc4', program_id: 'prog-3', name: 'School Coaching Category 4', gender_eligibility: 'Mixed' },
-  { id: 'sec-sc5', program_id: 'prog-3', name: 'School Coaching Category 5', gender_eligibility: 'Mixed' }
+  { id: 'sec-sc1', program_id: 'prog-3', name: 'School Coaching Class 1', gender_eligibility: 'Mixed' },
+  { id: 'sec-sc2', program_id: 'prog-3', name: 'School Coaching Class 2', gender_eligibility: 'Mixed' },
+  { id: 'sec-sc3', program_id: 'prog-3', name: 'School Coaching Class 3', gender_eligibility: 'Mixed' },
+  { id: 'sec-sc4', program_id: 'prog-3', name: 'School Coaching Class 4', gender_eligibility: 'Mixed' },
+  { id: 'sec-sc5', program_id: 'prog-3', name: 'School Coaching Class 5', gender_eligibility: 'Mixed' }
 ];
 
 const INITIAL_CLASSROOMS = [
@@ -1006,17 +1006,22 @@ class DatabaseService {
       if (!c.gender_eligibility) {
         c.gender_eligibility = 'Mixed';
       }
+      if (c.name && /category/i.test(c.name)) {
+        c.name = c.name.replace(/–\s*category\s*/gi, 'Hall ').replace(/category\s*/gi, 'Class ').trim();
+        modified = true;
+      }
     });
 
     // Auto-bridge any section that was created (like 'gggg' created by the user!) into a classroom
     sections.forEach(s => {
       const hasCls = classrooms.some(c => c.section_id === s.id || c.name === s.name);
       if (!hasCls && s.program_id) {
+        const cleanName = (s.name || 'Classroom').replace(/–\s*category\s*/gi, 'Hall ').replace(/category\s*/gi, 'Class ').trim();
         classrooms.push({
           id: 'cls-' + s.id,
           section_id: s.id,
           program_id: s.program_id,
-          name: s.name,
+          name: cleanName,
           room_number: 'Room 101',
           capacity: 35,
           gender_eligibility: s.gender_eligibility || 'Mixed'
