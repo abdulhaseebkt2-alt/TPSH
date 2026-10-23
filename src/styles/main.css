@@ -2949,10 +2949,18 @@ a {
   border-radius: 12px;
 }
 
-/* Full Width Search Box */
-.assign-search-box {
-  position: relative;
+/* Desktop: Search Bar and Dropdowns in a Single Line */
+.assign-filters-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   width: 100%;
+}
+
+.assign-filters-wrapper .assign-search-box {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
 
 .assign-search-box input {
@@ -2981,16 +2989,16 @@ a {
   pointer-events: none;
 }
 
-/* Two Dropdowns Row: Class and Gender */
-.assign-dropdowns-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Two Dropdowns on Desktop */
+.assign-filters-wrapper .assign-dropdowns-row {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
-  width: 100%;
+  flex: 0 0 auto;
 }
 
 .assign-select {
-  height: 36px;
+  height: 38px;
   font-size: 0.82rem;
   font-weight: 500;
   color: #334155;
@@ -2999,7 +3007,7 @@ a {
   background-color: #FFFFFF;
   padding: 0.35rem 0.75rem;
   cursor: pointer;
-  width: 100%;
+  width: 155px;
 }
 
 .assign-select:focus {
@@ -3230,6 +3238,26 @@ a {
 
   .modal-dialog.assign-students-modal .modal-body {
     padding: 0.5rem 0.75rem 0.4rem;
+  }
+
+  .assign-filters-wrapper {
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .assign-filters-wrapper .assign-search-box {
+    width: 100%;
+  }
+
+  .assign-filters-wrapper .assign-dropdowns-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .assign-filters-wrapper .assign-dropdowns-row .assign-select {
+    width: 100%;
   }
 
   .assign-student-row {
