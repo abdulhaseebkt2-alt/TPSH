@@ -782,36 +782,10 @@ class App {
       window.location.hash = 'dashboard';
     }
 
-    const isPreviewingOtherRole = canSwitchRoles() && profile.role !== 'super_admin';
-    const displayRoleName = (profile.role || '').replace('_', ' ');
-
     this.appEl.innerHTML = `
       <aside class="sidebar ${this.sidebarMobileOpen ? 'mobile-open' : ''}" id="app-sidebar"></aside>
       <div class="main-wrapper">
         <div id="app-navbar"></div>
-        ${isPreviewingOtherRole ? `
-          <div class="dev-role-preview-banner" style="background: linear-gradient(90deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; padding: 0.55rem 1.25rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; border-bottom: 2px solid #10B981; z-index: 30; box-shadow: 0 2px 8px rgba(0,0,0,0.15); flex-wrap: wrap; gap: 0.5rem;">
-            <div style="display: flex; align-items: center; gap: 0.65rem;">
-              <span style="display: inline-flex; width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);"></span>
-              <span><strong>Developing Window:</strong> Previewing portal as <strong style="color: #34D399; text-transform: capitalize;">${displayRoleName}</strong> (${profile.full_name || profile.email})</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.6rem;">
-              <select id="banner-role-quick-switcher" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: var(--radius-sm); background: #334155; color: #FFFFFF; border: 1px solid #475569; font-weight: 600; cursor: pointer;">
-                <option value="super_admin">Return to Super Admin</option>
-                <option value="admin" ${profile.role === 'admin' ? 'selected' : ''}>Admin Window</option>
-                <option value="teacher" ${profile.role === 'teacher' ? 'selected' : ''}>Teacher Window</option>
-                <option value="mentor" ${profile.role === 'mentor' ? 'selected' : ''}>Hostel Mentor Window</option>
-                <option value="parent" ${profile.role === 'parent' ? 'selected' : ''}>Parent Window</option>
-                <option value="student" ${profile.role === 'student' ? 'selected' : ''}>Student Window</option>
-                <option value="hostel_leader" ${profile.role === 'hostel_leader' ? 'selected' : ''}>Hostel Leader Window</option>
-              </select>
-              <button id="banner-return-super-admin" style="background: #059669; color: #FFFFFF; border: none; border-radius: var(--radius-sm); padding: 0.3rem 0.75rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-                Return to Super Admin
-              </button>
-            </div>
-          </div>
-        ` : ''}
         <main class="content-area" id="app-content"></main>
       </div>
     `;
@@ -819,13 +793,6 @@ class App {
     const sidebarEl = this.appEl.querySelector('#app-sidebar');
     const navbarEl = this.appEl.querySelector('#app-navbar');
     const contentEl = this.appEl.querySelector('#app-content');
-
-    this.appEl.querySelector('#banner-role-quick-switcher')?.addEventListener('change', (e) => {
-      switchDevRole(e.target.value);
-    });
-    this.appEl.querySelector('#banner-return-super-admin')?.addEventListener('click', () => {
-      switchDevRole('super_admin');
-    });
 
     renderNavbar(navbarEl, {
       onToggleSidebar: () => {
