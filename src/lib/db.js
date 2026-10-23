@@ -391,18 +391,17 @@ class DatabaseService {
     // Cache latest in localStorage for offline availability
     this.setStorageItem('tps_students', JSON.stringify(mergedStudents));
 
-    // Trigger photo compression optimization in background if not already running
-    if (!this._optimizingPhotos) {
-      this.optimizeStoredPhotos();
-    }
-
     // Pull any offline IDB photos
     const idbPhotos = await getAllPhotosFromIDB();
 
-    return mergedStudents.map(s => {
+    let hasLocalPhotoSync = false;
+    const finalStudents = mergedStudents.map(s => {
       let photo = s.photo_url;
-      if (!photo && idbPhotos && idbPhotos[s.id]) {
-        photo = idbPhotos[s.id];
+      const localIdbPhoto = idbPhotos[s.id] || (s.admission_number && idbPhotos[s.admission_number]);
+      if (!photo && localIdbPhoto) {
+        photo = localIdbPhoto;
+        s.photo_url = photo;
+        hasLocalPhotoSync = true;
       }
       return {
         ...s,
@@ -410,6 +409,17 @@ class DatabaseService {
         school_class: normalizeClassPattern(s.school_class)
       };
     });
+
+    if (hasLocalPhotoSync) {
+      this.setStorageItem('tps_students', JSON.stringify(finalStudents));
+    }
+
+    // Trigger photo cloud sync and optimization in background if not already running
+    if (!this._optimizingPhotos) {
+      this.optimizeStoredPhotos();
+    }
+
+    return finalStudents;
   }
 
   async importStudents(studentsToImport) {
@@ -626,45 +636,50 @@ class DatabaseService {
       let needsResave = false;
 
       for (const s of students) {
-        let photo = s.photo_url || idbPhotos[s.id] || '';
+        let photo = s.photo_url || idbPhotos[s.id] || (s.admission_number && idbPhotos[s.admission_number]) || '';
         if (photo) {
           savePhotoToIDB(s.id, photo);
+          if (s.admission_number) savePhotoToIDB(s.admission_number, photo);
 
-          if (supabase && photo.startsWith('data:')) {
-            try {
-              const publicUrl = await uploadStudentPhotoToSupabase(s.admission_number || s.id, photo);
-              if (publicUrl && publicUrl.startsWith('http')) {
-                s.photo_url = publicUrl;
-                photo = publicUrl;
-                needsResave = true;
-                savePhotoToIDB(s.id, publicUrl);
+          if (supabase) {
+            if (photo.startsWith('data:')) {
+              try {
+                const publicUrl = await uploadStudentPhotoToSupabase(s.admission_number || s.id, photo);
+                if (publicUrl && publicUrl.startsWith('http')) {
+                  s.photo_url = publicUrl;
+                  photo = publicUrl;
+                  needsResave = true;
+                  savePhotoToIDB(s.id, publicUrl);
+                  if (s.admission_number) savePhotoToIDB(s.admission_number, publicUrl);
 
-                const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
-                if (isUuid) {
-                  supabase.from('students').update({ photo_url: publicUrl }).eq('id', s.id).then();
-                } else if (s.admission_number) {
-                  supabase.from('students').update({ photo_url: publicUrl }).eq('admission_number', s.admission_number).then();
+                  const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
+                  if (isUuid) {
+                    await supabase.from('students').update({ photo_url: publicUrl }).eq('id', s.id);
+                  } else if (s.admission_number) {
+                    await supabase.from('students').update({ photo_url: publicUrl }).eq('admission_number', s.admission_number);
+                  }
                 }
+              } catch (err) {
+                console.warn('optimizeStoredPhotos storage upload error:', err);
               }
-            } catch (err) {
-              console.warn('optimizeStoredPhotos storage upload error:', err);
-            }
-          } else if (photo.length > 25000 && photo.startsWith('data:')) {
-            try {
-              const compressed = await compressImage(photo, 280, 320, 0.75);
-              if (compressed && compressed.length < photo.length) {
-                s.photo_url = compressed;
+            } else if (photo.startsWith('http')) {
+              if (!s.photo_url || s.photo_url !== photo) {
+                s.photo_url = photo;
                 needsResave = true;
               }
-            } catch (e) {
-              console.warn('Could not compress photo for student:', s.id, e);
+              const isUuid = s.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.id);
+              if (isUuid) {
+                supabase.from('students').update({ photo_url: photo }).eq('id', s.id).then();
+              } else if (s.admission_number) {
+                supabase.from('students').update({ photo_url: photo }).eq('admission_number', s.admission_number).then();
+              }
             }
           }
         }
       }
 
       if (needsResave) {
-        this.set('tps_students', students);
+        this.setStorageItem('tps_students', JSON.stringify(students));
       }
     } catch (err) {
       console.warn('optimizeStoredPhotos error:', err);
@@ -812,6 +827,7 @@ class DatabaseService {
 
     if (photo) {
       savePhotoToIDB(createdStudent.id, photo);
+      savePhotoToIDB(admissionNumber, photo);
     }
 
     const students = this.get('tps_students');
@@ -831,21 +847,32 @@ class DatabaseService {
         sanitizedUpdates.photo_url = await compressImage(sanitizedUpdates.photo_url, 280, 320, 0.75);
       }
       if ((supabase || isTestEnv) && sanitizedUpdates.photo_url.startsWith('data:')) {
-        const uploadedUrl = await uploadStudentPhotoToSupabase(sanitizedUpdates.admission_number || id, sanitizedUpdates.photo_url);
-        if (uploadedUrl && uploadedUrl.startsWith('http')) {
-          sanitizedUpdates.photo_url = uploadedUrl;
+        try {
+          const uploadedUrl = await uploadStudentPhotoToSupabase(sanitizedUpdates.admission_number || id, sanitizedUpdates.photo_url);
+          if (uploadedUrl && uploadedUrl.startsWith('http')) {
+            sanitizedUpdates.photo_url = uploadedUrl;
+          }
+        } catch (uErr) {
+          console.warn('uploadStudentPhotoToSupabase in updateStudent error:', uErr);
         }
       }
       savePhotoToIDB(id, sanitizedUpdates.photo_url);
+      if (sanitizedUpdates.admission_number) {
+        savePhotoToIDB(sanitizedUpdates.admission_number, sanitizedUpdates.photo_url);
+      }
     }
 
     if (supabase) {
       try {
         const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+        let updateRes;
         if (isUuid) {
-          await supabase.from('students').update(sanitizedUpdates).eq('id', id);
+          updateRes = await supabase.from('students').update(sanitizedUpdates).eq('id', id);
         } else if (sanitizedUpdates.admission_number) {
-          await supabase.from('students').update(sanitizedUpdates).eq('admission_number', sanitizedUpdates.admission_number);
+          updateRes = await supabase.from('students').update(sanitizedUpdates).eq('admission_number', sanitizedUpdates.admission_number);
+        }
+        if (updateRes?.error) {
+          console.warn('Supabase updateStudent error:', updateRes.error);
         }
       } catch (err) {
         console.warn('Supabase updateStudent error:', err);
@@ -853,7 +880,7 @@ class DatabaseService {
     }
 
     const students = this.get('tps_students');
-    const idx = students.findIndex(s => s.id === id);
+    const idx = students.findIndex(s => s.id === id || s.admission_number === id);
     if (idx >= 0) {
       students[idx] = { ...students[idx], ...sanitizedUpdates, updated_at: new Date().toISOString() };
       this.set('tps_students', students);

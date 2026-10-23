@@ -216,7 +216,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
                     <!-- Circular Avatar: Boy (Blue) / Girl (Pink) -->
                     <div style="width: 38px; height: 38px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden;">
                       ${s.photo_url ? `
-                        <img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="" />
+                        <img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${s.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                        <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                        </div>
                       ` : `
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
                       `}
@@ -405,7 +408,12 @@ export async function renderStudentsModule(container, { onNavigate }) {
       contentHtml: `
         <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.5rem;">
           <div style="width: 90px; height: 90px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; border: 2px solid ${isGirl ? '#FBCFE8' : '#BFDBFE'}; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 32px; font-weight: 800; flex-shrink: 0;">
-            ${student.photo_url ? `<img src="${student.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : `
+            ${student.photo_url ? `
+              <img src="${student.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${student.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+              <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+              </div>
+            ` : `
               <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
             `}
           </div>

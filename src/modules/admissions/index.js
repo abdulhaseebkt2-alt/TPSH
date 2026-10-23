@@ -274,6 +274,9 @@ export async function renderAdmissionsModule(container, { onNavigate }) {
       photo_url: selectedPhotoBase64
     };
 
+    if (selectedPhotoBase64) {
+      toast.info('Uploading student photo to cloud storage...');
+    }
     const created = await db.addStudent(studentRecord);
     toast.success(`Student admitted successfully! Admission No: ${created.admission_number}`);
     onNavigate('students');
