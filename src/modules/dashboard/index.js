@@ -1,9 +1,19 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
 import { formatCurrency, formatDate } from '../../lib/utils.js';
+import { canAccessModule, getVisibleModules } from '../../lib/permissions.js';
 
 export async function renderDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
+
+  // Guard: if user's role does not have permission to access dashboard, redirect to first allowed window
+  if (!canAccessModule(user, 'dashboard')) {
+    const visible = getVisibleModules(user);
+    if (visible.length > 0 && onNavigate) {
+      onNavigate(visible[0].key);
+      return;
+    }
+  }
   const students = await db.getStudents();
   const leaves = await db.getLeaves();
   const discipline = await db.getDisciplineIncidents();

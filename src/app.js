@@ -126,9 +126,19 @@ class App {
   }
 
   navigate(moduleKey) {
+    const user = getCurrentUser();
+    if (user && !canAccessModule(user, moduleKey)) {
+      const visible = getVisibleModules(user);
+      const fallback = visible[0]?.key || null;
+      if (fallback) {
+        this.activeModule = fallback;
+        window.location.hash = fallback;
+      }
+      this.render(user);
+      return;
+    }
     this.activeModule = moduleKey;
     window.location.hash = moduleKey;
-    const user = getCurrentUser();
     this.render(user);
   }
 
@@ -791,10 +801,17 @@ class App {
   }
 
   renderAuthenticatedShell(profile) {
-    // If active module is not accessible by role, default to dashboard
-    if (!canAccessModule(profile, this.activeModule)) {
-      this.activeModule = 'dashboard';
-      window.location.hash = 'dashboard';
+    const visibleModules = getVisibleModules(profile);
+    const firstAllowedModule = visibleModules[0]?.key || null;
+
+    // If active module is not accessible by role, land on their first authorized module
+    if (!this.activeModule || !canAccessModule(profile, this.activeModule)) {
+      if (firstAllowedModule) {
+        this.activeModule = firstAllowedModule;
+        window.location.hash = firstAllowedModule;
+      } else {
+        this.activeModule = null;
+      }
     }
 
     this.appEl.innerHTML = `
@@ -827,10 +844,28 @@ class App {
     });
 
     // Render active module
-    const routerFn = MODULE_ROUTERS[this.activeModule] || renderDashboard;
-    routerFn(contentEl, {
-      onNavigate: (mod) => this.navigate(mod)
-    });
+    const routerFn = this.activeModule ? MODULE_ROUTERS[this.activeModule] : null;
+    if (routerFn && canAccessModule(profile, this.activeModule)) {
+      routerFn(contentEl, {
+        onNavigate: (mod) => this.navigate(mod)
+      });
+    } else if (firstAllowedModule && MODULE_ROUTERS[firstAllowedModule]) {
+      this.activeModule = firstAllowedModule;
+      window.location.hash = firstAllowedModule;
+      MODULE_ROUTERS[firstAllowedModule](contentEl, {
+        onNavigate: (mod) => this.navigate(mod)
+      });
+    } else {
+      contentEl.innerHTML = `
+        <div class="empty-state" style="padding: 4rem 1.5rem; text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+          <h3>No Windows Assigned</h3>
+          <p style="color: var(--text-muted); max-width: 480px; margin: 0.5rem auto 1.5rem auto;">
+            Your institutional role (${profile.role}) does not have permission to access any windows. Please contact your Super Admin to assign windows in the Visual RBAC Matrix.
+          </p>
+        </div>
+      `;
+    }
 
     // Automatically enhance all date inputs and selects in the newly mounted module
     enhanceAllUI(contentEl);
