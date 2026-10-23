@@ -9,7 +9,9 @@ export async function renderSettingsModule(container, { onNavigate }) {
   if (!user?.is_super_admin && user?.role !== 'super_admin') {
     container.innerHTML = `
       <div class="empty-state" style="margin-top: 4rem;">
-        <div class="empty-icon" style="color: #DC2626;">🔒</div>
+        <div class="empty-icon" style="color: #DC2626; display: flex; justify-content: center; margin-bottom: 1rem;">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
         <h4>Institution Settings Restricted</h4>
         <p>Only the verified Initial Super Admin can modify institutional settings.</p>
       </div>
@@ -182,7 +184,10 @@ export async function renderSettingsModule(container, { onNavigate }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
           <h3>Cloud Database (Supabase PostgreSQL)</h3>
         </div>
-        <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700;">🟢 Connected</span>
+        <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+          Connected
+        </span>
       </div>
       <div class="card-panel-body">
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">

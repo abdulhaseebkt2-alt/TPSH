@@ -56,7 +56,9 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
       <div style="display: flex; flex-direction: column; gap: 1.25rem;">
         ${isInitialSetup ? `
           <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 0.85rem 1.15rem; display: flex; align-items: center; gap: 0.75rem;">
-            <span style="font-size: 20px;">🎉</span>
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #DBEAFE; color: #1D4ED8; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
             <div>
               <strong style="color: #1E40AF; font-size: 0.875rem;">Account Approved!</strong>
               <p style="color: #1E3A8A; font-size: 0.78rem; margin-top: 0.1rem;">

@@ -7,7 +7,9 @@ export async function renderAuditModule(container, { onNavigate }) {
   if (!user?.is_super_admin && user?.role !== 'super_admin') {
     container.innerHTML = `
       <div class="empty-state" style="margin-top: 4rem;">
-        <div class="empty-icon" style="color: #DC2626;">🔒</div>
+        <div class="empty-icon" style="color: #DC2626; display: flex; justify-content: center; margin-bottom: 1rem;">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
         <h4>Super Admin Audit Clearance Required</h4>
         <p>Institutional audit trails are restricted to verified Super Admin accounts.</p>
       </div>

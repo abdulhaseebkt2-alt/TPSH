@@ -2369,8 +2369,8 @@ a {
 .role-pill-btn {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.65rem 1.25rem;
+  gap: 0.6rem;
+  padding: 0.6rem 1.15rem;
   border-radius: var(--radius-full);
   border: 1.5px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -2380,6 +2380,36 @@ a {
   cursor: pointer;
   white-space: nowrap;
   transition: all var(--transition-fast);
+}
+
+.role-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  transition: color var(--transition-fast);
+  line-height: 1;
+}
+
+.role-pill-btn:hover .role-pill-icon {
+  color: #059669;
+}
+
+.role-pill-btn.active .role-pill-icon {
+  color: #FFFFFF;
+}
+
+.role-avatar-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #E6F4EA;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1.5px solid #A7F3D0;
 }
 
 .role-pill-btn:hover {
@@ -2435,6 +2465,14 @@ a {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.perm-category-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #059669;
+  line-height: 1;
 }
 
 .perm-grid {

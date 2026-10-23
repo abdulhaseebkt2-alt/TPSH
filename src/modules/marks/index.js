@@ -20,7 +20,9 @@ export async function renderMarksModule(container, { onNavigate }) {
   if ((isParent || isStudent) && !activeExam?.is_published) {
     container.innerHTML = `
       <div class="empty-state" style="margin-top: 4rem;">
-        <div class="empty-icon">🔒</div>
+        <div class="empty-icon" style="color: #64748B; display: flex; justify-content: center; margin-bottom: 1rem;">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
         <h4>Results Not Published</h4>
         <p>Examination results for <strong>${activeExam?.title || 'Current Exam'}</strong> have not been published by the academic administration yet. Please check back later.</p>
       </div>

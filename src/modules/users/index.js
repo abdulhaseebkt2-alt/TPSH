@@ -360,17 +360,48 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     let selectedRoleKey = savedActiveRbacRole || 'teacher';
 
     const ROLES = [
-      { key: 'admin', label: 'Master Admin', icon: '🛡️', subtitle: 'Academic & Records Governance' },
-      { key: 'teacher', label: 'Teacher / Faculty', icon: '👨‍🏫', subtitle: 'Timetable, Attendance & Marks' },
-      { key: 'mentor', label: 'Hostel Mentor', icon: '🛏️', subtitle: 'Hostel Operations, Leaves & Welfare' },
-      { key: 'hostel_leader', label: 'Hostel Leader', icon: '🌟', subtitle: 'Peer Roll-Call & Room Monitoring' },
-      { key: 'parent', label: 'Parents', icon: '👨‍👩‍👦', subtitle: 'Ward Academic, Attendance & Fees' },
-      { key: 'student', label: 'Students', icon: '🎓', subtitle: 'Personal Attendance & Study Portal' }
+      {
+        key: 'admin',
+        label: 'Master Admin',
+        subtitle: 'Academic & Records Governance',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`
+      },
+      {
+        key: 'teacher',
+        label: 'Teacher / Faculty',
+        subtitle: 'Timetable, Attendance & Marks',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>`
+      },
+      {
+        key: 'mentor',
+        label: 'Hostel Mentor',
+        subtitle: 'Hostel Operations, Leaves & Welfare',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
+      },
+      {
+        key: 'hostel_leader',
+        label: 'Hostel Leader',
+        subtitle: 'Peer Roll-Call & Room Monitoring',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+      },
+      {
+        key: 'parent',
+        label: 'Parents',
+        subtitle: 'Ward Academic, Attendance & Fees',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+      },
+      {
+        key: 'student',
+        label: 'Students',
+        subtitle: 'Personal Attendance & Study Portal',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`
+      }
     ];
 
     const WINDOW_GROUPS = [
       {
         title: 'Student & Academic Windows',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
         modules: [
           {
             key: 'timetable',
@@ -424,6 +455,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       },
       {
         title: 'Hostel Operations Windows',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
         modules: [
           {
             key: 'leaves',
@@ -459,6 +491,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       },
       {
         title: 'Administration & Communication Windows',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
         modules: [
           {
             key: 'notices',
@@ -488,6 +521,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       },
       {
         title: 'Main Navigation Window',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
         modules: [
           {
             key: 'dashboard',
@@ -517,7 +551,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 const isSelected = role.key === selectedRoleKey;
                 return `
                   <button type="button" class="role-pill-btn ${isSelected ? 'active' : ''}" data-role-key="${role.key}">
-                    <span>${role.icon}</span>
+                    <span class="role-pill-icon">${role.icon}</span>
                     <span>${role.label}</span>
                     <span class="role-pill-badge">${count}</span>
                   </button>
@@ -528,10 +562,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
           <!-- Active Role Header & Quick Controls -->
           <div style="background: #F8FAFC; border: 1.5px solid var(--border-subtle); border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.85rem;">
-              <span style="font-size: 2rem;">${activeRoleObj.icon}</span>
+            <div style="display: flex; align-items: center; gap: 0.9rem;">
+              <div class="role-avatar-badge">
+                ${activeRoleObj.icon.replace('width="18" height="18"', 'width="24" height="24"')}
+              </div>
               <div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                   <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">${activeRoleObj.label}</h3>
                   <span class="badge badge-active" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;">
                     ${currentAllowed.length} of ${totalAssignable} Windows Active
@@ -566,8 +602,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             <div class="perm-category-card">
               <div class="perm-category-header">
                 <div class="perm-category-title">
+                  <span class="perm-category-icon">${grp.icon}</span>
                   <span>${grp.title}</span>
-                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-left: 0.4rem;">
                     (${grp.modules.filter(m => currentAllowed.includes(m.key)).length}/${grp.modules.length} Enabled)
                   </span>
                 </div>
@@ -595,8 +632,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
           <!-- Bottom Action Bar -->
           <div style="background: #F8FAFC; border: 1px solid var(--border-subtle); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem;">
-            <div style="font-size: 0.82rem; color: var(--text-secondary);">
-              💡 <strong>Instant Updates:</strong> Click <strong>Save Permissions</strong> to apply changes. Users with this role will immediately see their assigned windows in the sidebar.
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text-secondary);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span><strong>Instant Updates:</strong> Click <strong>Save Permissions</strong> to apply changes. Users with this role will immediately see their assigned windows in the sidebar.</span>
             </div>
             <button class="btn btn-primary" id="btn-save-role-matrix-bottom" style="font-weight: 700;">
               Save Permissions
