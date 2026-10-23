@@ -2,7 +2,6 @@ import { initAuth, onAuthStateChanged, signInWithGoogle, signInWithEmail, signOu
 import { canAccessModule } from './lib/permissions.js';
 import { renderNavbar } from './components/navbar.js';
 import { renderSidebar } from './components/sidebar.js';
-import { openProfileModal } from './components/profile-modal.js';
 import { toast } from './lib/toast.js';
 import { initGlobalUIObserver, enhanceAllUI } from './lib/ui-enhancer.js';
 
@@ -820,19 +819,6 @@ class App {
     // Automatically enhance all date inputs and selects in the newly mounted module
     enhanceAllUI(contentEl);
 
-    // Automatically prompt approved users to create their institutional profile if incomplete (NEVER when checking windows/developing)
-    const isDevPreview = Boolean(localStorage.getItem('tps_dev_profile') || profile.is_dev_profile);
-    if (!isDevPreview && profile.approval_status === 'approved' && !profile.is_super_admin && !profile.profile_completed) {
-      setTimeout(() => {
-        openProfileModal({
-          profile,
-          isInitialSetup: true,
-          onSaved: (updated) => {
-            this.render(updated);
-          }
-        });
-      }, 400);
-    }
   }
 }
 
