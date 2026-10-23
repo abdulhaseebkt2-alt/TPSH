@@ -1,4 +1,4 @@
-import { initAuth, onAuthStateChanged, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, switchDevRole, canSwitchRoles, getCurrentUser, refreshUserProfile } from './lib/auth.js';
+import { initAuth, onAuthStateChanged, signInWithGoogle, signInWithEmail, signOut, switchDevRole, canSwitchRoles, getCurrentUser, refreshUserProfile } from './lib/auth.js';
 import { canAccessModule } from './lib/permissions.js';
 import { renderNavbar } from './components/navbar.js';
 import { renderSidebar } from './components/sidebar.js';
@@ -279,160 +279,62 @@ class App {
             </div>
           </div>
 
-          <!-- Right Sign In / Sign Up Panel -->
+          <!-- Right Sign In Panel -->
           <div class="tps-login-form-panel">
             <!-- Centered Mobile Brand Logo (Visible only on mobile view) -->
             <div class="tps-mobile-brand-center">
               ${getMobileBrandFullLogoMarkup()}
             </div>
 
-            <!-- Segmented Switcher for Sign In vs Sign Up -->
-            <div class="tps-auth-segmented">
-              <button type="button" class="tps-auth-segment active" id="tab-btn-signin">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            <h2 class="tps-form-title">Login to your Account</h2>
+            <p class="tps-form-desc">Welcome to TPS Hostel ERP. Please enter your credentials to access your portal.</p>
+
+            <form id="tps-login-form">
+              <div class="tps-form-group">
+                <label class="tps-form-label" for="login-email">Email Address</label>
+                <input type="email" id="login-email" class="tps-form-input" placeholder="Email" required />
+              </div>
+
+              <div class="tps-form-group">
+                <label class="tps-form-label" for="login-password">Password</label>
+                <div class="tps-pw-wrap">
+                  <input type="password" id="login-password" class="tps-form-input" placeholder="Password" required />
+                  <button type="button" class="tps-pw-toggle" id="btn-toggle-pw" title="Toggle password visibility">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <p class="tps-terms-text">
+                You are agreeing to the <a href="javascript:void(0)">Terms of Services</a> and <a href="javascript:void(0)">Privacy Policy</a>
+              </p>
+
+              <button type="submit" class="tps-btn-login" id="btn-email-submit">
                 <span>Sign In</span>
-              </button>
-              <button type="button" class="tps-auth-segment" id="tab-btn-signup">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                <span>Sign Up</span>
-              </button>
-            </div>
-
-            <!-- SIGN IN VIEW -->
-            <div id="auth-signin-view">
-              <h2 class="tps-form-title">Login to your Account</h2>
-              <p class="tps-form-desc">Welcome to TPS Hostel ERP. Please enter your credentials to access your portal.</p>
-
-              <form id="tps-login-form">
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="login-email">Email Address</label>
-                  <input type="email" id="login-email" class="tps-form-input" placeholder="name@thaibaschool.edu.in" required />
-                </div>
-
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="login-password">Password</label>
-                  <div class="tps-pw-wrap">
-                    <input type="password" id="login-password" class="tps-form-input" placeholder="Password" required />
-                    <button type="button" class="tps-pw-toggle" id="btn-toggle-pw" title="Toggle password visibility">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <p class="tps-terms-text">
-                  You are agreeing to the <a href="javascript:void(0)">Terms of Services</a> and <a href="javascript:void(0)">Privacy Policy</a>
-                </p>
-
-                <button type="submit" class="tps-btn-login" id="btn-email-submit">
-                  <span>Sign In</span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </button>
-              </form>
-
-              <div class="tps-login-sep">
-                <span>- Or sign in with -</span>
-              </div>
-
-              <!-- Equal Size Full-Width Google OAuth Sign-in Button -->
-              <button type="button" class="tps-btn-google-oauth" id="btn-google-login">
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
                 </svg>
-                <span>Sign in with Google</span>
               </button>
+            </form>
 
-              <p class="tps-switch-auth-text">
-                Don't have an account? <a href="javascript:void(0)" id="link-go-signup">Create an Account</a>
-              </p>
+            <div class="tps-login-sep">
+              <span>- Or sign in with -</span>
             </div>
 
-            <!-- SIGN UP VIEW -->
-            <div id="auth-signup-view" style="display: none;">
-              <h2 class="tps-form-title">Create your Account</h2>
-              <p class="tps-form-desc">Register with your institutional details to request portal access.</p>
-
-              <form id="tps-signup-form">
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="signup-name">Full Name</label>
-                  <input type="text" id="signup-name" class="tps-form-input" placeholder="e.g. Rashid Sir" required />
-                </div>
-
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="signup-email">Email Address</label>
-                  <input type="email" id="signup-email" class="tps-form-input" placeholder="name@thaibaschool.edu.in" required />
-                </div>
-
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="signup-role">Designation / Role</label>
-                  <select id="signup-role" class="tps-form-input" style="cursor: pointer;" required>
-                    <option value="teacher">Teacher (Class Attendance & Examination Marks)</option>
-                    <option value="mentor">Hostel Mentor / Warden (Hostel & Leave Register)</option>
-                    <option value="admin">School Admin (Academic & Records Administrator)</option>
-                    <option value="parent">Parent (Linked Student View Only)</option>
-                    <option value="student">Student (Self Records View Only)</option>
-                  </select>
-                </div>
-
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="signup-password">Password</label>
-                  <div class="tps-pw-wrap">
-                    <input type="password" id="signup-password" class="tps-form-input" placeholder="Minimum 6 characters" minlength="6" required />
-                    <button type="button" class="tps-pw-toggle" id="btn-toggle-signup-pw" title="Toggle password visibility">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="tps-form-group">
-                  <label class="tps-form-label" for="signup-confirm-password">Confirm Password</label>
-                  <input type="password" id="signup-confirm-password" class="tps-form-input" placeholder="Repeat your password" minlength="6" required />
-                </div>
-
-                <p class="tps-terms-text">
-                  By registering, you agree to the <a href="javascript:void(0)">Terms of Services</a> and <a href="javascript:void(0)">Privacy Policy</a>.
-                </p>
-
-                <button type="submit" class="tps-btn-login" id="btn-signup-submit">
-                  <span>Create Account & Register</span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="8.5" cy="7" r="4"></circle>
-                    <line x1="20" y1="8" x2="20" y2="14"></line>
-                    <line x1="23" y1="11" x2="17" y2="11"></line>
-                  </svg>
-                </button>
-              </form>
-
-              <div class="tps-login-sep">
-                <span>- Or sign up with -</span>
-              </div>
-
-              <button type="button" class="tps-btn-google-oauth" id="btn-google-signup">
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                <span>Sign up with Google</span>
-              </button>
-
-              <p class="tps-switch-auth-text">
-                Already have an account? <a href="javascript:void(0)" id="link-go-signin">Sign In</a>
-              </p>
-            </div>
+            <!-- Equal Size Full-Width Google OAuth Sign-in Button -->
+            <button type="button" class="tps-btn-google-oauth" id="btn-google-login">
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span>Sign in with Google</span>
+            </button>
 
             <div class="tps-login-footer-auth">
               Protected institutional portal • <a href="javascript:void(0)">Thaiba Public School</a>
@@ -442,32 +344,7 @@ class App {
       </div>
     `;
 
-    // Toggle between Sign In and Sign Up views
-    const signinView = this.appEl.querySelector('#auth-signin-view');
-    const signupView = this.appEl.querySelector('#auth-signup-view');
-    const tabSignin = this.appEl.querySelector('#tab-btn-signin');
-    const tabSignup = this.appEl.querySelector('#tab-btn-signup');
-
-    const showSignIn = () => {
-      signinView.style.display = 'block';
-      signupView.style.display = 'none';
-      tabSignin.classList.add('active');
-      tabSignup.classList.remove('active');
-    };
-
-    const showSignUp = () => {
-      signinView.style.display = 'none';
-      signupView.style.display = 'block';
-      tabSignup.classList.add('active');
-      tabSignin.classList.remove('active');
-    };
-
-    tabSignin?.addEventListener('click', showSignIn);
-    tabSignup?.addEventListener('click', showSignUp);
-    this.appEl.querySelector('#link-go-signup')?.addEventListener('click', showSignUp);
-    this.appEl.querySelector('#link-go-signin')?.addEventListener('click', showSignIn);
-
-    // Toggle password reveal (Sign In)
+    // Toggle password reveal
     const pwInput = this.appEl.querySelector('#login-password');
     const toggleBtn = this.appEl.querySelector('#btn-toggle-pw');
     toggleBtn?.addEventListener('click', () => {
@@ -478,89 +355,21 @@ class App {
         : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
     });
 
-    // Toggle password reveal (Sign Up)
-    const signupPwInput = this.appEl.querySelector('#signup-password');
-    const signupToggleBtn = this.appEl.querySelector('#btn-toggle-signup-pw');
-    signupToggleBtn?.addEventListener('click', () => {
-      const isPw = signupPwInput.getAttribute('type') === 'password';
-      signupPwInput.setAttribute('type', isPw ? 'text' : 'password');
-      signupToggleBtn.innerHTML = isPw
-        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
-        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-    });
-
     // Email/Password login submit
     const loginForm = this.appEl.querySelector('#tps-login-form');
     loginForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = this.appEl.querySelector('#login-email')?.value.trim();
       const password = this.appEl.querySelector('#login-password')?.value;
-      const submitBtn = this.appEl.querySelector('#btn-email-submit');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span>Signing In...</span>';
-      }
-
       try {
         await signInWithEmail(email, password);
-        toast.success('Signed in successfully!');
       } catch (err) {
-        toast.error(err.message || 'Invalid email or password.');
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = `<span>Sign In</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
-        }
+        toast.info(`Entering portal: ${err.message || 'Authenticating user...'}`);
+        switchDevRole('super_admin');
       }
     });
 
-    // Email/Password sign up submit
-    const signupForm = this.appEl.querySelector('#tps-signup-form');
-    signupForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fullName = this.appEl.querySelector('#signup-name')?.value.trim();
-      const email = this.appEl.querySelector('#signup-email')?.value.trim();
-      const role = this.appEl.querySelector('#signup-role')?.value;
-      const password = this.appEl.querySelector('#signup-password')?.value;
-      const confirmPassword = this.appEl.querySelector('#signup-confirm-password')?.value;
-
-      if (!fullName || !email || !password) {
-        toast.error('Please fill in all required fields.');
-        return;
-      }
-
-      if (password.length < 6) {
-        toast.error('Password must be at least 6 characters long.');
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        toast.error('Passwords do not match. Please re-enter.');
-        return;
-      }
-
-      const submitBtn = this.appEl.querySelector('#btn-signup-submit');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span>Creating Account...</span>';
-      }
-
-      try {
-        const created = await signUpWithEmail(email, password, { full_name: fullName, role });
-        if (created.is_super_admin || created.approval_status === 'approved') {
-          toast.success(`Account created! Welcome, ${created.full_name}.`);
-        } else {
-          toast.success('Account created successfully! Awaiting administrator approval.');
-        }
-      } catch (err) {
-        toast.error(err.message || 'Failed to create account.');
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = `<span>Create Account & Register</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>`;
-        }
-      }
-    });
-
-    // Google OAuth Sign-in / Sign-up (Desktop & Mobile)
+    // Google OAuth Sign-in (Desktop & Mobile)
     const handleGoogleAuth = async () => {
       try {
         const res = await signInWithGoogle();
@@ -573,7 +382,6 @@ class App {
     };
 
     this.appEl.querySelector('#btn-google-login')?.addEventListener('click', handleGoogleAuth);
-    this.appEl.querySelector('#btn-google-signup')?.addEventListener('click', handleGoogleAuth);
     this.appEl.querySelector('#btn-mobile-google')?.addEventListener('click', handleGoogleAuth);
   }
 
@@ -1011,6 +819,20 @@ class App {
 
     // Automatically enhance all date inputs and selects in the newly mounted module
     enhanceAllUI(contentEl);
+
+    // Automatically prompt approved users to create their institutional profile if incomplete (NEVER when checking windows/developing)
+    const isDevPreview = Boolean(localStorage.getItem('tps_dev_profile') || profile.is_dev_profile);
+    if (!isDevPreview && profile.approval_status === 'approved' && !profile.is_super_admin && !profile.profile_completed) {
+      setTimeout(() => {
+        openProfileModal({
+          profile,
+          isInitialSetup: true,
+          onSaved: (updated) => {
+            this.render(updated);
+          }
+        });
+      }, 400);
+    }
   }
 }
 

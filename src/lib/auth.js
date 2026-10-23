@@ -239,112 +239,17 @@ export async function signInWithGoogle() {
 }
 
 export async function signInWithEmail(email, password) {
-  const cleanEmail = (email || '').trim().toLowerCase();
-
-  if (supabase) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password
-    });
-
-    if (error) throw error;
-
-    if (data?.user) {
-      realAuthenticatedSession = data.session;
-      currentSession = data.session;
-      await loadUserProfile(data.user);
-      notifyListeners();
-    }
-    return data;
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
   }
 
-  // Local fallback when Supabase is offline or not configured
-  const localUsers = JSON.parse(localStorage.getItem('tps_users') || '[]');
-  const localFound = localUsers.find(u => (u.email || '').toLowerCase() === cleanEmail);
-  if (localFound) {
-    currentProfile = localFound;
-    currentSession = { user: { id: localFound.id, email: localFound.email } };
-    notifyListeners();
-    return { user: localFound, session: currentSession };
-  }
-  throw new Error('User not found. Please sign up first.');
-}
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
-export async function signUpWithEmail(email, password, { full_name, role } = {}) {
-  const cleanEmail = (email || '').trim().toLowerCase();
-  const cleanName = (full_name || '').trim() || cleanEmail.split('@')[0];
-  const requestedRole = role || 'teacher';
-  const isInitialSuper = cleanEmail === SUPER_ADMIN_EMAIL;
-
-  let authUser = null;
-
-  if (supabase) {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          data: {
-            full_name: cleanName,
-            requested_role: requestedRole
-          }
-        }
-      });
-      if (error) {
-        throw error;
-      }
-      authUser = data?.user;
-      if (data?.session) {
-        currentSession = data.session;
-        realAuthenticatedSession = data.session;
-      }
-    } catch (err) {
-      console.warn('Supabase auth.signUp error:', err);
-      throw err;
-    }
-  }
-
-  const userId = authUser?.id || ('u-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7));
-  const newProfile = {
-    id: userId,
-    email: cleanEmail,
-    full_name: cleanName,
-    role: isInitialSuper ? 'super_admin' : requestedRole,
-    approval_status: isInitialSuper ? 'approved' : 'pending',
-    is_super_admin: isInitialSuper,
-    avatar_url: '',
-    profile_completed: true,
-    created_at: new Date().toISOString()
-  };
-
-  // If Supabase is connected, record profile in database
-  if (supabase && authUser?.id) {
-    try {
-      await supabase.from('profiles').upsert([newProfile], { onConflict: 'id' });
-    } catch (e) {
-      console.warn('Profiles upsert error on signup:', e);
-    }
-  }
-
-  // Also record in local store / tps_users
-  try {
-    const rawUsers = localStorage.getItem('tps_users');
-    const users = rawUsers ? JSON.parse(rawUsers) : [];
-    const existingIdx = users.findIndex(u => (u.email || '').toLowerCase() === cleanEmail);
-    if (existingIdx >= 0) {
-      users[existingIdx] = { ...users[existingIdx], ...newProfile };
-    } else {
-      users.unshift(newProfile);
-    }
-    localStorage.setItem('tps_users', JSON.stringify(users));
-  } catch (e) {}
-
-  currentProfile = newProfile;
-  if (!currentSession) {
-    currentSession = { user: { id: userId, email: cleanEmail } };
-  }
-  notifyListeners();
-  return newProfile;
+  if (error) throw error;
+  return data;
 }
 
 export async function signOut() {
