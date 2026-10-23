@@ -72,9 +72,9 @@ export async function renderSectionsModule(container, { onNavigate }) {
               <button type="button" 
                       class="btn-section-tab ${isSelected ? 'active' : ''}" 
                       data-prog-id="${p.id}" 
-                      style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: ${isSelected ? '700' : '500'}; white-space: nowrap; cursor: pointer; transition: all 0.15s ease; border: 1px solid ${isSelected ? 'transparent' : '#E2E8F0'}; background: ${isSelected ? 'var(--color-primary)' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#475569'}; box-shadow: ${isSelected ? '0 2px 4px rgba(16, 185, 129, 0.2)' : 'none'};">
-                <span>${p.name}</span>
-                <span style="font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 9999px; background: ${isSelected ? 'rgba(255, 255, 255, 0.25)' : '#F1F5F9'}; color: ${isSelected ? '#FFFFFF' : '#64748B'}; font-weight: 700;">
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: ${isSelected ? '700' : '600'}; white-space: nowrap; cursor: pointer; transition: all 0.15s ease; border: 1px solid ${isSelected ? '#059669' : '#CBD5E1'}; background-color: ${isSelected ? '#059669' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#1E293B'}; box-shadow: ${isSelected ? '0 2px 6px rgba(5, 150, 105, 0.25)' : 'none'};">
+                <span style="color: ${isSelected ? '#FFFFFF' : '#1E293B'}; font-weight: ${isSelected ? '700' : '600'};">${p.name}</span>
+                <span class="tab-count-badge" style="font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 9999px; background-color: ${isSelected ? 'rgba(255, 255, 255, 0.28)' : '#F1F5F9'}; color: ${isSelected ? '#FFFFFF' : '#475569'}; font-weight: 700;">
                   ${count}
                 </span>
               </button>
@@ -191,7 +191,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
           <!-- Minimal Dashed Add Classroom Card -->
           ${canManage ? `
             <button type="button" id="card-quick-add-cls" style="border: 1.5px dashed #CBD5E1; background: transparent; border-radius: 12px; min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; cursor: pointer; color: #64748B; padding: 1.25rem; transition: all 0.15s ease;">
-              <div style="width: 32px; height: 32px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; color: var(--color-primary);">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; color: #059669;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </div>
               <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Add Classroom</span>
