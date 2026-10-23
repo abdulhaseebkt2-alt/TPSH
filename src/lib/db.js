@@ -676,7 +676,7 @@ class DatabaseService {
       photo = await compressImage(photo, 280, 320, 0.75);
     }
 
-    const admissionNumber = studentData.admission_number || ('TPS-2026-' + String(Date.now()).slice(-3));
+    const admissionNumber = studentData.admission_number || ('TPS-2026-' + String(Math.floor(100 + Math.random() * 900)));
 
     // Upload to Supabase Storage bucket if photo is base64
     if (supabase && photo && photo.startsWith('data:')) {
@@ -718,8 +718,14 @@ class DatabaseService {
     let createdStudent = null;
     if (supabase) {
       try {
-        const { data, error } = await supabase.from('students').insert([payload]).select().single();
-        if (!error && data) {
+        let { data, error } = await supabase.from('students').insert([payload]).select().single();
+        if (error && error.code === '23505' && !studentData.admission_number) {
+          payload.admission_number = 'TPS-2026-' + String(Math.floor(100 + Math.random() * 900));
+          const retry = await supabase.from('students').insert([payload]).select().single();
+          if (!retry.error && retry.data) {
+            createdStudent = retry.data;
+          }
+        } else if (!error && data) {
           createdStudent = data;
         } else if (error) {
           console.warn('Supabase addStudent insert error:', error);

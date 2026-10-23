@@ -271,6 +271,9 @@ describe('4. Hostel Leave & Return Register Tests', () => {
 
     expect(updatedS1.status).toBe('On Approved Leave');
     expect(updatedS2.status).toBe('Active');
+
+    // Clean up
+    await db.deleteStudents([s1.id, s2.id]);
   });
 
   it('Recording return computes calendar-day fine and marks student active', async () => {
@@ -296,6 +299,9 @@ describe('4. Hostel Leave & Return Register Tests', () => {
 
     const updatedStudent = await db.getStudentById(student.id);
     expect(updatedStudent.status).toBe('Active');
+
+    // Clean up
+    await db.deleteStudent(student.id);
   });
 });
 

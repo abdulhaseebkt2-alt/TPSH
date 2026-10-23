@@ -479,6 +479,22 @@ export function getCurrentUser() {
   return currentProfile;
 }
 
+export function canSwitchRoles() {
+  if (currentProfile?.is_super_admin || currentProfile?.role === 'super_admin') return true;
+  if (realAuthenticatedProfile?.is_super_admin || realAuthenticatedProfile?.role === 'super_admin') return true;
+  if (currentProfile?.is_dev_profile) return true;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('tps_real_auth_profile') : null;
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p?.is_super_admin || p?.role === 'super_admin') return true;
+    }
+    const dev = typeof localStorage !== 'undefined' ? localStorage.getItem('tps_dev_profile') : null;
+    if (dev) return true;
+  } catch {}
+  return false;
+}
+
 export function updateCurrentUserProfile(newProfile) {
   currentProfile = { ...currentProfile, ...newProfile };
   if (currentProfile.is_super_admin || currentProfile.role === 'super_admin') {

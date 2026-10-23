@@ -1,4 +1,4 @@
-import { getCurrentUser, signOut } from '../lib/auth.js';
+import { getCurrentUser, signOut, switchDevRole, canSwitchRoles } from '../lib/auth.js';
 import { getVisibleModules } from '../lib/permissions.js';
 
 export function updateSidebarLogo(logoUrl) {
@@ -76,6 +76,25 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
 
     <!-- Frozen Sidebar Footer -->
     <div class="sidebar-footer">
+      ${canSwitchRoles() ? `
+        <!-- Developing Window / Role Switcher for Super Admin -->
+        <div class="sidebar-role-preview">
+          <div class="sidebar-role-header">
+            <span class="sidebar-role-title">Role View</span>
+            <span class="sidebar-role-badge">Dev Mode</span>
+          </div>
+          <select id="sidebar-role-selector" class="form-control" style="width: 100%; cursor: pointer;">
+            <option value="super_admin" ${user?.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
+            <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Admin</option>
+            <option value="teacher" ${user?.role === 'teacher' ? 'selected' : ''}>Teacher</option>
+            <option value="mentor" ${user?.role === 'mentor' ? 'selected' : ''}>Hostel Mentor</option>
+            <option value="parent" ${user?.role === 'parent' ? 'selected' : ''}>Parent</option>
+            <option value="student" ${user?.role === 'student' ? 'selected' : ''}>Student</option>
+            <option value="hostel_leader" ${user?.role === 'hostel_leader' ? 'selected' : ''}>Hostel Leader</option>
+          </select>
+        </div>
+      ` : ''}
+
       <button class="sidebar-logout-btn" id="sidebar-logout-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
         <span>Sign Out</span>
@@ -101,7 +120,10 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
   });
 
   container.querySelector('#sidebar-close-btn')?.addEventListener('click', onCloseMobile);
-  
+
+  container.querySelector('#sidebar-role-selector')?.addEventListener('change', (e) => {
+    switchDevRole(e.target.value);
+  });
 
   container.querySelector('#sidebar-logout-btn')?.addEventListener('click', () => {
     signOut();

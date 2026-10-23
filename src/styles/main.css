@@ -2145,3 +2145,14 @@ a {
 .tps-dropdown-item .check-icon {
   flex-shrink: 0;
 }
+
+
+/* Developing Window & Role Switcher Responsive Tweaks */
+@media (max-width: 767px) {
+  .navbar-role-switcher span {
+    display: none;
+  }
+  .dev-role-preview-banner {
+    padding: 0.5rem 0.75rem !important;
+  }
+}
