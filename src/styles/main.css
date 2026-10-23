@@ -2352,3 +2352,116 @@ a {
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
   transform: translateY(-1px);
 }
+
+
+/* ============================================================
+   VISUAL RBAC PERMISSION MATRIX (SUPER ADMIN CONTROL CENTER)
+   ============================================================ */
+.rbac-table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 1.5rem;
+  max-width: 100%;
+}
+
+.rbac-matrix-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.rbac-matrix-table th {
+  background-color: #F8FAFC;
+  padding: 0.85rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border-subtle);
+  border-right: 1px solid #F1F5F9;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  text-align: center;
+}
+
+.rbac-matrix-table th.role-col-header {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background-color: #F1F5F9;
+  min-width: 260px;
+  max-width: 280px;
+  border-right: 2px solid var(--border-medium);
+  text-align: left;
+  padding-left: 1.25rem;
+}
+
+.rbac-matrix-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid #F8FAFC;
+  vertical-align: middle;
+  text-align: center;
+  transition: background var(--transition-fast);
+}
+
+.rbac-matrix-table td.role-col-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: #FFFFFF;
+  text-align: left;
+  border-right: 2px solid var(--border-medium);
+  padding: 0.85rem 1.25rem;
+}
+
+.rbac-matrix-table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+.rbac-matrix-table tr:hover td.role-col-cell {
+  background-color: #F1F5F9;
+}
+
+/* Custom Emerald RBAC Checkbox matching user photo */
+.rbac-checkbox {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid #CBD5E1;
+  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  color: #FFFFFF;
+  margin: 0 auto;
+}
+
+.rbac-checkbox:hover:not(.locked) {
+  border-color: #10B981;
+  transform: scale(1.1);
+}
+
+.rbac-checkbox.checked {
+  background: #10B981;
+  border-color: #10B981;
+  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.35);
+}
+
+.rbac-checkbox.locked {
+  background: #0F172A;
+  border-color: #0F172A;
+  cursor: not-allowed;
+  opacity: 0.9;
+}

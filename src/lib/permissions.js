@@ -23,11 +23,106 @@ export const MODULE_DEFINITIONS = [
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
 ];
 
+// Institutional Default RBAC Matrix: maps each role tier to authorized module keys
+export const DEFAULT_RBAC_MATRIX = {
+  admin: [
+    'dashboard', 'admissions', 'students', 'sections', 'assignments',
+    'timetable', 'attendance', 'leaves', 'fines', 'discipline',
+    'exams', 'marks', 'hostel', 'fees', 'notices', 'maintenance', 'reports'
+  ],
+  mentor: [
+    'dashboard', 'students', 'attendance', 'leaves', 'fines',
+    'discipline', 'hostel', 'notices', 'maintenance', 'reports'
+  ],
+  teacher: [
+    'dashboard', 'timetable', 'attendance', 'exams', 'marks', 'notices'
+  ],
+  hostel_leader: [
+    'dashboard', 'students', 'attendance', 'leaves', 'fines',
+    'discipline', 'hostel', 'notices', 'maintenance'
+  ],
+  parent: [
+    'dashboard', 'students', 'attendance', 'leaves', 'fines',
+    'discipline', 'marks', 'fees', 'notices'
+  ],
+  student: [
+    'dashboard', 'attendance', 'leaves', 'exams', 'marks', 'notices'
+  ]
+};
+
+const RBAC_STORAGE_KEY = 'tps_rbac_matrix';
+let memoryMatrix = null;
+
+function cloneDefaults() {
+  return JSON.parse(JSON.stringify(DEFAULT_RBAC_MATRIX));
+}
+
+export function getRBACMatrix() {
+  if (memoryMatrix) {
+    return JSON.parse(JSON.stringify(memoryMatrix));
+  }
+  const defaults = cloneDefaults();
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(RBAC_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          return { ...defaults, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading RBAC matrix from localStorage:', e);
+    }
+  }
+  return defaults;
+}
+
+export function saveRBACMatrix(matrix) {
+  memoryMatrix = JSON.parse(JSON.stringify(matrix));
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(RBAC_STORAGE_KEY, JSON.stringify(matrix));
+    } catch (e) {
+      console.error('Error saving RBAC matrix to localStorage:', e);
+      return false;
+    }
+  }
+  return true;
+}
+
+export function resetRBACMatrix() {
+  memoryMatrix = null;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(RBAC_STORAGE_KEY);
+    } catch (e) {}
+  }
+  return cloneDefaults();
+}
+
 export function canAccessModule(profile, moduleKey) {
   if (!profile) return false;
   if (profile.approval_status !== 'approved') return false;
+  // Super Admin always has full unrestricted access to every institutional window
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
 
+  // Root modules always protected for Super Admin only
+  if (['users', 'audit'].includes(moduleKey)) return false;
+
+  // Custom user-level assigned modules override (if present)
+  if (Array.isArray(profile.custom_modules) && profile.custom_modules.length > 0) {
+    return profile.custom_modules.includes(moduleKey);
+  }
+
+  // Dynamic RBAC Matrix lookup
+  const matrix = getRBACMatrix();
+  const allowed = matrix[profile.role];
+  if (Array.isArray(allowed)) {
+    return allowed.includes(moduleKey);
+  }
+
+  // Fallback to MODULE_DEFINITIONS
   const moduleDef = MODULE_DEFINITIONS.find(m => m.key === moduleKey);
   if (!moduleDef) return false;
 
@@ -43,7 +138,7 @@ export function canPerformAction(profile, moduleKey, action) {
   if (!profile || profile.approval_status !== 'approved') return false;
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
 
-  // View action is governed by module access
+  // View action is governed by dynamic module access
   if (action === 'view') {
     return canAccessModule(profile, moduleKey);
   }

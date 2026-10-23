@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
-import { canAccessModule, canPerformAction, MODULE_DEFINITIONS } from '../src/lib/permissions.js';
+import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, getRBACMatrix, saveRBACMatrix, resetRBACMatrix } from '../src/lib/permissions.js';
 import { db } from '../src/lib/db.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
@@ -79,6 +79,22 @@ describe('1. Authentication & Role Permissions Tests', () => {
     expect(canAccessModule(parent, 'admissions')).toBe(false);
     expect(canPerformAction(parent, 'marks', 'enter_marks')).toBe(false);
     expect(canPerformAction(parent, 'attendance', 'submit_attendance')).toBe(false);
+  });
+
+  it('Dynamic Visual RBAC Matrix dynamically grants and revokes module windows for roles', () => {
+    // Initially teacher cannot access fees
+    expect(canAccessModule(teacher, 'fees')).toBe(false);
+
+    // Super Admin dynamically grants 'fees' to 'teacher' in matrix
+    const matrix = getRBACMatrix();
+    matrix.teacher.push('fees');
+    saveRBACMatrix(matrix);
+
+    expect(canAccessModule(teacher, 'fees')).toBe(true);
+
+    // Reset back to defaults
+    resetRBACMatrix();
+    expect(canAccessModule(teacher, 'fees')).toBe(false);
   });
 });
 

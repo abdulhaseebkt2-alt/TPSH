@@ -47,7 +47,8 @@ const MODULE_ROUTERS = {
   maintenance: renderMaintenanceModule,
   reports: renderReportsModule,
   audit: renderAuditModule,
-  settings: renderSettingsModule
+  settings: renderSettingsModule,
+  rbac: (container, props) => renderUsersModule(container, { ...props, initialTab: 'rbac' })
 };
 
 export function getInstitutionalLogo(size = 46) {
@@ -105,6 +106,21 @@ class App {
 
     // Initialize global UI enhancer observer for dynamic & upcoming UI (calendar & custom dropdown)
     initGlobalUIObserver();
+
+    // Re-render sidebar when permissions/RBAC matrix is updated
+    window.addEventListener('tps:permissions-updated', () => {
+      const sidebarEl = this.appEl.querySelector('#app-sidebar');
+      if (sidebarEl) {
+        renderSidebar(sidebarEl, {
+          activeModule: this.activeModule,
+          onNavigate: (mod) => this.navigate(mod),
+          onCloseMobile: () => {
+            this.sidebarMobileOpen = false;
+            sidebarEl.classList.remove('mobile-open');
+          }
+        });
+      }
+    });
 
     initAuth();
   }
