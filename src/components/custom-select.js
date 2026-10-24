@@ -54,7 +54,7 @@ export function enhanceSelect(select) {
   const chevronSpan = document.createElement('span');
   chevronSpan.className = 'tps-dropdown-chevron';
   chevronSpan.innerHTML = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5">
       <polyline points="6 9 12 15 18 9"/>
     </svg>
   `;
@@ -121,7 +121,7 @@ function openDropdownMenu(select, trigger, onOptionSelected) {
     item.innerHTML = `
       <span class="item-text">${opt.text}</span>
       ${isSelected ? `
-        <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6358DC" stroke-width="2.5">
+        <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0F5132" stroke-width="2.5">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       ` : ''}

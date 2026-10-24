@@ -73,7 +73,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
               <button type="button" 
                       class="btn-section-tab ${isSelected ? 'active' : ''}" 
                       data-prog-id="${p.id}" 
-                      style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: ${isSelected ? '700' : '600'}; white-space: nowrap; cursor: pointer; transition: all 0.15s ease; border: 1px solid ${isSelected ? 'var(--brand-primary, #6358DC)' : '#CBD5E1'}; background-color: ${isSelected ? 'var(--brand-primary, #6358DC)' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#1E293B'}; box-shadow: ${isSelected ? '0 2px 6px rgba(99, 88, 220, 0.25)' : 'none'};">
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: ${isSelected ? '700' : '600'}; white-space: nowrap; cursor: pointer; transition: all 0.15s ease; border: 1px solid ${isSelected ? '#059669' : '#CBD5E1'}; background-color: ${isSelected ? '#059669' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#1E293B'}; box-shadow: ${isSelected ? '0 2px 6px rgba(5, 150, 105, 0.25)' : 'none'};">
                 <span style="color: ${isSelected ? '#FFFFFF' : '#1E293B'}; font-weight: ${isSelected ? '700' : '600'};">${p.name}</span>
                 <span class="tab-count-badge" style="font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 9999px; background-color: ${isSelected ? 'rgba(255, 255, 255, 0.28)' : '#F1F5F9'}; color: ${isSelected ? '#FFFFFF' : '#475569'}; font-weight: 700;">
                   ${count}
@@ -163,7 +163,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
                   <!-- Class Timing (Mandatory) & Optional Room/Capacity -->
                   <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.82rem; color: #475569;">
                     <div style="display: flex; align-items: center; gap: 0.35rem; font-weight: 600; color: #0F172A;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--brand-primary, #6358DC); flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                       <span>${formatTime(cls.start_time || '06:30')} – ${formatTime(cls.end_time || '07:30')}</span>
                     </div>
                     ${cls.room_number ? `
@@ -197,7 +197,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
           <!-- Minimal Dashed Add Classroom Card -->
           ${canManage ? `
             <button type="button" id="card-quick-add-cls" style="border: 1.5px dashed #CBD5E1; background: transparent; border-radius: 12px; min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; cursor: pointer; color: #64748B; padding: 1.25rem; transition: all 0.15s ease;">
-              <div style="width: 32px; height: 32px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; color: var(--brand-primary, #6358DC);">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: #F1F5F9; display: flex; align-items: center; justify-content: center; color: #059669;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </div>
               <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Add Classroom</span>
@@ -680,7 +680,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
             </div>
             <div class="assign-footer-btns">
               <button type="button" class="btn btn-outline btn-sm" id="btn-modal-cancel">Cancel</button>
-              <button type="button" class="btn btn-primary btn-sm" id="btn-save-assignments" style="background: var(--brand-primary, #6358DC); border-color: var(--brand-primary, #6358DC); font-weight: 600;">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-save-assignments" style="background: #00A3E0; border-color: #00A3E0; font-weight: 600;">
                 Save Assignments
               </button>
             </div>
