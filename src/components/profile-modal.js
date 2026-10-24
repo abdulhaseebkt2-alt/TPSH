@@ -71,10 +71,10 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
         <!-- Profile Top Summary & Photo Picker -->
         <div style="display: flex; align-items: center; gap: 1.25rem; padding: 1rem; background: var(--bg-surface-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
           <div style="position: relative;">
-            <div id="profile-avatar-preview" style="width: 72px; height: 72px; border-radius: var(--radius-full); background: var(--brand-navy); color: #10B981; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; border: 2px solid #10B981; overflow: hidden; box-shadow: var(--shadow-sm);">
+            <div id="profile-avatar-preview" style="width: 72px; height: 72px; border-radius: var(--radius-full); background: var(--brand-navy); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; border: 2px solid var(--brand-primary); overflow: hidden; box-shadow: var(--shadow-sm);">
               ${currentAvatarUrl ? `<img src="${currentAvatarUrl}" style="width: 100%; height: 100%; object-fit: cover;" alt="Avatar" />` : (initialFullName || 'U')[0].toUpperCase()}
             </div>
-            <label for="profile-photo-upload" style="position: absolute; bottom: -4px; right: -4px; width: 28px; height: 28px; border-radius: 50%; background: #3742FA; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" title="Upload Photo">
+            <label for="profile-photo-upload" style="position: absolute; bottom: -4px; right: -4px; width: 28px; height: 28px; border-radius: 50%; background: var(--brand-primary); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" title="Upload Photo">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </label>
             <input type="file" id="profile-photo-upload" accept="image/*" style="display: none;" />
@@ -83,18 +83,18 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
           <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; flex: 1;">
             <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
               <span id="header-role-badge" class="user-badge-role ${isSuper ? 'badge-super' : 'badge-approved'}">${roleName}</span>
-              <span id="badge-tps-id" class="badge" style="background: ${initialIdSuffix ? '#EEF2FF' : '#F1F5F9'}; color: ${initialIdSuffix ? '#3742FA' : '#64748B'}; border: 1px ${initialIdSuffix ? 'solid #C7D2FE' : 'dashed #CBD5E1'}; font-weight: 700;">
+              <span id="badge-tps-id" class="badge" style="background: ${initialIdSuffix ? '#EEF2FF' : '#F1F5F9'}; color: ${initialIdSuffix ? 'var(--brand-primary)' : '#64748B'}; border: 1px ${initialIdSuffix ? 'solid var(--brand-primary-border)' : 'dashed #CBD5E1'}; font-weight: 700;">
                 ${idPrefix}${initialIdSuffix || '•••'}
               </span>
               ${canEditRole ? `
-                <button type="button" id="btn-quick-edit-role" class="btn btn-outline btn-xs" style="font-size: 0.72rem; padding: 0.15rem 0.55rem; color: #059669; border-color: #A7F3D0; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.25rem;">
+                <button type="button" id="btn-quick-edit-role" class="btn btn-outline btn-xs" style="font-size: 0.72rem; padding: 0.15rem 0.55rem; color: var(--brand-primary); border-color: var(--brand-primary-border); border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.25rem;">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                   Edit Role
                 </button>
               ` : ''}
             </div>
             <span style="font-size: 0.825rem; color: var(--text-muted);">${profile.email}</span>
-            <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">Thaiba Group of Institutions (TGI) • Member</span>
+            <span style="font-size: 0.72rem; color: var(--brand-primary); font-weight: 600;">Thaiba Group of Institutions (TGI) • Member</span>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
         <div style="background: var(--bg-surface-subtle); border-radius: var(--radius-md); padding: 0.85rem; border: 1px solid var(--border-subtle); font-size: 0.75rem; color: var(--text-muted); display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
           <div>• Institutional Email: <strong>${profile.email}</strong></div>
           <div>• Role Authority: <strong id="prof-info-role">${roleName}</strong></div>
-          <div>• Account Status: <strong style="color: #059669;">Approved & Active</strong></div>
+          <div>• Account Status: <strong style="color: var(--brand-primary, #6358DC);">Approved & Active</strong></div>
           <div>• Database Verification: <strong>Verified</strong></div>
         </div>
 
@@ -323,9 +323,9 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
         // Update notice banner
         if (noticeBox) {
           if (isValid) {
-            noticeBox.style.background = '#ECFDF5';
-            noticeBox.style.color = '#065F46';
-            noticeBox.style.border = '1px solid #A7F3D0';
+            noticeBox.style.background = 'var(--brand-primary-light, #F0EEFD)';
+            noticeBox.style.color = 'var(--text-primary, #1E1B4B)';
+            noticeBox.style.border = '1px solid var(--brand-primary-border, #D8D2FB)';
             noticeBox.innerHTML = `
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
               <span><strong>Ready to save:</strong> All required institutional details have been entered correctly.</span>

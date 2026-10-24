@@ -277,7 +277,7 @@ class App {
                       <!-- Occupancy Chart Card -->
                       <div class="tps-t-card">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                          <span style="font-size: 0.65rem; font-weight: 700; color: #059669; text-transform: uppercase;">Occupancy</span>
+                          <span style="font-size: 0.65rem; font-weight: 700; color: #6358DC; text-transform: uppercase;">Occupancy</span>
                           <span style="font-size: 0.75rem; font-weight: 800; color: #DC2626;">▲ 98%</span>
                         </div>
                         <svg width="100%" height="40" viewBox="0 0 100 40" fill="none">
@@ -285,7 +285,7 @@ class App {
                           <rect x="22" y="18" width="10" height="22" rx="2" fill="#CBD5E1"/>
                           <rect x="38" y="14" width="10" height="26" rx="2" fill="#94A3B8"/>
                           <rect x="54" y="8" width="10" height="32" rx="2" fill="#64748B"/>
-                          <rect x="70" y="4" width="10" height="36" rx="2" fill="#059669"/>
+                          <rect x="70" y="4" width="10" height="36" rx="2" fill="#6358DC"/>
                           <path d="M10 26L30 20L50 16L78 6" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
                           <polygon points="84,4 74,3 79,11" fill="#EF4444"/>
                         </svg>
@@ -299,9 +299,9 @@ class App {
                         </div>
                         <div>
                           <div style="height: 5px; width: 100%; background: #E2E8F0; border-radius: 9999px; overflow: hidden; margin-bottom: 4px;">
-                            <div style="height: 100%; width: 92%; background: #059669; border-radius: 9999px;"></div>
+                            <div style="height: 100%; width: 92%; background: #6358DC; border-radius: 9999px;"></div>
                           </div>
-                          <div style="height: 4px; width: 75%; background: #10B981; border-radius: 9999px;"></div>
+                          <div style="height: 4px; width: 75%; background: #FF6584; border-radius: 9999px;"></div>
                         </div>
                       </div>
                     </div>
@@ -315,7 +315,7 @@ class App {
                           </div>
                           <div>
                             <div style="font-size: 0.72rem; font-weight: 700; color: #0F172A;">TPS Mentor</div>
-                            <div style="font-size: 0.6rem; color: #059669; font-weight: 600;">Verified</div>
+                            <div style="font-size: 0.6rem; color: #6358DC; font-weight: 600;">Verified</div>
                           </div>
                         </div>
                       </div>
@@ -534,7 +534,7 @@ class App {
                     <div class="tps-tablet-grid">
                       <div class="tps-t-card">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                          <span style="font-size: 0.65rem; font-weight: 700; color: #059669; text-transform: uppercase;">Occupancy</span>
+                          <span style="font-size: 0.65rem; font-weight: 700; color: #6358DC; text-transform: uppercase;">Occupancy</span>
                           <span style="font-size: 0.75rem; font-weight: 800; color: #DC2626;">▲ 98%</span>
                         </div>
                         <svg width="100%" height="40" viewBox="0 0 100 40" fill="none">
@@ -542,7 +542,7 @@ class App {
                           <rect x="22" y="18" width="10" height="22" rx="2" fill="#CBD5E1"/>
                           <rect x="38" y="14" width="10" height="26" rx="2" fill="#94A3B8"/>
                           <rect x="54" y="8" width="10" height="32" rx="2" fill="#64748B"/>
-                          <rect x="70" y="4" width="10" height="36" rx="2" fill="#059669"/>
+                          <rect x="70" y="4" width="10" height="36" rx="2" fill="#6358DC"/>
                           <path d="M10 26L30 20L50 16L78 6" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
                           <polygon points="84,4 74,3 79,11" fill="#EF4444"/>
                         </svg>
@@ -555,9 +555,9 @@ class App {
                         </div>
                         <div>
                           <div style="height: 5px; width: 100%; background: #E2E8F0; border-radius: 9999px; overflow: hidden; margin-bottom: 4px;">
-                            <div style="height: 100%; width: 92%; background: #059669; border-radius: 9999px;"></div>
+                            <div style="height: 100%; width: 92%; background: #6358DC; border-radius: 9999px;"></div>
                           </div>
-                          <div style="height: 4px; width: 75%; background: #10B981; border-radius: 9999px;"></div>
+                          <div style="height: 4px; width: 75%; background: #FF6584; border-radius: 9999px;"></div>
                         </div>
                       </div>
                     </div>
@@ -570,7 +570,7 @@ class App {
                           </div>
                           <div>
                             <div style="font-size: 0.72rem; font-weight: 700; color: #0F172A;">TPS Mentor</div>
-                            <div style="font-size: 0.6rem; color: #059669; font-weight: 600;">Verified</div>
+                            <div style="font-size: 0.6rem; color: #6358DC; font-weight: 600;">Verified</div>
                           </div>
                         </div>
                       </div>
@@ -738,7 +738,7 @@ class App {
                     <div class="tps-tablet-grid">
                       <div class="tps-t-card">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                          <span style="font-size: 0.65rem; font-weight: 700; color: #059669; text-transform: uppercase;">Occupancy</span>
+                          <span style="font-size: 0.65rem; font-weight: 700; color: #6358DC; text-transform: uppercase;">Occupancy</span>
                           <span style="font-size: 0.75rem; font-weight: 800; color: #DC2626;">▲ 98%</span>
                         </div>
                         <svg width="100%" height="40" viewBox="0 0 100 40" fill="none">
@@ -746,7 +746,7 @@ class App {
                           <rect x="22" y="18" width="10" height="22" rx="2" fill="#CBD5E1"/>
                           <rect x="38" y="14" width="10" height="26" rx="2" fill="#94A3B8"/>
                           <rect x="54" y="8" width="10" height="32" rx="2" fill="#64748B"/>
-                          <rect x="70" y="4" width="10" height="36" rx="2" fill="#059669"/>
+                          <rect x="70" y="4" width="10" height="36" rx="2" fill="#6358DC"/>
                           <path d="M10 26L30 20L50 16L78 6" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
                           <polygon points="84,4 74,3 79,11" fill="#EF4444"/>
                         </svg>
@@ -759,9 +759,9 @@ class App {
                         </div>
                         <div>
                           <div style="height: 5px; width: 100%; background: #E2E8F0; border-radius: 9999px; overflow: hidden; margin-bottom: 4px;">
-                            <div style="height: 100%; width: 92%; background: #059669; border-radius: 9999px;"></div>
+                            <div style="height: 100%; width: 92%; background: #6358DC; border-radius: 9999px;"></div>
                           </div>
-                          <div style="height: 4px; width: 75%; background: #10B981; border-radius: 9999px;"></div>
+                          <div style="height: 4px; width: 75%; background: #FF6584; border-radius: 9999px;"></div>
                         </div>
                       </div>
                     </div>
@@ -774,7 +774,7 @@ class App {
                           </div>
                           <div>
                             <div style="font-size: 0.72rem; font-weight: 700; color: #0F172A;">TPS Mentor</div>
-                            <div style="font-size: 0.6rem; color: #059669; font-weight: 600;">Verified</div>
+                            <div style="font-size: 0.6rem; color: #6358DC; font-weight: 600;">Verified</div>
                           </div>
                         </div>
                       </div>

@@ -92,7 +92,7 @@ export function createWheelTimePickerElement({
 
     <div class="wheel-time-footer" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid #F1F5F9;">
       <button type="button" class="btn btn-outline btn-sm btn-time-cancel" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 6px;">Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm btn-time-done" style="padding: 0.35rem 0.95rem; font-size: 0.8rem; background: #00A3E0; border-color: #00A3E0; border-radius: 6px;">Done</button>
+      <button type="button" class="btn btn-primary btn-sm btn-time-done" style="padding: 0.35rem 0.95rem; font-size: 0.8rem; background: var(--brand-primary, #6358DC); border-color: var(--brand-primary, #6358DC); border-radius: 6px;">Done</button>
     </div>
   `;
 
