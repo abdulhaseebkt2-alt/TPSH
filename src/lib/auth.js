@@ -499,9 +499,11 @@ export function updateCurrentUserProfile(newProfile) {
   currentProfile = { ...currentProfile, ...newProfile };
   if (currentProfile.is_super_admin || currentProfile.role === 'super_admin') {
     realAuthenticatedProfile = { ...(realAuthenticatedProfile || {}), ...currentProfile };
-    localStorage.setItem('tps_real_auth_profile', JSON.stringify(realAuthenticatedProfile));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('tps_real_auth_profile', JSON.stringify(realAuthenticatedProfile));
+    }
   }
-  if (localStorage.getItem('tps_dev_profile')) {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('tps_dev_profile')) {
     localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile));
   }
   notifyListeners();

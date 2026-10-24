@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, getRBACMatrix, saveRBACMatrix, resetRBACMatrix } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.js';
+import { renderSidebar } from '../src/components/sidebar.js';
+import { updateCurrentUserProfile } from '../src/lib/auth.js';
 import { db } from '../src/lib/db.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
@@ -578,5 +580,52 @@ describe('12. Classroom Student Assignments Tests', () => {
     // Clean up
     await db.deleteClassroom(cls.id);
     await db.deleteProgram(prog.id);
+  });
+});
+
+describe('13. Collapsible Sidebar Component Tests', () => {
+  it('renderSidebar outputs collapse buttons and tooltips for both collapsed and expanded states', () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    // Test expanded state
+    renderSidebar(container, {
+      activeModule: 'dashboard',
+      isCollapsed: false,
+      onToggleCollapse: () => {},
+      onNavigate: () => {},
+      onCloseMobile: () => {}
+    });
+
+    expect(container.innerHTML).toContain('sidebar-collapse-btn');
+    expect(container.innerHTML).toContain('sidebar-footer-collapse-btn');
+    expect(container.innerHTML).toContain('Collapse sidebar');
+    expect(container.innerHTML).toContain('data-tooltip="Dashboard"');
+    expect(container.innerHTML).toContain('nav-label');
+
+    // Test collapsed state
+    renderSidebar(container, {
+      activeModule: 'dashboard',
+      isCollapsed: true,
+      onToggleCollapse: () => {},
+      onNavigate: () => {},
+      onCloseMobile: () => {}
+    });
+
+    expect(container.innerHTML).toContain('sidebar-collapse-btn');
+    expect(container.innerHTML).toContain('sidebar-footer-collapse-btn');
+    expect(container.innerHTML).toContain('Expand sidebar');
+    expect(container.innerHTML).toContain('data-tooltip="Dashboard"');
   });
 });

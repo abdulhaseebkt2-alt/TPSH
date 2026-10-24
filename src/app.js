@@ -78,6 +78,56 @@ class App {
     this.appEl = document.getElementById('app');
     this.activeModule = this.getHashRoute() || 'dashboard';
     this.sidebarMobileOpen = false;
+    this.sidebarCollapsed = localStorage.getItem('tps_sidebar_collapsed') === 'true';
+    this.setupGlobalShortcuts();
+  }
+
+  setupGlobalShortcuts() {
+    window.addEventListener('keydown', (e) => {
+      // Toggle sidebar with Ctrl+B or Ctrl+[
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B' || e.key === '[')) {
+        e.preventDefault();
+        if (window.innerWidth >= 1024) {
+          this.toggleSidebarCollapse();
+        } else {
+          this.toggleSidebarMobile();
+        }
+      }
+    });
+  }
+
+  toggleSidebarCollapse() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    localStorage.setItem('tps_sidebar_collapsed', String(this.sidebarCollapsed));
+    const sidebarEl = this.appEl?.querySelector('#app-sidebar');
+    const mainWrapperEl = this.appEl?.querySelector('.main-wrapper');
+    if (sidebarEl) sidebarEl.classList.toggle('collapsed', this.sidebarCollapsed);
+    if (mainWrapperEl) mainWrapperEl.classList.toggle('sidebar-collapsed', this.sidebarCollapsed);
+    if (sidebarEl) {
+      renderSidebar(sidebarEl, {
+        activeModule: this.activeModule,
+        isCollapsed: this.sidebarCollapsed,
+        onToggleCollapse: () => this.toggleSidebarCollapse(),
+        onNavigate: (mod) => this.navigate(mod),
+        onCloseMobile: () => this.closeSidebarMobile()
+      });
+    }
+  }
+
+  toggleSidebarMobile() {
+    this.sidebarMobileOpen = !this.sidebarMobileOpen;
+    const sidebarEl = this.appEl?.querySelector('#app-sidebar');
+    const backdropEl = this.appEl?.querySelector('#sidebar-backdrop');
+    if (sidebarEl) sidebarEl.classList.toggle('mobile-open', this.sidebarMobileOpen);
+    if (backdropEl) backdropEl.classList.toggle('active', this.sidebarMobileOpen);
+  }
+
+  closeSidebarMobile() {
+    this.sidebarMobileOpen = false;
+    const sidebarEl = this.appEl?.querySelector('#app-sidebar');
+    const backdropEl = this.appEl?.querySelector('#sidebar-backdrop');
+    if (sidebarEl) sidebarEl.classList.remove('mobile-open');
+    if (backdropEl) backdropEl.classList.remove('active');
   }
 
   getHashRoute() {
@@ -113,11 +163,10 @@ class App {
       if (sidebarEl) {
         renderSidebar(sidebarEl, {
           activeModule: this.activeModule,
+          isCollapsed: this.sidebarCollapsed,
+          onToggleCollapse: () => this.toggleSidebarCollapse(),
           onNavigate: (mod) => this.navigate(mod),
-          onCloseMobile: () => {
-            this.sidebarMobileOpen = false;
-            sidebarEl.classList.remove('mobile-open');
-          }
+          onCloseMobile: () => this.closeSidebarMobile()
         });
       }
     });
@@ -798,8 +847,9 @@ class App {
     }
 
     this.appEl.innerHTML = `
-      <aside class="sidebar ${this.sidebarMobileOpen ? 'mobile-open' : ''}" id="app-sidebar"></aside>
-      <div class="main-wrapper">
+      <aside class="sidebar ${this.sidebarMobileOpen ? 'mobile-open' : ''} ${this.sidebarCollapsed ? 'collapsed' : ''}" id="app-sidebar"></aside>
+      <div class="sidebar-backdrop ${this.sidebarMobileOpen ? 'active' : ''}" id="sidebar-backdrop"></div>
+      <div class="main-wrapper ${this.sidebarCollapsed ? 'sidebar-collapsed' : ''}">
         <div id="app-navbar"></div>
         <main class="content-area" id="app-content"></main>
       </div>
@@ -808,22 +858,27 @@ class App {
     const sidebarEl = this.appEl.querySelector('#app-sidebar');
     const navbarEl = this.appEl.querySelector('#app-navbar');
     const contentEl = this.appEl.querySelector('#app-content');
+    const backdropEl = this.appEl.querySelector('#sidebar-backdrop');
+
+    backdropEl?.addEventListener('click', () => this.closeSidebarMobile());
 
     renderNavbar(navbarEl, {
       onToggleSidebar: () => {
-        this.sidebarMobileOpen = !this.sidebarMobileOpen;
-        sidebarEl.classList.toggle('mobile-open', this.sidebarMobileOpen);
+        if (window.innerWidth >= 1024) {
+          this.toggleSidebarCollapse();
+        } else {
+          this.toggleSidebarMobile();
+        }
       },
       onNavigate: (mod) => this.navigate(mod)
     });
 
     renderSidebar(sidebarEl, {
       activeModule: this.activeModule,
+      isCollapsed: this.sidebarCollapsed,
+      onToggleCollapse: () => this.toggleSidebarCollapse(),
       onNavigate: (mod) => this.navigate(mod),
-      onCloseMobile: () => {
-        this.sidebarMobileOpen = false;
-        sidebarEl.classList.remove('mobile-open');
-      }
+      onCloseMobile: () => this.closeSidebarMobile()
     });
 
     // Render active module

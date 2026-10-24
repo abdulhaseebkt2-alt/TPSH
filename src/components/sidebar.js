@@ -2,15 +2,16 @@ import { getCurrentUser, signOut, switchDevRole, canSwitchRoles } from '../lib/a
 import { getVisibleModules } from '../lib/permissions.js';
 
 export function updateSidebarLogo(logoUrl) {
-  const logoEl = document.querySelector('#sidebar-inst-logo');
+  const logoEl = document?.querySelector ? document.querySelector('#sidebar-inst-logo') : null;
   if (!logoEl) return;
-  const effective = logoUrl || localStorage.getItem('tps_institution_logo') || localStorage.getItem('tps_mobile_front_logo') || '/tps-logo.png';
+  const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem('tps_institution_logo') || localStorage.getItem('tps_mobile_front_logo')) : null;
+  const effective = logoUrl || saved || '/tps-logo.png';
   logoEl.outerHTML = `<img src="${effective}" class="institution-logo" style="object-fit: contain; background: #FFFFFF; padding: 2px; border-radius: var(--radius-md);" alt="Logo" id="sidebar-inst-logo" />`;
 }
 
-export function renderSidebar(container, { activeModule, onNavigate, onCloseMobile }) {
+export function renderSidebar(container, { activeModule, isCollapsed = false, onToggleCollapse, onNavigate, onCloseMobile }) {
   const user = getCurrentUser();
-  const savedLogo = localStorage.getItem('tps_institution_logo') || localStorage.getItem('tps_mobile_front_logo');
+  const savedLogo = typeof localStorage !== 'undefined' ? (localStorage.getItem('tps_institution_logo') || localStorage.getItem('tps_mobile_front_logo')) : null;
   const logoHtml = `<img src="${savedLogo || '/tps-logo.png'}" class="institution-logo" style="object-fit: contain; background: #FFFFFF; padding: 2px; border-radius: var(--radius-md);" alt="Logo" id="sidebar-inst-logo" />`;
   const visibleModules = getVisibleModules(user);
 
@@ -47,9 +48,9 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
       for (const mod of modulesInSec) {
         const isActive = mod.key === activeModule;
         navHtml += `
-          <a class="nav-item ${isActive ? 'active' : ''}" data-module="${mod.key}" href="#${mod.key}">
+          <a class="nav-item ${isActive ? 'active' : ''}" data-module="${mod.key}" href="#${mod.key}" title="${mod.label}" data-tooltip="${mod.label}">
             <span class="nav-icon">${getIconSvg(mod.icon)}</span>
-            <span>${mod.label}</span>
+            <span class="nav-label">${mod.label}</span>
           </a>
         `;
       }
@@ -59,13 +60,20 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
   container.innerHTML = `
     <!-- Frozen Sidebar Header with Institutional Branding -->
     <div class="sidebar-header">
-      <div class="institution-brand" style="cursor: pointer;" id="sidebar-brand-link" title="Thaiba Public School">
+      <div class="institution-brand" style="cursor: pointer;" id="sidebar-brand-link" title="${isCollapsed ? 'Thaiba Public School (Click to expand)' : 'Thaiba Public School'}">
         ${logoHtml}
         <div class="institution-titles">
           <h1>Thaiba Public School</h1>
           <p>Modern Education with Morality</p>
         </div>
       </div>
+      <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="${isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}" title="${isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          ${isCollapsed 
+            ? '<polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline>' 
+            : '<polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline>'}
+        </svg>
+      </button>
       <button class="sidebar-close-btn" id="sidebar-close-btn" aria-label="Close menu">✕</button>
     </div>
 
@@ -95,9 +103,18 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
         </div>
       ` : ''}
 
-      <button class="sidebar-logout-btn" id="sidebar-logout-btn">
+      <button class="sidebar-logout-btn" id="sidebar-logout-btn" title="Sign Out" data-tooltip="Sign Out">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-        <span>Sign Out</span>
+        <span class="sidebar-logout-label">Sign Out</span>
+      </button>
+
+      <button class="sidebar-footer-collapse-btn" id="sidebar-footer-collapse-btn" title="${isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}" data-tooltip="${isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          ${isCollapsed 
+            ? '<polyline points="9 18 15 12 9 6"></polyline>' 
+            : '<polyline points="15 18 9 12 15 6"></polyline>'}
+        </svg>
+        <span class="sidebar-collapse-label">${isCollapsed ? 'Expand' : 'Collapse'}</span>
       </button>
     </div>
   `;
@@ -114,9 +131,23 @@ export function renderSidebar(container, { activeModule, onNavigate, onCloseMobi
     });
   });
 
+  container.querySelector('#sidebar-collapse-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (onToggleCollapse) onToggleCollapse();
+  });
+
+  container.querySelector('#sidebar-footer-collapse-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (onToggleCollapse) onToggleCollapse();
+  });
+
   container.querySelector('#sidebar-brand-link')?.addEventListener('click', () => {
-    onNavigate('dashboard');
-    if (onCloseMobile) onCloseMobile();
+    if (isCollapsed) {
+      if (onToggleCollapse) onToggleCollapse();
+    } else {
+      onNavigate('dashboard');
+      if (onCloseMobile) onCloseMobile();
+    }
   });
 
   container.querySelector('#sidebar-close-btn')?.addEventListener('click', onCloseMobile);
