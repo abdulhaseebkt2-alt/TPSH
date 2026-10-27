@@ -776,7 +776,7 @@ describe('14. Multi-Role Categorized Dashboards & Sidebar Section Tests', () => 
     expect(container.innerHTML).toContain('Gate Pass Status');
   });
 
-  it('Renders Executive Admin Dashboard for Admin/Super Admin with full perspective switcher', async () => {
+  it('Renders Executive Admin Dashboard for Admin/Super Admin with categorized Academic and Hostel sections', async () => {
     updateCurrentUserProfile({
       id: 'd0000000-0000-0000-0000-000000000001',
       email: 'abdulhaseebkt2@gmail.com',
@@ -794,10 +794,8 @@ describe('14. Multi-Role Categorized Dashboards & Sidebar Section Tests', () => 
     await renderDashboard(container, { onNavigate: () => {} });
 
     expect(container.innerHTML).toContain('Executive Institutional Overview');
-    expect(container.innerHTML).toContain('data-perspective="teacher"');
-    expect(container.innerHTML).toContain('data-perspective="mentor"');
-    expect(container.innerHTML).toContain('data-perspective="parent"');
-    expect(container.innerHTML).toContain('data-perspective="student"');
+    expect(container.innerHTML).toContain('Student & Academic');
+    expect(container.innerHTML).toContain('Hostel Operations');
     expect(container.innerHTML).toContain('Active Students');
     expect(container.innerHTML).toContain('Unpaid Late Fines');
   });

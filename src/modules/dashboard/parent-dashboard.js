@@ -2,7 +2,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
 import { formatDate, formatCurrency } from '../../lib/utils.js';
 
-export async function renderParentDashboard(container, { onNavigate, onSwitchPerspective }) {
+export async function renderParentDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
   const allStudents = await db.getStudents();
   const allLeaves = await db.getLeaves();
@@ -72,33 +72,6 @@ export async function renderParentDashboard(container, { onNavigate, onSwitchPer
   const percentage = ((totalScore / totalMax) * 100).toFixed(1);
 
   container.innerHTML = `
-    <!-- Top Perspective Switcher for Admins -->
-    ${(user?.is_super_admin || user?.role === 'admin' || user?.role === 'super_admin') ? `
-      <div class="dashboard-perspective-bar" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: var(--radius-lg); padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; box-shadow: var(--shadow-xs);">
-        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 700; color: #475569;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          <span>Dashboard Category:</span>
-        </div>
-        <div class="dashboard-category-pills" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-          <button class="dash-pill-btn" data-perspective="admin" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600; border-radius: 9999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer; transition: all 0.15s ease;">
-            🏛️ Executive Admin
-          </button>
-          <button class="dash-pill-btn" data-perspective="teacher" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600; border-radius: 9999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer; transition: all 0.15s ease;">
-            👨‍🏫 Teacher
-          </button>
-          <button class="dash-pill-btn" data-perspective="mentor" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600; border-radius: 9999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer; transition: all 0.15s ease;">
-            🏢 Hostel Mentor
-          </button>
-          <button class="dash-pill-btn active" data-perspective="parent" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; border-radius: 9999px; border: 1px solid #059669; background: #059669; color: #FFFFFF; cursor: pointer; transition: all 0.15s ease;">
-            👨‍👩‍👧 Parent Portal
-          </button>
-          <button class="dash-pill-btn" data-perspective="student" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600; border-radius: 9999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer; transition: all 0.15s ease;">
-            🎓 Student Portal
-          </button>
-        </div>
-      </div>
-    ` : ''}
-
     <div class="page-header" style="margin-bottom: 1.25rem;">
       <div class="page-title-group">
         <h2 style="font-size: 1.45rem; font-weight: 800; color: #0F172A; letter-spacing: -0.01em;">
@@ -357,13 +330,6 @@ export async function renderParentDashboard(container, { onNavigate, onSwitchPer
   `;
 
   // Attach handlers
-  container.querySelectorAll('.dash-pill-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const p = btn.getAttribute('data-perspective');
-      if (p && onSwitchPerspective) onSwitchPerspective(p);
-    });
-  });
-
   container.querySelectorAll('.child-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const childId = btn.getAttribute('data-child-id');
@@ -371,7 +337,7 @@ export async function renderParentDashboard(container, { onNavigate, onSwitchPer
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('tps_parent_active_child', childId);
         }
-        renderParentDashboard(container, { onNavigate, onSwitchPerspective });
+        renderParentDashboard(container, { onNavigate });
       }
     });
   });
