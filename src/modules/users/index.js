@@ -67,7 +67,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     <!-- Tabs: Pending Approvals, Active Accounts, Suspended Accounts & Assign Windows (RBAC) -->
     <div class="card-panel">
       <div class="card-panel-header">
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <div class="user-sub-tabs-bar">
           <button class="btn ${activeTab === 'pending' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tab-pending-btn">Pending Approvals (${pendingUsers.length})</button>
           <button class="btn ${activeTab === 'active' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tab-active-btn">Active Accounts (${activeUsers.length})</button>
           <button class="btn ${activeTab === 'suspended' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tab-suspended-btn">Suspended Accounts (${suspendedUsers.length})</button>
@@ -558,92 +558,92 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       const currCounts = getRoleCounts(selectedRoleKey);
 
       tabContent.innerHTML = `
-        <div style="padding: 1.5rem;">
-          <!-- Top Role Selection Pills -->
-          <div style="margin-bottom: 1.5rem;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.65rem;">
-              Select Role to Configure Windows:
-            </div>
-            <div class="role-pill-nav">
-              ${ROLES.map(role => {
-                const counts = getRoleCounts(role.key);
-                const isSelected = role.key === selectedRoleKey;
-                return `
-                  <button type="button" class="role-pill-btn ${isSelected ? 'active' : ''}" data-role-key="${role.key}">
-                    <span class="role-pill-icon">${role.icon}</span>
-                    <span>${role.label}</span>
-                    <span class="role-pill-badge" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;">
-                      ${counts.fullCount} Full • ${counts.viewCount} View
-                    </span>
-                  </button>
-                `;
-              }).join('')}
-            </div>
-          </div>
+        <div class="rbac-container">
+          <!-- Compact Mobile-Friendly Role Selection Toolbar -->
+          <div class="rbac-toolbar-card">
+            <!-- Row 1: Role Selector Dropdown & Primary Save Button -->
+            <div class="rbac-toolbar-top">
+              <div class="rbac-role-select-wrap">
+                <label for="rbac-role-select" class="rbac-select-label">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Role:</span>
+                </label>
+                <select id="rbac-role-select" class="rbac-role-dropdown" aria-label="Select role to configure windows">
+                  ${ROLES.map(role => {
+                    const counts = getRoleCounts(role.key);
+                    const isSelected = role.key === selectedRoleKey;
+                    return `
+                      <option value="${role.key}" ${isSelected ? 'selected' : ''}>
+                        ${role.label} (${counts.fullCount} Full • ${counts.viewCount} View)
+                      </option>
+                    `;
+                  }).join('')}
+                </select>
+              </div>
 
-          <!-- Active Role Header & Switch Legend -->
-          <div style="background: #F8FAFC; border: 1.5px solid var(--border-subtle); border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.9rem;">
-              <div class="role-avatar-badge">
-                ${activeRoleObj.icon.replace('width="18" height="18"', 'width="24" height="24"')}
-              </div>
-              <div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                  <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">${activeRoleObj.label}</h3>
-                  <span class="badge badge-present" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;">
-                    ${currCounts.fullCount} Full Access
-                  </span>
-                  <span class="badge badge-late" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">
-                    ${currCounts.viewCount} View Only
-                  </span>
-                  <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.72rem; padding: 0.2rem 0.6rem;">
-                    ${currCounts.offCount} Off
-                  </span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.78rem; color: #64748B; margin-top: 6px; flex-wrap: wrap;">
-                  <span>${activeRoleObj.subtitle}</span>
-                  <span>•</span>
-                  <span style="display: inline-flex; align-items: center; gap: 4px;">
-                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #CBD5E1; display: inline-block;"></span>
-                    <span>Left: Off</span>
-                  </span>
-                  <span style="display: inline-flex; align-items: center; gap: 4px;">
-                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #EAB308; display: inline-block;"></span>
-                    <span style="font-weight: 600; color: #854D0E;">Mid: View Only (Yellow)</span>
-                  </span>
-                  <span style="display: inline-flex; align-items: center; gap: 4px;">
-                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
-                    <span style="font-weight: 600; color: #065F46;">Right: Full Access (Green)</span>
-                  </span>
-                </div>
-              </div>
+              <button class="btn btn-primary btn-sm rbac-save-btn" id="btn-save-role-matrix">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Save Permissions</span>
+              </button>
             </div>
 
-            <!-- Action Buttons -->
-            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
-              <button class="btn btn-outline btn-sm" id="btn-role-full-all" title="Grant full access to all windows for this role">
-                Full Access All
-              </button>
-              <button class="btn btn-outline btn-sm" id="btn-role-view-all" title="Set all windows to Explore / View-only for this role">
-                View Only All
-              </button>
-              <button class="btn btn-outline btn-sm" id="btn-role-off-all" style="color: #DC2626; border-color: #FECACA;" title="Turn off all windows for this role">
-                Turn Off All
-              </button>
-              <button class="btn btn-outline btn-sm" id="btn-role-reset" title="Reset this role to default institutional windows">
-                Reset Defaults
-              </button>
-              <button class="btn btn-primary" id="btn-save-role-matrix" style="font-weight: 700; padding: 0.55rem 1.25rem; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                Save Permissions
-              </button>
+            <!-- Row 2: Role Summary Badges & Quick Bulk Actions -->
+            <div class="rbac-toolbar-actions">
+              <div class="rbac-role-badges">
+                <span class="badge badge-present" style="font-size: 0.72rem; padding: 0.22rem 0.55rem;">
+                  ${currCounts.fullCount} Full Access
+                </span>
+                <span class="badge" style="font-size: 0.72rem; padding: 0.22rem 0.55rem; background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">
+                  ${currCounts.viewCount} View Only
+                </span>
+                <span class="badge" style="font-size: 0.72rem; padding: 0.22rem 0.55rem; background: #F1F5F9; color: #64748B;">
+                  ${currCounts.offCount} Off
+                </span>
+                <span class="rbac-role-subtitle">
+                  ${activeRoleObj.subtitle}
+                </span>
+              </div>
+
+              <div class="rbac-bulk-btns">
+                <button class="btn btn-outline btn-xs" id="btn-role-full-all" title="Grant full access to all windows for this role">
+                  Full All
+                </button>
+                <button class="btn btn-outline btn-xs" id="btn-role-view-all" title="Set all windows to Explore / View-only for this role">
+                  View All
+                </button>
+                <button class="btn btn-outline btn-xs" id="btn-role-off-all" style="color: #DC2626; border-color: #FECACA;" title="Turn off all windows for this role">
+                  Off All
+                </button>
+                <button class="btn btn-outline btn-xs" id="btn-role-reset" title="Reset this role to default institutional windows">
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Row 3: Micro Switch Legend -->
+            <div class="rbac-micro-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-off"></span>
+                <span>Gray (Left) = Off</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-view"></span>
+                <span style="font-weight: 600; color: #854D0E;">Yellow (Mid) = View Only</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-full"></span>
+                <span style="font-weight: 600; color: #065F46;">Green (Right) = Full Access</span>
+              </div>
+              <div class="legend-hint">
+                • Tap card or switch to cycle
+              </div>
             </div>
           </div>
 
           <!-- Base Navigation Window (Common to All Categories) -->
-          <div class="perm-category-card" style="margin-bottom: 1.25rem;">
+          <div class="perm-category-card" style="margin-bottom: 1rem;">
             <div class="perm-category-header" style="background: #F8FAFC;">
-              <div class="perm-category-title" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <div class="perm-category-title" style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 0.5rem;">
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                   <span class="perm-category-icon">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -707,10 +707,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           `).join('')}
 
           <!-- Bottom Action Bar -->
-          <div style="background: #F8FAFC; border: 1px solid var(--border-subtle); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text-secondary);">
+          <div class="rbac-bottom-bar">
+            <div class="rbac-bottom-info">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span><strong>3-Position Switch:</strong> Gray (Left) = Off, Yellow (Center) = View Only, Green (Right) = Full Access. Click card or switch to cycle.</span>
+              <span>Tap any window card or switch to cycle: <strong>Off → View Only (Yellow) → Full Access (Green)</strong>.</span>
             </div>
             <button class="btn btn-primary" id="btn-save-role-matrix-bottom" style="font-weight: 700;">
               Save Permissions
@@ -719,13 +719,11 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         </div>
       `;
 
-      // Role pill click
-      tabContent.querySelectorAll('.role-pill-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          selectedRoleKey = btn.getAttribute('data-role-key');
-          savedActiveRbacRole = selectedRoleKey;
-          drawSimpleView();
-        });
+      // Role select dropdown change
+      tabContent.querySelector('#rbac-role-select')?.addEventListener('change', (e) => {
+        selectedRoleKey = e.target.value;
+        savedActiveRbacRole = selectedRoleKey;
+        drawSimpleView();
       });
 
       // Tapping switch or card cycles through:
