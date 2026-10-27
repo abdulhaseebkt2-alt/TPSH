@@ -861,65 +861,29 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             </div>
           </div>
 
-          <!-- 2. MOBILE TOOLBAR (Dropdown selector + compact buttons): Visible only on mobile <= 768px -->
+          <!-- 2. MOBILE TOOLBAR (Clean role dropdown & switch legend): Visible only on mobile <= 768px -->
           <div class="rbac-mobile-toolbar rbac-toolbar-card">
-            <!-- Row 1: Role Selector Dropdown & Primary Save Button -->
-            <div class="rbac-toolbar-top">
-              <div class="rbac-role-select-wrap">
+            <!-- Row 1: Role Selector Dropdown (Clean role names only) -->
+            <div class="rbac-toolbar-top" style="margin-bottom: 0;">
+              <div class="rbac-role-select-wrap" style="width: 100%; min-width: 0;">
                 <label for="rbac-role-select" class="rbac-select-label">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   <span>Role:</span>
                 </label>
                 <select id="rbac-role-select" class="rbac-role-dropdown" aria-label="Select role to configure windows">
                   ${ROLES.map(role => {
-                    const counts = getRoleCounts(role.key);
                     const isSelected = role.key === selectedRoleKey;
                     return `
                       <option value="${role.key}" ${isSelected ? 'selected' : ''}>
-                        ${role.label} (${counts.fullCount} Full • ${counts.viewCount} View)
+                        ${role.label}
                       </option>
                     `;
                   }).join('')}
                 </select>
               </div>
-
-              <button class="btn btn-primary btn-sm rbac-save-btn btn-save-role-matrix">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Save</span>
-              </button>
             </div>
 
-            <!-- Row 2: Role Summary Badges & Quick Bulk Actions -->
-            <div class="rbac-toolbar-actions">
-              <div class="rbac-role-badges">
-                <span class="badge badge-present" style="font-size: 0.72rem; padding: 0.22rem 0.55rem;">
-                  ${currCounts.fullCount} Full Access
-                </span>
-                <span class="badge" style="font-size: 0.72rem; padding: 0.22rem 0.55rem; background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">
-                  ${currCounts.viewCount} View Only
-                </span>
-                <span class="badge" style="font-size: 0.72rem; padding: 0.22rem 0.55rem; background: #F1F5F9; color: #64748B;">
-                  ${currCounts.offCount} Off
-                </span>
-              </div>
-
-              <div class="rbac-bulk-btns">
-                <button class="btn btn-outline btn-xs btn-role-full-all" title="Grant full access to all windows for this role">
-                  Full All
-                </button>
-                <button class="btn btn-outline btn-xs btn-role-view-all" title="Set all windows to Explore / View-only for this role">
-                  View All
-                </button>
-                <button class="btn btn-outline btn-xs btn-role-off-all" style="color: #DC2626; border-color: #FECACA;" title="Turn off all windows for this role">
-                  Off All
-                </button>
-                <button class="btn btn-outline btn-xs btn-role-reset" title="Reset this role to default institutional windows">
-                  Reset
-                </button>
-              </div>
-            </div>
-
-            <!-- Row 3: Micro Switch Legend -->
+            <!-- Row 2: Micro Switch Legend -->
             <div class="rbac-micro-legend">
               <div class="legend-item">
                 <span class="legend-dot dot-off"></span>

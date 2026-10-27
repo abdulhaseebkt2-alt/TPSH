@@ -3221,19 +3221,24 @@ a {
     border-radius: 12px;
   }
   .rbac-toolbar-top {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.6rem;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 0;
   }
   .rbac-role-select-wrap {
-    min-width: 100%;
+    min-width: 0;
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
   .rbac-role-dropdown {
-    max-width: 100%;
+    flex: 1;
+    min-width: 0;
     width: 100%;
-    font-size: 0.86rem;
-    padding: 0.5rem 0.7rem;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.75rem;
   }
   .rbac-save-btn {
     width: 100%;
