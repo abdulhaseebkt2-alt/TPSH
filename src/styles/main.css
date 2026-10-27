@@ -2787,6 +2787,105 @@ a {
   padding: 1.25rem 1.5rem;
 }
 
+/* Responsive visibility for RBAC headers: Desktop gets pill nav + role card, Mobile gets dropdown toolbar */
+.rbac-desktop-header {
+  display: block;
+}
+.rbac-mobile-toolbar {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .rbac-desktop-header {
+    display: none !important;
+  }
+  .rbac-mobile-toolbar {
+    display: flex !important;
+  }
+}
+
+.role-pill-nav {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.25rem 0.75rem 0.25rem;
+  margin-bottom: 1.5rem;
+  scrollbar-width: thin;
+}
+
+.role-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.15rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.role-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  transition: color var(--transition-fast);
+  line-height: 1;
+}
+
+.role-pill-btn:hover .role-pill-icon {
+  color: #059669;
+}
+
+.role-pill-btn.active .role-pill-icon {
+  color: #FFFFFF;
+}
+
+.role-avatar-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #E6F4EA;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1.5px solid #A7F3D0;
+}
+
+.role-pill-btn:hover {
+  border-color: #10B981;
+  color: #0F172A;
+  background: #F0FDF4;
+}
+
+.role-pill-btn.active {
+  background: #10B981;
+  border-color: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+.role-pill-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.07);
+  color: inherit;
+  font-weight: 800;
+}
+
+.role-pill-btn.active .role-pill-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
 .rbac-toolbar-card {
   background: #F8FAFC;
   border: 1.5px solid var(--border-subtle);

@@ -104,7 +104,57 @@ export const DEFAULT_RBAC_MATRIX = {
 };
 
 const RBAC_STORAGE_KEY = 'tps_rbac_matrix';
+const USER_CUSTOM_PERM_KEY = 'tps_user_custom_modules';
 let memoryMatrix = null;
+let memoryUserCustom = null;
+
+export function getAllUserCustomPermissions() {
+  if (memoryUserCustom) {
+    return JSON.parse(JSON.stringify(memoryUserCustom));
+  }
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(USER_CUSTOM_PERM_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    memoryUserCustom = parsed;
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+export function getUserCustomPermissions(userId) {
+  if (!userId) return null;
+  const all = getAllUserCustomPermissions();
+  return all[userId] || null;
+}
+
+export function saveUserCustomPermissions(userId, customModules) {
+  if (!userId) return false;
+  const all = getAllUserCustomPermissions();
+  if (customModules && typeof customModules === 'object' && Object.keys(customModules).length > 0) {
+    all[userId] = customModules;
+  } else {
+    delete all[userId];
+  }
+  memoryUserCustom = JSON.parse(JSON.stringify(all));
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(USER_CUSTOM_PERM_KEY, JSON.stringify(all));
+    } catch (e) {
+      console.warn('Error saving user custom permissions:', e);
+      return false;
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('tps:permissions-updated'));
+  }
+  return true;
+}
+
+export function clearUserCustomPermissions(userId) {
+  return saveUserCustomPermissions(userId, null);
+}
 
 function cloneDefaults() {
   return JSON.parse(JSON.stringify(DEFAULT_RBAC_MATRIX));
@@ -197,13 +247,18 @@ export function getModuleAccessLevel(profile, moduleKey) {
   // Core administrative security modules reserved for Super Admin
   if (['users', 'audit'].includes(moduleKey)) return 'off';
 
-  // Custom user-level assigned modules override (if present)
-  if (profile.custom_modules) {
-    if (Array.isArray(profile.custom_modules)) {
-      return profile.custom_modules.includes(moduleKey) ? 'full' : 'off';
+  // Custom user-level assigned modules override (if present on profile or in user custom storage)
+  let userCustom = profile.custom_modules;
+  if (!userCustom && profile.id) {
+    userCustom = getUserCustomPermissions(profile.id);
+  }
+
+  if (userCustom) {
+    if (Array.isArray(userCustom)) {
+      return userCustom.includes(moduleKey) ? 'full' : 'off';
     }
-    if (typeof profile.custom_modules === 'object') {
-      const val = profile.custom_modules[moduleKey];
+    if (typeof userCustom === 'object') {
+      const val = userCustom[moduleKey];
       if (val === 'view' || val === 'full') return val;
       if (val === 'off' || val === 'none') return 'off';
     }

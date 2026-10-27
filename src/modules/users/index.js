@@ -8,12 +8,177 @@ import {
   saveRBACMatrix, 
   resetRBACMatrix, 
   normalizeRBACMatrix,
+  getUserCustomPermissions,
+  saveUserCustomPermissions,
+  clearUserCustomPermissions,
   MODULE_DEFINITIONS 
 } from '../../lib/permissions.js';
 
 // Module-level preserved tab state so user never loses their active view
 let savedUsersTab = null;
 let savedActiveRbacRole = 'teacher';
+
+export const RBAC_ROLES = [
+  {
+    key: 'admin',
+    label: 'Master Admin',
+    subtitle: 'Academic & Records Governance',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`
+  },
+  {
+    key: 'teacher',
+    label: 'Teacher / Faculty',
+    subtitle: 'Timetable, Attendance & Marks',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>`
+  },
+  {
+    key: 'mentor',
+    label: 'Hostel Mentor',
+    subtitle: 'Hostel Operations, Leaves & Welfare',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
+  },
+  {
+    key: 'hostel_leader',
+    label: 'Hostel Leader',
+    subtitle: 'Peer Roll-Call & Room Monitoring',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+  },
+  {
+    key: 'parent',
+    label: 'Parents',
+    subtitle: 'Ward Academic, Attendance & Fees',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+  },
+  {
+    key: 'student',
+    label: 'Students',
+    subtitle: 'Personal Attendance & Study Portal',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`
+  }
+];
+
+export const RBAC_WINDOW_GROUPS = [
+  {
+    title: 'Student & Academic Windows',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+    modules: [
+      {
+        key: 'timetable',
+        label: 'Teacher Timetable',
+        desc: 'View assigned class schedules and coaching periods',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
+      },
+      {
+        key: 'attendance',
+        label: 'Attendance Management',
+        desc: 'Daily classroom roll-call, coaching & teacher duty register',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`
+      },
+      {
+        key: 'exams',
+        label: 'Exam Management',
+        desc: 'Examination dates, syllabi, seating arrangements & timings',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`
+      },
+      {
+        key: 'marks',
+        label: 'Marks & Results',
+        desc: 'Enter subject marks, grade calculation and official report cards',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>`
+      },
+      {
+        key: 'admissions',
+        label: 'Student Admissions',
+        desc: 'Process new student admission forms, parents data & documents',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y1="11"/></svg>`
+      },
+      {
+        key: 'students',
+        label: 'Student Directory',
+        desc: 'Browse complete student directory, guardian contacts & history',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+      },
+      {
+        key: 'sections',
+        label: 'Sections & Classrooms',
+        desc: 'Manage classrooms, standards, and batch divisions',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`
+      },
+      {
+        key: 'assignments',
+        label: 'Student Assignments',
+        desc: 'Review hostel coaching homework and assign academic tasks',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`
+      }
+    ]
+  },
+  {
+    title: 'Hostel Operations Windows',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    modules: [
+      {
+        key: 'leaves',
+        label: 'Hostel Leave Register',
+        desc: 'Request, approve & record student leaves, departures & returns',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M6.36 17.4 4 17l-2-4 1.1-.55a2 2 0 0 1 1.8 0l3.54 1.77L13 8l-1.5-3 2.5-1 3.5 7.5 4.5 2.25a2.5 2.5 0 0 1 0 4.5l-4.5.75L12 21l-2.5-.5 1-3.5z"/></svg>`
+      },
+      {
+        key: 'fines',
+        label: 'Late Fine Management',
+        desc: 'Track ₹200/day delay penalties and fine collections',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`
+      },
+      {
+        key: 'discipline',
+        label: 'Discipline & Black Marks',
+        desc: 'Log behavioural infractions, demerits, and warnings',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
+      },
+      {
+        key: 'hostel',
+        label: 'Hostel Rooms & Beds',
+        desc: 'Dormitory room layout, bunk beds & student room allocations',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>`
+      },
+      {
+        key: 'maintenance',
+        label: 'Hostel Maintenance',
+        desc: 'Submit and track hostel repairs, electrical & plumbing issues',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`
+      }
+    ]
+  },
+  {
+    title: 'Administration & Communication Windows',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    modules: [
+      {
+        key: 'notices',
+        label: 'Notices & WhatsApp',
+        desc: 'Send school notifications, reminders and circulars',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`
+      },
+      {
+        key: 'fees',
+        label: 'Fees & Payments',
+        desc: 'Monitor student fee balances and collect payments',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`
+      },
+      {
+        key: 'reports',
+        label: 'Reports Center',
+        desc: 'Generate monthly attendance and fine register reports',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`
+      },
+      {
+        key: 'settings',
+        label: 'Institution Settings',
+        desc: 'Configure institutional details, logo, and fine rates',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`
+      }
+    ]
+  }
+];
 
 export async function renderUsersModule(container, { onNavigate, initialTab } = {}) {
   const currentUser = getCurrentUser();
@@ -270,7 +435,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               </tr>
             </thead>
             <tbody>
-              ${activeUsers.map(u => `
+              ${activeUsers.map(u => {
+                const userCustom = getUserCustomPermissions(u.id);
+                const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
+                return `
                 <tr>
                   <td>
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -280,6 +448,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                       <div>
                         <strong>${u.full_name || 'User'}</strong>
                         ${u.is_super_admin ? `<span class="badge" style="background: #0F172A; color: #FFFFFF; font-size: 0.65rem; margin-left: 0.35rem;">SUPER ADMIN</span>` : ''}
+                        ${hasCustom ? `<span class="badge" style="background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; margin-left: 0.35rem; font-weight: 700;">CUSTOM PERMS</span>` : ''}
                         <div style="font-size: 0.75rem; color: var(--text-muted);">${u.phone_number || 'No phone recorded'}</div>
                       </div>
                     </div>
@@ -292,9 +461,13 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <td>${u.email}</td>
                   <td><span class="badge badge-present">Active</span></td>
                   <td>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
                       ${!u.is_super_admin ? `
-                        <button class="btn btn-sm btn-outline btn-change-role" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}">Edit Role</button>
+                        <button class="btn btn-sm btn-outline btn-change-role" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}">Role</button>
+                        <button class="btn btn-sm ${hasCustom ? 'btn-primary' : 'btn-outline'} btn-custom-perm" data-id="${u.id}" style="${hasCustom ? 'box-shadow: 0 1px 4px rgba(16,185,129,0.3);' : 'color: #059669; border-color: #A7F3D0;'}" title="Customize specific window access for ${u.full_name || u.email}">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                          Permissions
+                        </button>
                       ` : ''}
                       <button class="btn btn-sm btn-outline btn-profile" data-id="${u.id}">Profile</button>
                       ${!u.is_super_admin ? `
@@ -303,7 +476,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     </div>
                   </td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -329,6 +503,16 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           const email = btn.getAttribute('data-email');
           const currentRole = btn.getAttribute('data-role');
           showApprovalModal(id, email, currentRole);
+        });
+      });
+
+      tabContent.querySelectorAll('.btn-custom-perm').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const u = activeUsers.find(item => item.id === id);
+          if (u) {
+            showUserCustomPermissionsModal(u);
+          }
         });
       });
 
@@ -363,167 +547,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     let localMatrix = normalizeRBACMatrix(getRBACMatrix());
     let selectedRoleKey = savedActiveRbacRole || 'teacher';
 
-    const ROLES = [
-      {
-        key: 'admin',
-        label: 'Master Admin',
-        subtitle: 'Academic & Records Governance',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`
-      },
-      {
-        key: 'teacher',
-        label: 'Teacher / Faculty',
-        subtitle: 'Timetable, Attendance & Marks',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>`
-      },
-      {
-        key: 'mentor',
-        label: 'Hostel Mentor',
-        subtitle: 'Hostel Operations, Leaves & Welfare',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
-      },
-      {
-        key: 'hostel_leader',
-        label: 'Hostel Leader',
-        subtitle: 'Peer Roll-Call & Room Monitoring',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
-      },
-      {
-        key: 'parent',
-        label: 'Parents',
-        subtitle: 'Ward Academic, Attendance & Fees',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
-      },
-      {
-        key: 'student',
-        label: 'Students',
-        subtitle: 'Personal Attendance & Study Portal',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`
-      }
-    ];
-
-    const WINDOW_GROUPS = [
-      {
-        title: 'Student & Academic Windows',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
-        modules: [
-          {
-            key: 'timetable',
-            label: 'Teacher Timetable',
-            desc: 'View assigned class schedules and coaching periods',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
-          },
-          {
-            key: 'attendance',
-            label: 'Attendance Management',
-            desc: 'Daily classroom roll-call, coaching & teacher duty register',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`
-          },
-          {
-            key: 'exams',
-            label: 'Exam Management',
-            desc: 'Examination dates, syllabi, seating arrangements & timings',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`
-          },
-          {
-            key: 'marks',
-            label: 'Marks & Results',
-            desc: 'Enter subject marks, grade calculation and official report cards',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>`
-          },
-          {
-            key: 'admissions',
-            label: 'Student Admissions',
-            desc: 'Process new student admission forms, parents data & documents',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y1="11"/></svg>`
-          },
-          {
-            key: 'students',
-            label: 'Student Directory',
-            desc: 'Browse complete student directory, guardian contacts & history',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
-          },
-          {
-            key: 'sections',
-            label: 'Sections & Classrooms',
-            desc: 'Manage classrooms, standards, and batch divisions',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`
-          },
-          {
-            key: 'assignments',
-            label: 'Student Assignments',
-            desc: 'Review hostel coaching homework and assign academic tasks',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`
-          }
-        ]
-      },
-      {
-        title: 'Hostel Operations Windows',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-        modules: [
-          {
-            key: 'leaves',
-            label: 'Hostel Leave Register',
-            desc: 'Request, approve & record student leaves, departures & returns',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M6.36 17.4 4 17l-2-4 1.1-.55a2 2 0 0 1 1.8 0l3.54 1.77L13 8l-1.5-3 2.5-1 3.5 7.5 4.5 2.25a2.5 2.5 0 0 1 0 4.5l-4.5.75L12 21l-2.5-.5 1-3.5z"/></svg>`
-          },
-          {
-            key: 'fines',
-            label: 'Late Fine Management',
-            desc: 'Track ₹200/day delay penalties and fine collections',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`
-          },
-          {
-            key: 'discipline',
-            label: 'Discipline & Black Marks',
-            desc: 'Log behavioural infractions, demerits, and warnings',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
-          },
-          {
-            key: 'hostel',
-            label: 'Hostel Rooms & Beds',
-            desc: 'Dormitory room layout, bunk beds & student room allocations',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>`
-          },
-          {
-            key: 'maintenance',
-            label: 'Hostel Maintenance',
-            desc: 'Submit and track hostel repairs, electrical & plumbing issues',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`
-          }
-        ]
-      },
-      {
-        title: 'Administration & Communication Windows',
-        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-        modules: [
-          {
-            key: 'notices',
-            label: 'Notices & WhatsApp',
-            desc: 'Send school notifications, reminders and circulars',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`
-          },
-          {
-            key: 'fees',
-            label: 'Fees & Payments',
-            desc: 'Monitor student fee balances and collect payments',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`
-          },
-          {
-            key: 'reports',
-            label: 'Reports Center',
-            desc: 'Generate monthly attendance and fine register reports',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`
-          },
-          {
-            key: 'settings',
-            label: 'Institution Settings',
-            desc: 'Configure institutional details, logo, and fine rates',
-            icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`
-          }
-        ]
-      }
-    ];
+    const ROLES = RBAC_ROLES;
+    const WINDOW_GROUPS = RBAC_WINDOW_GROUPS;
 
     const getLevel = (roleKey, modKey) => {
       const roleMap = localMatrix[roleKey] || {};
@@ -559,8 +584,92 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
       tabContent.innerHTML = `
         <div class="rbac-container">
-          <!-- Compact Mobile-Friendly Role Selection Toolbar -->
-          <div class="rbac-toolbar-card">
+          <!-- 1. DESKTOP HEADER (Previous horizontal pills + large active role card with badges, legend & full controls) -->
+          <div class="rbac-desktop-header">
+            <!-- Top Role Selection Pills -->
+            <div style="margin-bottom: 1.5rem;">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.65rem;">
+                Select Role to Configure Windows:
+              </div>
+              <div class="role-pill-nav">
+                ${ROLES.map(role => {
+                  const counts = getRoleCounts(role.key);
+                  const isSelected = role.key === selectedRoleKey;
+                  return `
+                    <button type="button" class="role-pill-btn ${isSelected ? 'active' : ''}" data-role-key="${role.key}">
+                      <span class="role-pill-icon">${role.icon}</span>
+                      <span>${role.label}</span>
+                      <span class="role-pill-badge" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;">
+                        ${counts.fullCount} Full • ${counts.viewCount} View
+                      </span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- Active Role Header & Switch Legend -->
+            <div style="background: #F8FAFC; border: 1.5px solid var(--border-subtle); border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.9rem;">
+                <div class="role-avatar-badge">
+                  ${activeRoleObj.icon.replace('width="18" height="18"', 'width="24" height="24"')}
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">${activeRoleObj.label}</h3>
+                    <span class="badge badge-present" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;">
+                      ${currCounts.fullCount} Full Access
+                    </span>
+                    <span class="badge badge-late" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">
+                      ${currCounts.viewCount} View Only
+                    </span>
+                    <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.72rem; padding: 0.2rem 0.6rem;">
+                      ${currCounts.offCount} Off
+                    </span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.78rem; color: #64748B; margin-top: 6px; flex-wrap: wrap;">
+                    <span>${activeRoleObj.subtitle}</span>
+                    <span>•</span>
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                      <span style="width: 9px; height: 9px; border-radius: 50%; background: #CBD5E1; display: inline-block;"></span>
+                      <span>Left: Off</span>
+                    </span>
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                      <span style="width: 9px; height: 9px; border-radius: 50%; background: #EAB308; display: inline-block;"></span>
+                      <span style="font-weight: 600; color: #854D0E;">Mid: View Only (Yellow)</span>
+                    </span>
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                      <span style="width: 9px; height: 9px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+                      <span style="font-weight: 600; color: #065F46;">Right: Full Access (Green)</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Desktop Action Buttons -->
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <button class="btn btn-outline btn-sm btn-role-full-all" title="Grant full access to all windows for this role">
+                  Full Access All
+                </button>
+                <button class="btn btn-outline btn-sm btn-role-view-all" title="Set all windows to Explore / View-only for this role">
+                  View Only All
+                </button>
+                <button class="btn btn-outline btn-sm btn-role-off-all" style="color: #DC2626; border-color: #FECACA;" title="Turn off all windows for this role">
+                  Turn Off All
+                </button>
+                <button class="btn btn-outline btn-sm btn-role-reset" title="Reset this role to default institutional windows">
+                  Reset Defaults
+                </button>
+                <button class="btn btn-primary btn-save-role-matrix" style="font-weight: 700; padding: 0.55rem 1.25rem; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Save Permissions
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. MOBILE TOOLBAR (Dropdown selector + compact buttons): Visible only on mobile <= 768px -->
+          <div class="rbac-mobile-toolbar rbac-toolbar-card">
             <!-- Row 1: Role Selector Dropdown & Primary Save Button -->
             <div class="rbac-toolbar-top">
               <div class="rbac-role-select-wrap">
@@ -581,9 +690,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 </select>
               </div>
 
-              <button class="btn btn-primary btn-sm rbac-save-btn" id="btn-save-role-matrix">
+              <button class="btn btn-primary btn-sm rbac-save-btn btn-save-role-matrix">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Save Permissions</span>
+                <span>Save</span>
               </button>
             </div>
 
@@ -599,22 +708,19 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 <span class="badge" style="font-size: 0.72rem; padding: 0.22rem 0.55rem; background: #F1F5F9; color: #64748B;">
                   ${currCounts.offCount} Off
                 </span>
-                <span class="rbac-role-subtitle">
-                  ${activeRoleObj.subtitle}
-                </span>
               </div>
 
               <div class="rbac-bulk-btns">
-                <button class="btn btn-outline btn-xs" id="btn-role-full-all" title="Grant full access to all windows for this role">
+                <button class="btn btn-outline btn-xs btn-role-full-all" title="Grant full access to all windows for this role">
                   Full All
                 </button>
-                <button class="btn btn-outline btn-xs" id="btn-role-view-all" title="Set all windows to Explore / View-only for this role">
+                <button class="btn btn-outline btn-xs btn-role-view-all" title="Set all windows to Explore / View-only for this role">
                   View All
                 </button>
-                <button class="btn btn-outline btn-xs" id="btn-role-off-all" style="color: #DC2626; border-color: #FECACA;" title="Turn off all windows for this role">
+                <button class="btn btn-outline btn-xs btn-role-off-all" style="color: #DC2626; border-color: #FECACA;" title="Turn off all windows for this role">
                   Off All
                 </button>
-                <button class="btn btn-outline btn-xs" id="btn-role-reset" title="Reset this role to default institutional windows">
+                <button class="btn btn-outline btn-xs btn-role-reset" title="Reset this role to default institutional windows">
                   Reset
                 </button>
               </div>
@@ -750,52 +856,69 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         });
       });
 
-      // Full Access All for this role
-      tabContent.querySelector('#btn-role-full-all')?.addEventListener('click', () => {
-        for (const grp of WINDOW_GROUPS) {
-          for (const mod of grp.modules) {
-            setLevel(selectedRoleKey, mod.key, 'full');
-          }
-        }
-        drawSimpleView();
-      });
-
-      // View Only All for this role
-      tabContent.querySelector('#btn-role-view-all')?.addEventListener('click', () => {
-        for (const grp of WINDOW_GROUPS) {
-          for (const mod of grp.modules) {
-            setLevel(selectedRoleKey, mod.key, 'view');
-          }
-        }
-        drawSimpleView();
-      });
-
-      // Turn Off All for this role
-      tabContent.querySelector('#btn-role-off-all')?.addEventListener('click', () => {
-        for (const grp of WINDOW_GROUPS) {
-          for (const mod of grp.modules) {
-            setLevel(selectedRoleKey, mod.key, 'off');
-          }
-        }
-        drawSimpleView();
-      });
-
-      // Reset Defaults for this role
-      tabContent.querySelector('#btn-role-reset')?.addEventListener('click', async () => {
-        const confirmed = await confirmDialog({
-          title: 'Reset Role Windows',
-          message: `Restore default institutional window assignments for ${activeRoleObj.label}?`,
-          confirmText: 'Restore Defaults'
-        });
-        if (confirmed) {
-          const freshDefaults = resetRBACMatrix();
-          localMatrix[selectedRoleKey] = { ...(freshDefaults[selectedRoleKey] || {}) };
+      // Desktop: Role pill click
+      tabContent.querySelectorAll('.role-pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedRoleKey = btn.getAttribute('data-role-key');
+          savedActiveRbacRole = selectedRoleKey;
           drawSimpleView();
-          toast.info(`Restored default windows for ${activeRoleObj.label}.`);
-        }
+        });
       });
 
-      // Save handlers
+      // Full Access All for this role (both desktop & mobile)
+      tabContent.querySelectorAll('.btn-role-full-all').forEach(btn => {
+        btn.addEventListener('click', () => {
+          for (const grp of WINDOW_GROUPS) {
+            for (const mod of grp.modules) {
+              setLevel(selectedRoleKey, mod.key, 'full');
+            }
+          }
+          drawSimpleView();
+        });
+      });
+
+      // View Only All for this role (both desktop & mobile)
+      tabContent.querySelectorAll('.btn-role-view-all').forEach(btn => {
+        btn.addEventListener('click', () => {
+          for (const grp of WINDOW_GROUPS) {
+            for (const mod of grp.modules) {
+              setLevel(selectedRoleKey, mod.key, 'view');
+            }
+          }
+          drawSimpleView();
+        });
+      });
+
+      // Turn Off All for this role (both desktop & mobile)
+      tabContent.querySelectorAll('.btn-role-off-all').forEach(btn => {
+        btn.addEventListener('click', () => {
+          for (const grp of WINDOW_GROUPS) {
+            for (const mod of grp.modules) {
+              setLevel(selectedRoleKey, mod.key, 'off');
+            }
+          }
+          drawSimpleView();
+        });
+      });
+
+      // Reset Defaults for this role (both desktop & mobile)
+      tabContent.querySelectorAll('.btn-role-reset').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const confirmed = await confirmDialog({
+            title: 'Reset Role Windows',
+            message: `Restore default institutional window assignments for ${activeRoleObj.label}?`,
+            confirmText: 'Restore Defaults'
+          });
+          if (confirmed) {
+            const freshDefaults = resetRBACMatrix();
+            localMatrix[selectedRoleKey] = { ...(freshDefaults[selectedRoleKey] || {}) };
+            drawSimpleView();
+            toast.info(`Restored default windows for ${activeRoleObj.label}.`);
+          }
+        });
+      });
+
+      // Save handlers (both desktop & mobile)
       const handleSave = () => {
         saveRBACMatrix(localMatrix);
         db.logAudit('UPDATE_RBAC_MATRIX', 'permissions', selectedRoleKey, `Updated window permissions for ${activeRoleObj.label}`);
@@ -804,11 +927,217 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         drawSimpleView();
       };
 
-      tabContent.querySelector('#btn-save-role-matrix')?.addEventListener('click', handleSave);
+      tabContent.querySelectorAll('.btn-save-role-matrix').forEach(btn => {
+        btn.addEventListener('click', handleSave);
+      });
       tabContent.querySelector('#btn-save-role-matrix-bottom')?.addEventListener('click', handleSave);
     }
 
     drawSimpleView();
+  }
+
+  function showUserCustomPermissionsModal(targetUser) {
+    const roleKey = targetUser.role || 'teacher';
+    const roleObj = RBAC_ROLES.find(r => r.key === roleKey) || RBAC_ROLES[1];
+    const roleMatrix = (getRBACMatrix()[roleKey]) || {};
+
+    // Get current custom overrides
+    let userOverrides = { ...(getUserCustomPermissions(targetUser.id) || {}) };
+
+    const getEffectiveLevel = (modKey) => {
+      if (userOverrides[modKey] !== undefined) return userOverrides[modKey];
+      return roleMatrix[modKey] || 'off';
+    };
+
+    openModal({
+      title: `Customize Window Permissions: ${targetUser.full_name || targetUser.email}`,
+      contentHtml: `
+        <div style="margin-bottom: 1.25rem;">
+          <!-- User Info Banner -->
+          <div style="background: #F8FAFC; border: 1.5px solid var(--border-subtle); border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div class="user-avatar" style="width: 38px; height: 38px; font-size: 14px;">
+                ${targetUser.avatar_url ? `<img src="${targetUser.avatar_url}" style="width:100%;height:100%;object-fit:cover;" alt=""/>` : (targetUser.full_name || 'U')[0].toUpperCase()}
+              </div>
+              <div>
+                <strong style="font-size: 0.95rem; color: #0F172A;">${targetUser.full_name || 'User'}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${targetUser.email} • Role: <span class="badge badge-present" style="font-weight: 700;">${(targetUser.role || 'Staff').toUpperCase()}</span></div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn btn-outline btn-xs" id="btn-modal-reset-defaults" style="color: #475569;" title="Reset this user's windows back to ${roleObj.label} defaults">
+                Reset to Role Defaults
+              </button>
+            </div>
+          </div>
+
+          <!-- Description Hint Banner -->
+          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 0.7rem 0.9rem; font-size: 0.8rem; color: #1E40AF; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.1rem; flex-shrink: 0;">💡</span>
+            <span>Customize specific window access for <strong>${targetUser.full_name || targetUser.email}</strong>. Overrides apply ONLY to this user; other ${roleObj.label} accounts remain untouched.</span>
+          </div>
+
+          <!-- Micro Legend -->
+          <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.75rem; color: #64748B; margin-bottom: 1rem; flex-wrap: wrap;">
+            <span><strong style="color: #0F172A;">Switch:</strong></span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1;"></span>
+              <span>Gray (Left) = Off</span>
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #EAB308;"></span>
+              <span style="font-weight: 600; color: #854D0E;">Yellow (Center) = View Only</span>
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
+              <span style="font-weight: 600; color: #065F46;">Green (Right) = Full Access</span>
+            </span>
+            <span style="color: #059669; font-weight: 600; margin-left: 0.3rem;">• Tap card to cycle</span>
+          </div>
+
+          <!-- Modal Scrollable Windows List -->
+          <div id="modal-user-perm-list" style="max-height: 52vh; overflow-y: auto; padding-right: 4px;">
+            <!-- Rendered via drawModalList -->
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+          <button class="btn btn-outline btn-sm" id="btn-modal-cancel">Cancel</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-outline btn-sm" id="btn-modal-grant-all">Grant All Full</button>
+            <button class="btn btn-primary btn-sm" id="btn-modal-save-perm" style="font-weight: 700; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);">
+              Save Custom Permissions
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        function drawModalList() {
+          const listEl = modalBody.querySelector('#modal-user-perm-list');
+          if (!listEl) return;
+
+          listEl.innerHTML = RBAC_WINDOW_GROUPS.map(grp => `
+            <div style="margin-bottom: 1rem; background: #FFFFFF; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 0.85rem 1rem;">
+              <div style="font-size: 0.85rem; font-weight: 800; color: #0F172A; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.4rem;">
+                <span style="color: #059669; display: inline-flex;">${grp.icon}</span>
+                <span>${grp.title}</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                ${grp.modules.map(mod => {
+                  const level = getEffectiveLevel(mod.key);
+                  const roleDefLevel = roleMatrix[mod.key] || 'off';
+                  const isOverride = userOverrides[mod.key] !== undefined && userOverrides[mod.key] !== roleDefLevel;
+
+                  return `
+                    <div class="perm-item state-${level} modal-perm-item" data-mod-key="${mod.key}" style="padding: 0.65rem 0.85rem;" title="${mod.label} • Click to cycle">
+                      <div class="perm-item-left">
+                        <div class="perm-item-icon" style="width: 32px; height: 32px;">${mod.icon}</div>
+                        <div class="perm-item-info">
+                          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                            <span class="perm-item-name" style="font-size: 0.85rem;">${mod.label}</span>
+                            ${isOverride ? `
+                              <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.62rem; padding: 0.1rem 0.4rem; font-weight: 700;">
+                                Special Override
+                              </span>
+                            ` : `
+                              <span style="font-size: 0.68rem; color: #94A3B8;">(Role Default: ${roleDefLevel.toUpperCase()})</span>
+                            `}
+                          </div>
+                          <span class="perm-item-desc" style="font-size: 0.7rem;">${mod.desc}</span>
+                        </div>
+                      </div>
+                      <div class="perm-switch pos-${level}" data-mod-key="${mod.key}"></div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `).join('');
+
+          // Bind switch cycle clicks
+          listEl.querySelectorAll('.modal-perm-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const modKey = item.getAttribute('data-mod-key');
+              if (!modKey) return;
+              const current = getEffectiveLevel(modKey);
+              let next = 'view';
+              if (current === 'off') next = 'view';
+              else if (current === 'view') next = 'full';
+              else next = 'off';
+
+              userOverrides[modKey] = next;
+              drawModalList();
+            });
+          });
+        }
+
+        drawModalList();
+
+        // Reset to Role Defaults
+        modalBody.querySelector('#btn-modal-reset-defaults')?.addEventListener('click', () => {
+          userOverrides = {};
+          drawModalList();
+          toast.info(`Reset switches to default ${roleObj.label} permissions.`);
+        });
+
+        // Grant All Full
+        modalBody.querySelector('#btn-modal-grant-all')?.addEventListener('click', () => {
+          for (const grp of RBAC_WINDOW_GROUPS) {
+            for (const mod of grp.modules) {
+              userOverrides[mod.key] = 'full';
+            }
+          }
+          drawModalList();
+        });
+
+        // Cancel
+        modalBody.querySelector('#btn-modal-cancel')?.addEventListener('click', () => {
+          close();
+        });
+
+        // Save Custom Permissions
+        modalBody.querySelector('#btn-modal-save-perm')?.addEventListener('click', async () => {
+          // Check if overrides match defaults
+          let hasAnyOverride = false;
+          const cleanedOverrides = {};
+          for (const grp of RBAC_WINDOW_GROUPS) {
+            for (const mod of grp.modules) {
+              const current = userOverrides[mod.key];
+              const def = roleMatrix[mod.key] || 'off';
+              if (current !== undefined && current !== def) {
+                cleanedOverrides[mod.key] = current;
+                hasAnyOverride = true;
+              }
+            }
+          }
+
+          if (!hasAnyOverride) {
+            clearUserCustomPermissions(targetUser.id);
+            const users = db.get('tps_users') || [];
+            const idx = users.findIndex(u => u.id === targetUser.id);
+            if (idx >= 0) {
+              delete users[idx].custom_modules;
+              db.set('tps_users', users);
+            }
+            toast.info(`Restored default permissions for ${targetUser.full_name || targetUser.email}.`);
+          } else {
+            saveUserCustomPermissions(targetUser.id, cleanedOverrides);
+            const users = db.get('tps_users') || [];
+            const idx = users.findIndex(u => u.id === targetUser.id);
+            if (idx >= 0) {
+              users[idx].custom_modules = cleanedOverrides;
+              db.set('tps_users', users);
+            }
+            db.logAudit('USER_CUSTOM_PERM_SAVE', 'permissions', targetUser.id, `Saved individual custom window permissions for ${targetUser.full_name || targetUser.email}`);
+            toast.success(`Saved custom window permissions for ${targetUser.full_name || targetUser.email}.`);
+          }
+
+          close();
+          savedUsersTab = 'active';
+          renderUsersModule(container, { onNavigate });
+        });
+      }
+    });
   }
 
   function showApprovalModal(userId, email, currentRole = 'teacher') {

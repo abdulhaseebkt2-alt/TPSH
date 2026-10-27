@@ -164,7 +164,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
         <span class="count-text">(${filtered.length} found)</span>
       </div>
 
-      ${hasSelection ? `
+      ${hasSelection && canDeleteStudents ? `
         <div class="student-selection-actions">
           <span class="selected-badge-pill">${selectedIds.size} Selected</span>
           <button class="btn-delete-batch" id="btn-batch-delete">
@@ -212,9 +212,11 @@ export async function renderStudentsModule(container, { onNavigate }) {
             <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 150px; white-space: nowrap;">HOSTEL / BED</th>
             <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 160px; white-space: nowrap;">PARENT / CONTACT</th>
             <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; white-space: nowrap;">STATUS</th>
-            <th style="padding: 0.85rem 0.5rem; width: 3%; min-width: 38px; text-align: center; white-space: nowrap;">
-              <input type="checkbox" class="student-checkbox" id="select-all-students" ${isAllSelected ? 'checked' : ''} title="Select All" />
-            </th>
+            ${canDeleteStudents ? `
+              <th style="padding: 0.85rem 0.5rem; width: 3%; min-width: 38px; text-align: center; white-space: nowrap;">
+                <input type="checkbox" class="student-checkbox" id="select-all-students" ${isAllSelected ? 'checked' : ''} title="Select All" />
+              </th>
+            ` : ''}
             <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; text-align: right; white-space: nowrap;">ACTIONS</th>
           </tr>
         </thead>
@@ -309,11 +311,11 @@ export async function renderStudentsModule(container, { onNavigate }) {
                 </td>
 
                 <!-- Checkbox Column -->
-                <td style="padding: 0.85rem 0.5rem; text-align: center; white-space: nowrap;">
-                  ${canDeleteStudents ? `
+                ${canDeleteStudents ? `
+                  <td style="padding: 0.85rem 0.5rem; text-align: center; white-space: nowrap;">
                     <input type="checkbox" class="student-checkbox row-select-checkbox" data-id="${s.id}" ${isChecked ? 'checked' : ''} />
-                  ` : '<span style="color: #CBD5E1;">—</span>'}
-                </td>
+                  </td>
+                ` : ''}
 
                 <!-- Actions Column (View, Edit, Delete) -->
                 <td style="padding: 0.85rem 1rem; text-align: right; white-space: nowrap;">
@@ -371,7 +373,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
     // Batch Delete Action
     topBar.querySelector('#btn-batch-delete')?.addEventListener('click', async () => {
-      if (selectedIds.size === 0) return;
+      if (!canDeleteStudents || selectedIds.size === 0) return;
       const count = selectedIds.size;
       const confirmed = await confirmDialog({
         title: 'Delete Selected Students',

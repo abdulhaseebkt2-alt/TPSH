@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
-import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, getRBACMatrix, saveRBACMatrix, resetRBACMatrix } from '../src/lib/permissions.js';
+import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
 import { updateCurrentUserProfile } from '../src/lib/auth.js';
@@ -178,6 +178,63 @@ describe('1. Authentication & Role Permissions Tests', () => {
     expect(canPerformAction(mentorUser, 'leaves', 'record_return')).toBe(true);
 
     resetRBACMatrix();
+  });
+
+  it('Allows custom individual user permission overrides (e.g. particular teacher granted students window access)', () => {
+    // Standard teacher without custom overrides
+    const normalTeacher = {
+      id: 'teacher-normal',
+      email: 'normal.teacher@thaiba.edu',
+      role: 'teacher',
+      approval_status: 'approved'
+    };
+
+    // Special teacher with individual custom permissions
+    const specialTeacher = {
+      id: 'teacher-special',
+      email: 'special.teacher@thaiba.edu',
+      role: 'teacher',
+      approval_status: 'approved'
+    };
+
+    // 1. In matrix, turn students OFF for all teachers
+    const matrix = getRBACMatrix();
+    matrix.teacher.students = 'off';
+    saveRBACMatrix(matrix);
+
+    // Normal teacher cannot access students window
+    expect(canAccessModule(normalTeacher, 'students')).toBe(false);
+
+    // 2. Grant specialTeacher custom full access to students
+    saveUserCustomPermissions('teacher-special', { students: 'full' });
+    expect(canAccessModule(specialTeacher, 'students')).toBe(true);
+    expect(canPerformAction(specialTeacher, 'students', 'view')).toBe(true);
+    expect(canPerformAction(specialTeacher, 'students', 'create')).toBe(true);
+
+    // Normal teacher remains blocked
+    expect(canAccessModule(normalTeacher, 'students')).toBe(false);
+
+    // 3. Clear custom permissions returns special teacher back to role default
+    clearUserCustomPermissions('teacher-special');
+    expect(canAccessModule(specialTeacher, 'students')).toBe(false);
+
+    resetRBACMatrix();
+  });
+
+  it('Strictly denies delete permission for view-only users like mentors on students module', () => {
+    const mentorUser = {
+      id: 'mentor-test',
+      email: 'mentor@thaiba.edu',
+      role: 'mentor',
+      approval_status: 'approved'
+    };
+
+    // In default matrix, mentor has students set to 'view'
+    expect(canAccessModule(mentorUser, 'students')).toBe(true);
+    expect(canPerformAction(mentorUser, 'students', 'view')).toBe(true);
+    // Cannot delete or edit
+    expect(canPerformAction(mentorUser, 'students', 'delete')).toBe(false);
+    expect(canPerformAction(mentorUser, 'students', 'edit')).toBe(false);
   });
 });
 
