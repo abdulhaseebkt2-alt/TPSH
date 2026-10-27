@@ -1,4 +1,8 @@
 // TPS Hostel ERP - Granular Role & Permission Access Matrix
+// Tri-State Module Access System:
+// - LEFT ('off'): Window is OFF. Role cannot see or access it (hidden from sidebar).
+// - MIDDLE ('view'): Explore & View Only. Role can see and explore records, but CANNOT edit or apply.
+// - RIGHT ('full'): Full Access. Role can view, create, edit, delete, and apply.
 
 export const MODULE_DEFINITIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
@@ -23,31 +27,80 @@ export const MODULE_DEFINITIONS = [
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
 ];
 
-// Institutional Default RBAC Matrix: maps each role tier to authorized module keys
+// Institutional Default RBAC Matrix:
+// Maps each role to tri-state permissions: 'off' | 'view' | 'full'
 export const DEFAULT_RBAC_MATRIX = {
-  admin: [
-    'dashboard', 'admissions', 'students', 'sections', 'assignments',
-    'timetable', 'attendance', 'leaves', 'fines', 'discipline',
-    'exams', 'marks', 'hostel', 'fees', 'notices', 'maintenance', 'reports'
-  ],
-  mentor: [
-    'dashboard', 'students', 'attendance', 'leaves', 'fines',
-    'discipline', 'hostel', 'notices', 'maintenance', 'reports'
-  ],
-  teacher: [
-    'dashboard', 'timetable', 'attendance', 'exams', 'marks', 'notices'
-  ],
-  hostel_leader: [
-    'dashboard', 'students', 'attendance', 'leaves', 'fines',
-    'discipline', 'hostel', 'notices', 'maintenance'
-  ],
-  parent: [
-    'dashboard', 'students', 'attendance', 'leaves', 'fines',
-    'discipline', 'marks', 'fees', 'notices'
-  ],
-  student: [
-    'dashboard', 'attendance', 'leaves', 'exams', 'marks', 'notices'
-  ]
+  admin: {
+    dashboard: 'full',
+    admissions: 'full',
+    students: 'full',
+    sections: 'full',
+    assignments: 'full',
+    timetable: 'full',
+    attendance: 'full',
+    leaves: 'full',
+    fines: 'full',
+    discipline: 'full',
+    exams: 'full',
+    marks: 'full',
+    hostel: 'full',
+    fees: 'full',
+    notices: 'full',
+    maintenance: 'full',
+    reports: 'full',
+    settings: 'full'
+  },
+  mentor: {
+    dashboard: 'full',
+    students: 'view',
+    attendance: 'full',
+    leaves: 'full',
+    fines: 'view',
+    discipline: 'full',
+    hostel: 'full',
+    notices: 'full',
+    maintenance: 'full',
+    reports: 'view'
+  },
+  teacher: {
+    dashboard: 'full',
+    students: 'view',
+    timetable: 'view',
+    attendance: 'full',
+    exams: 'view',
+    marks: 'full',
+    notices: 'view'
+  },
+  hostel_leader: {
+    dashboard: 'full',
+    students: 'view',
+    attendance: 'full',
+    leaves: 'view',
+    fines: 'view',
+    discipline: 'view',
+    hostel: 'view',
+    notices: 'view',
+    maintenance: 'full'
+  },
+  parent: {
+    dashboard: 'full',
+    students: 'view',
+    attendance: 'view',
+    leaves: 'view',
+    fines: 'view',
+    discipline: 'view',
+    marks: 'view',
+    fees: 'view',
+    notices: 'view'
+  },
+  student: {
+    dashboard: 'full',
+    attendance: 'view',
+    leaves: 'view',
+    exams: 'view',
+    marks: 'view',
+    notices: 'view'
+  }
 };
 
 const RBAC_STORAGE_KEY = 'tps_rbac_matrix';
@@ -55,6 +108,29 @@ let memoryMatrix = null;
 
 function cloneDefaults() {
   return JSON.parse(JSON.stringify(DEFAULT_RBAC_MATRIX));
+}
+
+// Normalize legacy array-based matrix or partial objects into tri-state object
+export function normalizeRBACMatrix(raw) {
+  if (!raw || typeof raw !== 'object') return cloneDefaults();
+  const normalized = cloneDefaults();
+
+  for (const role of Object.keys(raw)) {
+    const roleVal = raw[role];
+    if (Array.isArray(roleVal)) {
+      normalized[role] = {};
+      for (const k of roleVal) {
+        normalized[role][k] = 'full';
+      }
+      // Ensure dashboard is always common
+      normalized[role].dashboard = 'full';
+    } else if (roleVal && typeof roleVal === 'object') {
+      normalized[role] = { ...(normalized[role] || {}), ...roleVal };
+      normalized[role].dashboard = 'full';
+    }
+  }
+
+  return normalized;
 }
 
 export function getRBACMatrix() {
@@ -68,7 +144,7 @@ export function getRBACMatrix() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && typeof parsed === 'object') {
-          return { ...defaults, ...parsed };
+          return normalizeRBACMatrix(parsed);
         }
       }
     } catch (e) {
@@ -79,10 +155,11 @@ export function getRBACMatrix() {
 }
 
 export function saveRBACMatrix(matrix) {
-  memoryMatrix = JSON.parse(JSON.stringify(matrix));
+  const normalized = normalizeRBACMatrix(matrix);
+  memoryMatrix = JSON.parse(JSON.stringify(normalized));
   if (typeof localStorage !== 'undefined') {
     try {
-      localStorage.setItem(RBAC_STORAGE_KEY, JSON.stringify(matrix));
+      localStorage.setItem(RBAC_STORAGE_KEY, JSON.stringify(normalized));
     } catch (e) {
       console.error('Error saving RBAC matrix to localStorage:', e);
       return false;
@@ -101,32 +178,72 @@ export function resetRBACMatrix() {
   return cloneDefaults();
 }
 
-export function canAccessModule(profile, moduleKey) {
-  if (!profile) return false;
-  if (profile.approval_status !== 'approved') return false;
-  // Super Admin always has full unrestricted access to every institutional window
-  if (profile.is_super_admin || profile.role === 'super_admin') return true;
+/**
+ * Returns the exact access level for a role/profile on a given module:
+ * 'off': Cannot see or access (left switch position)
+ * 'view': Explore & View-only (middle switch position)
+ * 'full': Full access to view, edit, create, apply (right switch position)
+ */
+export function getModuleAccessLevel(profile, moduleKey) {
+  if (!profile) return 'off';
+  if (profile.approval_status !== 'approved') return 'off';
 
-  // Root modules always protected for Super Admin only
-  if (['users', 'audit'].includes(moduleKey)) return false;
+  // Super Admin always has full unrestricted access to everything
+  if (profile.is_super_admin || profile.role === 'super_admin') return 'full';
+
+  // Dashboard is common to all approved roles
+  if (moduleKey === 'dashboard') return 'full';
+
+  // Core administrative security modules reserved for Super Admin
+  if (['users', 'audit'].includes(moduleKey)) return 'off';
 
   // Custom user-level assigned modules override (if present)
-  if (Array.isArray(profile.custom_modules) && profile.custom_modules.length > 0) {
-    return profile.custom_modules.includes(moduleKey);
+  if (profile.custom_modules) {
+    if (Array.isArray(profile.custom_modules)) {
+      return profile.custom_modules.includes(moduleKey) ? 'full' : 'off';
+    }
+    if (typeof profile.custom_modules === 'object') {
+      const val = profile.custom_modules[moduleKey];
+      if (val === 'view' || val === 'full') return val;
+      if (val === 'off' || val === 'none') return 'off';
+    }
   }
 
   // Dynamic RBAC Matrix lookup
   const matrix = getRBACMatrix();
-  const allowed = matrix[profile.role];
-  if (Array.isArray(allowed)) {
-    return allowed.includes(moduleKey);
+  const roleRules = matrix[profile.role];
+
+  if (roleRules) {
+    if (Array.isArray(roleRules)) {
+      return roleRules.includes(moduleKey) ? 'full' : 'off';
+    }
+    if (typeof roleRules === 'object') {
+      const level = roleRules[moduleKey];
+      if (level === 'view' || level === 'full') return level;
+      if (level === 'off' || level === 'none') return 'off';
+    }
   }
 
   // Fallback to MODULE_DEFINITIONS
   const moduleDef = MODULE_DEFINITIONS.find(m => m.key === moduleKey);
-  if (!moduleDef) return false;
+  if (!moduleDef) return 'off';
 
-  return moduleDef.roles.includes(profile.role);
+  return moduleDef.roles.includes(profile.role) ? 'view' : 'off';
+}
+
+export function isViewOnlyModule(profile, moduleKey) {
+  return getModuleAccessLevel(profile, moduleKey) === 'view';
+}
+
+export function canAccessModule(profile, moduleKey) {
+  if (!profile) return false;
+  if (profile.approval_status !== 'approved') return false;
+  if (profile.is_super_admin || profile.role === 'super_admin') return true;
+  if (moduleKey === 'dashboard') return true; // Common to all categories
+  if (['users', 'audit'].includes(moduleKey)) return false;
+
+  const level = getModuleAccessLevel(profile, moduleKey);
+  return level === 'view' || level === 'full';
 }
 
 export function getVisibleModules(profile) {
@@ -138,36 +255,39 @@ export function canPerformAction(profile, moduleKey, action) {
   if (!profile || profile.approval_status !== 'approved') return false;
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
 
-  // View action is governed by dynamic module access
-  if (action === 'view') {
-    return canAccessModule(profile, moduleKey);
+  // Root modules strictly reserved for Super Admin
+  if (['users', 'audit'].includes(moduleKey)) {
+    return false;
   }
 
-  // Admin action rules
-  if (profile.role === 'admin') {
-    if (['override', 'delete_user', 'change_super_admin'].includes(action)) return false;
+  // Dangerous security actions strictly forbidden for non-super-admins
+  if (['override', 'delete_user', 'change_super_admin'].includes(action)) {
+    return false;
+  }
+
+  const level = getModuleAccessLevel(profile, moduleKey);
+
+  // Left switch position (OFF): cannot see, explore, edit, or apply
+  if (level === 'off') {
+    return false;
+  }
+
+  // View action: both View (middle) and Full (right) can view & explore
+  if (action === 'view') {
     return true;
   }
 
-  // Mentor action rules
-  if (profile.role === 'mentor') {
-    if (['leaves', 'discipline', 'hostel', 'maintenance'].includes(moduleKey)) {
-      return ['view', 'create', 'edit', 'record_return'].includes(action);
-    }
-    return action === 'view';
+  // Middle switch position (VIEW ONLY):
+  // User can only see or explore, but CANNOT edit, create, delete, or apply!
+  if (level === 'view') {
+    return false;
   }
 
-  // Teacher action rules
-  if (profile.role === 'teacher') {
-    if (moduleKey === 'attendance') {
-      return ['view', 'submit_attendance'].includes(action);
-    }
-    if (moduleKey === 'marks') {
-      return ['view', 'enter_marks', 'edit_draft'].includes(action);
-    }
-    return action === 'view';
+  // Right switch position (FULL ACCESS):
+  // Full access: authorized to create, edit, apply, record returns, delete
+  if (level === 'full') {
+    return true;
   }
 
-  // Parents and students have view-only access to their authorized records
-  return action === 'view';
+  return false;
 }

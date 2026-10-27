@@ -90,20 +90,94 @@ describe('1. Authentication & Role Permissions Tests', () => {
     expect(canPerformAction(parent, 'attendance', 'submit_attendance')).toBe(false);
   });
 
-  it('Dynamic Visual RBAC Matrix dynamically grants and revokes module windows for roles', () => {
-    // Initially teacher cannot access fees
+  it('Dynamic Visual RBAC Matrix dynamically grants and revokes module windows for roles with 3-position switch', () => {
+    // 1. Initially teacher has fees set to 'off' (Left position: cannot see or access)
     expect(canAccessModule(teacher, 'fees')).toBe(false);
+    expect(canPerformAction(teacher, 'fees', 'view')).toBe(false);
+    expect(canPerformAction(teacher, 'fees', 'edit')).toBe(false);
 
-    // Super Admin dynamically grants 'fees' to 'teacher' in matrix
+    // 2. Set 'fees' to 'view' (Middle position: explore/view-only, cannot edit or apply)
     const matrix = getRBACMatrix();
-    matrix.teacher.push('fees');
+    matrix.teacher.fees = 'view';
     saveRBACMatrix(matrix);
 
     expect(canAccessModule(teacher, 'fees')).toBe(true);
+    expect(canPerformAction(teacher, 'fees', 'view')).toBe(true);
+    expect(canPerformAction(teacher, 'fees', 'edit')).toBe(false);
+    expect(canPerformAction(teacher, 'fees', 'create')).toBe(false);
 
-    // Reset back to defaults
+    // 3. Set 'fees' to 'full' (Right position: full access to edit and apply)
+    matrix.teacher.fees = 'full';
+    saveRBACMatrix(matrix);
+
+    expect(canAccessModule(teacher, 'fees')).toBe(true);
+    expect(canPerformAction(teacher, 'fees', 'view')).toBe(true);
+    expect(canPerformAction(teacher, 'fees', 'edit')).toBe(true);
+
+    // 4. Test backward compatibility if legacy array is passed
+    saveRBACMatrix({ teacher: ['fees', 'attendance'] });
+    expect(canAccessModule(teacher, 'fees')).toBe(true);
+    expect(canAccessModule(teacher, 'attendance')).toBe(true);
+
+    // 5. Reset back to institutional defaults
     resetRBACMatrix();
     expect(canAccessModule(teacher, 'fees')).toBe(false);
+  });
+
+  it('Dashboard is common to all approved categories and always accessible across all roles', () => {
+    const roles = ['admin', 'teacher', 'mentor', 'hostel_leader', 'parent', 'student'];
+    for (const r of roles) {
+      const profile = {
+        id: `test-${r}`,
+        email: `${r}@thaiba.edu`,
+        role: r,
+        approval_status: 'approved',
+        is_super_admin: false
+      };
+      expect(canAccessModule(profile, 'dashboard')).toBe(true);
+      expect(canPerformAction(profile, 'dashboard', 'view')).toBe(true);
+    }
+  });
+
+  it('Multi-Function 3-Position switch enforces strict Left (Off), Middle (View Only), and Right (Full Access) permissions', () => {
+    const mentorUser = {
+      id: 'test-mentor',
+      email: 'mentor@thaiba.edu',
+      role: 'mentor',
+      approval_status: 'approved',
+      is_super_admin: false
+    };
+
+    const matrix = getRBACMatrix();
+
+    // 1. LEFT POSITION ('off'): Window is OFF. Mentor cannot see it or access it
+    matrix.mentor.leaves = 'off';
+    saveRBACMatrix(matrix);
+    expect(canAccessModule(mentorUser, 'leaves')).toBe(false);
+    expect(canPerformAction(mentorUser, 'leaves', 'view')).toBe(false);
+    expect(canPerformAction(mentorUser, 'leaves', 'create')).toBe(false);
+    expect(canPerformAction(mentorUser, 'leaves', 'record_return')).toBe(false);
+
+    // 2. MIDDLE POSITION ('view'): Window is EXPLORE / VIEW ONLY.
+    // Mentor can see & explore records in the window, but CANNOT edit or apply
+    matrix.mentor.leaves = 'view';
+    saveRBACMatrix(matrix);
+    expect(canAccessModule(mentorUser, 'leaves')).toBe(true);
+    expect(canPerformAction(mentorUser, 'leaves', 'view')).toBe(true);
+    expect(canPerformAction(mentorUser, 'leaves', 'create')).toBe(false);
+    expect(canPerformAction(mentorUser, 'leaves', 'record_return')).toBe(false);
+    expect(canPerformAction(mentorUser, 'leaves', 'edit')).toBe(false);
+
+    // 3. RIGHT POSITION ('full'): Window has FULL ACCESS.
+    // Mentor can see, explore, edit, create, and apply
+    matrix.mentor.leaves = 'full';
+    saveRBACMatrix(matrix);
+    expect(canAccessModule(mentorUser, 'leaves')).toBe(true);
+    expect(canPerformAction(mentorUser, 'leaves', 'view')).toBe(true);
+    expect(canPerformAction(mentorUser, 'leaves', 'create')).toBe(true);
+    expect(canPerformAction(mentorUser, 'leaves', 'record_return')).toBe(true);
+
+    resetRBACMatrix();
   });
 });
 

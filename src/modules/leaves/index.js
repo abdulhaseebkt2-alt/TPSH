@@ -3,9 +3,14 @@ import { formatDate, formatTime, formatCurrency, printDocument } from '../../lib
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
 
 export async function renderLeavesModule(container, { onNavigate }) {
   const user = getCurrentUser();
+  const canCreateLeave = canPerformAction(user, 'leaves', 'create');
+  const canRecordReturn = canPerformAction(user, 'leaves', 'record_return');
+  const isViewOnly = isViewOnlyModule(user, 'leaves');
+
   const students = await db.getStudents();
   const leaves = await db.getLeaves();
 
@@ -24,7 +29,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
         <p>Manage Group Leave (Type A), Individual Leave (Type B), gate departures, and return entry</p>
       </div>
       <div class="page-actions">
-        ${user?.is_super_admin || user?.role === 'admin' || user?.role === 'mentor' ? `
+        ${canCreateLeave ? `
           <button class="btn btn-secondary" id="btn-group-leave">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Type A: Group Leave
@@ -36,6 +41,13 @@ export async function renderLeavesModule(container, { onNavigate }) {
         ` : ''}
       </div>
     </div>
+
+    ${isViewOnly ? `
+      <div style="background: #E0F2FE; border: 1.5px solid #BAE6FD; border-radius: 12px; padding: 0.65rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #0369A1;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span><strong>Explore & View-Only Window:</strong> You have read-only access to Hostel Leave records. Applying for leaves and recording return arrivals is disabled.</span>
+      </div>
+    ` : ''}
 
     <!-- Active Leaves Register Table -->
     <div class="card-panel">
@@ -100,7 +112,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     <td>
                       <div style="display: flex; gap: 0.35rem;">
                         <button class="btn btn-outline btn-sm btn-view-leave-card" data-id="${l.id}">Leave Card</button>
-                        ${!isReturned && (user?.is_super_admin || user?.role === 'admin' || user?.role === 'mentor') ? `
+                        ${!isReturned && canRecordReturn ? `
                           <button class="btn btn-primary btn-sm btn-checkin-return" data-id="${l.id}">Record Return</button>
                         ` : ''}
                       </div>

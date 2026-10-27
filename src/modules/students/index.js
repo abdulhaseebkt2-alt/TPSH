@@ -4,9 +4,15 @@ import * as XLSX from 'xlsx';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
 
 export async function renderStudentsModule(container, { onNavigate }) {
   const user = getCurrentUser();
+  const canEditStudents = canPerformAction(user, 'students', 'edit');
+  const canCreateStudents = canPerformAction(user, 'students', 'create');
+  const canDeleteStudents = canPerformAction(user, 'students', 'delete');
+  const isViewOnly = isViewOnlyModule(user, 'students');
+
   const allStudents = await db.getStudents();
 
   // If user is parent, filter to only their child
@@ -34,18 +40,20 @@ export async function renderStudentsModule(container, { onNavigate }) {
         </div>
       </div>
       <div class="page-actions" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <button class="btn btn-outline" id="btn-import-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Import Students (CSV / Excel)
-        </button>
-        <input type="file" id="input-import-csv" accept=".csv, .xlsx, .xls, text/csv" style="display: none;" />
+        ${canCreateStudents ? `
+          <button class="btn btn-outline" id="btn-import-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import Students (CSV / Excel)
+          </button>
+          <input type="file" id="input-import-csv" accept=".csv, .xlsx, .xls, text/csv" style="display: none;" />
+        ` : ''}
 
         <button class="btn btn-outline" id="btn-export-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export CSV
         </button>
 
-        ${user?.is_super_admin || user?.role === 'admin' ? `
+        ${canCreateStudents ? `
           <button class="btn btn-primary" id="btn-add-student" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 1rem; background: #059669;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             + New Student Admission
@@ -53,6 +61,13 @@ export async function renderStudentsModule(container, { onNavigate }) {
         ` : ''}
       </div>
     </div>
+
+    ${isViewOnly ? `
+      <div style="background: #E0F2FE; border: 1.5px solid #BAE6FD; border-radius: 12px; padding: 0.65rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #0369A1;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span><strong>Explore & View-Only Window:</strong> You have read-only explore access to the Student Directory. Adding, editing, or deleting student records is disabled.</span>
+      </div>
+    ` : ''}
 
     <!-- Capsule Search and Filters Bar (Image 2) -->
     <div class="student-filter-capsule">
@@ -282,7 +297,9 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
                 <!-- Checkbox Column -->
                 <td style="padding: 0.85rem 0.5rem; text-align: center; white-space: nowrap;">
-                  <input type="checkbox" class="student-checkbox row-select-checkbox" data-id="${s.id}" ${isChecked ? 'checked' : ''} />
+                  ${canDeleteStudents ? `
+                    <input type="checkbox" class="student-checkbox row-select-checkbox" data-id="${s.id}" ${isChecked ? 'checked' : ''} />
+                  ` : '<span style="color: #CBD5E1;">—</span>'}
                 </td>
 
                 <!-- Actions Column (View, Edit, Delete) -->
@@ -291,12 +308,16 @@ export async function renderStudentsModule(container, { onNavigate }) {
                     <button class="student-action-btn btn-view-profile" data-id="${s.id}" title="View Student Profile">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
-                    <button class="student-action-btn btn-edit-student" data-id="${s.id}" title="Edit Student Record">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="student-action-btn delete-btn btn-delete-single" data-id="${s.id}" title="Delete Student Record">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    ${canEditStudents ? `
+                      <button class="student-action-btn btn-edit-student" data-id="${s.id}" title="Edit Student Record">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                    ` : ''}
+                    ${canDeleteStudents ? `
+                      <button class="student-action-btn delete-btn btn-delete-single" data-id="${s.id}" title="Delete Student Record">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    ` : ''}
                   </div>
                 </td>
               </tr>

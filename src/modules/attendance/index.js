@@ -2,9 +2,13 @@ import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
 
 export async function renderAttendanceModule(container, { onNavigate }) {
   const user = getCurrentUser();
+  const canSubmitAttendance = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
+  const isViewOnly = isViewOnlyModule(user, 'attendance');
+
   const programs = await db.getPrograms();
   const classrooms = await db.getClassrooms();
   const students = await db.getStudents();
@@ -50,6 +54,13 @@ export async function renderAttendanceModule(container, { onNavigate }) {
         </button>
       </div>
     </div>
+
+    ${isViewOnly ? `
+      <div style="background: #E0F2FE; border: 1.5px solid #BAE6FD; border-radius: 12px; padding: 0.65rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #0369A1;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span><strong>Explore & View-Only Window:</strong> You have read-only access to Attendance records. Taking or submitting attendance is disabled for your access level.</span>
+      </div>
+    ` : ''}
 
     <!-- Attendance Modules Tabs -->
     <div style="display: flex; gap: 0.75rem; overflow-x: auto; margin-bottom: 1.5rem;" id="att-prog-tabs">
@@ -134,12 +145,20 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       <!-- Submit Footer -->
       <div class="card-panel-body" style="background: var(--bg-surface-subtle); border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div style="font-size: 0.82rem; color: var(--text-secondary); max-width: 600px;">
-          * Submitting will officially register student attendance for this session and record your teacher attendance duty.
+          ${canSubmitAttendance 
+            ? '* Submitting will officially register student attendance for this session and record your teacher attendance duty.'
+            : '* View-only mode: Classroom attendance is visible for exploration. Attendance modification is disabled.'}
         </div>
-        <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.5rem; font-weight: 700;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-          Confirm & Submit Attendance
-        </button>
+        ${canSubmitAttendance ? `
+          <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.5rem; font-weight: 700;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Confirm & Submit Attendance
+          </button>
+        ` : `
+          <button class="btn btn-outline" disabled style="padding: 0.75rem 1.5rem; font-weight: 700; opacity: 0.6; cursor: not-allowed;">
+            View-Only Access
+          </button>
+        `}
       </div>
     </div>
   `;
