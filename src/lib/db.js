@@ -289,6 +289,12 @@ class DatabaseService {
     if (!this.getStorageItem('tps_attendance')) {
       this.setStorageItem('tps_attendance', JSON.stringify([]));
     }
+    if (!this.getStorageItem('tps_teacher_attendance')) {
+      this.setStorageItem('tps_teacher_attendance', JSON.stringify([]));
+    }
+    if (!this.getStorageItem('tps_attendance_unlocks')) {
+      this.setStorageItem('tps_attendance_unlocks', JSON.stringify([]));
+    }
     if (!this.getStorageItem('tps_fine_payments')) {
       this.setStorageItem('tps_fine_payments', JSON.stringify([]));
     }
@@ -1287,11 +1293,32 @@ class DatabaseService {
 
   // --- ATTENDANCE ---
   async getAttendanceRecords() {
-    return this.get('tps_attendance');
+    return this.get('tps_attendance') || [];
   }
 
-  async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records }) {
-    const attendance = this.get('tps_attendance');
+  async getTeacherAttendanceRecords() {
+    return this.get('tps_teacher_attendance') || [];
+  }
+
+  async unlockAttendanceWindow(classroomId, date = new Date().toISOString().split('T')[0]) {
+    const unlocks = this.get('tps_attendance_unlocks') || [];
+    const key = `${classroomId}_${date}`;
+    if (!unlocks.includes(key)) {
+      unlocks.push(key);
+      this.set('tps_attendance_unlocks', unlocks);
+      this.logAudit('UNLOCK_ATTENDANCE_WINDOW', 'classrooms', classroomId, `Admin unlocked late attendance window for ${date}`);
+    }
+    return true;
+  }
+
+  async isAttendanceWindowUnlocked(classroomId, date = new Date().toISOString().split('T')[0]) {
+    const unlocks = this.get('tps_attendance_unlocks') || [];
+    return unlocks.includes(`${classroomId}_${date}`);
+  }
+
+  async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at }) {
+    const attendance = this.get('tps_attendance') || [];
+    const nowIso = recorded_at || new Date().toISOString();
     const sessionId = 'sess-' + Date.now();
     const newSession = {
       id: sessionId,
@@ -1299,12 +1326,36 @@ class DatabaseService {
       classroom_id,
       session_date,
       teacher_id,
-      created_at: new Date().toISOString(),
-      records // array of { student_id, status: 'Present'|'Absent'|'Late'|'Excused'|'Approved Leave' }
+      teacher_name: teacher_name || '',
+      recorded_at: nowIso,
+      created_at: nowIso,
+      records: records || [] // array of { student_id, status: 'Present'|'Absent'|'Late'|'Excused'|'Approved Leave' }
     };
     attendance.push(newSession);
     this.set('tps_attendance', attendance);
-    this.logAudit('SUBMIT_ATTENDANCE', 'attendance_sessions', sessionId, `Attendance submitted for ${session_date}`);
+
+    // Automatically record teacher's duty attendance
+    if (teacher_id) {
+      const teacherAttendance = this.get('tps_teacher_attendance') || [];
+      const classrooms = this.get('tps_classrooms') || [];
+      const cls = classrooms.find(c => c.id === classroom_id);
+      teacherAttendance.push({
+        id: 't-att-' + Date.now(),
+        session_id: sessionId,
+        teacher_id,
+        teacher_name: teacher_name || '',
+        classroom_id,
+        classroom_name: cls?.name || '',
+        program_id,
+        session_date,
+        recorded_at: nowIso,
+        status: 'Present',
+        notes: `Recorded attendance for ${records?.length || 0} students`
+      });
+      this.set('tps_teacher_attendance', teacherAttendance);
+    }
+
+    this.logAudit('SUBMIT_ATTENDANCE', 'attendance_sessions', sessionId, `Attendance submitted for ${session_date} at ${nowIso}`);
     return newSession;
   }
 

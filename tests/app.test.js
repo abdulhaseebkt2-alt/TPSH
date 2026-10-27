@@ -12,6 +12,9 @@ import { renderMentorDashboard } from '../src/modules/dashboard/mentor-dashboard
 import { renderParentDashboard } from '../src/modules/dashboard/parent-dashboard.js';
 import { renderStudentDashboard } from '../src/modules/dashboard/student-dashboard.js';
 import { WEEK_DAYS } from '../src/modules/sections/index.js';
+import { renderTimetableModule } from '../src/modules/timetable/index.js';
+import { renderAttendanceModule } from '../src/modules/attendance/index.js';
+import { renderReportsModule } from '../src/modules/reports/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -983,5 +986,113 @@ describe('14. Multi-Role Categorized Dashboards & Sidebar Section Tests', () => 
     expect(container.innerHTML).toContain('Hostel Operations');
     expect(container.innerHTML).toContain('Active Students');
     expect(container.innerHTML).toContain('Unpaid Late Fines');
+  });
+});
+
+describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensional Reports Tests', () => {
+  it('Teacher timetable only displays their assigned classes; admin can view all', async () => {
+    // 1. Teacher view
+    updateCurrentUserProfile({
+      id: 'u-2',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const teacherContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderTimetableModule(teacherContainer, { onNavigate: () => {} });
+    expect(teacherContainer.innerHTML).toContain('My Teaching Timetable');
+    expect(teacherContainer.innerHTML).toContain('Personal Faculty Timetable Active');
+
+    // 2. Admin view
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderTimetableModule(adminContainer, { onNavigate: () => {} });
+    expect(adminContainer.innerHTML).toContain('Faculty Timetable & Schedule Governance');
+    expect(adminContainer.innerHTML).toContain('Master Institutional Timetable');
+    expect(adminContainer.innerHTML).toContain('All Faculty');
+  });
+
+  it('Teacher attendance duty is automatically recorded with timestamp when attendance is submitted', async () => {
+    const sessionDate = '2026-10-27';
+    const testSession = await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: 'cls-1',
+      session_date: sessionDate,
+      teacher_id: 'u-2',
+      teacher_name: 'Rashid Sir',
+      records: [
+        { student_id: 'st-1', status: 'Present' },
+        { student_id: 'st-2', status: 'Absent' }
+      ]
+    });
+
+    expect(testSession.id).toBeDefined();
+    expect(testSession.recorded_at).toBeDefined();
+    expect(testSession.teacher_name).toBe('Rashid Sir');
+
+    // Verify teacher duty log was persisted
+    const teacherLogs = await db.getTeacherAttendanceRecords();
+    const myLog = teacherLogs.find(t => t.session_id === testSession.id);
+    expect(myLog).toBeDefined();
+    expect(myLog.teacher_id).toBe('u-2');
+    expect(myLog.status).toBe('Present');
+    expect(myLog.recorded_at).toBe(testSession.recorded_at);
+  });
+
+  it('Admin can unlock late attendance window for a classroom session', async () => {
+    const clsId = 'cls-4';
+    const today = '2026-10-27';
+
+    // Initially not unlocked
+    expect(await db.isAttendanceWindowUnlocked(clsId, today)).toBe(false);
+
+    // Admin unlocks
+    await db.unlockAttendanceWindow(clsId, today);
+    expect(await db.isAttendanceWindowUnlocked(clsId, today)).toBe(true);
+  });
+
+  it('Attendance reports render multi-dimensional student and teacher registers across individual, class-wise, and section-wise views', async () => {
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderReportsModule(container, { onNavigate: () => {} });
+
+    // Verify entity tabs
+    expect(container.innerHTML).toContain('Student Attendance');
+    expect(container.innerHTML).toContain('Teacher Duty & Attendance');
+
+    // Verify dimension selectors
+    expect(container.innerHTML).toContain('Individual');
+    expect(container.innerHTML).toContain('Class-wise');
+    expect(container.innerHTML).toContain('Section-wise');
+
+    // Verify timeframe selectors
+    expect(container.innerHTML).toContain('Daily');
+    expect(container.innerHTML).toContain('Weekly');
+    expect(container.innerHTML).toContain('Monthly');
+    expect(container.innerHTML).toContain('Yearly');
   });
 });

@@ -1,5 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
+import { formatTime } from '../../lib/utils.js';
 
 export async function renderTeacherDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -9,32 +10,81 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   const examSubjects = await db.getExamSubjects();
   const students = await db.getStudents();
 
-  // Determine teacher name & assigned subjects
+  // Determine teacher name & assigned classrooms
   const teacherName = user?.full_name || 'Rashid Sir';
+  const teacherId = user?.id;
 
-  // Timetable slots assigned to this teacher
-  const allTeacherSlots = [
-    { id: 'tt-1', day: 'Monday', start_time: '06:00', end_time: '07:00', program: 'Hostel Moral Class', classroom: 'Moral Hall A1', teacher: 'Rashid Sir', session_title: 'Morning Hadith & Ethics', room: '101' },
-    { id: 'tt-3', day: 'Monday', start_time: '17:00', end_time: '18:30', program: 'School Coaching Class', classroom: 'Main Academic Lab 1', teacher: 'Rashid Sir', session_title: 'Arabic Language Class', room: '301' },
-    { id: 'tt-4', day: 'Tuesday', start_time: '06:00', end_time: '07:00', program: 'Hostel Moral Class', classroom: 'Moral Hall A1', teacher: 'Rashid Sir', session_title: 'Morning Fiqh & Character', room: '101' },
-    { id: 'tt-5', day: 'Wednesday', start_time: '17:00', end_time: '18:30', program: 'School Coaching Class', classroom: 'Main Academic Lab 1', teacher: 'Rashid Sir', session_title: 'Tajweed & Recitation', room: '301' },
-    { id: 'tt-6', day: 'Thursday', start_time: '06:00', end_time: '07:00', program: 'Hostel Moral Class', classroom: 'Moral Hall A1', teacher: 'Rashid Sir', session_title: 'Islamic History & Values', room: '101' }
-  ];
-
-  // Filter slots for this teacher (or show default teacher slots)
-  const mySlots = allTeacherSlots.filter(s => 
-    s.teacher.toLowerCase().includes(teacherName.toLowerCase().split(' ')[0]) || 
-    teacherName.toLowerCase().includes('rashid') ||
-    user?.is_super_admin || user?.role === 'admin'
+  // Filter classrooms assigned to this teacher
+  const myClassrooms = classrooms.filter(c => 
+    c.teacher_id === teacherId || 
+    (user.email && c.teacher_id === user.email) ||
+    (!c.teacher_id && user.role === 'teacher') // fallback if demo
   );
 
-  const todaySlots = mySlots.slice(0, 2);
-  const myClassrooms = classrooms.slice(0, 3);
+  // Current day & time evaluation for 20-minute notification & live windows
+  const now = new Date();
+  const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const todayKey = DAY_KEYS[now.getDay()];
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  function parseMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+
+  // Today's scheduled classes for this teacher
+  const todayClasses = myClassrooms.filter(c => {
+    const days = Array.isArray(c.days) && c.days.length > 0 ? c.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days.includes(todayKey);
+  });
+
+  // Calculate upcoming class within 20 minutes and currently in-session class
+  let upcomingSoonClass = null;
+  let inSessionClass = null;
+
+  todayClasses.forEach(c => {
+    const sMin = parseMinutes(c.start_time);
+    const eMin = parseMinutes(c.end_time);
+
+    if (currentMinutes >= (sMin - 20) && currentMinutes < sMin) {
+      upcomingSoonClass = { ...c, minutesLeft: sMin - currentMinutes };
+    } else if (currentMinutes >= sMin && currentMinutes <= eMin) {
+      inSessionClass = { ...c, minutesRemaining: eMin - currentMinutes };
+    }
+  });
+
+  const todaySlots = todayClasses.length > 0 ? todayClasses.map((c, idx) => {
+    const prog = programs.find(p => p.id === c.program_id);
+    return {
+      id: `slot-${c.id}`,
+      session_title: `${c.name} (${prog?.name || 'Class'})`,
+      program: prog?.name || 'Academic Program',
+      room: c.room_number || 'Campus',
+      start_time: formatTime(c.start_time || '06:30'),
+      end_time: formatTime(c.end_time || '07:30')
+    };
+  }) : [
+    {
+      id: 'slot-default-1',
+      session_title: 'Moral Hall A1 (Hostel Moral Class)',
+      program: 'Hostel Moral Class',
+      room: '101',
+      start_time: '06:30 AM',
+      end_time: '07:30 AM'
+    }
+  ];
+
+  // Calculate weekly slots
+  let weeklySlotCount = 0;
+  myClassrooms.forEach(c => {
+    const days = Array.isArray(c.days) && c.days.length > 0 ? c.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    weeklySlotCount += days.length;
+  });
+
+  const totalStudentsTaught = students.filter(s => s.status === 'Active').length;
   const activeExam = exams[0] || { title: 'Mid-Term Examination 2026' };
   const myExamSubjects = examSubjects.slice(0, 2);
-
-  // Calculate enrolled students in teacher's classes
-  const totalStudentsTaught = students.filter(s => s.status === 'Active').length;
 
   container.innerHTML = `
     <div class="page-header" style="margin-bottom: 1.5rem;">
@@ -52,7 +102,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       <div class="page-actions" style="display: flex; gap: 0.75rem; align-items: center;">
         <button class="btn btn-outline" id="teacher-view-timetable-btn">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Full Timetable
+          My Timetable
         </button>
         <button class="btn btn-primary" id="teacher-mark-attendance-btn" style="background: #059669;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -60,6 +110,64 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </button>
       </div>
     </div>
+
+    <!-- 20-MINUTE CLASS NOTIFICATION ALERT & IN-SESSION BANNER -->
+    ${upcomingSoonClass ? `
+      <div class="teacher-alert-card upcoming" style="background: #FFFBEB; border: 2px solid #FCD34D; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
+        <div style="display: flex; align-items: center; gap: 0.85rem;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #FEF3C7; border: 1.5px solid #F59E0B; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            🔔
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <strong style="color: #92400E; font-size: 0.95rem;">UPCOMING CLASS NOTIFICATION (Starting in ${upcomingSoonClass.minutesLeft} min)</strong>
+              <span class="badge" style="background: #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 0.72rem;">Starts at ${formatTime(upcomingSoonClass.start_time)}</span>
+            </div>
+            <p style="font-size: 0.82rem; color: #B45309; margin-top: 0.2rem;">
+              <strong>${upcomingSoonClass.name}</strong> • ${upcomingSoonClass.room_number ? 'Room ' + upcomingSoonClass.room_number : 'Campus'} • Attendance window opens at class start time.
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm btn-dash-goto-att" data-cls-id="${upcomingSoonClass.id}" style="background: #D97706; border-color: #B45309; font-weight: 700; padding: 0.55rem 1.15rem;">
+          Ready to Take Attendance →
+        </button>
+      </div>
+    ` : inSessionClass ? `
+      <div class="teacher-alert-card live" style="background: #ECFDF5; border: 2px solid #34D399; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);">
+        <div style="display: flex; align-items: center; gap: 0.85rem;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #D1FAE5; border: 1.5px solid #10B981; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            🟢
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <strong style="color: #065F46; font-size: 0.95rem;">LIVE ATTENDANCE WINDOW ACTIVE NOW</strong>
+              <span class="badge badge-active" style="font-weight: 700; font-size: 0.72rem;">Active until ${formatTime(inSessionClass.end_time)}</span>
+            </div>
+            <p style="font-size: 0.82rem; color: #047857; margin-top: 0.2rem;">
+              <strong>${inSessionClass.name}</strong> is in session. Take and submit attendance now. Submitting records both student and faculty duty attendance.
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm btn-dash-goto-att" data-cls-id="${inSessionClass.id}" style="background: #059669; border-color: #047857; font-weight: 700; padding: 0.55rem 1.15rem;">
+          Take Live Attendance Now →
+        </button>
+      </div>
+    ` : `
+      <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-lg); padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 22px;">⏱️</span>
+          <div>
+            <strong style="color: #166534; font-size: 0.9rem;">Class-Time Locked Attendance Windows Enabled</strong>
+            <p style="font-size: 0.8rem; color: #15803D; margin-top: 0.1rem;">
+              Attendance opens automatically at class start time. You will receive an alert <strong>20 minutes before</strong> class.
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" id="btn-quick-window-attendance" style="background: #FFFFFF; font-weight: 700; color: #166534; border-color: #86EFAC;">
+          View Attendance Window →
+        </button>
+      </div>
+    `}
 
     <!-- SECTION 1: Student & Academic -->
     <div class="dash-section-header">
@@ -73,22 +181,6 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       <span class="dash-section-badge">Faculty Load</span>
     </div>
 
-    <!-- Attendance Window Rules Banner -->
-    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-lg); padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <span style="font-size: 22px;">⏱️</span>
-        <div>
-          <strong style="color: #166534; font-size: 0.9rem;">Server-Synchronized Attendance Windows Active</strong>
-          <p style="font-size: 0.8rem; color: #15803D; margin-top: 0.1rem;">
-            Attendance window opens <strong>5 minutes before</strong> class and closes <strong>15 minutes after</strong> class completion.
-          </p>
-        </div>
-      </div>
-      <button class="btn btn-outline btn-sm" id="btn-quick-window-attendance" style="background: #FFFFFF; font-weight: 700; color: #166534; border-color: #86EFAC;">
-        Take Live Attendance Now →
-      </button>
-    </div>
-
     <!-- Teacher Statistical Metrics Bar -->
     <div class="grid-stats">
       <div class="stat-card" data-route="timetable" style="cursor: pointer;">
@@ -98,7 +190,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </div>
         </div>
-        <div class="stat-value">${todaySlots.length}</div>
+        <div class="stat-value">${todayClasses.length}</div>
         <div class="stat-footer">
           <span>Scheduled sessions today</span>
         </div>
@@ -111,13 +203,26 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
         </div>
-        <div class="stat-value">${mySlots.length}</div>
+        <div class="stat-value">${weeklySlotCount}</div>
         <div class="stat-footer">
-          <span>Total teaching hours / week</span>
+          <span>Total teaching sessions / week</span>
         </div>
       </div>
 
       <div class="stat-card" data-route="attendance" style="cursor: pointer;">
+        <div class="stat-header">
+          <span class="stat-title">My Classrooms</span>
+          <div class="stat-icon-wrapper" style="background: #F5F3FF; color: #7C3AED;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+        </div>
+        <div class="stat-value">${myClassrooms.length}</div>
+        <div class="stat-footer">
+          <span>Assigned teaching classrooms</span>
+        </div>
+      </div>
+
+      <div class="stat-card" data-route="students" style="cursor: pointer;">
         <div class="stat-header">
           <span class="stat-title">Students Taught</span>
           <div class="stat-icon-wrapper" style="background: #FFFBEB; color: #D97706;">
@@ -271,6 +376,16 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     card.addEventListener('click', () => {
       const r = card.getAttribute('data-route');
       if (r) onNavigate(r);
+    });
+  });
+
+  container.querySelectorAll('.btn-dash-goto-att').forEach(b => {
+    b.addEventListener('click', () => {
+      const clsId = b.getAttribute('data-cls-id');
+      if (clsId) {
+        sessionStorage.setItem('tps_active_att_cls', clsId);
+      }
+      onNavigate('attendance');
     });
   });
 
