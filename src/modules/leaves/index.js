@@ -42,13 +42,6 @@ export async function renderLeavesModule(container, { onNavigate }) {
       </div>
     </div>
 
-    ${isViewOnly ? `
-      <div style="background: #E0F2FE; border: 1.5px solid #BAE6FD; border-radius: 12px; padding: 0.65rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #0369A1;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        <span><strong>Explore & View-Only Window:</strong> You have read-only access to Hostel Leave records. Applying for leaves and recording return arrivals is disabled.</span>
-      </div>
-    ` : ''}
-
     <!-- Active Leaves Register Table -->
     <div class="card-panel">
       <div class="card-panel-header">

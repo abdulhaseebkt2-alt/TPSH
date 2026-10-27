@@ -1121,11 +1121,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
     await renderStudentsModule(viewOnlyContainer, { onNavigate: () => {} });
 
-    // In Students module: Viewer must NOT see Export CSV or Import
+    // In Students module: Viewer must NOT see Export CSV or Import, and no redundant blue notification banner
     expect(viewOnlyContainer.innerHTML).not.toContain('id="btn-export-csv"');
     expect(viewOnlyContainer.innerHTML).not.toContain('id="btn-import-csv"');
     expect(viewOnlyContainer.innerHTML).not.toContain('id="btn-add-student"');
-    expect(viewOnlyContainer.innerHTML).toContain('Explore & View-Only Window');
+    expect(viewOnlyContainer.innerHTML).not.toContain('Explore & View-Only Window');
 
     // 2. Super Admin has full access on students
     updateCurrentUserProfile({
