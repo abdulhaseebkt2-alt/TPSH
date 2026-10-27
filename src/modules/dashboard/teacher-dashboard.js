@@ -125,7 +125,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       </div>
     </div>
 
-    <!-- Dedicated "Your upcoming class" Card -->
+    <!-- Dedicated "Your upcoming class" Card (Portion Design Spec) -->
     <div class="teacher-upcoming-card ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}" 
          id="card-teacher-upcoming-class" 
          data-cls-id="${displayClass?.id || ''}" 
@@ -133,60 +133,75 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
          tabindex="0"
          title="Tap to take attendance for ${displayClass?.name || 'Class'}">
       
-      <div class="upcoming-card-header">
-        <div class="upcoming-title-col">
-          <div class="upcoming-kicker-row">
-            <span class="upcoming-kicker">Your upcoming class</span>
-            <span class="upcoming-prog-pill">${targetProgName}</span>
+      <!-- Top Portion (Prominent Heading, Icon & Time Badge) -->
+      <div class="upcoming-card-top">
+        <div class="upcoming-card-title-group">
+          <div class="upcoming-card-icon-pill ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}">
+            ${isNowActive ? '🟢' : isSoon ? '🔔' : '⏱️'}
           </div>
-          <h3 class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</h3>
+          <div>
+            <h3 class="upcoming-card-heading">Your upcoming class</h3>
+            <span class="upcoming-card-subtitle">${isNowActive ? 'Class in session now' : isSoon ? `Starts in ${sMin - currentMinutes} mins` : 'Scheduled teaching session'}</span>
+          </div>
         </div>
 
         <div class="upcoming-card-status-badge">
           ${isNowActive ? `
-            <span class="upcoming-status-tag live">
-              <span class="live-pulse-dot"></span> In Session Now
+            <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span class="live-pulse-dot"></span> Live In-Session Now
             </span>
           ` : isSoon ? `
-            <span class="upcoming-status-tag soon">
-              Starts in ${sMin - currentMinutes}m
+            <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1.5px solid #FCD34D; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              Starts in ${sMin - currentMinutes} min
             </span>
           ` : isLater ? `
-            <span class="upcoming-status-tag later">
+            <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1.5px solid #93C5FD; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
               Today at ${formatTime(displayClass?.start_time)}
             </span>
           ` : `
-            <span class="upcoming-status-tag default">
-              Scheduled
+            <span class="badge" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              Scheduled Class
             </span>
           `}
         </div>
       </div>
 
-      <!-- Clean Meta Row (No Clutter, No Emojis) -->
-      <div class="upcoming-meta-row">
-        <div class="upcoming-meta-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span class="detail-label" style="display:none;">Schedule Time</span>
-          <span>${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
+      <!-- Class Details Below the Given Header Data -->
+      <div class="upcoming-card-content">
+        <div class="upcoming-class-primary">
+          <div class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</div>
+          <span class="upcoming-prog-pill">${targetProgName}</span>
         </div>
-        <div class="upcoming-meta-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          <span>${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
-        </div>
-        <div class="upcoming-meta-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-          <span class="detail-label" style="display:none;">Enrolled Roster</span>
-          <span>${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
+
+        <div class="upcoming-details-grid">
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Schedule Time</span>
+            <span class="detail-value">${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Classroom / Hall</span>
+            <span class="detail-value">${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Enrolled Roster</span>
+            <span class="detail-value">${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Scheduled Days</span>
+            <span class="detail-value">${(displayClass?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</span>
+          </div>
         </div>
       </div>
 
-      <!-- Clean Action Footer -->
+      <!-- Footer Tap Prompt -->
       <div class="upcoming-card-footer">
-        <span class="upcoming-action-link">
-          Take Attendance
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </span>
+        <div class="upcoming-tap-hint">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Tap card to take attendance for <strong>${displayClass?.name || 'this class'}</strong></span>
+        </div>
+        <div class="upcoming-action-link">
+          Take Attendance →
+        </div>
       </div>
     </div>
 
