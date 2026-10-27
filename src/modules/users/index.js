@@ -895,9 +895,6 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 </span>
               </div>
             </button>
-            <select id="rbac-role-select" style="display: none;" aria-hidden="true">
-              ${ROLES.map(role => `<option value="${role.key}" ${role.key === selectedRoleKey ? 'selected' : ''}>${role.label}</option>`).join('')}
-            </select>
           </div>
 
           <!-- Base Navigation Window (Common to All Categories) -->
@@ -978,13 +975,6 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           </div>
         </div>
       `;
-
-      // Role select dropdown change (for testing / programmatic triggers)
-      tabContent.querySelector('#rbac-role-select')?.addEventListener('change', (e) => {
-        selectedRoleKey = e.target.value;
-        savedActiveRbacRole = selectedRoleKey;
-        drawSimpleView();
-      });
 
       // Mobile custom role picker modal
       tabContent.querySelector('#rbac-mobile-role-trigger')?.addEventListener('click', () => {
