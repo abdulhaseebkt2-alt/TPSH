@@ -15,11 +15,24 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
   const allStudents = await db.getStudents();
 
-  // If user is parent, filter to only their child
+  // Scoped Data Visibility:
+  // - Parents see only their children
+  // - Mentors assigned to Girls/Boys Hostel see only their hostel residents
   const isParent = user?.role === 'parent';
-  let students = isParent
-    ? allStudents.filter(s => s.father_phone === '+91 98470 11223' || s.full_name === 'Mohammed Rayan' || s.full_name === 'Muhammad Rayyan')
-    : allStudents;
+  const isMentor = user?.role === 'mentor';
+  const savedMentorHostel = typeof localStorage !== 'undefined' ? localStorage.getItem('tps_mentor_active_hostel') : null;
+  const mentorUnit = user?.hostel_unit || savedMentorHostel;
+  const isGirlsMentor = isMentor && (mentorUnit?.includes('Girls') || user?.gender_scope === 'Girls');
+  const isBoysMentor = isMentor && (mentorUnit?.includes('Boys') || user?.gender_scope === 'Boys');
+
+  let students = allStudents;
+  if (isParent) {
+    students = allStudents.filter(s => s.father_phone === '+91 98470 11223' || s.full_name === 'Mohammed Rayan' || s.full_name === 'Muhammad Rayyan');
+  } else if (isGirlsMentor) {
+    students = allStudents.filter(s => s.gender === 'Girls' || s.gender === 'Female' || (s.hostel_unit && s.hostel_unit.includes('Girls')));
+  } else if (isBoysMentor) {
+    students = allStudents.filter(s => s.gender === 'Boys' || s.gender === 'Male' || (s.hostel_unit && s.hostel_unit.includes('Boys')));
+  }
 
   let searchQuery = '';
   let selectedGender = 'all';
