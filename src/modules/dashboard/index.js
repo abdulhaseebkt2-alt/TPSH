@@ -7,20 +7,9 @@ import { renderStudentDashboard } from './student-dashboard.js';
 
 export async function renderDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
-  const isAdminOrSuper = user?.is_super_admin || user?.role === 'admin' || user?.role === 'super_admin';
-  const storedPerspective = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tps_dashboard_perspective') : null;
-  const effectiveRole = isAdminOrSuper
-    ? (storedPerspective || user?.role || 'admin')
-    : (user?.role || 'admin');
+  const role = user?.role || 'admin';
 
-  const handleSwitchPerspective = (newPerspective) => {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('tps_dashboard_perspective', newPerspective);
-    }
-    renderDashboard(container, { onNavigate });
-  };
-
-  switch (effectiveRole) {
+  switch (role) {
     case 'teacher':
       await renderTeacherDashboard(container, { onNavigate });
       break;
@@ -41,7 +30,7 @@ export async function renderDashboard(container, { onNavigate }) {
     case 'admin':
     case 'super_admin':
     default:
-      await renderAdminDashboard(container, { onNavigate, onSwitchPerspective: handleSwitchPerspective });
+      await renderAdminDashboard(container, { onNavigate });
       break;
   }
 }
