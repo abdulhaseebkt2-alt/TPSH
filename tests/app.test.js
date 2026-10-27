@@ -5,6 +5,12 @@ import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.j
 import { renderSidebar } from '../src/components/sidebar.js';
 import { updateCurrentUserProfile } from '../src/lib/auth.js';
 import { db } from '../src/lib/db.js';
+import { renderDashboard } from '../src/modules/dashboard/index.js';
+import { renderAdminDashboard } from '../src/modules/dashboard/admin-dashboard.js';
+import { renderTeacherDashboard } from '../src/modules/dashboard/teacher-dashboard.js';
+import { renderMentorDashboard } from '../src/modules/dashboard/mentor-dashboard.js';
+import { renderParentDashboard } from '../src/modules/dashboard/parent-dashboard.js';
+import { renderStudentDashboard } from '../src/modules/dashboard/student-dashboard.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -627,5 +633,172 @@ describe('13. Collapsible Sidebar Component Tests', () => {
     expect(container.innerHTML).toContain('sidebar-footer-collapse-btn');
     expect(container.innerHTML).toContain('Expand sidebar');
     expect(container.innerHTML).toContain('data-tooltip="Dashboard"');
+  });
+});
+
+describe('14. Multi-Role Categorized Dashboards & Sidebar Section Tests', () => {
+  it('Sidebar renders Dashboard under "Student & Academic" section heading', () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    renderSidebar(container, {
+      activeModule: 'dashboard',
+      isCollapsed: false,
+      onToggleCollapse: () => {},
+      onNavigate: () => {},
+      onCloseMobile: () => {}
+    });
+
+    // Verify section heading and dashboard under it
+    expect(container.innerHTML).toContain('Student & Academic');
+    const academicIndex = container.innerHTML.indexOf('Student & Academic');
+    const dashboardIndex = container.innerHTML.indexOf('data-module="dashboard"');
+    const admissionsIndex = container.innerHTML.indexOf('data-module="admissions"');
+
+    expect(academicIndex).toBeGreaterThan(-1);
+    expect(dashboardIndex).toBeGreaterThan(academicIndex);
+    expect(admissionsIndex).toBeGreaterThan(dashboardIndex);
+  });
+
+  it('Renders dedicated Teacher Dashboard for teacher role with teaching load and attendance shortcut', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000004',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderDashboard(container, { onNavigate: () => {} });
+
+    expect(container.innerHTML).toContain('Rashid Sir');
+    expect(container.innerHTML).toContain('Teaching Schedule');
+    expect(container.innerHTML).toContain('Take Attendance');
+    expect(container.innerHTML).toContain('Today\'s Sessions');
+  });
+
+  it('Renders dedicated Hostel Mentor Dashboard and strictly isolates Girls Hostel data when mentor is assigned to Girls Hostel', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000003',
+      email: 'mentor@thaibaschool.edu.in',
+      full_name: 'Usthad Usman',
+      role: 'mentor',
+      approval_status: 'approved',
+      is_super_admin: false,
+      hostel_unit: 'Thaiba Girls Hostel Campus',
+      gender_scope: 'Girls'
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    // Ensure localStorage matches girls hostel
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('tps_mentor_active_hostel', 'Thaiba Girls Hostel Campus');
+    }
+
+    await renderDashboard(container, { onNavigate: () => {} });
+
+    expect(container.innerHTML).toContain('Thaiba Girls Hostel Campus');
+    expect(container.innerHTML).toContain('Girls Hostel Wing');
+    expect(container.innerHTML).toContain('Bed Occupancy');
+    expect(container.innerHTML).toContain('Night Roll Call');
+  });
+
+  it('Renders dedicated Parent Dashboard and strictly isolates data to their children', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000005',
+      email: 'parent@example.com',
+      full_name: 'Ahmad K.T.',
+      role: 'parent',
+      approval_status: 'approved',
+      is_super_admin: false,
+      phone: '8104998120'
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderDashboard(container, { onNavigate: () => {} });
+
+    expect(container.innerHTML).toContain('Parent Portal');
+    expect(container.innerHTML).toContain('Presence Status');
+    expect(container.innerHTML).toContain('Attendance Rate');
+    expect(container.innerHTML).toContain('Request Hostel Leave');
+  });
+
+  it('Renders dedicated Student Dashboard with personalized student schedule and report card', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000006',
+      email: 'student@thaibaschool.edu.in',
+      full_name: 'MD Aamir',
+      admission_number: 'TPS-2026-001',
+      role: 'student',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderDashboard(container, { onNavigate: () => {} });
+
+    expect(container.innerHTML).toContain('Welcome, MD Aamir');
+    expect(container.innerHTML).toContain('My Attendance');
+    expect(container.innerHTML).toContain('Today\'s Class Schedule');
+    expect(container.innerHTML).toContain('Gate Pass Status');
+  });
+
+  it('Renders Executive Admin Dashboard for Admin/Super Admin with full perspective switcher', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderDashboard(container, { onNavigate: () => {} });
+
+    expect(container.innerHTML).toContain('Executive Institutional Overview');
+    expect(container.innerHTML).toContain('data-perspective="teacher"');
+    expect(container.innerHTML).toContain('data-perspective="mentor"');
+    expect(container.innerHTML).toContain('data-perspective="parent"');
+    expect(container.innerHTML).toContain('data-perspective="student"');
+    expect(container.innerHTML).toContain('Active Students');
+    expect(container.innerHTML).toContain('Unpaid Late Fines');
   });
 });

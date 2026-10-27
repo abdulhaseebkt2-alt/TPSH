@@ -18,12 +18,8 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
   // Group modules into logical sections
   const sections = [
     {
-      title: 'Main Navigation',
-      keys: ['dashboard', 'users']
-    },
-    {
       title: 'Student & Academic',
-      keys: ['admissions', 'students', 'sections', 'timetable', 'attendance']
+      keys: ['dashboard', 'admissions', 'students', 'sections', 'assignments', 'timetable', 'attendance']
     },
     {
       title: 'Hostel Operations',
@@ -35,7 +31,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
     },
     {
       title: 'Administration & Reports',
-      keys: ['fees', 'notices', 'reports', 'audit', 'settings']
+      keys: ['users', 'fees', 'notices', 'reports', 'audit', 'settings']
     }
   ];
 

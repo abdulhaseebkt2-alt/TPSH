@@ -381,7 +381,9 @@ export function getDevProfile(role) {
       is_dev_profile: true,
       tps_id: 'TGI003',
       blood_group: 'A+',
-      phone: '+91 98470 33445'
+      phone: '+91 98470 33445',
+      hostel_unit: 'Thaiba Girls Hostel Campus',
+      gender_scope: 'Girls'
     },
     teacher: {
       id: 'd0000000-0000-0000-0000-000000000004',
@@ -394,7 +396,8 @@ export function getDevProfile(role) {
       is_dev_profile: true,
       tps_id: 'TGI004',
       blood_group: 'B+',
-      phone: '+91 98470 55667'
+      phone: '+91 98470 55667',
+      assigned_subjects: ['Moral Studies & Ethics', 'Arabic Language']
     },
     parent: {
       id: 'd0000000-0000-0000-0000-000000000005',
@@ -407,12 +410,14 @@ export function getDevProfile(role) {
       is_dev_profile: true,
       tps_id: 'TPS001',
       blood_group: 'O+',
-      phone: '+91 98470 77889'
+      phone: '8104998120',
+      alternate_phone: '9800880620'
     },
     student: {
       id: 'd0000000-0000-0000-0000-000000000006',
       email: 'student@thaibaschool.edu.in',
-      full_name: 'Rayyan Ahmad',
+      full_name: 'MD Aamir',
+      admission_number: 'TPS-2026-001',
       role: 'student',
       approval_status: 'approved',
       is_super_admin: false,
@@ -420,7 +425,7 @@ export function getDevProfile(role) {
       is_dev_profile: true,
       tps_id: 'TPS002',
       blood_group: 'A+',
-      phone: '+91 98470 99001'
+      phone: '8104998120'
     },
     hostel_leader: {
       id: 'd0000000-0000-0000-0000-000000000008',

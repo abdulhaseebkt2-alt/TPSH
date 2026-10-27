@@ -889,6 +889,54 @@ a {
 /* ------------------------------------------------------------
    CARDS & GRIDS
    ------------------------------------------------------------ */
+/* Dashboard Categorical Section Headers */
+.dash-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.85rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1.5px solid var(--border-subtle);
+}
+
+.dash-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.dash-section-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.dash-section-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.dash-section-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  border: 1px solid var(--brand-primary-border);
+}
+
 .grid-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
