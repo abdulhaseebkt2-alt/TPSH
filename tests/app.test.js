@@ -15,6 +15,7 @@ import { WEEK_DAYS } from '../src/modules/sections/index.js';
 import { renderTimetableModule } from '../src/modules/timetable/index.js';
 import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
+import { renderStudentsModule } from '../src/modules/students/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -1094,5 +1095,119 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('Weekly');
     expect(container.innerHTML).toContain('Monthly');
     expect(container.innerHTML).toContain('Yearly');
+  });
+
+  it('View-only users cannot see export or import buttons anywhere, while authorized users can', async () => {
+    // 1. Teacher is view-only on students
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000004',
+      email: 'teacher@thaibaschool.edu.in',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const tableContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    const topBar = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    const viewOnlyContainer = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (sel === '#students-table-container') return tableContainer;
+        if (sel === '#card-top-bar') return topBar;
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderStudentsModule(viewOnlyContainer, { onNavigate: () => {} });
+
+    // In Students module: Viewer must NOT see Export CSV or Import
+    expect(viewOnlyContainer.innerHTML).not.toContain('id="btn-export-csv"');
+    expect(viewOnlyContainer.innerHTML).not.toContain('id="btn-import-csv"');
+    expect(viewOnlyContainer.innerHTML).not.toContain('id="btn-add-student"');
+    expect(viewOnlyContainer.innerHTML).toContain('Explore & View-Only Window');
+
+    // 2. Super Admin has full access on students
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (sel === '#students-table-container') return tableContainer;
+        if (sel === '#card-top-bar') return topBar;
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderStudentsModule(adminContainer, { onNavigate: () => {} });
+
+    // Super Admin CAN see Export CSV, Import, and Add Student
+    expect(adminContainer.innerHTML).toContain('id="btn-export-csv"');
+    expect(adminContainer.innerHTML).toContain('id="btn-import-csv"');
+    expect(adminContainer.innerHTML).toContain('id="btn-add-student"');
+  });
+
+  it('Students module renders dual desktop table and mobile list; mobile list replaces ID Number with Class and supports full profile view', async () => {
+    // Ensure at least one student exists in DB for directory rendering
+    const existing = await db.getStudents();
+    if (existing.length === 0) {
+      await db.addStudent({
+        full_name: 'MD Aamir',
+        school_class: 'STD-VIII',
+        admission_number: 'TPS-2026-001',
+        gender: 'Boys',
+        dob: '2020-08-01',
+        status: 'Active',
+        father_name: 'Test Father',
+        father_phone: '+91 98470 11223'
+      });
+    }
+
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const tableContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    const topBar = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (sel === '#students-table-container') return tableContainer;
+        if (sel === '#card-top-bar') return topBar;
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderStudentsModule(container, { onNavigate: () => {} });
+
+    // Desktop view wrapper exists
+    expect(tableContainer.innerHTML).toContain('class="students-desktop-table-wrap"');
+    expect(tableContainer.innerHTML).toContain('student-directory-table');
+
+    // Mobile view wrapper exists and eliminates horizontal scroll
+    expect(tableContainer.innerHTML).toContain('class="students-mobile-list-wrap"');
+    expect(tableContainer.innerHTML).toContain('class="students-mobile-header-row"');
+
+    // Header has CLASS on the right instead of ID NUMBER
+    expect(tableContainer.innerHTML).toContain('STUDENT INFO');
+    expect(tableContainer.innerHTML).toContain('th-class');
+    expect(tableContainer.innerHTML).toContain('CLASS');
+
+    // Rows show student class pill and student-mobile-card-row
+    expect(tableContainer.innerHTML).toContain('student-mobile-card-row');
+    expect(tableContainer.innerHTML).toContain('student-mobile-class-pill');
+    expect(tableContainer.innerHTML).toContain('STD-');
   });
 });

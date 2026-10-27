@@ -1,8 +1,13 @@
 import { db } from '../../lib/db.js';
 import { formatDate, formatCurrency, exportToExcel, exportToCSV, printDocument, formatTime } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
+import { getCurrentUser } from '../../lib/auth.js';
+import { isViewOnlyModule } from '../../lib/permissions.js';
 
 export async function renderReportsModule(container, { onNavigate }) {
+  const user = getCurrentUser();
+  const isViewOnly = isViewOnlyModule(user, 'reports');
+
   const students = await db.getStudents();
   const classrooms = await db.getClassrooms();
   const programs = await db.getPrograms();
@@ -34,13 +39,15 @@ export async function renderReportsModule(container, { onNavigate }) {
         <p>Multi-dimensional attendance registers for both Students and Faculty across Individual, Class-wise, and Section-wise views (Daily, Weekly, Monthly & Yearly)</p>
       </div>
       <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <button class="btn btn-outline" id="btn-export-excel-report">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export Excel (.xlsx)
-        </button>
-        <button class="btn btn-outline" id="btn-export-csv-report">
-          Export CSV
-        </button>
+        ${!isViewOnly ? `
+          <button class="btn btn-outline" id="btn-export-excel-report">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Excel (.xlsx)
+          </button>
+          <button class="btn btn-outline" id="btn-export-csv-report">
+            Export CSV
+          </button>
+        ` : ''}
         <button class="btn btn-primary" id="btn-print-active-report">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
           Print Register (A4)

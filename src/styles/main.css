@@ -2083,6 +2083,190 @@ a {
 }
 
 /* ============================================================
+   RESPONSIVE STUDENT DIRECTORY: DESKTOP TABLE VS MOBILE CARDS
+   ============================================================ */
+.students-desktop-table-wrap {
+  width: 100%;
+  display: block;
+}
+
+.students-mobile-list-wrap {
+  display: none;
+  width: 100%;
+}
+
+@media (min-width: 769px) {
+  .students-desktop-table-wrap {
+    display: block !important;
+  }
+  .students-mobile-list-wrap {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .students-desktop-table-wrap {
+    display: none !important;
+  }
+
+  .students-mobile-list-wrap {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  #students-table-container {
+    overflow-x: hidden !important;
+    width: 100% !important;
+  }
+
+  .student-directory-card {
+    overflow-x: hidden !important;
+    width: 100% !important;
+  }
+
+  /* Mobile Header Row */
+  .students-mobile-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    background: #F8FAFC;
+    border-bottom: 1px solid #E2E8F0;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .students-mobile-th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .students-mobile-th.th-class {
+    text-align: right;
+    padding-right: 0.35rem;
+  }
+
+  /* Mobile Items Container */
+  .students-mobile-items {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Mobile Card Row */
+  .student-mobile-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #F1F5F9;
+    background: #FFFFFF;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(5, 150, 105, 0.08);
+    box-sizing: border-box;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .student-mobile-card-row:hover,
+  .student-mobile-card-row:active {
+    background-color: #F8FAFC;
+  }
+
+  /* Mobile Student Main Info */
+  .student-mobile-main-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .student-mobile-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .student-mobile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .student-mobile-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .student-mobile-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #065F46;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .student-mobile-sub {
+    font-size: 0.72rem;
+    color: #64748B;
+    margin-top: 0.15rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Mobile Class Column */
+  .student-mobile-class-col {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+  }
+
+  .student-mobile-class-pill {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    color: #1E293B;
+    font-weight: 700;
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  .student-mobile-chevron {
+    color: #94A3B8;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  .student-mobile-card-row:hover .student-mobile-chevron {
+    color: #059669;
+    transform: translateX(2px);
+  }
+}
+
+/* ============================================================
    INSTITUTIONAL CALENDAR & DROPDOWN UI (IMAGE 1 & 2 SPEC)
    ============================================================ */
 

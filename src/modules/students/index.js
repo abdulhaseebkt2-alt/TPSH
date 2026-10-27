@@ -53,7 +53,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
         </div>
       </div>
       <div class="page-actions" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        ${canCreateStudents ? `
+        ${canCreateStudents && !isViewOnly ? `
           <button class="btn btn-outline" id="btn-import-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Import Students (CSV / Excel)
@@ -61,12 +61,14 @@ export async function renderStudentsModule(container, { onNavigate }) {
           <input type="file" id="input-import-csv" accept=".csv, .xlsx, .xls, text/csv" style="display: none;" />
         ` : ''}
 
-        <button class="btn btn-outline" id="btn-export-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export CSV
-        </button>
+        ${!isViewOnly ? `
+          <button class="btn btn-outline" id="btn-export-csv" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        ` : ''}
 
-        ${canCreateStudents ? `
+        ${canCreateStudents && !isViewOnly ? `
           <button class="btn btn-primary" id="btn-add-student" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 1rem; background: #059669;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             + New Student Admission
@@ -202,144 +204,188 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
     // Render Table according to Image 2 & 3 contract
     tableContainer.innerHTML = `
-      <table class="data-table student-directory-table" style="width: 100%; min-width: 980px; border-collapse: collapse;">
-        <thead>
-          <tr style="border-bottom: 1px solid #E2E8F0; background: #F8FAFC;">
-            <th style="padding: 0.85rem 1.25rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 20%; min-width: 210px; white-space: nowrap;">STUDENT INFO</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 12%; min-width: 120px; white-space: nowrap;">ID NUMBER</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 9%; min-width: 95px; white-space: nowrap;">CLASS</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 9%; min-width: 95px; white-space: nowrap;">CATEGORY</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 150px; white-space: nowrap;">HOSTEL / BED</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 160px; white-space: nowrap;">PARENT / CONTACT</th>
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; white-space: nowrap;">STATUS</th>
-            ${canDeleteStudents ? `
-              <th style="padding: 0.85rem 0.5rem; width: 3%; min-width: 38px; text-align: center; white-space: nowrap;">
-                <input type="checkbox" class="student-checkbox" id="select-all-students" ${isAllSelected ? 'checked' : ''} title="Select All" />
-              </th>
-            ` : ''}
-            <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; text-align: right; white-space: nowrap;">ACTIONS</th>
-          </tr>
-        </thead>
-        <tbody>
+      <!-- Desktop Table Wrap (min-width: 769px) -->
+      <div class="students-desktop-table-wrap">
+        <table class="data-table student-directory-table" style="width: 100%; min-width: 980px; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 1px solid #E2E8F0; background: #F8FAFC;">
+              <th style="padding: 0.85rem 1.25rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 20%; min-width: 210px; white-space: nowrap;">STUDENT INFO</th>
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 12%; min-width: 120px; white-space: nowrap;">ID NUMBER</th>
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 9%; min-width: 95px; white-space: nowrap;">CLASS</th>
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 9%; min-width: 95px; white-space: nowrap;">CATEGORY</th>
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 150px; white-space: nowrap;">HOSTEL / BED</th>
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 16%; min-width: 160px; white-space: nowrap;">PARENT / CONTACT</th>
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; white-space: nowrap;">STATUS</th>
+              ${canDeleteStudents ? `
+                <th style="padding: 0.85rem 0.5rem; width: 3%; min-width: 38px; text-align: center; white-space: nowrap;">
+                  <input type="checkbox" class="student-checkbox" id="select-all-students" ${isAllSelected ? 'checked' : ''} title="Select All" />
+                </th>
+              ` : ''}
+              <th style="padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; width: 8%; min-width: 90px; text-align: right; white-space: nowrap;">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(s => {
+              const isGirl = s.gender === 'Girls' || s.gender === 'Girl';
+              const isChecked = selectedIds.has(s.id);
+
+              // Status Badge Formatting
+              const statusLower = (s.status || 'active').toLowerCase();
+              let statusBadge = '';
+              if (statusLower === 'active') {
+                statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">active</span>`;
+              } else if (statusLower.includes('leave')) {
+                statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">on leave</span>`;
+              } else if (statusLower.includes('break')) {
+                statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">break</span>`;
+              } else {
+                statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">${s.status}</span>`;
+              }
+
+              return `
+                <tr style="border-bottom: 1px solid #F1F5F9; background: ${isChecked ? '#F0FDF4' : '#FFFFFF'}; transition: background 120ms ease;">
+                  <!-- Student Info Column -->
+                  <td style="padding: 0.85rem 1.25rem; white-space: nowrap;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <!-- Circular Avatar: Boy (Blue) / Girl (Pink) -->
+                      <div style="width: 38px; height: 38px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden;">
+                        ${s.photo_url ? `
+                          <img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${s.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                          <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                          </div>
+                        ` : `
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                        `}
+                      </div>
+                      <div>
+                        <strong style="color: #065F46; font-size: 0.875rem; font-weight: 700; display: block; line-height: 1.3; white-space: nowrap;">${s.full_name}</strong>
+                        <span style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '2012-05-15'}</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- ID Number Column -->
+                  <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                    <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #1E293B; font-weight: 700; font-size: 0.74rem; letter-spacing: 0.04em; padding: 0.25rem 0.65rem; border-radius: 6px; white-space: nowrap; display: inline-block;">
+                      ${s.admission_number || 'TPS2026056'}
+                    </span>
+                  </td>
+
+                  <!-- Class Column -->
+                  <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                    <strong style="color: #0F172A; font-size: 0.85rem; white-space: nowrap;">${normalizeClassPattern(s.school_class) || 'STD-VIII'}</strong>
+                  </td>
+
+                  <!-- Category Column -->
+                  <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                    <span class="badge" style="background: #F1F5F9; color: #475569; border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.72rem; font-weight: 500; white-space: nowrap; display: inline-block;">
+                      ${s.category || 'General'}
+                    </span>
+                  </td>
+
+                  <!-- Hostel / Bed Column -->
+                  <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                    <div>
+                      <div style="font-weight: 700; color: #1E293B; font-size: 0.825rem; white-space: nowrap;">
+                        ${s.hostel_unit || (s.hostel_status === 'day_scholar' ? 'Day Scholar' : (isGirl ? 'Girls Hostel' : 'Boys Hostel'))}
+                      </div>
+                      <div style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">
+                        ${s.hostel_room ? `${s.hostel_room} • ${s.hostel_bed || 'Bed'}` : (s.hostel_status === 'day_scholar' ? 'Non-Resident' : '<span style="color: #94A3B8; font-style: italic;">Bed not assigned</span>')}
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Parent / Contact Column -->
+                  <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                    <div>
+                      <div style="font-weight: 600; color: #1E293B; font-size: 0.825rem; white-space: nowrap;">
+                        ${s.father_name || 'Abdul Rasheed'}
+                      </div>
+                      <div style="color: #64748B; font-size: 0.72rem; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.1rem; white-space: nowrap;">
+                        <span>${s.father_phone || '+91 98470 12345'}</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#059669" style="flex-shrink: 0;"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.82.49 3.53 1.34 5L2 22l5.16-1.32c1.43.79 3.06 1.32 4.84 1.32 5.52 0 10-4.48 10-10S17.52 2 12 2zm4.95 14.15c-.21.58-1.2 1.09-1.68 1.15-.45.06-1.02.08-3.28-.85-2.71-1.12-4.45-3.87-4.59-4.05-.14-.19-1.09-1.45-1.09-2.76s.69-1.95.94-2.22c.25-.26.54-.33.72-.33.18 0 .36 0 .52.01.17.01.4.06.6.53.22.52.74 1.82.81 1.95.07.14.12.3.02.48-.09.18-.14.3-.28.46-.14.16-.3.35-.43.47-.14.14-.29.3-.12.59.16.29.73 1.2 1.57 1.94 1.08.96 1.99 1.25 2.28 1.39.29.14.46.12.63-.07.17-.19.74-.86.94-1.15.2-.29.4-.24.67-.14.28.1.75 1.77 1.26.17.09.28.14.32.22.04.09.04.52-.17 1.1z"/></svg>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Status Column -->
+                  <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+                    ${statusBadge}
+                  </td>
+
+                  <!-- Checkbox Column -->
+                  ${canDeleteStudents ? `
+                    <td style="padding: 0.85rem 0.5rem; text-align: center; white-space: nowrap;">
+                      <input type="checkbox" class="student-checkbox row-select-checkbox" data-id="${s.id}" ${isChecked ? 'checked' : ''} />
+                    </td>
+                  ` : ''}
+
+                  <!-- Actions Column (View, Edit, Delete) -->
+                  <td style="padding: 0.85rem 1rem; text-align: right; white-space: nowrap;">
+                    <div class="student-action-btns" style="justify-content: flex-end; display: flex; gap: 0.45rem; align-items: center;">
+                      <button class="student-action-btn btn-view-profile" data-id="${s.id}" title="View Student Profile">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      ${canEditStudents ? `
+                        <button class="student-action-btn btn-edit-student" data-id="${s.id}" title="Edit Student Record">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      ` : ''}
+                      ${canDeleteStudents ? `
+                        <button class="student-action-btn delete-btn btn-delete-single" data-id="${s.id}" title="Delete Student Record">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile List View (max-width: 768px): Zero horizontal scroll, Class replaces ID Number, Tap row opens full student profile -->
+      <div class="students-mobile-list-wrap">
+        <div class="students-mobile-header-row">
+          <span class="students-mobile-th th-info">STUDENT INFO</span>
+          <span class="students-mobile-th th-class">CLASS</span>
+        </div>
+        <div class="students-mobile-items">
           ${filtered.map(s => {
             const isGirl = s.gender === 'Girls' || s.gender === 'Girl';
-            const isChecked = selectedIds.has(s.id);
-
-            // Status Badge Formatting
-            const statusLower = (s.status || 'active').toLowerCase();
-            let statusBadge = '';
-            if (statusLower === 'active') {
-              statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">active</span>`;
-            } else if (statusLower.includes('leave')) {
-              statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">on leave</span>`;
-            } else if (statusLower.includes('break')) {
-              statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">break</span>`;
-            } else {
-              statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">${s.status}</span>`;
-            }
-
+            const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
             return `
-              <tr style="border-bottom: 1px solid #F1F5F9; background: ${isChecked ? '#F0FDF4' : '#FFFFFF'}; transition: background 120ms ease;">
-                <!-- Student Info Column -->
-                <td style="padding: 0.85rem 1.25rem; white-space: nowrap;">
-                  <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <!-- Circular Avatar: Boy (Blue) / Girl (Pink) -->
-                    <div style="width: 38px; height: 38px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden;">
-                      ${s.photo_url ? `
-                        <img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${s.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
-                        <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
-                        </div>
-                      ` : `
+              <div class="student-mobile-card-row" data-id="${s.id}" role="button" tabindex="0" title="Tap to view full student details">
+                <!-- Left: Avatar + Full Name + Gender/DOB -->
+                <div class="student-mobile-main-info">
+                  <div class="student-mobile-avatar" style="background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'};">
+                    ${s.photo_url ? `
+                      <img src="${s.photo_url}" alt="${s.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                      <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
-                      `}
-                    </div>
-                    <div>
-                      <strong style="color: #065F46; font-size: 0.875rem; font-weight: 700; display: block; line-height: 1.3; white-space: nowrap;">${s.full_name}</strong>
-                      <span style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '2012-05-15'}</span>
-                    </div>
+                      </div>
+                    ` : `
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                    `}
                   </div>
-                </td>
-
-                <!-- ID Number Column -->
-                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
-                  <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #1E293B; font-weight: 700; font-size: 0.74rem; letter-spacing: 0.04em; padding: 0.25rem 0.65rem; border-radius: 6px; white-space: nowrap; display: inline-block;">
-                    ${s.admission_number || 'TPS2026056'}
-                  </span>
-                </td>
-
-                <!-- Class Column -->
-                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
-                  <strong style="color: #0F172A; font-size: 0.85rem; white-space: nowrap;">${normalizeClassPattern(s.school_class) || 'STD-VIII'}</strong>
-                </td>
-
-                <!-- Category Column -->
-                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
-                  <span class="badge" style="background: #F1F5F9; color: #475569; border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.72rem; font-weight: 500; white-space: nowrap; display: inline-block;">
-                    ${s.category || 'General'}
-                  </span>
-                </td>
-
-                <!-- Hostel / Bed Column -->
-                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
-                  <div>
-                    <div style="font-weight: 700; color: #1E293B; font-size: 0.825rem; white-space: nowrap;">
-                      ${s.hostel_unit || (s.hostel_status === 'day_scholar' ? 'Day Scholar' : (isGirl ? 'Girls Hostel' : 'Boys Hostel'))}
-                    </div>
-                    <div style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">
-                      ${s.hostel_room ? `${s.hostel_room} • ${s.hostel_bed || 'Bed'}` : (s.hostel_status === 'day_scholar' ? 'Non-Resident' : '<span style="color: #94A3B8; font-style: italic;">Bed not assigned</span>')}
-                    </div>
+                  <div class="student-mobile-details">
+                    <span class="student-mobile-name">${s.full_name}</span>
+                    <span class="student-mobile-sub">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '—'}</span>
                   </div>
-                </td>
+                </div>
 
-                <!-- Parent / Contact Column -->
-                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
-                  <div>
-                    <div style="font-weight: 600; color: #1E293B; font-size: 0.825rem; white-space: nowrap;">
-                      ${s.father_name || 'Abdul Rasheed'}
-                    </div>
-                    <div style="color: #64748B; font-size: 0.72rem; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.1rem; white-space: nowrap;">
-                      <span>${s.father_phone || '+91 98470 12345'}</span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#059669" style="flex-shrink: 0;"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.82.49 3.53 1.34 5L2 22l5.16-1.32c1.43.79 3.06 1.32 4.84 1.32 5.52 0 10-4.48 10-10S17.52 2 12 2zm4.95 14.15c-.21.58-1.2 1.09-1.68 1.15-.45.06-1.02.08-3.28-.85-2.71-1.12-4.45-3.87-4.59-4.05-.14-.19-1.09-1.45-1.09-2.76s.69-1.95.94-2.22c.25-.26.54-.33.72-.33.18 0 .36 0 .52.01.17.01.4.06.6.53.22.52.74 1.82.81 1.95.07.14.12.3.02.48-.09.18-.14.3-.28.46-.14.16-.3.35-.43.47-.14.14-.29.3-.12.59.16.29.73 1.2 1.57 1.94 1.08.96 1.99 1.25 2.28 1.39.29.14.46.12.63-.07.17-.19.74-.86.94-1.15.2-.29.4-.24.67-.14.28.1.75 1.77 1.26.17.09.28.14.32.22.04.09.04.52-.17 1.1z"/></svg>
-                    </div>
-                  </div>
-                </td>
-
-                <!-- Status Column -->
-                <td style="padding: 0.85rem 1rem; white-space: nowrap;">
-                  ${statusBadge}
-                </td>
-
-                <!-- Checkbox Column -->
-                ${canDeleteStudents ? `
-                  <td style="padding: 0.85rem 0.5rem; text-align: center; white-space: nowrap;">
-                    <input type="checkbox" class="student-checkbox row-select-checkbox" data-id="${s.id}" ${isChecked ? 'checked' : ''} />
-                  </td>
-                ` : ''}
-
-                <!-- Actions Column (View, Edit, Delete) -->
-                <td style="padding: 0.85rem 1rem; text-align: right; white-space: nowrap;">
-                  <div class="student-action-btns" style="justify-content: flex-end; display: flex; gap: 0.45rem; align-items: center;">
-                    <button class="student-action-btn btn-view-profile" data-id="${s.id}" title="View Student Profile">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>
-                    ${canEditStudents ? `
-                      <button class="student-action-btn btn-edit-student" data-id="${s.id}" title="Edit Student Record">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                      </button>
-                    ` : ''}
-                    ${canDeleteStudents ? `
-                      <button class="student-action-btn delete-btn btn-delete-single" data-id="${s.id}" title="Delete Student Record">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
-                    ` : ''}
-                  </div>
-                </td>
-              </tr>
+                <!-- Right: Class badge in place of ID Number + Chevron -->
+                <div class="student-mobile-class-col">
+                  <span class="student-mobile-class-pill">${normalizedCls}</span>
+                  <svg class="student-mobile-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
             `;
           }).join('')}
-        </tbody>
-      </table>
+        </div>
+      </div>
     `;
 
     // Row selection checkboxes handler
@@ -432,6 +478,23 @@ export async function renderStudentsModule(container, { onNavigate }) {
         if (st) showEditStudentModal(st);
       });
     });
+
+    // Mobile Card Row Click / Tap -> Opens Full Student Profile Modal
+    tableContainer.querySelectorAll('.student-mobile-card-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const id = row.getAttribute('data-id');
+        const st = filtered.find(s => s.id === id);
+        if (st) showProfileModal(st);
+      });
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const id = row.getAttribute('data-id');
+          const st = filtered.find(s => s.id === id);
+          if (st) showProfileModal(st);
+        }
+      });
+    });
   }
 
   // View Profile Modal
@@ -484,7 +547,50 @@ export async function renderStudentsModule(container, { onNavigate }) {
             </div>
           </div>
         </div>
-      `
+
+        ${(canEditStudents || canDeleteStudents) && !isViewOnly ? `
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+            ${canEditStudents ? `
+              <button class="btn btn-outline" id="modal-btn-edit-student" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit Student Record
+              </button>
+            ` : ''}
+            ${canDeleteStudents ? `
+              <button class="btn btn-outline" id="modal-btn-delete-student" style="color: #DC2626; border-color: #FECACA; display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Delete Student
+              </button>
+            ` : ''}
+          </div>
+        ` : ''}
+      `,
+      onMount: (modalBody, modalOverlay) => {
+        modalBody.querySelector('#modal-btn-edit-student')?.addEventListener('click', () => {
+          modalOverlay.classList.remove('open');
+          setTimeout(() => modalOverlay.remove(), 200);
+          showEditStudentModal(student);
+        });
+
+        modalBody.querySelector('#modal-btn-delete-student')?.addEventListener('click', async () => {
+          const confirmed = await confirmDialog({
+            title: 'Delete Student Record',
+            message: `Are you sure you want to delete ${student.full_name} (${student.admission_number})?`,
+            confirmText: 'Delete Student',
+            isDanger: true
+          });
+
+          if (confirmed) {
+            modalOverlay.classList.remove('open');
+            setTimeout(() => modalOverlay.remove(), 200);
+            await db.deleteStudent(student.id);
+            selectedIds.delete(student.id);
+            toast.success(`Student record for ${student.full_name} deleted.`);
+            students = await db.getStudents();
+            renderTable();
+          }
+        });
+      }
     });
   }
 

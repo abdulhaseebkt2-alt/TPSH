@@ -3,9 +3,11 @@ import { printDocument, exportToExcel } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { isViewOnlyModule } from '../../lib/permissions.js';
 
 export async function renderMarksModule(container, { onNavigate }) {
   const user = getCurrentUser();
+  const isViewOnly = isViewOnlyModule(user, 'marks');
   const exams = await db.getExams();
   const examSubjects = await db.getExamSubjects();
   const students = await db.getStudents();
@@ -38,7 +40,9 @@ export async function renderMarksModule(container, { onNavigate }) {
       </div>
       <div class="page-actions">
         ${!isParent && !isStudent ? `
-          <button class="btn btn-outline" id="btn-export-marks">Export Results (.xlsx)</button>
+          ${!isViewOnly ? `
+            <button class="btn btn-outline" id="btn-export-marks">Export Results (.xlsx)</button>
+          ` : ''}
           ${!activeExam?.is_published && (user?.is_super_admin || user?.role === 'admin') ? `
             <button class="btn btn-primary" id="btn-publish-results">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
