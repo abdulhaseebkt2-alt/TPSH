@@ -91,7 +91,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: true,
         status: 'admin_unlocked',
-        message: '🔓 Admin Exception Granted: Late attendance window unlocked by administration.',
+        message: 'Admin Exception Granted: Late attendance window unlocked by administration.',
         badgeClass: 'is-live'
       };
     }
@@ -100,7 +100,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: false,
         status: 'not_scheduled_today',
-        message: `📅 No Class Scheduled Today: ${cls.name} is on (${days.join(', ')}). Today is ${todayKey}.`,
+        message: `No Class Scheduled Today: ${cls.name} is on (${days.join(', ')}). Today is ${todayKey}.`,
         badgeClass: 'is-locked-after'
       };
     }
@@ -110,7 +110,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: false,
         status: 'locked_before',
-        message: `🔒 Attendance Locked: Class starts in ${diff} minutes at ${formatTime(cls.start_time)}. Opens during class time.`,
+        message: `Attendance Locked: Class starts in ${diff} minutes at ${formatTime(cls.start_time)}. Opens during class time.`,
         badgeClass: 'is-locked-before'
       };
     }
@@ -119,7 +119,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: false,
         status: 'locked_after',
-        message: `⛔ Attendance Window Closed: Session ended at ${formatTime(cls.end_time)}. Requires Admin unlock to edit.`,
+        message: `Attendance Window Closed: Session ended at ${formatTime(cls.end_time)}. Requires Admin unlock to edit.`,
         badgeClass: 'is-locked-after',
         isAfter: true
       };
@@ -128,7 +128,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     return {
       canTake: true,
       status: 'live_open',
-      message: `🟢 LIVE Attendance Window Active: Live until ${formatTime(cls.end_time)}.`,
+      message: `Live Attendance Window Active: Live until ${formatTime(cls.end_time)}.`,
       badgeClass: 'is-live'
     };
   }
@@ -226,29 +226,33 @@ export async function renderAttendanceModule(container, { onNavigate }) {
         <div class="att-class-details-bar">
           <div class="att-detail-box">
             <span class="att-detail-lbl">Class Time</span>
-            <strong class="att-detail-val">⏰ ${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')}</strong>
+            <strong class="att-detail-val">${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')}</strong>
           </div>
           <div class="att-detail-box">
-            <span class="att-detail-lbl">Classroom / Hall</span>
-            <strong class="att-detail-val">🚪 ${activeCls?.room_number ? 'Room ' + activeCls.room_number : 'Campus Hall'}</strong>
+            <span class="att-detail-lbl">Room / Hall</span>
+            <strong class="att-detail-val">${activeCls?.room_number ? 'Room ' + activeCls.room_number : 'Campus Hall'}</strong>
           </div>
           <div class="att-detail-box">
             <span class="att-detail-lbl">Class Days</span>
-            <strong class="att-detail-val">📅 ${(activeCls?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</strong>
+            <strong class="att-detail-val">${(activeCls?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</strong>
           </div>
           <div class="att-detail-box">
             <span class="att-detail-lbl">Total Students</span>
-            <strong class="att-detail-val">👥 ${activeList.length} Enrolled</strong>
+            <strong class="att-detail-val">${activeList.length} Enrolled</strong>
           </div>
         </div>
 
         <!-- Window Status Banner Inside Card -->
         <div class="att-window-status-pill ${windowState.badgeClass}">
-          <span>${windowState.canTake ? '🟢' : (windowState.status === 'locked_before' ? '🔒' : '⛔')}</span>
+          ${windowState.canTake ? `
+            <span class="live-pulse-dot" style="margin-right: 0.25rem;"></span>
+          ` : `
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          `}
           <span style="flex: 1;">${windowState.message}</span>
           ${(isAdmin && windowState.isAfter && !windowState.isUnlockedByAdmin) ? `
             <button class="btn btn-outline btn-xs" id="btn-admin-unlock-window" style="background: #FFFFFF; font-weight: 700; color: #DC2626; border-color: #FECACA; white-space: nowrap;">
-              🔓 Unlock Late Attendance
+              Unlock Late Attendance
             </button>
           ` : (isAdmin && windowState.isUnlockedByAdmin) ? `
             <span class="badge badge-active" style="white-space: nowrap;">✓ Unlocked by Admin</span>

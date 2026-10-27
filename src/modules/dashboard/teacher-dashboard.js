@@ -104,8 +104,8 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     <div class="page-header" style="margin-bottom: 1.5rem;">
       <div class="page-title-group">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <div style="width: 44px; height: 44px; border-radius: 12px; background: #ECFDF5; border: 1.5px solid #A7F3D0; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-            👨‍🏫
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #ECFDF5; border: 1.5px solid #A7F3D0; color: #059669; display: flex; align-items: center; justify-content: center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
           </div>
           <div>
             <h2 style="font-size: 1.45rem; font-weight: 800; color: #0F172A; letter-spacing: -0.01em;">Welcome, ${teacherName}</h2>
@@ -125,7 +125,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       </div>
     </div>
 
-    <!-- Dedicated "Your upcoming class" Card (User Requirement 1) -->
+    <!-- Dedicated "Your upcoming class" Card -->
     <div class="teacher-upcoming-card ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}" 
          id="card-teacher-upcoming-class" 
          data-cls-id="${displayClass?.id || ''}" 
@@ -133,81 +133,69 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
          tabindex="0"
          title="Tap to take attendance for ${displayClass?.name || 'Class'}">
       
-      <div class="upcoming-card-top">
-        <div class="upcoming-card-title-group">
-          <div class="upcoming-card-icon-pill ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}">
-            ${isNowActive ? '🟢' : isSoon ? '🔔' : '⏱️'}
+      <div class="upcoming-card-header">
+        <div class="upcoming-title-col">
+          <div class="upcoming-kicker-row">
+            <span class="upcoming-kicker">Your upcoming class</span>
+            <span class="upcoming-prog-pill">${targetProgName}</span>
           </div>
-          <div>
-            <h3 class="upcoming-card-heading">Your upcoming class</h3>
-            <span class="upcoming-card-subtitle">${isNowActive ? 'Class in session now' : isSoon ? `Starts in ${sMin - currentMinutes} mins` : 'Scheduled teaching session'}</span>
-          </div>
+          <h3 class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</h3>
         </div>
 
         <div class="upcoming-card-status-badge">
           ${isNowActive ? `
-            <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-              🟢 Live In-Session Now
+            <span class="upcoming-status-tag live">
+              <span class="live-pulse-dot"></span> In Session Now
             </span>
           ` : isSoon ? `
-            <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1.5px solid #FCD34D; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-              🔔 Starts in ${sMin - currentMinutes} min
+            <span class="upcoming-status-tag soon">
+              Starts in ${sMin - currentMinutes}m
             </span>
           ` : isLater ? `
-            <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1.5px solid #93C5FD; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+            <span class="upcoming-status-tag later">
               Today at ${formatTime(displayClass?.start_time)}
             </span>
           ` : `
-            <span class="badge" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-              Scheduled Class
+            <span class="upcoming-status-tag default">
+              Scheduled
             </span>
           `}
         </div>
       </div>
 
-      <!-- Class Details Below Title -->
-      <div class="upcoming-card-content">
-        <div class="upcoming-class-primary">
-          <div class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</div>
-          <span class="upcoming-prog-pill">${targetProgName}</span>
+      <!-- Clean Meta Row (No Clutter, No Emojis) -->
+      <div class="upcoming-meta-row">
+        <div class="upcoming-meta-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="detail-label" style="display:none;">Schedule Time</span>
+          <span>${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
         </div>
-
-        <div class="upcoming-details-grid">
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Schedule Time</span>
-            <span class="detail-value">⏰ ${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
-          </div>
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Classroom / Hall</span>
-            <span class="detail-value">🚪 ${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
-          </div>
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Enrolled Roster</span>
-            <span class="detail-value">👥 ${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
-          </div>
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Scheduled Days</span>
-            <span class="detail-value">📅 ${(displayClass?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</span>
-          </div>
+        <div class="upcoming-meta-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
+        </div>
+        <div class="upcoming-meta-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <span class="detail-label" style="display:none;">Enrolled Roster</span>
+          <span>${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
         </div>
       </div>
 
-      <!-- Footer Tap Prompt -->
+      <!-- Clean Action Footer -->
       <div class="upcoming-card-footer">
-        <div class="upcoming-tap-hint">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span>Tap card to take attendance for <strong>${displayClass?.name || 'this class'}</strong></span>
-        </div>
-        <div class="upcoming-action-link">
-          Take Attendance →
-        </div>
+        <span class="upcoming-action-link">
+          Take Attendance
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </span>
       </div>
     </div>
 
     <!-- SECTION 1: Student & Academic -->
     <div class="dash-section-header">
       <div class="dash-section-title-wrap">
-        <div class="dash-section-icon">📚</div>
+        <div class="dash-section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
         <div>
           <h3 class="dash-section-title">Student & Academic</h3>
           <span style="font-size: 0.76rem; color: #64748B;">Teaching schedule, attendance windows, classrooms & grade sheets</span>
