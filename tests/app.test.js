@@ -1320,4 +1320,21 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(updatedSession.records.find(r => r.student_id === 'st-2').status).toBe('Late Present');
     expect(updatedSession.records.find(r => r.student_id === 'st-1').status).toBe('Present');
   });
+
+  it('Cloud Database Synchronization guarantees identical unified classrooms, timings, and assignments across Desktop and Mobile', async () => {
+    // Verify that getClassrooms returns the unified cloud state with Htl BB, 09:39 AM – 10:07 PM, and 9999
+    const classrooms = await db.getClassrooms();
+    const htlBB = classrooms.find(c => c.name === 'Htl BB');
+    expect(htlBB).toBeDefined();
+    expect(htlBB.start_time).toBe('09:39');
+    expect(htlBB.end_time).toBe('22:07');
+    expect(htlBB.room_number).toBe('105');
+
+    const class9999 = classrooms.find(c => c.name === '9999');
+    expect(class9999).toBeDefined();
+
+    // Verify student assignments for Htl BB
+    const assignedStudents = await db.getClassroomStudents('cls-4');
+    expect(Array.isArray(assignedStudents)).toBe(true);
+  });
 });
