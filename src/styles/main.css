@@ -2939,36 +2939,35 @@ a {
 }
 
 .perm-item-name {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.perm-item.active .perm-item-name {
-  color: #065F46;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 .perm-item-desc {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: #64748B;
-  white-space: nowrap;
+  margin-top: 3px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 1px;
 }
 
-/* Modern iOS Style Toggle Switch (Legacy fallback) */
+/* Modern iOS Style 3-Position Toggle Switch (44px x 24px - Exact Old Button Dimensions) */
 .perm-switch {
   position: relative;
   width: 44px;
   height: 24px;
   border-radius: 9999px;
   background: #CBD5E1;
-  transition: background var(--transition-fast);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .perm-switch::after {
@@ -2980,26 +2979,50 @@ a {
   height: 20px;
   border-radius: 50%;
   background: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.perm-item.active .perm-switch {
+/* Position 1 (Left): OFF - Neutral Gray */
+.perm-item.state-off .perm-switch,
+.perm-switch.pos-off {
+  background: #CBD5E1;
+}
+.perm-item.state-off .perm-switch::after,
+.perm-switch.pos-off::after {
+  transform: translateX(0px);
+}
+
+/* Position 2 (Middle): VIEW ONLY - Golden Yellow */
+.perm-item.state-view .perm-switch,
+.perm-switch.pos-view {
+  background: #EAB308;
+}
+.perm-item.state-view .perm-switch::after,
+.perm-switch.pos-view::after {
+  transform: translateX(10px);
+}
+
+/* Position 3 (Right): FULL ACCESS - Old Green */
+.perm-item.state-full .perm-switch,
+.perm-item.active .perm-switch,
+.perm-switch.pos-full {
   background: #10B981;
 }
-
-.perm-item.active .perm-switch::after {
+.perm-item.state-full .perm-switch::after,
+.perm-item.active .perm-switch::after,
+.perm-switch.pos-full::after {
   transform: translateX(20px);
 }
 
-/* Multi-Function 3-Position Perm Switch States */
+/* Multi-Function 3-Position Perm Card States */
 .perm-item.state-off {
   border-color: #E2E8F0;
   background: #FFFFFF;
 }
 .perm-item.state-off:hover {
   border-color: #CBD5E1;
-  background: #F8FAFC;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 .perm-item.state-off .perm-item-icon {
   background: #F1F5F9;
@@ -3007,30 +3030,30 @@ a {
 }
 
 .perm-item.state-view {
-  border-color: #BAE6FD;
-  background: #F0F9FF;
-  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.08);
+  border-color: #FDE047;
+  background: #FEFCE8;
+  box-shadow: 0 1px 4px rgba(234, 179, 8, 0.06);
 }
 .perm-item.state-view:hover {
-  border-color: #7DD3FC;
-  background: #E0F2FE;
+  border-color: #FACC15;
+  box-shadow: 0 3px 8px rgba(234, 179, 8, 0.12);
 }
 .perm-item.state-view .perm-item-icon {
-  background: #E0F2FE;
-  color: #0284C7;
+  background: #FEF08A;
+  color: #A16207;
 }
 .perm-item.state-view .perm-item-name {
-  color: #0369A1;
+  color: #854D0E;
 }
 
 .perm-item.state-full {
   border-color: #6EE7B7;
   background: #F0FDF4;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.06);
 }
 .perm-item.state-full:hover {
   border-color: #34D399;
-  background: #ECFDF5;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.12);
 }
 .perm-item.state-full .perm-item-icon {
   background: #D1FAE5;
@@ -3038,114 +3061,6 @@ a {
 }
 .perm-item.state-full .perm-item-name {
   color: #065F46;
-}
-
-/* Status Badges */
-.perm-status-badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 0.15rem 0.5rem;
-  border-radius: 9999px;
-  letter-spacing: 0.02em;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  white-space: nowrap;
-}
-.perm-status-badge.badge-off {
-  background: #F1F5F9;
-  color: #64748B;
-  border: 1px solid #E2E8F0;
-}
-.perm-status-badge.badge-view {
-  background: #E0F2FE;
-  color: #0284C7;
-  border: 1px solid #BAE6FD;
-}
-.perm-status-badge.badge-full {
-  background: #ECFDF5;
-  color: #059669;
-  border: 1px solid #A7F3D0;
-}
-
-/* Multi-Function 3-Position Segmented Switch Component */
-.perm-tri-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  background: #E2E8F0;
-  border-radius: 9999px;
-  padding: 3px;
-  height: 32px;
-  width: 174px;
-  min-width: 174px;
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
-  user-select: none;
-}
-
-.perm-item.state-view .perm-tri-switch {
-  background: #BAE6FD;
-}
-
-.perm-item.state-full .perm-tri-switch {
-  background: #A7F3D0;
-}
-
-.perm-tri-switch .tri-seg-btn {
-  position: relative;
-  z-index: 2;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  height: 100%;
-  border: none;
-  background: transparent;
-  color: #475569;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  border-radius: 9999px;
-  padding: 0 4px;
-  transition: color 0.18s ease;
-}
-
-.perm-tri-switch .tri-seg-btn:hover {
-  color: #0F172A;
-}
-
-.perm-tri-switch .tri-seg-btn.active {
-  color: #FFFFFF !important;
-}
-
-.perm-tri-switch .tri-switch-slider {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc((100% - 6px) / 3);
-  border-radius: 9999px;
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
-  z-index: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-
-.perm-tri-switch .tri-switch-slider.pos-off {
-  transform: translateX(0);
-  background: #64748B;
-}
-
-.perm-tri-switch .tri-switch-slider.pos-view {
-  transform: translateX(100%);
-  background: #0284C7;
-}
-
-.perm-tri-switch .tri-switch-slider.pos-full {
-  transform: translateX(200%);
-  background: #059669;
 }
 
 /* Minimal Sections & Classrooms Styles */

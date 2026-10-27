@@ -593,15 +593,28 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <span class="badge badge-present" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;">
                     ${currCounts.fullCount} Full Access
                   </span>
-                  <span class="badge badge-late" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;">
+                  <span class="badge badge-late" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">
                     ${currCounts.viewCount} View Only
                   </span>
                   <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.72rem; padding: 0.2rem 0.6rem;">
                     ${currCounts.offCount} Off
                   </span>
                 </div>
-                <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
-                  ${activeRoleObj.subtitle} • 3-Position Switch: <strong>Left = Off</strong>, <strong>Middle = View/Explore Only</strong>, <strong>Right = Full Access</strong>
+                <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.78rem; color: #64748B; margin-top: 6px; flex-wrap: wrap;">
+                  <span>${activeRoleObj.subtitle}</span>
+                  <span>•</span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #CBD5E1; display: inline-block;"></span>
+                    <span>Left: Off</span>
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #EAB308; display: inline-block;"></span>
+                    <span style="font-weight: 600; color: #854D0E;">Mid: View Only (Yellow)</span>
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+                    <span style="font-weight: 600; color: #065F46;">Right: Full Access (Green)</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -649,16 +662,11 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                   </div>
                   <div class="perm-item-info">
-                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                      <span class="perm-item-name">Role Dashboard</span>
-                      <span class="perm-status-badge badge-full">✓ Common to Every Category</span>
-                    </div>
-                    <span class="perm-item-desc">Personalized dashboard tailored for ${activeRoleObj.label} with live statistics & operations</span>
+                    <span class="perm-item-name">Role Dashboard</span>
+                    <span class="perm-item-desc">Personalized dashboard tailored for ${activeRoleObj.label} (Always active for all categories)</span>
                   </div>
                 </div>
-                <div style="font-size: 0.72rem; font-weight: 700; color: #059669; background: #ECFDF5; padding: 0.25rem 0.7rem; border-radius: 9999px; border: 1px solid #A7F3D0; white-space: nowrap;">
-                  Always Common
-                </div>
+                <div class="perm-switch pos-full" style="pointer-events: none;" title="Always active for all categories"></div>
               </div>
             </div>
           </div>
@@ -680,33 +688,17 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 ${grp.modules.map(mod => {
                   const level = getLevel(selectedRoleKey, mod.key);
                   return `
-                    <div class="perm-item state-${level}" data-mod-key="${mod.key}" data-level="${level}" title="${mod.label}: Click switch to change access">
+                    <div class="perm-item state-${level}" data-mod-key="${mod.key}" data-level="${level}" title="${mod.label} • ${level === 'off' ? 'Off (Click to cycle)' : level === 'view' ? 'View Only (Yellow)' : 'Full Access (Green)'}">
                       <div class="perm-item-left">
                         <div class="perm-item-icon">${mod.icon}</div>
                         <div class="perm-item-info">
-                          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-                            <span class="perm-item-name">${mod.label}</span>
-                            <span class="perm-status-badge badge-${level}">
-                              ${level === 'off' ? '● Off' : level === 'view' ? '👁 View Only' : '✓ Full Access'}
-                            </span>
-                          </div>
+                          <span class="perm-item-name">${mod.label}</span>
                           <span class="perm-item-desc">${mod.desc}</span>
                         </div>
                       </div>
 
-                      <!-- Multi-Function 3-Position Switch -->
-                      <div class="perm-tri-switch" data-mod-key="${mod.key}" role="group" aria-label="${mod.label} Access">
-                        <button type="button" class="tri-seg-btn seg-off ${level === 'off' ? 'active' : ''}" data-set-level="off" title="Left: Window Off (Cannot see)">
-                          <span>Off</span>
-                        </button>
-                        <button type="button" class="tri-seg-btn seg-view ${level === 'view' ? 'active' : ''}" data-set-level="view" title="Middle: View & Explore Only (No edit/apply)">
-                          <span>View</span>
-                        </button>
-                        <button type="button" class="tri-seg-btn seg-full ${level === 'full' ? 'active' : ''}" data-set-level="full" title="Right: Full Access (View, edit & apply)">
-                          <span>Full</span>
-                        </button>
-                        <div class="tri-switch-slider pos-${level}"></div>
-                      </div>
+                      <!-- 3-Position Old Button (44px x 24px: Off=Gray, View=Yellow, Full=Green) -->
+                      <div class="perm-switch pos-${level}" data-mod-key="${mod.key}" role="button" aria-label="${mod.label} Access"></div>
                     </div>
                   `;
                 }).join('')}
@@ -718,7 +710,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           <div style="background: #F8FAFC; border: 1px solid var(--border-subtle); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text-secondary);">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span><strong>Instant Matrix Updates:</strong> Left = Off (Hidden), Middle = View/Explore Only, Right = Full Access. Click <strong>Save Permissions</strong> to apply.</span>
+              <span><strong>3-Position Switch:</strong> Gray (Left) = Off, Yellow (Center) = View Only, Green (Right) = Full Access. Click card or switch to cycle.</span>
             </div>
             <button class="btn btn-primary" id="btn-save-role-matrix-bottom" style="font-weight: 700;">
               Save Permissions
@@ -736,27 +728,35 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         });
       });
 
-      // Segment button click: sets exact position
-      tabContent.querySelectorAll('.tri-seg-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const targetLevel = btn.getAttribute('data-set-level');
-          const switchEl = btn.closest('.perm-tri-switch');
-          const modKey = switchEl?.getAttribute('data-mod-key');
-          if (modKey && targetLevel) {
-            setLevel(selectedRoleKey, modKey, targetLevel);
-            drawSimpleView();
-          }
-        });
-      });
-
-      // Clicking the item card cycles: off -> view -> full -> off
+      // Clicking the switch or card cycles through: off -> view -> full -> off
+      // Or clicking left/center/right on the switch jumps directly
       tabContent.querySelectorAll('.perm-item').forEach(item => {
         item.addEventListener('click', (e) => {
-          if (e.target.closest('.tri-seg-btn')) return;
           const modKey = item.getAttribute('data-mod-key');
           if (!modKey) return;
+
           const current = getLevel(selectedRoleKey, modKey);
+          const switchEl = item.querySelector('.perm-switch');
+
+          // If click was inside the switch, detect left/middle/right third
+          if (switchEl && (switchEl === e.target || switchEl.contains(e.target))) {
+            const rect = switchEl.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const ratio = clickX / rect.width;
+            let next;
+            if (ratio < 0.35) {
+              next = 'off';
+            } else if (ratio < 0.68) {
+              next = 'view';
+            } else {
+              next = 'full';
+            }
+            setLevel(selectedRoleKey, modKey, next);
+            drawSimpleView();
+            return;
+          }
+
+          // Otherwise clicking anywhere on the card cycles to next state
           const next = current === 'off' ? 'view' : current === 'view' ? 'full' : 'off';
           setLevel(selectedRoleKey, modKey, next);
           drawSimpleView();
