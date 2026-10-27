@@ -3053,21 +3053,12 @@ a {
   }
 }
 
-.upcoming-card-content {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  padding: 1rem 1.15rem;
-}
-
-.teacher-upcoming-card.is-live .upcoming-card-content {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: #A7F3D0;
-}
-
-.teacher-upcoming-card.is-soon .upcoming-card-content {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: #FDE68A;
+.upcoming-divider {
+  height: 1px;
+  background: #E2E8F0;
+  border: none;
+  margin: 0.15rem 0 0.15rem 0;
+  width: 100%;
 }
 
 .upcoming-class-primary {
@@ -3075,6 +3066,7 @@ a {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  margin-top: 0.15rem;
   margin-bottom: 0.85rem;
 }
 
@@ -3132,10 +3124,29 @@ a {
 .upcoming-card-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.35rem;
   padding-top: 0.25rem;
+}
+
+.upcoming-attend-btn {
+  background: #059669;
+  border-color: #047857;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 0.45rem 1rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+  transition: all 0.15s ease;
+}
+
+.upcoming-attend-btn:hover {
+  background: #047857;
+  transform: translateY(-1px);
 }
 
 .upcoming-tap-hint {

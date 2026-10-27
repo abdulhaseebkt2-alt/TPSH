@@ -166,42 +166,39 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- Class Details Below the Given Header Data -->
-      <div class="upcoming-card-content">
-        <div class="upcoming-class-primary">
-          <div class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</div>
-          <span class="upcoming-prog-pill">${targetProgName}</span>
-        </div>
+      <!-- Clean Divider Line After "Today at ... PM" Portion -->
+      <div class="upcoming-divider"></div>
 
-        <div class="upcoming-details-grid">
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Schedule Time</span>
-            <span class="detail-value">${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
-          </div>
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Classroom / Hall</span>
-            <span class="detail-value">${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
-          </div>
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Enrolled Roster</span>
-            <span class="detail-value">${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
-          </div>
-          <div class="upcoming-detail-cell">
-            <span class="detail-label">Scheduled Days</span>
-            <span class="detail-value">${(displayClass?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</span>
-          </div>
+      <!-- Class Details Directly Inside Card (No Separate Inner Card) -->
+      <div class="upcoming-class-primary">
+        <h4 class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</h4>
+        <span class="upcoming-prog-pill">${targetProgName}</span>
+      </div>
+
+      <div class="upcoming-details-grid">
+        <div class="upcoming-detail-cell">
+          <span class="detail-label">Schedule Time</span>
+          <span class="detail-value">${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
+        </div>
+        <div class="upcoming-detail-cell">
+          <span class="detail-label">Classroom / Hall</span>
+          <span class="detail-value">${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
+        </div>
+        <div class="upcoming-detail-cell">
+          <span class="detail-label">Enrolled Roster</span>
+          <span class="detail-value">${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
+        </div>
+        <div class="upcoming-detail-cell">
+          <span class="detail-label">Scheduled Days</span>
+          <span class="detail-value">${(displayClass?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</span>
         </div>
       </div>
 
-      <!-- Footer Tap Prompt -->
+      <!-- Bottom Right Short Action Button -->
       <div class="upcoming-card-footer">
-        <div class="upcoming-tap-hint">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span>Tap card to take attendance for <strong>${displayClass?.name || 'this class'}</strong></span>
-        </div>
-        <div class="upcoming-action-link">
+        <span class="btn btn-primary btn-sm upcoming-attend-btn">
           Take Attendance →
-        </div>
+        </span>
       </div>
     </div>
 
