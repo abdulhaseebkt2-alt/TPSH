@@ -50,14 +50,14 @@ const INITIAL_SECTIONS = [
 ];
 
 const INITIAL_CLASSROOMS = [
-  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys' },
-  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys' },
-  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls' },
-  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Hostel Study Lab 1', start_time: '19:30', end_time: '21:00', room_number: '105', capacity: 30, gender_eligibility: 'Boys' },
-  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys' },
-  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls' },
-  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed' },
-  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed' }
+  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
+  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
+  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
+  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Hostel Study Lab 1', start_time: '19:30', end_time: '21:00', room_number: '105', capacity: 30, gender_eligibility: 'Boys', teacher_id: 'u-2', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }
 ];
 
 const INITIAL_CLASSES = [
@@ -1139,7 +1139,7 @@ class DatabaseService {
     return true;
   }
 
-  async addClassroom({ program_id, section_id, name, start_time, end_time, room_number, capacity, gender_eligibility }) {
+  async addClassroom({ program_id, section_id, name, start_time, end_time, room_number, capacity, gender_eligibility, teacher_id, days }) {
     const classrooms = this.get('tps_classrooms') || [];
     let sections = this.get('tps_sections') || [];
 
@@ -1168,7 +1168,9 @@ class DatabaseService {
       end_time: end_time || '07:30',
       room_number: room_number ? String(room_number).trim() : '',
       capacity: capacity ? Number(capacity) : null,
-      gender_eligibility: gender_eligibility || 'Mixed'
+      gender_eligibility: gender_eligibility || 'Mixed',
+      teacher_id: teacher_id || '',
+      days: Array.isArray(days) && days.length > 0 ? days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     };
     classrooms.push(newCls);
     this.set('tps_classrooms', classrooms);

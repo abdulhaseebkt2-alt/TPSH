@@ -4,6 +4,16 @@ import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { formatTime } from '../../lib/utils.js';
 
+export const WEEK_DAYS = [
+  { key: 'Sun', short: 'S', full: 'Sunday' },
+  { key: 'Mon', short: 'M', full: 'Monday' },
+  { key: 'Tue', short: 'T', full: 'Tuesday' },
+  { key: 'Wed', short: 'W', full: 'Wednesday' },
+  { key: 'Thu', short: 'T', full: 'Thursday' },
+  { key: 'Fri', short: 'F', full: 'Friday' },
+  { key: 'Sat', short: 'S', full: 'Saturday' }
+];
+
 export async function renderSectionsModule(container, { onNavigate }) {
   const user = getCurrentUser();
   const canManage = !user || user.is_super_admin || user.role === 'admin' || user.role === 'super_admin';
@@ -11,6 +21,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
   let programs = await db.getPrograms();
   let sections = await db.getSections();
   let classrooms = await db.getClassrooms();
+  let users = await db.getUsers();
 
   let selectedProgramId = programs[0]?.id || '';
 
@@ -18,10 +29,20 @@ export async function renderSectionsModule(container, { onNavigate }) {
     programs = await db.getPrograms();
     sections = await db.getSections();
     classrooms = await db.getClassrooms();
+    users = await db.getUsers();
 
     if (!programs.some(p => p.id === selectedProgramId)) {
       selectedProgramId = programs[0]?.id || '';
     }
+  }
+
+  function getEligibleTeachers() {
+    const list = (users || []).filter(u => u.approval_status === 'approved' && (u.role === 'teacher' || u.role === 'admin' || u.role === 'mentor' || u.role === 'super_admin' || !u.role));
+    return list.sort((a, b) => {
+      if (a.role === 'teacher' && b.role !== 'teacher') return -1;
+      if (a.role !== 'teacher' && b.role === 'teacher') return 1;
+      return (a.full_name || a.email).localeCompare(b.full_name || b.email);
+    });
   }
 
   function renderFullUI() {
@@ -131,6 +152,8 @@ export async function renderSectionsModule(container, { onNavigate }) {
             const badgeBg = isBoys ? '#EFF6FF' : isGirls ? '#FDF2F8' : '#F0FDF4';
             const badgeColor = isBoys ? '#1D4ED8' : isGirls ? '#BE185D' : '#15803D';
             const badgeBorder = isBoys ? '#BFDBFE' : isGirls ? '#FBCFE8' : '#BBF7D0';
+            const teacher = cls.teacher_id ? (users || []).find(u => u.id === cls.teacher_id) : null;
+            const classDays = cls.days && Array.isArray(cls.days) && cls.days.length > 0 ? cls.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
             return `
               <div class="minimal-classroom-card" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03); transition: border-color 0.15s ease, box-shadow 0.15s ease;">
@@ -158,6 +181,28 @@ export async function renderSectionsModule(container, { onNavigate }) {
                         </button>
                       </div>
                     ` : ''}
+                  </div>
+
+                  <!-- Assigned Teacher & 7 Days Rounds Row -->
+                  <div class="cls-card-schedule-row">
+                    <div class="cls-teacher-pill" title="${teacher ? `Assigned Teacher: ${teacher.full_name || teacher.email}` : 'No Teacher Assigned'}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      <span class="cls-teacher-name ${teacher ? 'assigned' : 'unassigned'}">
+                        ${teacher ? (teacher.full_name || teacher.email) : 'No teacher assigned'}
+                      </span>
+                    </div>
+
+                    <!-- 7 Rounds for Days of Week -->
+                    <div class="cls-card-days-row" title="Class Days of Week">
+                      ${WEEK_DAYS.map(d => {
+                        const active = classDays.includes(d.key);
+                        return `
+                          <span class="day-round ${active ? 'active' : 'inactive'}" title="${d.full}: ${active ? 'Active' : 'Off'}">
+                            ${d.short}
+                          </span>
+                        `;
+                      }).join('')}
+                    </div>
                   </div>
 
                   <!-- Class Timing (Mandatory) & Optional Room/Capacity -->
@@ -412,21 +457,49 @@ export async function renderSectionsModule(container, { onNavigate }) {
 
   function openAddClassroomModal() {
     const currentProg = programs.find(p => p.id === selectedProgramId) || programs[0];
+    const teachers = getEligibleTeachers();
 
     openModal({
       title: 'Add Classroom',
       contentHtml: `
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
           <label class="form-label required">Section</label>
           <select id="cls-prog-select" class="form-control">
             ${programs.map(p => `<option value="${p.id}" ${p.id === selectedProgramId ? 'selected' : ''}>${p.name}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
           <label class="form-label required">Classroom Name</label>
           <input type="text" id="cls-name-input" class="form-control" placeholder="e.g. Hostel Study Lab 1, Room 10A" required />
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
+          <label class="form-label">Assign Teacher (Optional)</label>
+          <select id="cls-teacher-select" class="form-control">
+            <option value="">-- No Teacher Assigned --</option>
+            ${teachers.map(t => `<option value="${t.id}">${t.full_name || t.email} (${t.role === 'teacher' ? 'Teacher' : (t.role || 'Staff')})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem;">
+            <label class="form-label" style="margin-bottom: 0;">Class Days of Week</label>
+            <div style="display: flex; gap: 0.35rem;">
+              <button type="button" class="btn btn-xs btn-outline btn-quick-all" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">All</button>
+              <button type="button" class="btn btn-xs btn-outline btn-quick-mon-sat" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">Mon–Sat</button>
+              <button type="button" class="btn btn-xs btn-outline btn-quick-clear" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">Clear</button>
+            </div>
+          </div>
+          <div class="cls-days-picker-row">
+            ${WEEK_DAYS.map(d => {
+              const isDefault = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].includes(d.key);
+              return `
+                <button type="button" class="cls-day-round-btn ${isDefault ? 'active' : ''}" data-day="${d.key}" title="${d.full}">
+                  <span class="day-char">${d.short}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.9rem;">
           <div class="form-group">
             <label class="form-label required">Class Starting Time</label>
             <input type="time" id="cls-start-input" class="form-control" value="06:30" required />
@@ -436,7 +509,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
             <input type="time" id="cls-end-input" class="form-control" value="07:30" required />
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
           <label class="form-label required">Gender</label>
           <select id="cls-gender-select" class="form-control">
             <option value="Mixed">Mixed</option>
@@ -460,10 +533,37 @@ export async function renderSectionsModule(container, { onNavigate }) {
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
+        // Toggle Day rounds
+        modalBody.querySelectorAll('.cls-day-round-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            btn.classList.toggle('active');
+          });
+        });
+
+        // Quick day selectors
+        modalBody.querySelector('.btn-quick-all')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => b.classList.add('active'));
+        });
+        modalBody.querySelector('.btn-quick-mon-sat')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => {
+            if (b.getAttribute('data-day') !== 'Sun') b.classList.add('active');
+            else b.classList.remove('active');
+          });
+        });
+        modalBody.querySelector('.btn-quick-clear')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => b.classList.remove('active'));
+        });
+
         modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
         modalBody.querySelector('#btn-save-classroom')?.addEventListener('click', async () => {
           const progId = modalBody.querySelector('#cls-prog-select').value;
           const name = modalBody.querySelector('#cls-name-input').value.trim();
+          const teacher_id = modalBody.querySelector('#cls-teacher-select')?.value || '';
+          const days = Array.from(modalBody.querySelectorAll('.cls-day-round-btn.active')).map(b => b.getAttribute('data-day'));
           const start_time = modalBody.querySelector('#cls-start-input').value || '06:30';
           const end_time = modalBody.querySelector('#cls-end-input').value || '07:30';
           const room_number = modalBody.querySelector('#cls-room-input').value.trim();
@@ -482,7 +582,9 @@ export async function renderSectionsModule(container, { onNavigate }) {
             end_time,
             room_number,
             capacity: capacity ? Number(capacity) : null,
-            gender_eligibility
+            gender_eligibility,
+            teacher_id,
+            days
           });
 
           toast.success(`Classroom "${name}" added.`);
@@ -500,21 +602,50 @@ export async function renderSectionsModule(container, { onNavigate }) {
     if (!cls) return;
 
     const currentProgId = cls.program_id || selectedProgramId;
+    const teachers = getEligibleTeachers();
+    const classDays = cls.days && Array.isArray(cls.days) && cls.days.length > 0 ? cls.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     openModal({
       title: `Edit Classroom — ${cls.name}`,
       contentHtml: `
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
           <label class="form-label required">Section</label>
           <select id="edit-cls-prog-select" class="form-control">
             ${programs.map(p => `<option value="${p.id}" ${p.id === currentProgId ? 'selected' : ''}>${p.name}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
           <label class="form-label required">Classroom Name</label>
           <input type="text" id="edit-cls-name-input" class="form-control" value="${cls.name}" required />
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
+          <label class="form-label">Assign Teacher (Optional)</label>
+          <select id="edit-cls-teacher-select" class="form-control">
+            <option value="">-- No Teacher Assigned --</option>
+            ${teachers.map(t => `<option value="${t.id}" ${cls.teacher_id === t.id ? 'selected' : ''}>${t.full_name || t.email} (${t.role === 'teacher' ? 'Teacher' : (t.role || 'Staff')})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem;">
+            <label class="form-label" style="margin-bottom: 0;">Class Days of Week</label>
+            <div style="display: flex; gap: 0.35rem;">
+              <button type="button" class="btn btn-xs btn-outline btn-quick-all" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">All</button>
+              <button type="button" class="btn btn-xs btn-outline btn-quick-mon-sat" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">Mon–Sat</button>
+              <button type="button" class="btn btn-xs btn-outline btn-quick-clear" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">Clear</button>
+            </div>
+          </div>
+          <div class="cls-days-picker-row">
+            ${WEEK_DAYS.map(d => {
+              const isSelected = classDays.includes(d.key);
+              return `
+                <button type="button" class="cls-day-round-btn ${isSelected ? 'active' : ''}" data-day="${d.key}" title="${d.full}">
+                  <span class="day-char">${d.short}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.9rem;">
           <div class="form-group">
             <label class="form-label required">Class Starting Time</label>
             <input type="time" id="edit-cls-start-input" class="form-control" value="${cls.start_time || '06:30'}" required />
@@ -524,7 +655,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
             <input type="time" id="edit-cls-end-input" class="form-control" value="${cls.end_time || '07:30'}" required />
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.9rem;">
           <label class="form-label required">Gender</label>
           <select id="edit-cls-gender-select" class="form-control">
             <option value="Mixed" ${(cls.gender_eligibility || 'Mixed') === 'Mixed' ? 'selected' : ''}>Mixed</option>
@@ -548,10 +679,37 @@ export async function renderSectionsModule(container, { onNavigate }) {
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
+        // Toggle Day rounds
+        modalBody.querySelectorAll('.cls-day-round-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            btn.classList.toggle('active');
+          });
+        });
+
+        // Quick day selectors
+        modalBody.querySelector('.btn-quick-all')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => b.classList.add('active'));
+        });
+        modalBody.querySelector('.btn-quick-mon-sat')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => {
+            if (b.getAttribute('data-day') !== 'Sun') b.classList.add('active');
+            else b.classList.remove('active');
+          });
+        });
+        modalBody.querySelector('.btn-quick-clear')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => b.classList.remove('active'));
+        });
+
         modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
         modalBody.querySelector('#btn-save-edit-classroom')?.addEventListener('click', async () => {
           const progId = modalBody.querySelector('#edit-cls-prog-select').value;
           const name = modalBody.querySelector('#edit-cls-name-input').value.trim();
+          const teacher_id = modalBody.querySelector('#edit-cls-teacher-select')?.value || '';
+          const days = Array.from(modalBody.querySelectorAll('.cls-day-round-btn.active')).map(b => b.getAttribute('data-day'));
           const start_time = modalBody.querySelector('#edit-cls-start-input').value || '06:30';
           const end_time = modalBody.querySelector('#edit-cls-end-input').value || '07:30';
           const room_number = modalBody.querySelector('#edit-cls-room-input').value.trim();
@@ -570,7 +728,9 @@ export async function renderSectionsModule(container, { onNavigate }) {
             end_time,
             room_number,
             capacity: capacity ? Number(capacity) : null,
-            gender_eligibility
+            gender_eligibility,
+            teacher_id,
+            days
           });
 
           toast.success(`Classroom "${name}" updated.`);

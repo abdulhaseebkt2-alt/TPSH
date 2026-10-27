@@ -11,6 +11,7 @@ import { renderTeacherDashboard } from '../src/modules/dashboard/teacher-dashboa
 import { renderMentorDashboard } from '../src/modules/dashboard/mentor-dashboard.js';
 import { renderParentDashboard } from '../src/modules/dashboard/parent-dashboard.js';
 import { renderStudentDashboard } from '../src/modules/dashboard/student-dashboard.js';
+import { WEEK_DAYS } from '../src/modules/sections/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -644,7 +645,7 @@ describe('6. User Profile Creation & Management Tests', () => {
     });
     expect(prog.id).toBeDefined();
 
-    // 2. Add Classroom Card directly under this Section with start and end times
+    // 2. Add Classroom Card directly under this Section with start and end times, teacher, and days
     const cls = await db.addClassroom({
       program_id: prog.id,
       name: 'Tuition Room 101',
@@ -652,7 +653,9 @@ describe('6. User Profile Creation & Management Tests', () => {
       end_time: '20:00',
       room_number: '', // non-mandatory
       capacity: null,  // non-mandatory
-      gender_eligibility: 'Boys'
+      gender_eligibility: 'Boys',
+      teacher_id: 'u-2',
+      days: ['Mon', 'Wed', 'Fri']
     });
     expect(cls).toBeDefined();
     expect(cls.name).toBe('Tuition Room 101');
@@ -660,6 +663,8 @@ describe('6. User Profile Creation & Management Tests', () => {
     expect(cls.start_time).toBe('18:30');
     expect(cls.end_time).toBe('20:00');
     expect(cls.gender_eligibility).toBe('Boys');
+    expect(cls.teacher_id).toBe('u-2');
+    expect(cls.days).toEqual(['Mon', 'Wed', 'Fri']);
 
     // 3. Verify it is returned in getClassrooms()
     const allCls = await db.getClassrooms();
@@ -668,18 +673,24 @@ describe('6. User Profile Creation & Management Tests', () => {
     expect(found.program_id).toBe(prog.id);
     expect(found.start_time).toBe('18:30');
     expect(found.end_time).toBe('20:00');
+    expect(found.teacher_id).toBe('u-2');
+    expect(found.days).toEqual(['Mon', 'Wed', 'Fri']);
 
     // 4. Update Classroom
     const updated = await db.updateClassroom(cls.id, {
       name: 'Tuition Hall Beta',
       start_time: '19:00',
       end_time: '20:30',
-      gender_eligibility: 'Mixed'
+      gender_eligibility: 'Mixed',
+      teacher_id: 'u-3',
+      days: ['Sun', 'Tue', 'Thu']
     });
     expect(updated.name).toBe('Tuition Hall Beta');
     expect(updated.start_time).toBe('19:00');
     expect(updated.end_time).toBe('20:30');
     expect(updated.gender_eligibility).toBe('Mixed');
+    expect(updated.teacher_id).toBe('u-3');
+    expect(updated.days).toEqual(['Sun', 'Tue', 'Thu']);
 
     // 5. Delete Classroom
     const deleted = await db.deleteClassroom(cls.id);
@@ -690,6 +701,12 @@ describe('6. User Profile Creation & Management Tests', () => {
 
     // Clean up program
     await db.deleteProgram(prog.id);
+  });
+
+  it('WEEK_DAYS defines 7 days with compact 1-letter labels for round circular badges', () => {
+    expect(WEEK_DAYS).toHaveLength(7);
+    expect(WEEK_DAYS.map(d => d.short)).toEqual(['S', 'M', 'T', 'W', 'T', 'F', 'S']);
+    expect(WEEK_DAYS.map(d => d.key)).toEqual(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
   });
 });
 

@@ -4443,3 +4443,144 @@ a {
     font-size: 0.76rem;
   }
 }
+
+/* ============================================================
+   CLASSROOM DAYS PICKER (7 ROUNDS) & ASSIGNED TEACHER
+   ============================================================ */
+.cls-days-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  padding: 0.45rem 0.6rem;
+  background: #F8FAFC;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.cls-day-round-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #64748B;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.cls-day-round-btn:hover {
+  border-color: #10B981;
+  color: #059669;
+  background: #F0FDF4;
+}
+
+.cls-day-round-btn.active {
+  background: #059669;
+  border-color: #059669;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);
+  transform: scale(1.05);
+}
+
+/* Card Days Rounds (Compact) */
+.cls-card-schedule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  padding: 0.45rem 0.65rem;
+  background: #F8FAFC;
+  border-radius: 8px;
+  border: 1px solid #F1F5F9;
+}
+
+.cls-teacher-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.cls-teacher-pill svg {
+  color: #2563EB;
+  flex-shrink: 0;
+}
+
+.cls-teacher-name.assigned {
+  font-weight: 700;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cls-teacher-name.unassigned {
+  font-weight: 500;
+  color: #94A3B8;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cls-card-days-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.day-round {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.64rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.day-round.active {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+.day-round.inactive {
+  background: #F1F5F9;
+  color: #94A3B8;
+  border: 1px solid #E2E8F0;
+}
+
+@media (max-width: 480px) {
+  .cls-days-picker-row {
+    gap: 0.25rem;
+    padding: 0.35rem 0.35rem;
+  }
+  .cls-day-round-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 0.78rem;
+  }
+  .cls-card-schedule-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+  .cls-card-days-row {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
