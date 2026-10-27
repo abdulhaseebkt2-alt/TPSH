@@ -253,16 +253,16 @@ export async function renderAttendanceModule(container, { onNavigate }) {
           ` : ''}
         </div>
 
-        <!-- Attendance Summary Counters & Quick Bulk Buttons -->
+        <!-- Attendance Summary Counters & Quick Bulk Buttons (Single Line, Classic UI) -->
         <div class="att-class-footer-bar">
-          <div class="att-stats-pills" id="att-counters">
+          <div class="att-stats-classic" id="att-counters">
             ${renderCountersHtml()}
           </div>
           <div class="att-bulk-btns">
-            <button type="button" class="btn btn-outline btn-xs" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : 'style="color: #DC2626; border-color: #FECACA;"'}>
+            <button type="button" class="btn-classic-action" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
               All Absent
             </button>
-            <button type="button" class="btn btn-primary btn-xs" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : 'style="background: #059669; border-color: #047857;"'}>
+            <button type="button" class="btn-classic-action" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
               All Present
             </button>
           </div>
@@ -330,20 +330,10 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     });
 
     return `
-      <span class="att-stat-pill present">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
-        Present: ${presentCount}
-      </span>
-      ${lateCount > 0 ? `
-        <span class="att-stat-pill late">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background: #F59E0B;"></span>
-          Late: ${lateCount}
-        </span>
-      ` : ''}
-      <span class="att-stat-pill absent">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444;"></span>
-        Absent: ${absentCount}
-      </span>
+      <span class="att-counter-item">Present: <strong>${presentCount}</strong></span>
+      <span class="att-counter-dot">•</span>
+      <span class="att-counter-item">Absent: <strong>${absentCount}</strong></span>
+      ${lateCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item">Late: <strong>${lateCount}</strong></span>` : ''}
     `;
   }
 
