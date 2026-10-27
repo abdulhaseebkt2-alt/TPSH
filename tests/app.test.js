@@ -221,6 +221,43 @@ describe('1. Authentication & Role Permissions Tests', () => {
     resetRBACMatrix();
   });
 
+  it('Supports 3 switch states (off, view, full) in individual user custom permissions', () => {
+    const customUser = {
+      id: 'custom-user-1',
+      email: 'custom@thaiba.edu',
+      role: 'teacher',
+      approval_status: 'approved'
+    };
+
+    saveUserCustomPermissions('custom-user-1', {
+      students: 'view',
+      leaves: 'full',
+      fees: 'off'
+    });
+
+    const perms = getUserCustomPermissions('custom-user-1');
+    expect(perms.students).toBe('view');
+    expect(perms.leaves).toBe('full');
+    expect(perms.fees).toBe('off');
+
+    // Students is view only: can view, cannot create/delete
+    expect(canAccessModule(customUser, 'students')).toBe(true);
+    expect(canPerformAction(customUser, 'students', 'view')).toBe(true);
+    expect(canPerformAction(customUser, 'students', 'create')).toBe(false);
+    expect(canPerformAction(customUser, 'students', 'delete')).toBe(false);
+
+    // Leaves is full: can view and create
+    expect(canAccessModule(customUser, 'leaves')).toBe(true);
+    expect(canPerformAction(customUser, 'leaves', 'view')).toBe(true);
+    expect(canPerformAction(customUser, 'leaves', 'create')).toBe(true);
+
+    // Fees is off: cannot access
+    expect(canAccessModule(customUser, 'fees')).toBe(false);
+
+    clearUserCustomPermissions('custom-user-1');
+    expect(getUserCustomPermissions('custom-user-1')).toBeNull();
+  });
+
   it('Strictly denies delete permission for view-only users like mentors on students module', () => {
     const mentorUser = {
       id: 'mentor-test',

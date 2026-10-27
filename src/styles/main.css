@@ -2772,6 +2772,184 @@ a {
   flex-shrink: 0;
 }
 
+/* ============================================================
+   RESPONSIVE USER ACCOUNTS (DESKTOP TABLE VS MOBILE CARDS)
+   ============================================================ */
+.desktop-user-table {
+  display: block;
+}
+.mobile-user-cards {
+  display: none;
+}
+
+.tab-label-full {
+  display: inline;
+}
+.tab-label-short {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktop-user-table {
+    display: none !important;
+  }
+  .mobile-user-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #F8FAFC;
+  }
+
+  .tab-label-full {
+    display: none !important;
+  }
+  .tab-label-short {
+    display: inline !important;
+  }
+
+  .user-sub-tabs-bar {
+    padding-bottom: 4px;
+    gap: 0.35rem;
+  }
+  .user-sub-tabs-bar .btn {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .users-pending-alert-banner {
+    padding: 0.75rem 0.95rem !important;
+    margin-bottom: 1rem !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .desktop-user-table {
+    display: block !important;
+  }
+  .mobile-user-cards {
+    display: none !important;
+  }
+
+  .tab-label-full {
+    display: inline !important;
+  }
+  .tab-label-short {
+    display: none !important;
+  }
+}
+
+/* User Card Item (Mobile) */
+.user-card-item {
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 0.95rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-card-avatar-col {
+  flex-shrink: 0;
+}
+
+.user-card-info-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.user-card-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.user-card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-card-status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.user-card-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  background: #F8FAFC;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #334155;
+  border: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+.user-card-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card-contact-item svg {
+  flex-shrink: 0;
+  color: #64748B;
+}
+
+.user-card-email-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.45rem;
+  margin-top: 0.2rem;
+}
+
+.user-card-actions.user-card-actions-single {
+  grid-template-columns: 1fr;
+}
+
+.user-card-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+  width: 100%;
+}
+
 .btn-xs {
   padding: 0.35rem 0.65rem;
   font-size: 0.74rem;
