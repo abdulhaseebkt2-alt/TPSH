@@ -3,7 +3,7 @@ import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
-import { formatTime } from '../../lib/utils.js';
+import { formatTime, normalizeClassPattern } from '../../lib/utils.js';
 
 function parseMinutes(timeStr) {
   if (!timeStr) return 0;
@@ -32,32 +32,23 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       (user.email && c.teacher_id === user.email) ||
       (user.full_name && c.teacher_id === user.full_name)
     );
-    // If teacher has assigned classrooms, restrict strictly to them
     if (assigned.length > 0) {
       availableClassrooms = assigned;
     } else {
-      // Demo fallback if teacher not yet assigned to any specific classroom
       availableClassrooms = allClassrooms.slice(0, 2);
     }
   }
 
-  // Filter available programs to only those having available classrooms
-  const availableProgIds = new Set(availableClassrooms.map(c => c.program_id));
-  const programs = allPrograms.filter(p => availableProgIds.has(p.id) || availableProgIds.size === 0);
   const classrooms = availableClassrooms;
-
-  let activeProgramId = programs[0]?.id || allPrograms[0]?.id || 'prog-1';
-  const initialProgCls = classrooms.filter(c => c.program_id === activeProgramId);
-  let activeClassroomId = initialProgCls[0]?.id || classrooms[0]?.id || 'cls-1';
+  let activeClassroomId = classrooms[0]?.id || 'cls-1';
 
   // Check if directed from a specific classroom card or dashboard
-  const preselectedClsId = sessionStorage.getItem('tps_active_att_cls');
+  const preselectedClsId = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tps_active_att_cls') : null;
   if (preselectedClsId) {
-    sessionStorage.removeItem('tps_active_att_cls');
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('tps_active_att_cls');
     const target = classrooms.find(c => c.id === preselectedClsId);
     if (target) {
       activeClassroomId = target.id;
-      if (target.program_id) activeProgramId = target.program_id;
     }
   }
 
@@ -90,7 +81,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
         canTake: true,
         status: 'admin_override',
         message: 'Admin Oversight Mode: Full access to record or edit attendance at any time.',
-        badgeClass: 'badge-active',
+        badgeClass: 'is-live',
         isAfter,
         isUnlockedByAdmin
       };
@@ -100,8 +91,8 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: true,
         status: 'admin_unlocked',
-        message: '🔓 Admin Exception Granted: Late attendance window has been unlocked by administration.',
-        badgeClass: 'badge-active'
+        message: '🔓 Admin Exception Granted: Late attendance window unlocked by administration.',
+        badgeClass: 'is-live'
       };
     }
 
@@ -109,8 +100,8 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: false,
         status: 'not_scheduled_today',
-        message: `📅 No Class Scheduled Today: ${cls.name} is scheduled on (${days.join(', ')}). Today is ${todayKey}.`,
-        badgeClass: 'badge-default'
+        message: `📅 No Class Scheduled Today: ${cls.name} is on (${days.join(', ')}). Today is ${todayKey}.`,
+        badgeClass: 'is-locked-after'
       };
     }
 
@@ -119,8 +110,8 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: false,
         status: 'locked_before',
-        message: `🔒 Attendance Locked: Class starts in ${diff} minutes at ${formatTime(cls.start_time)}. Attendance opens only during assigned class time.`,
-        badgeClass: 'badge-leave'
+        message: `🔒 Attendance Locked: Class starts in ${diff} minutes at ${formatTime(cls.start_time)}. Opens during class time.`,
+        badgeClass: 'is-locked-before'
       };
     }
 
@@ -128,8 +119,8 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       return {
         canTake: false,
         status: 'locked_after',
-        message: `⛔ Attendance Window Closed: Class session ended at ${formatTime(cls.end_time)}. Attendance cannot be taken after class time unless unlocked by Administrator.`,
-        badgeClass: 'badge-default',
+        message: `⛔ Attendance Window Closed: Session ended at ${formatTime(cls.end_time)}. Requires Admin unlock to edit.`,
+        badgeClass: 'is-locked-after',
         isAfter: true
       };
     }
@@ -137,188 +128,12 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     return {
       canTake: true,
       status: 'live_open',
-      message: `🟢 LIVE Class Attendance Window Active: Live until ${formatTime(cls.end_time)}. Submitting confirms your teacher duty attendance.`,
-      badgeClass: 'badge-active'
+      message: `🟢 LIVE Attendance Window Active: Live until ${formatTime(cls.end_time)}.`,
+      badgeClass: 'is-live'
     };
   }
 
-  // Default to ABSENT when opening attendance module as requested by user
-  let attendanceState = {};
-  students.forEach(s => {
-    if (s.status === 'On Approved Leave' || s.status === 'Temporary Break') {
-      attendanceState[s.id] = 'Leave';
-    } else {
-      attendanceState[s.id] = 'Absent';
-    }
-  });
-
-  // Extract unique classes for filtering
-  const uniqueClasses = Array.from(new Set(students.map(s => s.school_class || 'STD-I'))).sort();
-
-  async function renderFullUI() {
-    const windowState = await checkWindowStatus(activeClassroomId);
-    const activeCls = classrooms.find(c => c.id === activeClassroomId);
-    const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
-    const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'No teacher assigned');
-
-    const canInteract = canSubmitAction && !isViewOnly && windowState.canTake;
-
-    container.innerHTML = `
-      <div class="page-header">
-        <div class="page-title-group">
-          <h2>${isTeacher ? 'My Classroom Attendance Duty' : 'Student & Teacher Attendance Management'}</h2>
-          <p>${isTeacher ? 'Take and submit live attendance for your assigned classrooms during class hours' : 'Independent daily attendance governance for Moral Class, Hostel Coaching, and School Coaching'}</p>
-        </div>
-        <div class="page-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-outline" id="btn-view-att-reports">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-            Attendance Reports
-          </button>
-        </div>
-      </div>
-
-      <!-- Time Window Status Banner -->
-      <div style="background: ${windowState.canTake ? '#ECFDF5' : (windowState.status === 'locked_before' ? '#FFFBEB' : '#FEF2F2')}; border: 1.5px solid ${windowState.canTake ? '#A7F3D0' : (windowState.status === 'locked_before' ? '#FDE68A' : '#FECACA')}; border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-        <div style="display: flex; align-items: center; gap: 0.65rem;">
-          <span style="font-size: 20px;">${windowState.canTake ? '⏱️' : (windowState.status === 'locked_before' ? '⏳' : '🔒')}</span>
-          <div>
-            <strong style="color: ${windowState.canTake ? '#065F46' : (windowState.status === 'locked_before' ? '#92400E' : '#991B1B')}; font-size: 0.88rem;">
-              ${windowState.message}
-            </strong>
-            <div style="font-size: 0.78rem; color: ${windowState.canTake ? '#047857' : (windowState.status === 'locked_before' ? '#B45309' : '#B91C1C')}; margin-top: 0.15rem;">
-              Class: <strong>${activeCls?.name || 'Classroom'}</strong> • Schedule: <strong>${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')}</strong> • Assigned Faculty: <strong>${teacherDisplayName}</strong>
-            </div>
-          </div>
-        </div>
-
-        ${(isAdmin && windowState.isAfter && !windowState.isUnlockedByAdmin) ? `
-          <button class="btn btn-outline btn-sm" id="btn-admin-unlock-window" style="background: #FFFFFF; font-weight: 700; color: #DC2626; border-color: #FECACA;">
-            🔓 Unlock Late Attendance for Teachers
-          </button>
-        ` : (isAdmin && windowState.isUnlockedByAdmin) ? `
-          <span class="badge badge-active" style="padding: 0.35rem 0.65rem;">
-            ✓ Late Attendance Unlocked by Admin
-          </span>
-        ` : ''}
-      </div>
-
-      <!-- Attendance Modules / Sections Tabs -->
-      <div style="display: flex; gap: 0.75rem; overflow-x: auto; margin-bottom: 1.5rem;" id="att-prog-tabs">
-        ${programs.map(p => `
-          <button class="btn ${p.id === activeProgramId ? 'btn-primary' : 'btn-outline'}" data-pid="${p.id}" style="border-radius: var(--radius-full);">
-            ${p.name}
-          </button>
-        `).join('')}
-      </div>
-
-      <!-- Active Session Banner & Controls -->
-      <div class="card-panel" style="margin-bottom: 1.5rem;">
-        <div class="card-panel-body" style="padding: 1.25rem;">
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-              <label class="form-label" style="font-weight: 700; margin: 0;">Classroom Session:</label>
-              <select id="att-cls-select" class="form-control" style="width: 250px;">
-                ${(classrooms.filter(c => c.program_id === activeProgramId).length > 0 
-                  ? classrooms.filter(c => c.program_id === activeProgramId) 
-                  : classrooms).map(c => `<option value="${c.id}" ${c.id === activeClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
-              </select>
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Date: <strong>${sessionDate}</strong></span>
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn-outline btn-sm" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : 'style="color: #DC2626; border-color: #FECACA;"'} title="Mark all students Absent">
-                Mark All Absent
-              </button>
-              <button class="btn btn-secondary btn-sm" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''} title="Mark all eligible students Present">
-                Mark All Present
-              </button>
-              <button class="btn btn-outline btn-sm" id="btn-reset-attendance" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''} title="Reset all to initial Absent status">
-                Reset to Absent
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Attendance Summary Counters -->
-      <div style="display: flex; gap: 0.85rem; flex-wrap: wrap; margin-bottom: 1.5rem;" id="att-counters">
-        <!-- Populated via updateCounters() -->
-      </div>
-
-      <!-- Roster Header with Search & Quick Filters -->
-      <div class="card-panel" style="margin-bottom: 1.5rem;">
-        <div class="card-panel-header" style="flex-wrap: wrap; gap: 1rem;">
-          <div>
-            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">Classroom Attendance Roster</h3>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Assigned Faculty: <strong>${teacherDisplayName}</strong> • Tap <strong>P</strong> (Present), <strong>A</strong> (Absent), or <strong>L</strong> (Leave)</span>
-          </div>
-          
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <div style="position: relative; width: 240px;">
-              <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="att-search-input" class="form-control" placeholder="Search student or ID..." style="padding-left: 2rem; height: 36px; font-size: 0.82rem;" />
-            </div>
-
-            <select id="att-class-filter" class="form-control" style="width: 140px; height: 36px; font-size: 0.82rem;">
-              <option value="all">All Classes</option>
-              ${uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join('')}
-            </select>
-
-            <select id="att-gender-filter" class="form-control" style="width: 120px; height: 36px; font-size: 0.82rem;">
-              <option value="all">All Genders</option>
-              <option value="Boy">Boys</option>
-              <option value="Girl">Girls</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Students Card Grid -->
-        <div class="card-panel-body" style="padding: 1.5rem;">
-          <div class="attendance-grid" id="att-cards-container">
-            <!-- Rendered via renderCards() -->
-          </div>
-          <div id="att-no-matches" style="display: none; padding: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
-            No students match your filter criteria.
-          </div>
-        </div>
-
-        <!-- Submit Footer -->
-        <div class="card-panel-body" style="background: var(--bg-surface-subtle); border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
-          <div style="font-size: 0.82rem; color: var(--text-secondary); max-width: 600px;">
-            ${canInteract
-              ? `* Submitting officially records student presence for this session, saves the exact recorded timestamp, and confirms your faculty duty attendance (${teacherDisplayName}).`
-              : (isViewOnly 
-                  ? '* View-only mode: Exploration access only.'
-                  : (windowState.status === 'locked_before'
-                      ? `* Attendance locked: Window opens at ${formatTime(activeCls?.start_time)}.`
-                      : '* Attendance window closed: Only administrators can unlock or record attendance after class time.'))}
-          </div>
-          ${canInteract ? `
-            <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.5rem; font-weight: 700; background: #059669; border-color: #047857;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              Confirm & Submit Attendance
-            </button>
-          ` : `
-            <button class="btn btn-outline" disabled style="padding: 0.75rem 1.5rem; font-weight: 700; opacity: 0.6; cursor: not-allowed;">
-              ${windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : (windowState.status === 'locked_after' ? 'Window Expired (Session Closed)' : 'Locked')}
-            </button>
-          `}
-        </div>
-      </div>
-    `;
-
-    // Admin unlock listener
-    container.querySelector('#btn-admin-unlock-window')?.addEventListener('click', async () => {
-      await db.unlockAttendanceWindow(activeClassroomId, sessionDate);
-      toast.success(`Unlocked late attendance window for ${activeCls?.name}. Faculty can now submit attendance.`);
-      renderFullUI();
-    });
-
-    renderCards(canInteract);
-    updateCounters();
-    attachEventListeners(canInteract);
-  }
-
+  // Determine eligible students for active class
   function getEligibleStudents() {
     const targetCls = classrooms.find(c => c.id === activeClassroomId);
     if (targetCls && Array.isArray(targetCls.student_ids) && targetCls.student_ids.length > 0) {
@@ -329,62 +144,238 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     return students;
   }
 
-  function updateCounters() {
+  // Attendance State and "Late Present" tracking
+  let attendanceState = {};
+  let initialAbsentStudentIds = new Set();
+  let hasExistingSession = false;
+
+  async function loadExistingSessionState() {
+    const attendanceSessions = await db.getAttendanceRecords();
+    const existingSession = attendanceSessions.find(s => 
+      s.classroom_id === activeClassroomId && s.session_date === sessionDate
+    );
+
     const activeList = getEligibleStudents();
-    const counts = { Present: 0, Absent: 0, Leave: 0 };
+
+    if (existingSession && Array.isArray(existingSession.records) && existingSession.records.length > 0) {
+      hasExistingSession = true;
+      initialAbsentStudentIds = new Set(
+        existingSession.initial_absent_ids ||
+        existingSession.records.filter(r => r.status === 'Absent').map(r => r.student_id) ||
+        []
+      );
+
+      activeList.forEach(s => {
+        const rec = existingSession.records.find(r => r.student_id === s.id);
+        if (rec) {
+          attendanceState[s.id] = rec.status;
+        } else {
+          attendanceState[s.id] = 'Absent';
+        }
+      });
+    } else {
+      // Fresh attendance opening: Default to ABSENT as requested by user
+      hasExistingSession = false;
+      initialAbsentStudentIds = new Set();
+      activeList.forEach(s => {
+        attendanceState[s.id] = 'Absent';
+      });
+    }
+  }
+
+  async function renderFullUI() {
+    await loadExistingSessionState();
+
+    const windowState = await checkWindowStatus(activeClassroomId);
+    const activeCls = classrooms.find(c => c.id === activeClassroomId);
+    const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
+    const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+    const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
+
+    const canInteract = canSubmitAction && !isViewOnly && windowState.canTake;
+    const activeList = getEligibleStudents();
+
+    container.innerHTML = `
+      <div class="page-header" style="margin-bottom: 1.25rem;">
+        <div class="page-title-group">
+          <h2>${isTeacher ? 'My Classroom Attendance Duty' : 'Student & Teacher Attendance Management'}</h2>
+          <p>${isTeacher ? 'Take and submit live attendance for your assigned classrooms during class hours' : 'Institutional daily attendance governance'}</p>
+        </div>
+        <div class="page-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-outline" id="btn-view-att-reports">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+            Attendance Reports
+          </button>
+        </div>
+      </div>
+
+      <!-- BIG CLASS DESCRIPTION CARD ON TOP (NO DROPDOWNS SPEC) -->
+      <div class="att-big-class-card" id="att-big-class-card">
+        <div class="att-class-top">
+          <div>
+            <div class="att-class-badge-row">
+              <span class="badge" style="background: #ECFDF5; color: #047857; font-weight: 700; border: 1px solid #A7F3D0; font-size: 0.76rem;">${activeProg?.name || 'Class Session'}</span>
+              <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #475569; font-weight: 600; font-size: 0.76rem;">Date: ${sessionDate}</span>
+            </div>
+            <h2 class="att-class-title">${activeCls?.name || 'Classroom Session'}</h2>
+            <div class="att-class-sub">Assigned Faculty: <strong>${teacherDisplayName}</strong></div>
+          </div>
+        </div>
+
+        <!-- Class Details Bar -->
+        <div class="att-class-details-bar">
+          <div class="att-detail-box">
+            <span class="att-detail-lbl">Class Time</span>
+            <strong class="att-detail-val">⏰ ${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')}</strong>
+          </div>
+          <div class="att-detail-box">
+            <span class="att-detail-lbl">Classroom / Hall</span>
+            <strong class="att-detail-val">🚪 ${activeCls?.room_number ? 'Room ' + activeCls.room_number : 'Campus Hall'}</strong>
+          </div>
+          <div class="att-detail-box">
+            <span class="att-detail-lbl">Class Days</span>
+            <strong class="att-detail-val">📅 ${(activeCls?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</strong>
+          </div>
+          <div class="att-detail-box">
+            <span class="att-detail-lbl">Total Students</span>
+            <strong class="att-detail-val">👥 ${activeList.length} Enrolled</strong>
+          </div>
+        </div>
+
+        <!-- Window Status Banner Inside Card -->
+        <div class="att-window-status-pill ${windowState.badgeClass}">
+          <span>${windowState.canTake ? '🟢' : (windowState.status === 'locked_before' ? '🔒' : '⛔')}</span>
+          <span style="flex: 1;">${windowState.message}</span>
+          ${(isAdmin && windowState.isAfter && !windowState.isUnlockedByAdmin) ? `
+            <button class="btn btn-outline btn-xs" id="btn-admin-unlock-window" style="background: #FFFFFF; font-weight: 700; color: #DC2626; border-color: #FECACA; white-space: nowrap;">
+              🔓 Unlock Late Attendance
+            </button>
+          ` : (isAdmin && windowState.isUnlockedByAdmin) ? `
+            <span class="badge badge-active" style="white-space: nowrap;">✓ Unlocked by Admin</span>
+          ` : ''}
+        </div>
+
+        <!-- Switch Class Pills (for teachers with multiple classes or Admin) -->
+        ${classrooms.length > 1 ? `
+          <div class="att-class-switch-row">
+            <span class="att-switch-label-text">Select Class:</span>
+            <div class="att-class-pills">
+              ${classrooms.map(c => `
+                <button type="button" class="att-class-pill-btn ${c.id === activeClassroomId ? 'active' : ''}" data-cls-id="${c.id}">
+                  ${c.name}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Attendance Summary Counters & Quick Bulk Buttons -->
+        <div class="att-class-footer-bar">
+          <div class="att-stats-pills" id="att-counters">
+            ${renderCountersHtml()}
+          </div>
+          <div class="att-bulk-btns">
+            <button type="button" class="btn btn-outline btn-xs" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : 'style="color: #DC2626; border-color: #FECACA;"'}>
+              All Absent
+            </button>
+            <button type="button" class="btn btn-primary btn-xs" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : 'style="background: #059669; border-color: #047857;"'}>
+              All Present
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roster Search Bar -->
+      <div class="att-roster-header">
+        <div class="att-search-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="att-search-input" placeholder="Search student by name..." />
+        </div>
+        <span class="att-roster-count">${activeList.length} Students</span>
+      </div>
+
+      <!-- SMALL COMPACT STUDENT ATTENDANCE CARDS WITH 2-WAY SWITCH -->
+      <div class="attendance-compact-list" id="att-cards-container">
+        ${renderCompactCardsHtml(canInteract)}
+      </div>
+      <div id="att-no-matches" style="display: none; padding: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
+        No students match your search.
+      </div>
+
+      <!-- Bottom Submit Bar -->
+      <div class="att-submit-bar">
+        <div class="att-submit-info">
+          ${canInteract
+            ? `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`
+            : (isViewOnly 
+                ? '* View-only explore mode: Submitting is disabled.' 
+                : '* Attendance window closed: Session ended.')}
+        </div>
+        ${canInteract ? `
+          <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Confirm & Submit Attendance
+          </button>
+        ` : `
+          <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px;">
+            ${windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed'}
+          </button>
+        `}
+      </div>
+    `;
+
+    attachListeners(canInteract);
+  }
+
+  function renderCountersHtml() {
+    const activeList = getEligibleStudents();
+    let presentCount = 0;
+    let lateCount = 0;
+    let absentCount = 0;
+
     activeList.forEach(s => {
       const st = attendanceState[s.id] || 'Absent';
-      if (st === 'Leave' || st === 'Approved Leave' || st === 'Late' || st === 'Excused') {
-        counts.Leave = (counts.Leave || 0) + 1;
+      if (st === 'Late Present') {
+        lateCount++;
+        presentCount++;
       } else if (st === 'Present') {
-        counts.Present = (counts.Present || 0) + 1;
+        presentCount++;
       } else {
-        counts.Absent = (counts.Absent || 0) + 1;
+        absentCount++;
       }
     });
 
-    const total = activeList.length;
-    const countersContainer = container.querySelector('#att-counters');
-    if (!countersContainer) return;
-
-    countersContainer.innerHTML = `
-      <div style="background: #FEF2F2; border: 1.5px solid #FECACA; padding: 0.6rem 1.15rem; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 800; color: #DC2626; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-xs);">
-        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #DC2626;"></span>
-        Absent: ${counts.Absent || 0}
-      </div>
-      <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; padding: 0.6rem 1.15rem; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 800; color: #047857; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-xs);">
-        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #10B981;"></span>
-        Present: ${counts.Present || 0}
-      </div>
-      <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; padding: 0.6rem 1.15rem; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 800; color: #D97706; display: flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-xs);">
-        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #F59E0B;"></span>
-        Leave: ${counts.Leave || 0}
-      </div>
-      <div style="background: var(--bg-surface); border: 1.5px solid var(--border-subtle); padding: 0.6rem 1.15rem; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 700; color: var(--text-secondary); margin-left: auto;">
-        Total Students: <strong>${total}</strong>
-      </div>
+    return `
+      <span class="att-stat-pill present">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
+        Present: ${presentCount}
+      </span>
+      ${lateCount > 0 ? `
+        <span class="att-stat-pill late">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #F59E0B;"></span>
+          Late: ${lateCount}
+        </span>
+      ` : ''}
+      <span class="att-stat-pill absent">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444;"></span>
+        Absent: ${absentCount}
+      </span>
     `;
   }
 
-  function formatMeta(student) {
-    const rawAdm = student.admission_number || 'TPS';
-    const admNo = rawAdm.replace(/-/g, '');
-    let cls = student.school_class || 'STD-I';
-    if (!cls.toLowerCase().startsWith('class')) {
-      cls = `Class ${cls}`;
-    }
-    const isGirl = student.gender === 'Female' || student.gender === 'Girls' || student.gender === 'Girl';
-    const gen = isGirl ? 'Girl' : 'Boy';
-    return `${admNo} • ${cls} (${gen})`;
+  function updateCounters() {
+    const countersEl = container.querySelector('#att-counters');
+    if (!countersEl) return;
+    countersEl.innerHTML = renderCountersHtml();
   }
 
-  function renderCards(canInteract = true) {
-    const cardsContainer = container.querySelector('#att-cards-container');
-    if (!cardsContainer) return;
-
+  function renderCompactCardsHtml(canInteract = true) {
     const activeList = getEligibleStudents();
-    cardsContainer.innerHTML = activeList.map(s => {
+
+    return activeList.map(s => {
       const currentStatus = attendanceState[s.id] || 'Absent';
+      const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
+      const isLatePresent = currentStatus === 'Late Present';
       const isGirl = s.gender === 'Female' || s.gender === 'Girls' || s.gender === 'Girl';
       const genderLabel = isGirl ? 'Girl' : 'Boy';
       const initials = (s.full_name || 'Student')
@@ -395,113 +386,125 @@ export async function renderAttendanceModule(container, { onNavigate }) {
         .substring(0, 2)
         .toUpperCase();
 
-      const metaText = formatMeta(s);
+      const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
 
       return `
-        <div class="attendance-card" 
+        <div class="attendance-compact-card ${isPresent ? 'is-present' : 'is-absent'}" 
              id="att-card-${s.id}" 
              data-student-id="${s.id}"
-             data-student-name="${(s.full_name || '').toLowerCase()}"
-             data-student-adm="${(s.admission_number || '').replace(/-/g, '').toLowerCase()}"
-             data-student-class="${s.school_class || ''}"
-             data-student-gender="${genderLabel}">
+             data-student-name="${(s.full_name || '').toLowerCase()}">
           
-          <div class="attendance-card-header">
-            <div class="attendance-avatar">
-              ${s.photo_url ? `
-                <img src="${s.photo_url}" alt="${s.full_name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                <div class="attendance-avatar-fallback ${isGirl ? 'girl' : 'boy'}" style="display: none;">${initials}</div>
-              ` : `
-                <div class="attendance-avatar-fallback ${isGirl ? 'girl' : 'boy'}">${initials}</div>
-              `}
-            </div>
-            <div class="attendance-student-info">
-              <h4 class="attendance-student-name" title="${s.full_name}">${s.full_name}</h4>
-              <div class="attendance-student-meta" title="${metaText}">${metaText}</div>
-            </div>
+          <!-- Left: Photo / Avatar -->
+          <div class="att-compact-avatar" style="background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'};">
+            ${s.photo_url ? `
+              <img src="${s.photo_url}" alt="${s.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+              <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">${initials}</div>
+            ` : `
+              <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">${initials}</div>
+            `}
           </div>
 
-          <div class="attendance-btn-row" data-student-id="${s.id}">
+          <!-- Middle: Name on top, Gender & Class below -->
+          <div class="att-compact-info">
+            <span class="att-compact-name">${s.full_name}</span>
+            <span class="att-compact-sub">${genderLabel} • ${normalizedCls}</span>
+          </div>
+
+          <!-- Right: 2-Way Adjustable Switch (Green = Present, Red = Absent) -->
+          <div class="att-compact-action">
+            ${isLatePresent ? `
+              <span class="att-late-badge">Late Present</span>
+            ` : ''}
             <button type="button" 
-                    class="att-status-btn att-btn-p ${currentStatus === 'Present' ? 'active' : ''}" 
-                    data-status="Present" 
+                    class="att-2way-switch ${isPresent ? 'sw-present' : 'sw-absent'} ${isLatePresent ? 'sw-late' : ''}" 
+                    data-student-id="${s.id}"
+                    role="switch" 
+                    aria-checked="${isPresent ? 'true' : 'false'}"
                     ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}
-                    title="Mark Present (P)">
-              P
-            </button>
-            <button type="button" 
-                    class="att-status-btn att-btn-a ${currentStatus === 'Absent' ? 'active' : ''}" 
-                    data-status="Absent" 
-                    ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}
-                    title="Mark Absent (A)">
-              A
-            </button>
-            <button type="button" 
-                    class="att-status-btn att-btn-l ${currentStatus === 'Leave' || currentStatus === 'Approved Leave' ? 'active' : ''}" 
-                    data-status="Leave" 
-                    ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}
-                    title="Mark Leave (L)">
-              L
+                    title="${isPresent ? (isLatePresent ? 'Late Present (tap to mark Absent)' : 'Present (tap to mark Absent)') : 'Absent (tap to mark Present)'}">
+              <span class="att-switch-label">${isLatePresent ? 'LATE' : isPresent ? 'P' : 'A'}</span>
+              <span class="att-switch-thumb"></span>
             </button>
           </div>
         </div>
       `;
     }).join('');
-
-    if (canInteract) {
-      cardsContainer.querySelectorAll('.att-status-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const row = btn.closest('.attendance-btn-row');
-          if (!row) return;
-          const sid = row.getAttribute('data-student-id');
-          const st = btn.getAttribute('data-status');
-          setStudentStatus(sid, st);
-        });
-      });
-    }
   }
 
-  function setStudentStatus(sid, status) {
-    attendanceState[sid] = status;
-    const card = container.querySelector(`#att-card-${sid}`);
-    if (card) {
-      card.querySelectorAll('.att-status-btn').forEach(btn => {
-        const btnSt = btn.getAttribute('data-status');
-        btn.classList.toggle('active', btnSt === status);
-      });
+  function toggleStudentSwitch(sid) {
+    const currentStatus = attendanceState[sid] || 'Absent';
+    const s = students.find(item => item.id === sid);
+
+    if (currentStatus === 'Absent') {
+      // Flipping from Absent to Present
+      // If session was previously submitted or student was recorded absent initially:
+      const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(sid);
+      if (wasInitiallyAbsent) {
+        attendanceState[sid] = 'Late Present';
+        toast.info(`${s?.full_name || 'Student'} marked as Late Present.`);
+      } else {
+        attendanceState[sid] = 'Present';
+      }
+    } else {
+      // Flipping from Present / Late Present back to Absent
+      attendanceState[sid] = 'Absent';
     }
+
+    updateCardVisual(sid);
     updateCounters();
   }
 
-  function updateAllCardsVisualState() {
-    container.querySelectorAll('.attendance-card').forEach(card => {
-      const sid = card.getAttribute('data-student-id');
-      const st = attendanceState[sid] || 'Absent';
-      card.querySelectorAll('.att-status-btn').forEach(btn => {
-        const btnSt = btn.getAttribute('data-status');
-        btn.classList.toggle('active', btnSt === st);
-      });
-    });
+  function updateCardVisual(sid) {
+    const card = container.querySelector(`#att-card-${sid}`);
+    if (!card) return;
+
+    const currentStatus = attendanceState[sid] || 'Absent';
+    const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
+    const isLatePresent = currentStatus === 'Late Present';
+
+    card.classList.toggle('is-present', isPresent);
+    card.classList.toggle('is-absent', !isPresent);
+
+    const sw = card.querySelector('.att-2way-switch');
+    if (sw) {
+      sw.classList.toggle('sw-present', isPresent);
+      sw.classList.toggle('sw-absent', !isPresent);
+      sw.classList.toggle('sw-late', isLatePresent);
+      sw.setAttribute('aria-checked', isPresent ? 'true' : 'false');
+      const lbl = sw.querySelector('.att-switch-label');
+      if (lbl) {
+        lbl.textContent = isLatePresent ? 'LATE' : isPresent ? 'P' : 'A';
+      }
+    }
+
+    const actionWrap = card.querySelector('.att-compact-action');
+    if (actionWrap) {
+      let lateBadge = actionWrap.querySelector('.att-late-badge');
+      if (isLatePresent) {
+        if (!lateBadge) {
+          lateBadge = document.createElement('span');
+          lateBadge.className = 'att-late-badge';
+          lateBadge.textContent = 'Late Present';
+          actionWrap.insertBefore(lateBadge, sw);
+        }
+      } else {
+        lateBadge?.remove();
+      }
+    }
   }
 
-  function applyFilters() {
-    const q = (container.querySelector('#att-search-input')?.value || '').toLowerCase().trim();
-    const cls = container.querySelector('#att-class-filter')?.value || 'all';
-    const gen = container.querySelector('#att-gender-filter')?.value || 'all';
+  function updateAllCardsVisual() {
+    getEligibleStudents().forEach(s => updateCardVisual(s.id));
+  }
 
+  function filterCards() {
+    const query = (container.querySelector('#att-search-input')?.value || '').toLowerCase().trim();
     let matchCount = 0;
-    container.querySelectorAll('.attendance-card').forEach(card => {
+
+    container.querySelectorAll('.attendance-compact-card').forEach(card => {
       const name = card.getAttribute('data-student-name') || '';
-      const adm = card.getAttribute('data-student-adm') || '';
-      const studentClass = card.getAttribute('data-student-class') || '';
-      const studentGender = card.getAttribute('data-student-gender') || '';
-
-      const matchQ = !q || name.includes(q) || adm.includes(q);
-      const matchCls = cls === 'all' || studentClass === cls;
-      const matchGen = gen === 'all' || studentGender === gen;
-
-      if (matchQ && matchCls && matchGen) {
+      const matches = !query || name.includes(query);
+      if (matches) {
         card.style.display = 'flex';
         matchCount++;
       } else {
@@ -515,96 +518,101 @@ export async function renderAttendanceModule(container, { onNavigate }) {
     }
   }
 
-  function attachEventListeners(canInteract) {
-    // Filter Event Listeners
-    container.querySelector('#att-search-input')?.addEventListener('input', applyFilters);
-    container.querySelector('#att-class-filter')?.addEventListener('change', applyFilters);
-    container.querySelector('#att-gender-filter')?.addEventListener('change', applyFilters);
+  function attachListeners(canInteract) {
+    // Search filter
+    container.querySelector('#att-search-input')?.addEventListener('input', filterCards);
+
+    // Switch Class Pills
+    container.querySelectorAll('.att-class-pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const clsId = btn.getAttribute('data-cls-id');
+        if (clsId && clsId !== activeClassroomId) {
+          activeClassroomId = clsId;
+          renderFullUI();
+        }
+      });
+    });
+
+    // Admin unlock listener
+    container.querySelector('#btn-admin-unlock-window')?.addEventListener('click', async () => {
+      await db.unlockAttendanceWindow(activeClassroomId, sessionDate);
+      toast.success('Unlocked late attendance window. Faculty can now record attendance.');
+      renderFullUI();
+    });
+
+    // View Reports
+    container.querySelector('#btn-view-att-reports')?.addEventListener('click', () => onNavigate('reports'));
 
     if (canInteract) {
-      // Mark all present
-      container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
-        students.forEach(s => {
-          if (s.status !== 'On Approved Leave' && s.status !== 'Temporary Break') {
-            attendanceState[s.id] = 'Present';
-          }
+      // Toggle switches
+      container.querySelectorAll('.att-2way-switch').forEach(sw => {
+        sw.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sid = sw.getAttribute('data-student-id');
+          if (sid) toggleStudentSwitch(sid);
         });
-        updateAllCardsVisualState();
-        updateCounters();
-        toast.info('Marked all eligible students Present.');
       });
 
-      // Mark all absent
+      // Mark All Present
+      container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
+        getEligibleStudents().forEach(s => {
+          const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(s.id);
+          attendanceState[s.id] = wasInitiallyAbsent ? 'Late Present' : 'Present';
+        });
+        updateAllCardsVisual();
+        updateCounters();
+        toast.info('Marked all students Present.');
+      });
+
+      // Mark All Absent
       container.querySelector('#btn-mark-all-absent')?.addEventListener('click', () => {
-        students.forEach(s => {
+        getEligibleStudents().forEach(s => {
           attendanceState[s.id] = 'Absent';
         });
-        updateAllCardsVisualState();
+        updateAllCardsVisual();
         updateCounters();
         toast.info('Marked all students Absent.');
-      });
-
-      // Reset roster to Absent
-      container.querySelector('#btn-reset-attendance')?.addEventListener('click', () => {
-        students.forEach(s => {
-          attendanceState[s.id] = 'Absent';
-        });
-        updateAllCardsVisualState();
-        updateCounters();
-        toast.info('Reset roster: all students marked Absent.');
       });
 
       // Submit attendance
       container.querySelector('#btn-submit-attendance')?.addEventListener('click', async () => {
         const confirmed = await confirmDialog({
           title: 'Confirm Live Attendance Submission',
-          message: 'Are you sure you want to submit attendance for this class? This will record student attendance, store the exact submission timestamp, and log your faculty duty attendance.',
+          message: 'Submit attendance for this class session? This will record student presence, timestamp the exact time, and record your faculty duty attendance.',
           confirmText: 'Submit Attendance'
         });
 
         if (confirmed) {
+          const activeCls = classrooms.find(c => c.id === activeClassroomId);
+          const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
+          const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
+          const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+
           const records = Object.entries(attendanceState).map(([sid, status]) => {
-            const finalStatus = status === 'Leave' ? 'Approved Leave' : status;
-            return { student_id: sid, status: finalStatus };
+            return { student_id: sid, status };
           });
 
-          const activeCls = classrooms.find(c => c.id === activeClassroomId);
           const recordedAtIso = new Date().toISOString();
 
           await db.saveAttendanceSession({
-            program_id: activeProgramId,
+            program_id: activeProg?.id || 'prog-1',
             classroom_id: activeClassroomId,
             session_date: sessionDate,
             teacher_id: activeCls?.teacher_id || user?.id || 'u-2',
-            teacher_name: user?.full_name || 'Faculty',
+            teacher_name: teacherDisplayName,
             recorded_at: recordedAtIso,
             records
           });
 
           toast.success(`Attendance submitted! Exact time (${formatTime(new Date().toTimeString().slice(0, 5))}) stored and faculty duty marked Present.`);
-          onNavigate('reports');
+          hasExistingSession = true;
+          // Refresh state
+          await loadExistingSessionState();
+          updateCounters();
+          updateAllCardsVisual();
         }
       });
     }
-
-    container.querySelector('#btn-view-att-reports')?.addEventListener('click', () => onNavigate('reports'));
-
-    // Program tabs click
-    container.querySelectorAll('#att-prog-tabs button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        activeProgramId = btn.getAttribute('data-pid');
-        const progCls = classrooms.filter(c => c.program_id === activeProgramId);
-        const list = progCls.length > 0 ? progCls : classrooms;
-        activeClassroomId = list[0]?.id || classrooms[0]?.id || '';
-        renderFullUI();
-      });
-    });
-
-    // Classroom dropdown change
-    container.querySelector('#att-cls-select')?.addEventListener('change', (e) => {
-      activeClassroomId = e.target.value;
-      renderFullUI();
-    });
   }
 
   await renderFullUI();

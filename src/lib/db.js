@@ -1319,29 +1319,59 @@ class DatabaseService {
   async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at }) {
     const attendance = this.get('tps_attendance') || [];
     const nowIso = recorded_at || new Date().toISOString();
-    const sessionId = 'sess-' + Date.now();
-    const newSession = {
-      id: sessionId,
-      program_id,
-      classroom_id,
-      session_date,
-      teacher_id,
-      teacher_name: teacher_name || '',
-      recorded_at: nowIso,
-      created_at: nowIso,
-      records: records || [] // array of { student_id, status: 'Present'|'Absent'|'Late'|'Excused'|'Approved Leave' }
-    };
-    attendance.push(newSession);
+
+    // Check if an attendance session already exists for this classroom and date (Editing scenario)
+    const existingIndex = attendance.findIndex(s => s.classroom_id === classroom_id && s.session_date === session_date);
+
+    let targetSession;
+    if (existingIndex >= 0) {
+      // Update existing session
+      const prev = attendance[existingIndex];
+      targetSession = {
+        ...prev,
+        program_id: program_id || prev.program_id,
+        teacher_id: teacher_id || prev.teacher_id,
+        teacher_name: teacher_name || prev.teacher_name,
+        records: records || prev.records,
+        recorded_at: nowIso,
+        updated_at: nowIso,
+        // Track students who were initially marked absent
+        initial_absent_ids: prev.initial_absent_ids || prev.records?.filter(r => r.status === 'Absent').map(r => r.student_id) || []
+      };
+      attendance[existingIndex] = targetSession;
+    } else {
+      // Create new session
+      const sessionId = 'sess-' + Date.now();
+      const initialAbsentIds = (records || []).filter(r => r.status === 'Absent').map(r => r.student_id);
+      targetSession = {
+        id: sessionId,
+        program_id,
+        classroom_id,
+        session_date,
+        teacher_id,
+        teacher_name: teacher_name || '',
+        recorded_at: nowIso,
+        created_at: nowIso,
+        initial_absent_ids: initialAbsentIds,
+        records: records || []
+      };
+      attendance.push(targetSession);
+    }
     this.set('tps_attendance', attendance);
 
-    // Automatically record teacher's duty attendance
+    // Automatically record or update teacher's duty attendance
     if (teacher_id) {
       const teacherAttendance = this.get('tps_teacher_attendance') || [];
       const classrooms = this.get('tps_classrooms') || [];
       const cls = classrooms.find(c => c.id === classroom_id);
-      teacherAttendance.push({
-        id: 't-att-' + Date.now(),
-        session_id: sessionId,
+
+      const existingTeacherLogIndex = teacherAttendance.findIndex(t => 
+        (t.session_id === targetSession.id) || 
+        (t.classroom_id === classroom_id && t.session_date === session_date && t.teacher_id === teacher_id)
+      );
+
+      const logData = {
+        session_id: targetSession.id,
         teacher_id,
         teacher_name: teacher_name || '',
         classroom_id,
@@ -1351,12 +1381,24 @@ class DatabaseService {
         recorded_at: nowIso,
         status: 'Present',
         notes: `Recorded attendance for ${records?.length || 0} students`
-      });
+      };
+
+      if (existingTeacherLogIndex >= 0) {
+        teacherAttendance[existingTeacherLogIndex] = {
+          ...teacherAttendance[existingTeacherLogIndex],
+          ...logData
+        };
+      } else {
+        teacherAttendance.push({
+          id: 't-att-' + Date.now(),
+          ...logData
+        });
+      }
       this.set('tps_teacher_attendance', teacherAttendance);
     }
 
-    this.logAudit('SUBMIT_ATTENDANCE', 'attendance_sessions', sessionId, `Attendance submitted for ${session_date} at ${nowIso}`);
-    return newSession;
+    this.logAudit('SUBMIT_ATTENDANCE', 'attendance_sessions', targetSession.id, `Attendance ${existingIndex >= 0 ? 'updated' : 'submitted'} for ${session_date} at ${nowIso}`);
+    return targetSession;
   }
 
   // --- HOSTEL LEAVES & RETURNS ---

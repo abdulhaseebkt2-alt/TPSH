@@ -39,20 +39,34 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     return days.includes(todayKey);
   });
 
+  // Sort today's classes chronologically
+  const sortedTodayClasses = [...todayClasses].sort((a, b) => parseMinutes(a.start_time) - parseMinutes(b.start_time));
+
   // Calculate upcoming class within 20 minutes and currently in-session class
-  let upcomingSoonClass = null;
-  let inSessionClass = null;
-
-  todayClasses.forEach(c => {
-    const sMin = parseMinutes(c.start_time);
-    const eMin = parseMinutes(c.end_time);
-
-    if (currentMinutes >= (sMin - 20) && currentMinutes < sMin) {
-      upcomingSoonClass = { ...c, minutesLeft: sMin - currentMinutes };
-    } else if (currentMinutes >= sMin && currentMinutes <= eMin) {
-      inSessionClass = { ...c, minutesRemaining: eMin - currentMinutes };
-    }
+  const inSessionClass = sortedTodayClasses.find(c => {
+    const s = parseMinutes(c.start_time);
+    const e = parseMinutes(c.end_time);
+    return currentMinutes >= s && currentMinutes <= e;
   });
+
+  const upcomingSoonClass = sortedTodayClasses.find(c => {
+    const s = parseMinutes(c.start_time);
+    return currentMinutes >= (s - 20) && currentMinutes < s;
+  });
+
+  const nextUpcomingToday = sortedTodayClasses.find(c => {
+    return parseMinutes(c.start_time) > currentMinutes;
+  });
+
+  // Selected target class to show in "Your upcoming class" card
+  const displayClass = inSessionClass || upcomingSoonClass || nextUpcomingToday || sortedTodayClasses[0] || myClassrooms[0] || classrooms[0];
+  const targetProg = programs.find(p => p.id === displayClass?.program_id);
+  const targetProgName = targetProg?.name || 'Academic Class';
+  const sMin = parseMinutes(displayClass?.start_time || '06:30');
+  const eMin = parseMinutes(displayClass?.end_time || '07:30');
+  const isNowActive = Boolean(displayClass && currentMinutes >= sMin && currentMinutes <= eMin);
+  const isSoon = Boolean(displayClass && currentMinutes >= (sMin - 20) && currentMinutes < sMin);
+  const isLater = Boolean(displayClass && currentMinutes < sMin);
 
   const todaySlots = todayClasses.length > 0 ? todayClasses.map((c, idx) => {
     const prog = programs.find(p => p.id === c.program_id);
@@ -111,63 +125,84 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       </div>
     </div>
 
-    <!-- 20-MINUTE CLASS NOTIFICATION ALERT & IN-SESSION BANNER -->
-    ${upcomingSoonClass ? `
-      <div class="teacher-alert-card upcoming" style="background: #FFFBEB; border: 2px solid #FCD34D; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
-        <div style="display: flex; align-items: center; gap: 0.85rem;">
-          <div style="width: 44px; height: 44px; border-radius: 12px; background: #FEF3C7; border: 1.5px solid #F59E0B; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-            🔔
+    <!-- Dedicated "Your upcoming class" Card (User Requirement 1) -->
+    <div class="teacher-upcoming-card ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}" 
+         id="card-teacher-upcoming-class" 
+         data-cls-id="${displayClass?.id || ''}" 
+         role="button" 
+         tabindex="0"
+         title="Tap to take attendance for ${displayClass?.name || 'Class'}">
+      
+      <div class="upcoming-card-top">
+        <div class="upcoming-card-title-group">
+          <div class="upcoming-card-icon-pill ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}">
+            ${isNowActive ? '🟢' : isSoon ? '🔔' : '⏱️'}
           </div>
           <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-              <strong style="color: #92400E; font-size: 0.95rem;">UPCOMING CLASS NOTIFICATION (Starting in ${upcomingSoonClass.minutesLeft} min)</strong>
-              <span class="badge" style="background: #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 0.72rem;">Starts at ${formatTime(upcomingSoonClass.start_time)}</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #B45309; margin-top: 0.2rem;">
-              <strong>${upcomingSoonClass.name}</strong> • ${upcomingSoonClass.room_number ? 'Room ' + upcomingSoonClass.room_number : 'Campus'} • Attendance window opens at class start time.
-            </p>
+            <h3 class="upcoming-card-heading">Your upcoming class</h3>
+            <span class="upcoming-card-subtitle">${isNowActive ? 'Class in session now' : isSoon ? `Starts in ${sMin - currentMinutes} mins` : 'Scheduled teaching session'}</span>
           </div>
         </div>
-        <button class="btn btn-primary btn-sm btn-dash-goto-att" data-cls-id="${upcomingSoonClass.id}" style="background: #D97706; border-color: #B45309; font-weight: 700; padding: 0.55rem 1.15rem;">
-          Ready to Take Attendance →
-        </button>
+
+        <div class="upcoming-card-status-badge">
+          ${isNowActive ? `
+            <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              🟢 Live In-Session Now
+            </span>
+          ` : isSoon ? `
+            <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1.5px solid #FCD34D; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              🔔 Starts in ${sMin - currentMinutes} min
+            </span>
+          ` : isLater ? `
+            <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1.5px solid #93C5FD; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              Today at ${formatTime(displayClass?.start_time)}
+            </span>
+          ` : `
+            <span class="badge" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              Scheduled Class
+            </span>
+          `}
+        </div>
       </div>
-    ` : inSessionClass ? `
-      <div class="teacher-alert-card live" style="background: #ECFDF5; border: 2px solid #34D399; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);">
-        <div style="display: flex; align-items: center; gap: 0.85rem;">
-          <div style="width: 44px; height: 44px; border-radius: 12px; background: #D1FAE5; border: 1.5px solid #10B981; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-            🟢
+
+      <!-- Class Details Below Title -->
+      <div class="upcoming-card-content">
+        <div class="upcoming-class-primary">
+          <div class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</div>
+          <span class="upcoming-prog-pill">${targetProgName}</span>
+        </div>
+
+        <div class="upcoming-details-grid">
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Schedule Time</span>
+            <span class="detail-value">⏰ ${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
           </div>
-          <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-              <strong style="color: #065F46; font-size: 0.95rem;">LIVE ATTENDANCE WINDOW ACTIVE NOW</strong>
-              <span class="badge badge-active" style="font-weight: 700; font-size: 0.72rem;">Active until ${formatTime(inSessionClass.end_time)}</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #047857; margin-top: 0.2rem;">
-              <strong>${inSessionClass.name}</strong> is in session. Take and submit attendance now. Submitting records both student and faculty duty attendance.
-            </p>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Classroom / Hall</span>
+            <span class="detail-value">🚪 ${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Enrolled Roster</span>
+            <span class="detail-value">👥 ${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Scheduled Days</span>
+            <span class="detail-value">📅 ${(displayClass?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</span>
           </div>
         </div>
-        <button class="btn btn-primary btn-sm btn-dash-goto-att" data-cls-id="${inSessionClass.id}" style="background: #059669; border-color: #047857; font-weight: 700; padding: 0.55rem 1.15rem;">
-          Take Live Attendance Now →
-        </button>
       </div>
-    ` : `
-      <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-lg); padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="font-size: 22px;">⏱️</span>
-          <div>
-            <strong style="color: #166534; font-size: 0.9rem;">Class-Time Locked Attendance Windows Enabled</strong>
-            <p style="font-size: 0.8rem; color: #15803D; margin-top: 0.1rem;">
-              Attendance opens automatically at class start time. You will receive an alert <strong>20 minutes before</strong> class.
-            </p>
-          </div>
+
+      <!-- Footer Tap Prompt -->
+      <div class="upcoming-card-footer">
+        <div class="upcoming-tap-hint">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Tap card to take attendance for <strong>${displayClass?.name || 'this class'}</strong></span>
         </div>
-        <button class="btn btn-outline btn-sm" id="btn-quick-window-attendance" style="background: #FFFFFF; font-weight: 700; color: #166534; border-color: #86EFAC;">
-          View Attendance Window →
-        </button>
+        <div class="upcoming-action-link">
+          Take Attendance →
+        </div>
       </div>
-    `}
+    </div>
 
     <!-- SECTION 1: Student & Academic -->
     <div class="dash-section-header">
@@ -382,15 +417,29 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   container.querySelectorAll('.btn-dash-goto-att').forEach(b => {
     b.addEventListener('click', () => {
       const clsId = b.getAttribute('data-cls-id');
-      if (clsId) {
+      if (clsId && typeof sessionStorage !== 'undefined') {
         sessionStorage.setItem('tps_active_att_cls', clsId);
       }
       onNavigate('attendance');
     });
   });
 
+  // Tap on "Your upcoming class" card navigates directly to attendance for that class
+  const upcomingCard = container.querySelector('#card-teacher-upcoming-class');
+  upcomingCard?.addEventListener('click', () => {
+    if (displayClass?.id && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('tps_active_att_cls', displayClass.id);
+    }
+    onNavigate('attendance');
+  });
+
   container.querySelector('#teacher-view-timetable-btn')?.addEventListener('click', () => onNavigate('timetable'));
-  container.querySelector('#teacher-mark-attendance-btn')?.addEventListener('click', () => onNavigate('attendance'));
+  container.querySelector('#teacher-mark-attendance-btn')?.addEventListener('click', () => {
+    if (displayClass?.id && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('tps_active_att_cls', displayClass.id);
+    }
+    onNavigate('attendance');
+  });
   container.querySelector('#btn-quick-window-attendance')?.addEventListener('click', () => onNavigate('attendance'));
   container.querySelector('#btn-open-marks-module')?.addEventListener('click', () => onNavigate('marks'));
   container.querySelector('#btn-view-faculty-notices')?.addEventListener('click', () => onNavigate('notices'));

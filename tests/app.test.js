@@ -1210,4 +1210,114 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(tableContainer.innerHTML).toContain('student-mobile-class-pill');
     expect(tableContainer.innerHTML).toContain('STD-');
   });
+
+  it('Teacher dashboard renders "Your upcoming class" card and tapping it navigates to that class attendance', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000004',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    let navigatedRoute = null;
+    const clickListeners = {};
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        return {
+          addEventListener: (evt, fn) => {
+            clickListeners[sel] = fn;
+          }
+        };
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderTeacherDashboard(container, {
+      onNavigate: (route) => { navigatedRoute = route; }
+    });
+
+    expect(container.innerHTML).toContain('Your upcoming class');
+    expect(container.innerHTML).toContain('card-teacher-upcoming-class');
+    expect(container.innerHTML).toContain('Schedule Time');
+    expect(container.innerHTML).toContain('Enrolled Roster');
+
+    // Tap on the card
+    clickListeners['#card-teacher-upcoming-class']?.();
+    expect(navigatedRoute).toBe('attendance');
+  });
+
+  it('Attendance module renders big class description card on top with no dropdowns and compact student cards with 2-way switches', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000004',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(container, { onNavigate: () => {} });
+
+    // Big Class Description Card on Top
+    expect(container.innerHTML).toContain('att-big-class-card');
+    expect(container.innerHTML).toContain('Class Time');
+    expect(container.innerHTML).toContain('Total Students');
+
+    // No dropdowns
+    expect(container.innerHTML).not.toContain('id="att-cls-select"');
+    expect(container.innerHTML).not.toContain('id="att-class-filter"');
+    expect(container.innerHTML).not.toContain('id="att-gender-filter"');
+
+    // Compact student cards with 2-way switches
+    expect(container.innerHTML).toContain('attendance-compact-list');
+    expect(container.innerHTML).toContain('attendance-compact-card');
+    expect(container.innerHTML).toContain('att-2way-switch');
+    expect(container.innerHTML).toContain('sw-absent');
+    expect(container.innerHTML).toContain('att-switch-thumb');
+  });
+
+  it('Editing attendance during class time saves absent student switched to present as "Late Present"', async () => {
+    const sessionDate = '2026-10-27';
+    const classroomId = 'cls-1';
+
+    // 1. Initial submission where st-1 is Present and st-2 is Absent
+    const initialSession = await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: classroomId,
+      session_date: sessionDate,
+      teacher_id: 'u-2',
+      teacher_name: 'Rashid Sir',
+      records: [
+        { student_id: 'st-1', status: 'Present' },
+        { student_id: 'st-2', status: 'Absent' }
+      ]
+    });
+
+    expect(initialSession.records.find(r => r.student_id === 'st-2').status).toBe('Absent');
+
+    // 2. Later during class time, teacher edits st-2 from Absent to Present -> becomes "Late Present"
+    const updatedSession = await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: classroomId,
+      session_date: sessionDate,
+      teacher_id: 'u-2',
+      teacher_name: 'Rashid Sir',
+      records: [
+        { student_id: 'st-1', status: 'Present' },
+        { student_id: 'st-2', status: 'Late Present' }
+      ]
+    });
+
+    expect(updatedSession.records.find(r => r.student_id === 'st-2').status).toBe('Late Present');
+    expect(updatedSession.records.find(r => r.student_id === 'st-1').status).toBe('Present');
+  });
 });
