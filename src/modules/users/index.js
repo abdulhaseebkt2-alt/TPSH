@@ -728,36 +728,25 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         });
       });
 
-      // Clicking the switch or card cycles through: off -> view -> full -> off
-      // Or clicking left/center/right on the switch jumps directly
+      // Tapping switch or card cycles through:
+      // Once tap -> comes to Middle (View Only, Yellow)
+      // Then tap -> comes to Right (Full Access, Green)
+      // Then tap -> comes to Left (Off, Gray)
       tabContent.querySelectorAll('.perm-item').forEach(item => {
-        item.addEventListener('click', (e) => {
+        item.addEventListener('click', () => {
           const modKey = item.getAttribute('data-mod-key');
           if (!modKey) return;
 
           const current = getLevel(selectedRoleKey, modKey);
-          const switchEl = item.querySelector('.perm-switch');
-
-          // If click was inside the switch, detect left/middle/right third
-          if (switchEl && (switchEl === e.target || switchEl.contains(e.target))) {
-            const rect = switchEl.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const ratio = clickX / rect.width;
-            let next;
-            if (ratio < 0.35) {
-              next = 'off';
-            } else if (ratio < 0.68) {
-              next = 'view';
-            } else {
-              next = 'full';
-            }
-            setLevel(selectedRoleKey, modKey, next);
-            drawSimpleView();
-            return;
+          let next = 'view';
+          if (current === 'off') {
+            next = 'view';     // 1. Once tap -> comes to middle (View Only, Yellow)
+          } else if (current === 'view') {
+            next = 'full';     // 2. Then tap -> Full access (Right, Green)
+          } else {
+            next = 'off';      // 3. Then tap -> Off (Left, Gray)
           }
 
-          // Otherwise clicking anywhere on the card cycles to next state
-          const next = current === 'off' ? 'view' : current === 'view' ? 'full' : 'off';
           setLevel(selectedRoleKey, modKey, next);
           drawSimpleView();
         });
