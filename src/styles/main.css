@@ -3190,16 +3190,14 @@ a {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 0.85rem;
 }
 
-.att-class-badge-row {
+.att-class-top-left {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .att-class-title {
@@ -3211,9 +3209,30 @@ a {
 }
 
 .att-class-sub {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #059669;
+  margin-top: 0.1rem;
+}
+
+.att-card-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  white-space: nowrap;
+}
+
+.att-card-date-badge svg {
   color: #64748B;
-  margin-top: 0.15rem;
+  flex-shrink: 0;
 }
 
 .att-class-details-bar {

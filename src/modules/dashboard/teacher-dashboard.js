@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatTime } from '../../lib/utils.js';
+import { formatTime, formatDaysSingleLetters } from '../../lib/utils.js';
 
 export async function renderTeacherDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -190,7 +190,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
         <div class="upcoming-detail-cell">
           <span class="detail-label">Scheduled Days</span>
-          <span class="detail-value">${(displayClass?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</span>
+          <span class="detail-value" style="white-space: nowrap;">${formatDaysSingleLetters(displayClass?.days)}</span>
         </div>
       </div>
 

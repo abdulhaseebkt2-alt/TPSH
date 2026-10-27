@@ -161,6 +161,20 @@ export function printDocument(elementId, title) {
   if (title) document.title = originalTitle;
 }
 
+export function formatDaysSingleLetters(days) {
+  if (!Array.isArray(days) || days.length === 0) return 'M, T, W, T, F, S';
+  const letterMap = {
+    'Sun': 'S', 'Sunday': 'S',
+    'Mon': 'M', 'Monday': 'M',
+    'Tue': 'T', 'Tuesday': 'T',
+    'Wed': 'W', 'Wednesday': 'W',
+    'Thu': 'T', 'Thursday': 'T',
+    'Fri': 'F', 'Friday': 'F',
+    'Sat': 'S', 'Saturday': 'S'
+  };
+  return days.map(d => letterMap[d] || d[0] || d).join(', ');
+}
+
 export function escapeHtml(str) {
   if (!str) return '';
   return String(str)

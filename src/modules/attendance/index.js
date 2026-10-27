@@ -3,7 +3,7 @@ import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
-import { formatTime, normalizeClassPattern } from '../../lib/utils.js';
+import { formatTime, normalizeClassPattern, formatDaysSingleLetters } from '../../lib/utils.js';
 
 function parseMinutes(timeStr) {
   if (!timeStr) return 0;
@@ -201,24 +201,18 @@ export async function renderAttendanceModule(container, { onNavigate }) {
           <h2>${isTeacher ? 'My Classroom Attendance Duty' : 'Student & Teacher Attendance Management'}</h2>
           <p>${isTeacher ? 'Take and submit live attendance for your assigned classrooms during class hours' : 'Institutional daily attendance governance'}</p>
         </div>
-        <div class="page-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-outline" id="btn-view-att-reports">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-            Attendance Reports
-          </button>
-        </div>
       </div>
 
       <!-- BIG CLASS DESCRIPTION CARD ON TOP (NO DROPDOWNS SPEC) -->
       <div class="att-big-class-card" id="att-big-class-card">
         <div class="att-class-top">
-          <div>
-            <div class="att-class-badge-row">
-              <span class="badge" style="background: #ECFDF5; color: #047857; font-weight: 700; border: 1px solid #A7F3D0; font-size: 0.76rem;">${activeProg?.name || 'Class Session'}</span>
-              <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #475569; font-weight: 600; font-size: 0.76rem;">Date: ${sessionDate}</span>
-            </div>
+          <div class="att-class-top-left">
             <h2 class="att-class-title">${activeCls?.name || 'Classroom Session'}</h2>
-            <div class="att-class-sub">Assigned Faculty: <strong>${teacherDisplayName}</strong></div>
+            <div class="att-class-sub">${activeProg?.name || 'Class Session'}</div>
+          </div>
+          <div class="att-card-date-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>${sessionDate}</span>
           </div>
         </div>
 
@@ -234,7 +228,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
           </div>
           <div class="att-detail-box">
             <span class="att-detail-lbl">Class Days</span>
-            <strong class="att-detail-val">${(activeCls?.days || ['Mon','Tue','Wed','Thu','Fri','Sat']).join(', ')}</strong>
+            <strong class="att-detail-val" style="white-space: nowrap;">${formatDaysSingleLetters(activeCls?.days)}</strong>
           </div>
           <div class="att-detail-box">
             <span class="att-detail-lbl">Total Students</span>
@@ -258,20 +252,6 @@ export async function renderAttendanceModule(container, { onNavigate }) {
             <span class="badge badge-active" style="white-space: nowrap;">✓ Unlocked by Admin</span>
           ` : ''}
         </div>
-
-        <!-- Switch Class Pills (for teachers with multiple classes or Admin) -->
-        ${classrooms.length > 1 ? `
-          <div class="att-class-switch-row">
-            <span class="att-switch-label-text">Select Class:</span>
-            <div class="att-class-pills">
-              ${classrooms.map(c => `
-                <button type="button" class="att-class-pill-btn ${c.id === activeClassroomId ? 'active' : ''}" data-cls-id="${c.id}">
-                  ${c.name}
-                </button>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
 
         <!-- Attendance Summary Counters & Quick Bulk Buttons -->
         <div class="att-class-footer-bar">
