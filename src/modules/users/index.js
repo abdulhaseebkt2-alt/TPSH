@@ -57,6 +57,15 @@ export const RBAC_ROLES = [
   }
 ];
 
+export const RBAC_ROLE_THEMES = {
+  admin: { color: '#059669', light: '#ECFDF5', border: '#A7F3D0', badgeBg: '#D1FAE5', badgeColor: '#065F46' },
+  teacher: { color: '#2563EB', light: '#EFF6FF', border: '#BFDBFE', badgeBg: '#DBEAFE', badgeColor: '#1E40AF' },
+  mentor: { color: '#7C3AED', light: '#F5F3FF', border: '#DDD6FE', badgeBg: '#EDE9FE', badgeColor: '#5B21B6' },
+  hostel_leader: { color: '#D97706', light: '#FFFBEB', border: '#FDE68A', badgeBg: '#FEF3C7', badgeColor: '#92400E' },
+  parent: { color: '#E11D48', light: '#FFF1F2', border: '#FECDD3', badgeBg: '#FFE4E6', badgeColor: '#9F1239' },
+  student: { color: '#0891B2', light: '#ECFEFF', border: '#A5F3FC', badgeBg: '#CFFAFE', badgeColor: '#155E75' }
+};
+
 export const RBAC_WINDOW_GROUPS = [
   {
     title: 'Student & Academic Windows',
@@ -773,6 +782,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
     function drawSimpleView() {
       const activeRoleObj = ROLES.find(r => r.key === selectedRoleKey) || ROLES[1];
+      const activeTheme = RBAC_ROLE_THEMES[selectedRoleKey] || RBAC_ROLE_THEMES.teacher;
       const currCounts = getRoleCounts(selectedRoleKey);
 
       tabContent.innerHTML = `
@@ -861,46 +871,33 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             </div>
           </div>
 
-          <!-- 2. MOBILE TOOLBAR (Clean role dropdown & switch legend): Visible only on mobile <= 768px -->
-          <div class="rbac-mobile-toolbar rbac-toolbar-card">
-            <!-- Row 1: Role Selector Dropdown (Clean role names only) -->
-            <div class="rbac-toolbar-top" style="margin-bottom: 0;">
-              <div class="rbac-role-select-wrap" style="width: 100%; min-width: 0;">
-                <label for="rbac-role-select" class="rbac-select-label">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  <span>Role:</span>
-                </label>
-                <select id="rbac-role-select" class="rbac-role-dropdown" aria-label="Select role to configure windows">
-                  ${ROLES.map(role => {
-                    const isSelected = role.key === selectedRoleKey;
-                    return `
-                      <option value="${role.key}" ${isSelected ? 'selected' : ''}>
-                        ${role.label}
-                      </option>
-                    `;
-                  }).join('')}
-                </select>
+          <!-- 2. MOBILE ROLE SELECTOR: Visible only on mobile <= 768px -->
+          <div class="rbac-mobile-toolbar rbac-mobile-role-card">
+            <button type="button" class="rbac-mobile-role-trigger" id="rbac-mobile-role-trigger" aria-label="Select role to configure windows">
+              <div class="rbac-trigger-left">
+                <div class="rbac-trigger-icon" style="background: ${activeTheme.light}; color: ${activeTheme.color}; border: 1.5px solid ${activeTheme.border};">
+                  ${activeRoleObj.icon}
+                </div>
+                <div class="rbac-trigger-text">
+                  <span class="rbac-trigger-kicker">CONFIGURING ROLE</span>
+                  <div class="rbac-trigger-name-row">
+                    <span class="rbac-trigger-name">${activeRoleObj.label}</span>
+                    <span class="rbac-trigger-badge" style="background: ${activeTheme.badgeBg}; color: ${activeTheme.badgeColor};">
+                      ${activeRoleObj.subtitle.split(',')[0]}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <!-- Row 2: Micro Switch Legend -->
-            <div class="rbac-micro-legend">
-              <div class="legend-item">
-                <span class="legend-dot dot-off"></span>
-                <span>Gray (Left) = Off</span>
+              <div class="rbac-trigger-right">
+                <span class="rbac-trigger-action-pill">
+                  <span>Switch</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
               </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-view"></span>
-                <span style="font-weight: 600; color: #854D0E;">Yellow (Mid) = View Only</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-full"></span>
-                <span style="font-weight: 600; color: #065F46;">Green (Right) = Full Access</span>
-              </div>
-              <div class="legend-hint">
-                • Tap card or switch to cycle
-              </div>
-            </div>
+            </button>
+            <select id="rbac-role-select" style="display: none;" aria-hidden="true">
+              ${ROLES.map(role => `<option value="${role.key}" ${role.key === selectedRoleKey ? 'selected' : ''}>${role.label}</option>`).join('')}
+            </select>
           </div>
 
           <!-- Base Navigation Window (Common to All Categories) -->
@@ -982,11 +979,68 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         </div>
       `;
 
-      // Role select dropdown change
+      // Role select dropdown change (for testing / programmatic triggers)
       tabContent.querySelector('#rbac-role-select')?.addEventListener('change', (e) => {
         selectedRoleKey = e.target.value;
         savedActiveRbacRole = selectedRoleKey;
         drawSimpleView();
+      });
+
+      // Mobile custom role picker modal
+      tabContent.querySelector('#rbac-mobile-role-trigger')?.addEventListener('click', () => {
+        openModal({
+          title: 'Select Role to Configure',
+          modalClass: 'role-picker-modal-dialog',
+          contentHtml: `
+            <div style="margin-bottom: 0.5rem;">
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+                Select an institutional role to review or assign its accessible windows:
+              </p>
+              <div class="role-picker-list">
+                ${ROLES.map(role => {
+                  const theme = RBAC_ROLE_THEMES[role.key] || RBAC_ROLE_THEMES.teacher;
+                  const isSelected = role.key === selectedRoleKey;
+                  return `
+                    <div class="role-picker-item ${isSelected ? 'active' : ''}" data-role-key="${role.key}" role="button" tabindex="0">
+                      <div class="role-picker-item-left">
+                        <div class="role-picker-item-icon" style="background: ${theme.light}; color: ${theme.color}; border: 1.5px solid ${theme.border};">
+                          ${role.icon}
+                        </div>
+                        <div class="role-picker-item-info">
+                          <div class="role-picker-item-title-row">
+                            <span class="role-picker-item-name">${role.label}</span>
+                            ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">CURRENT</span>` : ''}
+                          </div>
+                          <span class="role-picker-item-desc">${role.subtitle}</span>
+                        </div>
+                      </div>
+                      <div class="role-picker-item-radio">
+                        <div class="role-radio-circle ${isSelected ? 'active' : ''}">
+                          ${isSelected ? `<div class="role-radio-dot"></div>` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `,
+          onMount: ({ container: modalBody, close }) => {
+            modalBody.querySelectorAll('.role-picker-item').forEach(item => {
+              item.addEventListener('click', () => {
+                const roleKey = item.getAttribute('data-role-key');
+                if (roleKey && roleKey !== selectedRoleKey) {
+                  selectedRoleKey = roleKey;
+                  savedActiveRbacRole = selectedRoleKey;
+                  close();
+                  drawSimpleView();
+                } else {
+                  close();
+                }
+              });
+            });
+          }
+        });
       });
 
       // Tapping switch or card cycles through:
