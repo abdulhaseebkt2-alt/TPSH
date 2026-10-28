@@ -6153,11 +6153,67 @@ body.tps-wheel-open {
 
 .cal-fluent-grid-card {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 16px;
+  border: 1px solid #E5E7EB;
+  border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
   width: 100%;
+}
+
+.cal-month-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F9FAFB;
+  border: 1px solid #F3F4F6;
+  border-radius: 14px;
+  padding: 0.35rem 0.6rem;
+  margin: 0.85rem 1rem 0.5rem;
+}
+
+.cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.cal-nav-btn:hover {
+  background: #F3F4F6;
+  border-color: #D1D5DB;
+  color: #111827;
+}
+
+.cal-month-nav-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1F2937;
+  letter-spacing: -0.01em;
+}
+
+.cal-today-pill {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #2563EB;
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-today-pill:hover {
+  background: #DBEAFE;
 }
 
 .cal-metrics-grid {
@@ -6171,29 +6227,30 @@ body.tps-wheel-open {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   width: 100%;
+  padding: 0.25rem 0.6rem 0.75rem;
 }
 
 .cal-dow-full {
-  display: inline;
+  display: none;
 }
 
 .cal-dow-short {
-  display: none;
+  display: inline;
 }
 
 .cal-cell-desktop {
-  display: block;
-  width: 100%;
+  display: none !important;
 }
 
 .cal-cell-mobile {
-  display: none;
+  display: none !important;
 }
 
 .cal-day-box,
 .cal-inst-day-cell {
-  min-height: 72px;
-  padding: 0.25rem 0;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   display: flex;
@@ -6202,172 +6259,182 @@ body.tps-wheel-open {
   justify-content: center;
   position: relative;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  background: #FFFFFF;
-  border-right: 1px solid #F1F5F9;
-  border-bottom: 1px solid #F1F5F9;
+  background: transparent;
+  border: none !important;
+  margin: 1px 0;
 }
 
 .cal-pad-cell {
-  min-height: 72px;
-  padding: 0.25rem 0;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-right: 1px solid #F1F5F9;
-  border-bottom: 1px solid #F1F5F9;
+  border: none !important;
+  color: #CBD5E1;
+  font-weight: 500;
+  font-size: 0.88rem;
 }
 
-.cal-day-box:hover,
-.cal-inst-day-cell:hover {
-  background-color: #F8FAFC !important;
-  z-index: 3;
+.cal-day-box:hover .cal-day-circle,
+.cal-inst-day-cell:hover .cal-day-circle {
+  background-color: #F1F5F9;
 }
 
 /* ------------------------------------------------------------
-   SCREENSHOT 2 DATE RANGE STYLING (CONTINUOUS PILL BAND)
+   SCREENSHOT 2 ROYAL BLUE RANGE & HOLIDAY PILL CAPSULE (4-SIDE CURVATURE)
    ------------------------------------------------------------ */
 .cal-cell-track {
   width: 100%;
-  height: 38px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  z-index: 1;
 }
 
 .cal-day-circle {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #1E293B;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #1F2937;
   position: relative;
   z-index: 2;
   transition: all 0.15s ease;
 }
 
 .cal-day-circle.is-today {
-  border: 2px solid #10B981;
-  color: #059669;
-  font-weight: 800;
+  border: 2px solid #2563EB;
+  color: #2563EB;
+  font-weight: 700;
 }
 
-/* Range Start (Emerald Theme for Selection) */
-.cal-inst-day-cell.is-range-start .cal-cell-track::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  right: 0;
-  top: 2px;
-  bottom: 2px;
-  background: #ECFDF5;
-  z-index: 1;
-}
-
-.cal-inst-day-cell.is-range-start .cal-day-circle {
-  background: #059669 !important;
-  color: #FFFFFF !important;
-  font-weight: 800 !important;
-  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
-}
-
-/* Range Middle */
-.cal-inst-day-cell.is-range-middle .cal-cell-track {
-  background: #ECFDF5;
-}
-
-.cal-inst-day-cell.is-range-middle .cal-day-circle {
-  color: #047857 !important;
-  font-weight: 800 !important;
-  border-radius: 0;
-}
-
-/* Range End */
-.cal-inst-day-cell.is-range-end .cal-cell-track::before {
-  content: '';
-  position: absolute;
-  right: 50%;
-  left: 0;
-  top: 2px;
-  bottom: 2px;
-  background: #ECFDF5;
-  z-index: 1;
-}
-
-.cal-inst-day-cell.is-range-end .cal-day-circle {
-  background: #059669 !important;
-  color: #FFFFFF !important;
-  font-weight: 800 !important;
-  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
-}
-
-/* HOLIDAY RANGE (Amber Theme - Matching Screenshot 2) */
+/* Range Start & Holiday Start */
+.cal-inst-day-cell.is-range-start .cal-cell-track::after,
 .cal-inst-day-cell.is-holiday-start .cal-cell-track::after {
   content: '';
   position: absolute;
   left: 50%;
   right: 0;
-  top: 2px;
-  bottom: 2px;
-  background: #FEF3C7;
+  top: 0;
+  bottom: 0;
+  background: #EFF6FF;
   z-index: 1;
 }
 
+.cal-inst-day-cell.is-range-start .cal-cell-track,
+.cal-inst-day-cell.is-holiday-start .cal-cell-track {
+  border-top-left-radius: 9999px;
+  border-bottom-left-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-range-start .cal-day-circle,
 .cal-inst-day-cell.is-holiday-start .cal-day-circle {
-  background: #D97706 !important;
+  background: #2563EB !important;
   color: #FFFFFF !important;
-  font-weight: 800 !important;
-  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  z-index: 2;
 }
 
+/* Range Middle & Holiday Middle */
+.cal-inst-day-cell.is-range-middle .cal-cell-track,
 .cal-inst-day-cell.is-holiday-middle .cal-cell-track {
-  background: #FEF3C7;
-}
-
-.cal-inst-day-cell.is-holiday-middle .cal-day-circle {
-  color: #92400E !important;
-  font-weight: 800 !important;
+  background: #EFF6FF;
   border-radius: 0;
 }
 
+.cal-inst-day-cell.is-range-middle .cal-day-circle,
+.cal-inst-day-cell.is-holiday-middle .cal-day-circle {
+  color: #2563EB !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 2;
+}
+
+/* Range End & Holiday End */
+.cal-inst-day-cell.is-range-end .cal-cell-track::before,
 .cal-inst-day-cell.is-holiday-end .cal-cell-track::before {
   content: '';
   position: absolute;
-  right: 50%;
   left: 0;
-  top: 2px;
-  bottom: 2px;
-  background: #FEF3C7;
+  right: 50%;
+  top: 0;
+  bottom: 0;
+  background: #EFF6FF;
   z-index: 1;
 }
 
-.cal-inst-day-cell.is-holiday-end .cal-day-circle {
-  background: #D97706 !important;
-  color: #FFFFFF !important;
-  font-weight: 800 !important;
-  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+.cal-inst-day-cell.is-range-end .cal-cell-track,
+.cal-inst-day-cell.is-holiday-end .cal-cell-track {
+  border-top-right-radius: 9999px;
+  border-bottom-right-radius: 9999px;
 }
 
+.cal-inst-day-cell.is-range-end .cal-day-circle,
+.cal-inst-day-cell.is-holiday-end .cal-day-circle {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  z-index: 2;
+}
+
+/* Single Day Range / Standalone Holiday */
+.cal-inst-day-cell.is-range-single .cal-cell-track,
+.cal-inst-day-cell.is-holiday-single .cal-cell-track {
+  border-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-range-single .cal-day-circle,
 .cal-inst-day-cell.is-holiday-single .cal-day-circle {
-  background: #FEF3C7;
-  color: #92400E;
-  font-weight: 800;
-  border: 1.5px solid #FDE68A;
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 
 .cal-inst-day-cell.is-special-work .cal-day-circle {
-  background: #CCFBF1;
-  color: #0F766E;
-  font-weight: 800;
-  border: 1.5px solid #99F6E4;
+  background: #ECFDF5;
+  color: #059669;
+  font-weight: 700;
+  border: 1.5px solid #A7F3D0;
 }
 
 .cal-inst-day-cell.is-weekend-off .cal-day-circle {
-  color: #94A3B8;
+  color: #9CA3AF;
+}
+
+/* 4-Corner Row Wrapping Curvature Protection */
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-middle .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-middle .cal-cell-track {
+  border-top-left-radius: 9999px;
+  border-bottom-left-radius: 9999px;
+}
+
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-middle .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-middle .cal-cell-track {
+  border-top-right-radius: 9999px;
+  border-bottom-right-radius: 9999px;
+}
+
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-start .cal-cell-track::after,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-start .cal-cell-track::after {
+  display: none;
+}
+
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-end .cal-cell-track::before,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-end .cal-cell-track::before {
+  display: none;
 }
 
 .cal-day-num-wrap {
@@ -6512,20 +6579,14 @@ body.tps-wheel-open {
   }
 
   .cal-cell-mobile {
-    display: flex !important;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    width: 100%;
-    height: 100%;
+    display: none !important;
   }
 
   .cal-day-box,
   .cal-inst-day-cell {
-    min-height: 48px !important;
-    height: 52px !important;
-    padding: 0.2rem 0.1rem !important;
+    min-height: 44px !important;
+    height: 46px !important;
+    padding: 0 !important;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -6533,9 +6594,9 @@ body.tps-wheel-open {
   }
 
   .cal-pad-cell {
-    min-height: 48px !important;
-    height: 52px !important;
-    padding: 0.2rem 0.1rem !important;
+    min-height: 44px !important;
+    height: 46px !important;
+    padding: 0 !important;
     display: flex;
     align-items: center;
     justify-content: center;

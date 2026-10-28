@@ -1555,6 +1555,15 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('cal-mobile-dot');
     expect(container.innerHTML).toContain('cal-dow-full');
     expect(container.innerHTML).toContain('cal-dow-short');
+
+    // Screenshot 2 Event Calendar styling & Monday-first weekday headers
+    expect(container.innerHTML).toContain('Event Calendar');
+    expect(container.innerHTML).toContain('cal-month-nav-bar');
+    expect(container.innerHTML).toContain('cal-day-circle');
+    expect(container.innerHTML).toContain('MO');
+    expect(container.innerHTML).toContain('TU');
+    expect(container.innerHTML).toContain('SU');
+    expect(container.innerHTML).toContain('Range:');
   });
 
   it('Academic Calendar Mobile View: day box click triggers institutional schedule inspection popup modal', async () => {
