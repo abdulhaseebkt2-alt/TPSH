@@ -15,6 +15,7 @@ import { WEEK_DAYS, renderSectionsModule } from '../src/modules/sections/index.j
 import { renderTimetableModule } from '../src/modules/timetable/index.js';
 import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
+import { renderCalendarModule } from '../src/modules/calendar/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle } from '../src/components/date-picker.js';
 
@@ -1497,5 +1498,40 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     // Faded cells for holidays and leave
     expect(mockReportBox.innerHTML).toContain('matrix-cell-faded-holiday');
     expect(mockReportBox.innerHTML).toContain('matrix-cell-present');
+  });
+
+  it('Dedicated Academic Calendar Module: registers calendar route, renders visual monthly grid, and Screenshot 3 student filter', async () => {
+    // 1. Verify module is registered in permissions
+    const calDef = MODULE_DEFINITIONS.find(m => m.key === 'calendar');
+    expect(calDef).toBeDefined();
+    expect(calDef.label).toBe('Academic Calendar');
+    expect(calDef.icon).toBe('calendar');
+
+    // 2. Render dedicated visual calendar module
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderCalendarModule(container, { onNavigate: () => {} });
+
+    // Verify visual calendar elements
+    expect(container.innerHTML).toContain('Academic & Student Calendar');
+    expect(container.innerHTML).toContain('Student Attendance Calendar');
+    expect(container.innerHTML).toContain('Institutional Working & Holidays');
+
+    // Screenshot 3 Filter Toolbar Elements
+    expect(container.innerHTML).toContain('Search student by name, ID, class...');
+    expect(container.innerHTML).toContain('cal-filter-section');
+    expect(container.innerHTML).toContain('cal-filter-class');
+    expect(container.innerHTML).toContain('cal-filter-student');
+
+    // Visual monthly grid elements
+    expect(container.innerHTML).toContain('Sun');
+    expect(container.innerHTML).toContain('Mon');
+    expect(container.innerHTML).toContain('Tue');
+    expect(container.innerHTML).toContain('cal-month-grid');
+    expect(container.innerHTML).toContain('cal-day-box');
   });
 });

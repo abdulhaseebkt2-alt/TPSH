@@ -12,6 +12,7 @@ export const MODULE_DEFINITIONS = [
   { key: 'sections', label: 'Sections & Classrooms', icon: 'folder-tree', roles: ['super_admin', 'admin'] },
   { key: 'assignments', label: 'Student Assignments', icon: 'user-check', roles: ['super_admin', 'admin'] },
   { key: 'timetable', label: 'Teacher Timetable', icon: 'calendar-clock', roles: ['super_admin', 'admin', 'teacher'] },
+  { key: 'calendar', label: 'Academic Calendar', icon: 'calendar', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'attendance', label: 'Attendance Management', icon: 'check-square', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'leaves', label: 'Hostel Leave Register', icon: 'plane-takeoff', roles: ['super_admin', 'admin', 'mentor', 'parent', 'student', 'hostel_leader'] },
   { key: 'fines', label: 'Late Fine Management', icon: 'receipt', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
@@ -37,6 +38,7 @@ export const DEFAULT_RBAC_MATRIX = {
     sections: 'full',
     assignments: 'full',
     timetable: 'full',
+    calendar: 'full',
     attendance: 'full',
     leaves: 'full',
     fines: 'full',
@@ -53,6 +55,7 @@ export const DEFAULT_RBAC_MATRIX = {
   mentor: {
     dashboard: 'full',
     students: 'view',
+    calendar: 'view',
     attendance: 'full',
     leaves: 'full',
     fines: 'view',
@@ -66,6 +69,7 @@ export const DEFAULT_RBAC_MATRIX = {
     dashboard: 'full',
     students: 'view',
     timetable: 'view',
+    calendar: 'view',
     attendance: 'full',
     exams: 'view',
     marks: 'full',
@@ -74,6 +78,7 @@ export const DEFAULT_RBAC_MATRIX = {
   hostel_leader: {
     dashboard: 'full',
     students: 'view',
+    calendar: 'view',
     attendance: 'full',
     leaves: 'view',
     fines: 'view',
@@ -85,6 +90,7 @@ export const DEFAULT_RBAC_MATRIX = {
   parent: {
     dashboard: 'full',
     students: 'view',
+    calendar: 'view',
     attendance: 'view',
     leaves: 'view',
     fines: 'view',
@@ -95,6 +101,7 @@ export const DEFAULT_RBAC_MATRIX = {
   },
   student: {
     dashboard: 'full',
+    calendar: 'view',
     attendance: 'view',
     leaves: 'view',
     exams: 'view',

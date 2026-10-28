@@ -6085,3 +6085,43 @@ body.tps-wheel-open {
 .cal-holiday-item.is-special-work {
   border-left: 4px solid #10B981;
 }
+
+/* ------------------------------------------------------------
+   VISUAL MONTHLY CALENDAR GRID & SCREENSHOT 3 COMPACT FILTER
+   ------------------------------------------------------------ */
+.cal-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  width: 100%;
+}
+
+.cal-day-box:hover {
+  background-color: #F8FAFC !important;
+}
+
+.cal-inst-day-cell:hover {
+  filter: brightness(0.97);
+}
+
+@media (max-width: 768px) {
+  .cal-month-grid {
+    font-size: 0.72rem;
+  }
+  .cal-day-box {
+    min-height: 58px !important;
+    padding: 0.25rem 0.2rem !important;
+  }
+  .cal-day-box span.badge {
+    font-size: 0.58rem !important;
+    padding: 1px 2px !important;
+  }
+  .cal-inst-day-cell {
+    min-height: 60px !important;
+    padding: 0.3rem 0.25rem !important;
+  }
+  .cal-inst-day-cell .badge {
+    font-size: 0.58rem !important;
+    padding: 1px 3px !important;
+  }
+}
+

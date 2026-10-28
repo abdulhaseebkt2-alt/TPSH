@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.5.0`  
-> **Last Updated:** 2026-10-28T13:22:00+05:30  
+> **Current Version:** `v1.5.1`  
+> **Last Updated:** 2026-10-28T13:43:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -169,7 +169,7 @@ Located in [`src/modules/reports/index.js`](file:///e:/Web%20Apk/TPSH/src/module
   - Mobile compact view provides date cards with class chips and submission rate percentages.
 
 ### 3.6 Academic Calendar & Working Days Engine
-Located in [`src/lib/db.js`](file:///e:/Web%20Apk/TPSH/src/lib/db.js) and [`src/modules/reports/index.js`](file:///e:/Web%20Apk/TPSH/src/modules/reports/index.js).
+Located in [`src/lib/db.js`](file:///e:/Web%20Apk/TPSH/src/lib/db.js) and [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modules/calendar/index.js).
 - **Weekly Working Days**: Configurable institutional working schedule (defaults to Monday through Saturday; Sunday default off).
 - **Custom Holiday & Event Management**:
   - Add official holidays (e.g. Gandhi Jayanti, Diwali Break, Eid, Foundation Day).
@@ -178,6 +178,26 @@ Located in [`src/lib/db.js`](file:///e:/Web%20Apk/TPSH/src/lib/db.js) and [`src/
   - Method `db.isDateWorkingDay(dateStr, calendar)` dynamically checks custom date overrides first, then weekly days.
   - Method `db.getCalendarDayInfo(dateStr, calendar)` returns day metadata and holiday titles.
 - **Direct Synchronized Integration**: Adding or removing a holiday instantly recalculates attendance matrices, working days counts, and faded cell treatments without page reload.
+
+### 3.7 Dedicated Academic Calendar Window & Visual Student Attendance Calendar
+Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modules/calendar/index.js) and [`src/styles/main.css`](file:///e:/Web%20Apk/TPSH/src/styles/main.css#L6080-L6125).
+- **First-Class Sidebar Navigation**: Accessible via `#calendar` under `Student & Academic` in the primary sidebar navigation.
+- **Dual Operating Modes**:
+  1. **Institutional Calendar**:
+     - Visual 7-column monthly calendar grid (`Sun` to `Sat`).
+     - Month navigation with previous/next controls, month name/year, and "Today" button.
+     - Displays working days, official holidays (`🌴 [Holiday Name]`), and weekend offs (`Off`).
+     - Admins can click any calendar cell to toggle holiday status or edit event titles.
+  2. **Visual Student Attendance Calendar**:
+     - **Screenshot 3 Filter Toolbar**: Minimal, compact search input (`Search student by name, ID...`) + inline dropdowns for `Section`, `Class`, and `Student`.
+     - **Active Student Summary Card**: Displays student avatar, full name, admission number, class, attendance score pill (e.g. `21 / 22 (95%)`), and count chips (`Present`, `Absent`, `Leave`, `Off`).
+     - **True Visual Monthly Calendar Grid**: Maps each day of the month into an authentic calendar cell:
+       - Green badge: `✓ Present` (`#ECFDF5`, `#047857`)
+       - Red badge: `✕ Absent` (`#FEF2F2`, `#DC2626`)
+       - Blue badge: `✈ Leave` (`#EFF6FF`, `#1D4ED8`)
+       - Amber badge: `🌴 Holiday` (`#FFFBEB`, `#D97706`)
+       - Gray badge: `Off`
+     - **Mobile Optimization**: Calendar grid dynamically scales with compact cells and touchable badges on screens $\le 768\text{px}$.
 
 ---
 
@@ -330,15 +350,15 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 57 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 58 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
 - **Wheel Pickers**: 12-hour wheel time parser, PhonePe drum wheel date parser, mobile detection flags.
 - **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion.
 - **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
-- **Academic Calendar Engine**: Weekly working day configuration, custom holiday scheduling, and holiday/working day evaluation.
-- **Attendance Registers & Submission Audit**: Screenshot 1 student monthly register with section filtering, frozen sticky columns, faded holidays & hostel leaves, and Screenshot 2 class-wise submission audit with mobile compact cards.
+- **Dedicated Academic Calendar**: Sidebar navigation `#calendar`, visual monthly 7-column calendar grid, Screenshot 3 student search filter, active student score pills, and working days indicators.
+- **Attendance Registers & Submission Audit**: Screenshot 1 student monthly register with section filtering, minimal Screenshot 3 toolbar, frozen sticky columns, faded holidays & hostel leaves, and Screenshot 2 class-wise submission audit with mobile compact cards.
 - **Cloud Sync**: Cross-device unified database integrity.
 
 ---
@@ -348,7 +368,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 1. **Maintain Light-Theme Saas Aesthetics**: Avoid dark backgrounds or jarring high-saturation blocks; use clean slate whites with high text contrast.
 2. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 3. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-4. **Preserve Unit Tests**: Never commit changes that cause any of the 57 unit tests to fail.
+4. **Preserve Unit Tests**: Never commit changes that cause any of the 58 unit tests to fail.
 
 ---
 
@@ -356,6 +376,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.5.1** | 2026-10-28 13:43 | Antigravity AI | `src/modules/calendar/index.js`, `src/modules/reports/index.js`, `src/lib/permissions.js`, `src/components/sidebar.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Built dedicated Academic Calendar window with visual monthly grid and sidebar entry; added Visual Student Attendance Calendar with Screenshot 3 search/filter on top; minimized Reports toolbar to eliminate mobile stacking. |
 | **v1.5.0** | 2026-10-28 13:22 | Antigravity AI | `src/modules/reports/index.js`, `src/lib/db.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Redesigned Attendance Reports to match Screenshots 1 & 2 with Section & Class selectors, frozen sticky headers, faded holidays & hostel leaves, mobile alternative cards view, class-wise submission audit, and academic calendar engine. |
 | **v1.4.3** | 2026-10-28 12:56 | Antigravity AI | `src/modules/sections/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Redesigned Sections & Classrooms mobile UI with Section Selector Card matching Screenshot 3 Role Switcher pattern; added modal picker. |
 | **v1.4.2** | 2026-10-28 12:45 | Antigravity AI | `WEB_APK_DOCUMENTATION.md` | Created master deep Web APK documentation; established mandatory auto-update protocol. |

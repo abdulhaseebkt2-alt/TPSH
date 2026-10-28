@@ -24,6 +24,7 @@ import { renderFeesModule } from './modules/fees/index.js';
 import { renderNoticesModule } from './modules/notices/index.js';
 import { renderMaintenanceModule } from './modules/maintenance/index.js';
 import { renderReportsModule } from './modules/reports/index.js';
+import { renderCalendarModule } from './modules/calendar/index.js';
 import { renderAuditModule } from './modules/audit/index.js';
 import { renderSettingsModule } from './modules/settings/index.js';
 
@@ -35,6 +36,7 @@ const MODULE_ROUTERS = {
   sections: renderSectionsModule,
   assignments: renderAssignmentsModule,
   timetable: renderTimetableModule,
+  calendar: renderCalendarModule,
   attendance: renderAttendanceModule,
   leaves: renderLeavesModule,
   fines: renderFinesModule,

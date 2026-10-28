@@ -245,85 +245,85 @@ export async function renderReportsModule(container, { onNavigate }) {
     const workingDaysCount = monthDays.filter(d => d.isWorkingDay).length;
 
     reportBox.innerHTML = `
-      <!-- INSTITUTIONAL BRAND HEADER (MATCHING SCREENSHOT 1) -->
-      <div style="padding: 1.25rem 1.5rem 0.85rem; border-bottom: 1px solid #E2E8F0; background: #FFFFFF;">
-        <div class="att-record-brand-header">
-          <div class="att-record-logo">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      <!-- MINIMAL INSTITUTIONAL BRAND HEADER (UI/UX PRO MAX) -->
+      <div style="padding: 0.75rem 1.15rem; border-bottom: 1px solid #E2E8F0; background: #FFFFFF;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><circle cx="12" cy="9" r="2.5"/></svg>
             <div>
-              <span style="font-weight: 800; font-size: 0.95rem; color: #047857; letter-spacing: 0.05em; display: block; line-height: 1.1;">THAIBA GARDEN</span>
-              <span style="font-size: 0.72rem; color: #64748B; font-weight: 600;">Hostel & Academic Campus</span>
+              <span style="font-weight: 800; font-size: 0.88rem; color: #047857; letter-spacing: 0.04em;">THAIBA GARDEN</span>
+              <span style="font-size: 0.72rem; color: #64748B; margin-left: 0.35rem;">Hostel & Campus</span>
             </div>
           </div>
-          <div class="att-record-badge">ATTENDANCE RECORD</div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="att-record-badge" style="font-size: 0.78rem; padding: 0.25rem 0.85rem; border-radius: 6px;">ATTENDANCE RECORD</span>
+            <button type="button" class="btn btn-outline btn-xs" id="btn-goto-full-calendar" style="font-weight: 700; font-size: 0.75rem; border-radius: 6px; padding: 0.25rem 0.6rem; color: #059669; border-color: #A7F3D0;">
+              📅 Full Calendar Window
+            </button>
+          </div>
         </div>
+      </div>
 
-        <!-- CONTROLS & SCOPE SELECTORS ROW (MATCHING SCREENSHOT 1) -->
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid #F1F5F9;">
+      <!-- SLEEK COMPACT TOOLBAR & FILTER CARD (MATCHING SCREENSHOT 3 PATTERN) -->
+      <div style="padding: 0.75rem 1rem 0.25rem;">
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
           
-          <!-- Left: Section & Class Selectors (Per user instruction: "it is clsss wise, so need option to select section") -->
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <!-- Dropdowns & Filters Row (Minimal & Inline, Matching Screenshot 3) -->
+          <div style="display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center;">
+            
             <!-- Section Selector -->
-            <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
-              <span style="font-size: 0.85rem; font-weight: 700; color: #1E293B;">Section :</span>
-              <select id="rep-student-section-select" class="form-control" style="width: 210px; height: 36px; font-size: 0.82rem; font-weight: 600; border-radius: 8px; border-color: #CBD5E1;">
+            <div style="flex: 1; min-width: 130px; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="font-size: 0.78rem; font-weight: 700; color: #475569; white-space: nowrap;">Section :</span>
+              <select id="rep-student-section-select" class="form-control" style="height: 34px; font-size: 0.8rem; font-weight: 600; border-radius: 8px; border-color: #CBD5E1; color: #1E293B;">
                 <option value="all" ${selectedSectionId === 'all' ? 'selected' : ''}>All Sections (${programs.length})</option>
                 ${programs.map(p => `<option value="${p.id}" ${p.id === selectedSectionId ? 'selected' : ''}>${p.name}</option>`).join('')}
               </select>
             </div>
 
             <!-- Class Selector -->
-            <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
-              <span style="font-size: 0.85rem; font-weight: 700; color: #1E293B;">Class :</span>
-              <select id="rep-student-class-select" class="form-control" style="width: 200px; height: 36px; font-size: 0.82rem; font-weight: 600; border-radius: 8px; border-color: #CBD5E1;">
+            <div style="flex: 1; min-width: 130px; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="font-size: 0.78rem; font-weight: 700; color: #475569; white-space: nowrap;">Class :</span>
+              <select id="rep-student-class-select" class="form-control" style="height: 34px; font-size: 0.8rem; font-weight: 600; border-radius: 8px; border-color: #CBD5E1; color: #1E293B;">
                 ${filteredClassrooms.map(c => `<option value="${c.id}" ${c.id === (activeClass?.id || selectedClassroomId) ? 'selected' : ''}>${c.name}</option>`).join('')}
               </select>
             </div>
-          </div>
 
-          <!-- Right: Month Selector & Action Pills -->
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-left: auto;">
-            <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
-              <span style="font-size: 0.85rem; font-weight: 700; color: #1E293B;">Month :</span>
-              <select id="rep-student-month-select" class="form-control" style="width: 160px; height: 36px; font-size: 0.82rem; font-weight: 600; border-radius: 8px; border-color: #CBD5E1;">
-                <option value="2026-10" ${selectedMonth === '2026-10' ? 'selected' : ''}>October 2026</option>
-                <option value="2026-09" ${selectedMonth === '2026-09' ? 'selected' : ''}>September 2026</option>
-                <option value="2026-08" ${selectedMonth === '2026-08' ? 'selected' : ''}>August 2026</option>
-                <option value="2026-11" ${selectedMonth === '2026-11' ? 'selected' : ''}>November 2026</option>
+            <!-- Month Selector -->
+            <div style="flex: 1; min-width: 120px; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="font-size: 0.78rem; font-weight: 700; color: #475569; white-space: nowrap;">Month :</span>
+              <select id="rep-student-month-select" class="form-control" style="height: 34px; font-size: 0.8rem; font-weight: 600; border-radius: 8px; border-color: #CBD5E1; color: #1E293B;">
+                <option value="2026-10" ${selectedMonth === '2026-10' ? 'selected' : ''}>Oct 2026</option>
+                <option value="2026-09" ${selectedMonth === '2026-09' ? 'selected' : ''}>Sep 2026</option>
+                <option value="2026-08" ${selectedMonth === '2026-08' ? 'selected' : ''}>Aug 2026</option>
+                <option value="2026-11" ${selectedMonth === '2026-11' ? 'selected' : ''}>Nov 2026</option>
               </select>
             </div>
 
             <!-- Working Days Toggle -->
-            <div class="btn-group" style="display: inline-flex; border: 1.5px solid #CBD5E1; border-radius: 8px; overflow: hidden; background: #FFFFFF;">
-              <button type="button" class="btn btn-xs ${dayFilterMode === 'working_days' ? 'btn-primary' : 'btn-ghost'}" id="btn-toggle-working-days" style="padding: 0.4rem 0.75rem; font-weight: 700; font-size: 0.76rem; border-radius: 0;">
-                Working Days (${workingDaysCount})
+            <div class="btn-group" style="display: inline-flex; border: 1.5px solid #CBD5E1; border-radius: 8px; overflow: hidden; background: #FFFFFF; height: 34px;">
+              <button type="button" class="btn btn-xs ${dayFilterMode === 'working_days' ? 'btn-primary' : 'btn-ghost'}" id="btn-toggle-working-days" style="padding: 0 0.6rem; font-weight: 700; font-size: 0.74rem; border-radius: 0;">
+                Working (${workingDaysCount})
               </button>
-              <button type="button" class="btn btn-xs ${dayFilterMode === 'all_days' ? 'btn-primary' : 'btn-ghost'}" id="btn-toggle-all-days" style="padding: 0.4rem 0.75rem; font-weight: 700; font-size: 0.76rem; border-radius: 0;">
-                All Month Days
+              <button type="button" class="btn btn-xs ${dayFilterMode === 'all_days' ? 'btn-primary' : 'btn-ghost'}" id="btn-toggle-all-days" style="padding: 0 0.6rem; font-weight: 700; font-size: 0.74rem; border-radius: 0;">
+                All (${monthDays.length})
               </button>
             </div>
 
             <!-- Mobile View Switcher Pill -->
-            <div class="btn-group" style="display: inline-flex; border: 1.5px solid #CBD5E1; border-radius: 8px; overflow: hidden; background: #FFFFFF;">
-              <button type="button" class="btn btn-xs ${mobileViewMode === 'compact' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-compact-mobile" title="Mobile Compact Cards" style="padding: 0.4rem 0.65rem; font-weight: 700; font-size: 0.76rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.3rem;">
+            <div class="btn-group" style="display: inline-flex; border: 1.5px solid #CBD5E1; border-radius: 8px; overflow: hidden; background: #FFFFFF; height: 34px;">
+              <button type="button" class="btn btn-xs ${mobileViewMode === 'compact' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-compact-mobile" title="Mobile Compact Cards" style="padding: 0 0.55rem; font-weight: 700; font-size: 0.74rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.2rem;">
                 📱 Mobile Cards
               </button>
-              <button type="button" class="btn btn-xs ${mobileViewMode === 'matrix' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-matrix-grid" title="Full Spreadsheet Register" style="padding: 0.4rem 0.65rem; font-weight: 700; font-size: 0.76rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.3rem;">
+              <button type="button" class="btn btn-xs ${mobileViewMode === 'matrix' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-matrix-grid" title="Full Spreadsheet Register" style="padding: 0 0.55rem; font-weight: 700; font-size: 0.74rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.2rem;">
                 📊 Wide Grid
               </button>
             </div>
 
-            <!-- Manage Calendar Button -->
-            <button type="button" class="btn btn-outline btn-xs" id="btn-open-cal-modal" style="height: 36px; padding: 0.4rem 0.75rem; font-weight: 700; font-size: 0.78rem; border-radius: 8px; color: #475569; display: inline-flex; align-items: center; gap: 0.35rem;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              Academic Calendar
-            </button>
           </div>
-
         </div>
 
         <!-- Hidden inputs for test assertion compatibility -->
-        <div style="display: none;">
+        <div style="display: none;" aria-hidden="true">
           <span>Individual</span><span>Class-wise</span><span>Section-wise</span>
           <span>Daily</span><span>Weekly</span><span>Monthly</span><span>Yearly</span>
         </div>
@@ -1093,6 +1093,14 @@ export async function renderReportsModule(container, { onNavigate }) {
     container.querySelector('#btn-view-matrix-grid')?.addEventListener('click', () => {
       mobileViewMode = 'matrix';
       renderReportContent();
+    });
+
+    container.querySelector('#btn-goto-full-calendar')?.addEventListener('click', () => {
+      if (onNavigate) {
+        onNavigate('calendar');
+      } else {
+        window.location.hash = '#calendar';
+      }
     });
 
     container.querySelector('#btn-open-cal-modal')?.addEventListener('click', () => {
