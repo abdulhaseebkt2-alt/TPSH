@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.5.3`  
-> **Last Updated:** 2026-10-28T14:32:00+05:30  
+> **Current Version:** `v1.5.4`  
+> **Last Updated:** 2026-10-28T14:44:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -283,11 +283,14 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
 
 ### 4.9 Institutional Academic Calendar (`src/modules/calendar/`)
 - Purely institutional calendar accessible from sidebar `#calendar`.
-- Manages institutional schedule, weekly working days (Mon–Sat), official holidays, and special study sessions.
-- **Summary Metrics Bar**: 4 key indicators (`Total Days`, `Working Days`, `Official Holidays`, `Weekend Offs`).
-- **Responsive 7-Column Grid**: Desktop badges with holiday titles; Mobile minimal view displaying day numbers and colored status dots (`.dot-working`, `.dot-holiday`, `.dot-special-work`, `.dot-off`).
-- **Date Schedule Inspection Modal**: Tapping any day cell pops up a modal displaying schedule status and allows authorized staff to configure holidays or working sessions.
-- **Bridge Link**: Includes quick navigation button to Attendance Reports for student attendance data.
+- **Executive Windows Workspace UI (Fluent & Apple Inspired)**:
+  - **Two-Column Master-Companion Architecture**:
+    - **Master Calendar Stage (Left, ~72%)**: 7-column monthly grid with balanced aspect ratio cells (~105px min-height), sleek weekday headers with Sunday highlighted in rose `#E11D48`, and crisp day number chips (`.cal-day-num-wrap`).
+    - **Companion Agenda & Metrics Panel (Right, ~28%)**: Today focus card with live institutional status, 4 compact KPI chips (`Total Days`, `Working Days`, `Official Holidays`, `Weekend Offs`), segmented session percentage bar, chronological Holidays & Events agenda stream with delete actions, and management action hub.
+  - **Elimination of Cognitive Clutter**: Normal working days now serve as a clean, peaceful, breathable canvas without noisy repetitive stickers. Event chips (`.cal-event-pill`) appear exclusively for official holidays (e.g. `🌴 Gandhi Jayanti`) and special compensatory working days (`⚡ Special Working Session`).
+  - **Mobile Minimal View**: Automatically collapses to a clean single column on mobile screens ($< 1024\text{px}$), displaying day numbers and colored status dots (`.cal-mobile-dot`) with tap-to-inspect modal.
+  - **Interactive Schedule Inspection**: Tapping any date cell opens the Institutional Calendar Details modal with schedule inspection and admin holiday/working session override controls.
+  - **Bridge Link**: Includes quick navigation button to Attendance Reports for student attendance data.
 
 ### 4.10 Attendance Reports & Student Attendance Calendar (`src/modules/reports/`)
 - Master attendance intelligence and reporting module accessible via `#reports`.
@@ -409,6 +412,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.5.4** | 2026-10-28 14:44 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `WEB_APK_DOCUMENTATION.md` | Recreated Academic Calendar UI to eliminate flat stretched "fatiwidth" layout and repetitive clutter: implemented Executive Windows Master-Companion 2-Column workspace (~72% master calendar grid + ~28% executive companion panel); gave calendar cells handsome aspect ratio cards (~105px min-height); eliminated repetitive "Regular Working Day" badge clutter from 21 cells to provide a clean, modern aesthetic; moved KPI metrics, segmented session progress bar, and chronological Holidays & Events agenda into companion sidebar; maintained mobile minimal dot view and interactive schedule inspection modal; verified 100% pass across all 60 tests and clean build. |
 | **v1.5.3** | 2026-10-28 14:32 | Antigravity AI | `src/modules/calendar/index.js`, `src/modules/reports/index.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Relocated student attendance calendar from Academic Calendar to Attendance Reports per user directive: Academic Calendar is now purely institutional (working days, official holidays, timetable schedule, quick date inspection modal, and bridge link to reports); Attendance Reports now features dedicated `📅 Calendar` view mode alongside `📱 Mobile Cards` and `📊 Wide Grid`, equipped with Screenshot 3 filters (student search, section, class, student), active student hero score card, monthly 7-column attendance grid with mobile dots, and tap-to-inspect Daily Attendance Inspection modal with student details; expanded test suite to 60 tests (all passing). |
 | **v1.5.2** | 2026-10-28 14:07 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `src/lib/dialog.js`, `src/lib/wheelTimePicker.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Mobile Calendar UI overhaul: replaced cramped multiline text badges inside small mobile cells with clean day numbers and minimal colored status dots; added tap-to-inspect popup window modal with full date attendance records and admin schedule overrides; updated Vitest suite to 59 tests. |
 | **v1.5.1** | 2026-10-28 13:43 | Antigravity AI | `src/modules/calendar/index.js`, `src/modules/reports/index.js`, `src/lib/permissions.js`, `src/components/sidebar.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Built dedicated Academic Calendar window with visual monthly grid and sidebar entry; added Visual Student Attendance Calendar with Screenshot 3 search/filter on top; minimized Reports toolbar to eliminate mobile stacking. |
