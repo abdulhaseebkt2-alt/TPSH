@@ -1776,6 +1776,48 @@ class DatabaseService {
     return updated;
   }
 
+  async addCalendarHolidayRange({ startDate, endDate, name, type = 'holiday' }) {
+    const cal = await this.getAcademicCalendar();
+    const events = Array.isArray(cal.events) ? [...cal.events] : [];
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    const cur = new Date(start);
+    const rangeId = 'rng-' + Date.now();
+
+    while (cur <= end) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const d = String(cur.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${d}`;
+      const existingIdx = events.findIndex(e => e.date === dateStr);
+      const isStart = dateStr === startDate;
+      const isEnd = dateStr === endDate;
+      const ev = {
+        id: 'cal-' + Date.now() + '-' + dateStr,
+        date: dateStr,
+        name: name || 'Institutional Holiday',
+        type: type || 'holiday',
+        range_id: rangeId,
+        is_range_start: isStart,
+        is_range_end: isEnd
+      };
+      if (existingIdx >= 0) {
+        events[existingIdx] = ev;
+      } else {
+        events.push(ev);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    events.sort((a, b) => a.date.localeCompare(b.date));
+    const updated = {
+      ...cal,
+      events
+    };
+    await this.saveAcademicCalendar(updated);
+    return updated;
+  }
+
   async removeCalendarHoliday(eventIdOrDate) {
     const cal = await this.getAcademicCalendar();
     const events = (cal.events || []).filter(e => e.id !== eventIdOrDate && e.date !== eventIdOrDate);

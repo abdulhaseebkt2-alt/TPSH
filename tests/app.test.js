@@ -1464,6 +1464,21 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     await db.removeCalendarHoliday(testDate);
     const finalCal = await db.getAcademicCalendar();
     expect(finalCal.events.some(e => e.date === testDate)).toBe(false);
+
+    // Multi-day Date Range Holiday Engine (Screenshot 2 pattern)
+    const rangeStart = '2026-11-20';
+    const rangeEnd = '2026-11-23';
+    await db.addCalendarHolidayRange({ startDate: rangeStart, endDate: rangeEnd, name: 'Special Vacation Break', type: 'holiday' });
+    const rangeCal = await db.getAcademicCalendar();
+    expect(db.isDateWorkingDay('2026-11-20', rangeCal)).toBe(false);
+    expect(db.isDateWorkingDay('2026-11-21', rangeCal)).toBe(false);
+    expect(db.isDateWorkingDay('2026-11-22', rangeCal)).toBe(false);
+    expect(db.isDateWorkingDay('2026-11-23', rangeCal)).toBe(false);
+
+    const startEv = rangeCal.events.find(e => e.date === rangeStart);
+    const endEv = rangeCal.events.find(e => e.date === rangeEnd);
+    expect(startEv.is_range_start).toBe(true);
+    expect(endEv.is_range_end).toBe(true);
   });
 
   it('Attendance Reports: renders Institutional ATTENDANCE RECORD badge, section selector, class submission audit, and mobile alternative views with faded holidays & leaves', async () => {
