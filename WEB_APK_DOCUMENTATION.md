@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.5.1`  
-> **Last Updated:** 2026-10-28T13:43:00+05:30  
+> **Current Version:** `v1.5.2`  
+> **Last Updated:** 2026-10-28T14:07:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -197,7 +197,22 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
        - Blue badge: `✈ Leave` (`#EFF6FF`, `#1D4ED8`)
        - Amber badge: `🌴 Holiday` (`#FFFBEB`, `#D97706`)
        - Gray badge: `Off`
-     - **Mobile Optimization**: Calendar grid dynamically scales with compact cells and touchable badges on screens $\le 768\text{px}$.
+     - **Mobile Optimization & Tap Inspection Modal (v1.5.2)**:
+       - **Minimal Dot Indicators on Small Screens ($\le 768\text{px}$)**: Eliminates multiline wrapped badges that squish inside narrow 45px mobile cells. On mobile, cells display a clean, centered day number and a small 7px status indicator dot (`.cal-mobile-dot`):
+         - Emerald dot: Present in class / Standard working day
+         - Red dot: Absent from attendance call
+         - Blue dot: Approved hostel leave pass
+         - Amber dot: Official institutional holiday
+         - Teal dot: Special working day / session
+         - Slate dot: Scheduled weekend off
+       - **Tap-to-Inspect Popup Window Modal**: Tapping any day cell on mobile or desktop opens a popup window (`.cal-day-popup-modal`) displaying:
+         - Formatted Day of Week & Date (e.g. `Monday, 12 October 2026`)
+         - Full student identity banner with admission number & class
+         - High-contrast status badge with contextual description of daily attendance or institutional schedule
+         - Quick override buttons for Admins in institutional view (`🌴 Set as Holiday`, `⚡ Set as Working Day`, `🔄 Reset Default`)
+         - Clean dismiss button (`Close`).
+       - **Responsive Weekday Headers**: Shows single-letter headers (`S`, `M`, `T`, `W`, `T`, `F`, `S`) on mobile devices and 3-letter labels (`Sun`, `Mon`, etc.) on desktop.
+       - **Responsive Metric Cards**: Converts institutional top metric counters into a clean 2x2 grid on mobile viewports.
 
 ---
 
@@ -350,7 +365,7 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 58 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 59 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
@@ -358,6 +373,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 - **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion.
 - **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
 - **Dedicated Academic Calendar**: Sidebar navigation `#calendar`, visual monthly 7-column calendar grid, Screenshot 3 student search filter, active student score pills, and working days indicators.
+- **Calendar Mobile Minimal View & Tap Inspection**: Desktop vs mobile cell rendering, 7-color status dot indicators, responsive single-letter weekday headers (`S`, `M`, `T`, `W`, `T`, `F`, `S`), and tap popup inspection modal showing full day details.
 - **Attendance Registers & Submission Audit**: Screenshot 1 student monthly register with section filtering, minimal Screenshot 3 toolbar, frozen sticky columns, faded holidays & hostel leaves, and Screenshot 2 class-wise submission audit with mobile compact cards.
 - **Cloud Sync**: Cross-device unified database integrity.
 
@@ -368,7 +384,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 1. **Maintain Light-Theme Saas Aesthetics**: Avoid dark backgrounds or jarring high-saturation blocks; use clean slate whites with high text contrast.
 2. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 3. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-4. **Preserve Unit Tests**: Never commit changes that cause any of the 58 unit tests to fail.
+4. **Preserve Unit Tests**: Never commit changes that cause any of the 59 unit tests to fail.
 
 ---
 
@@ -376,6 +392,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.5.2** | 2026-10-28 14:07 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `src/lib/dialog.js`, `src/lib/wheelTimePicker.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Mobile Calendar UI overhaul: replaced cramped multiline text badges inside small mobile cells with clean day numbers and minimal colored status dots; added tap-to-inspect popup window modal with full date attendance records and admin schedule overrides; updated Vitest suite to 59 tests. |
 | **v1.5.1** | 2026-10-28 13:43 | Antigravity AI | `src/modules/calendar/index.js`, `src/modules/reports/index.js`, `src/lib/permissions.js`, `src/components/sidebar.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Built dedicated Academic Calendar window with visual monthly grid and sidebar entry; added Visual Student Attendance Calendar with Screenshot 3 search/filter on top; minimized Reports toolbar to eliminate mobile stacking. |
 | **v1.5.0** | 2026-10-28 13:22 | Antigravity AI | `src/modules/reports/index.js`, `src/lib/db.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Redesigned Attendance Reports to match Screenshots 1 & 2 with Section & Class selectors, frozen sticky headers, faded holidays & hostel leaves, mobile alternative cards view, class-wise submission audit, and academic calendar engine. |
 | **v1.4.3** | 2026-10-28 12:56 | Antigravity AI | `src/modules/sections/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Redesigned Sections & Classrooms mobile UI with Section Selector Card matching Screenshot 3 Role Switcher pattern; added modal picker. |

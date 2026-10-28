@@ -325,6 +325,7 @@ export function attachWheelTimePicker(input, { onChange } = {}) {
  * Global enhancer: auto-attaches Wheel Time Picker to all time inputs in a container.
  */
 export function initAllWheelTimePickers(container = document) {
+  if (!container || typeof container.querySelectorAll !== 'function') return;
   const inputs = container.querySelectorAll('input[type="time"], input[data-wheel-time="true"]');
   inputs.forEach(input => attachWheelTimePicker(input));
 }

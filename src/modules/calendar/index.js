@@ -383,8 +383,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
         <!-- Day-of-Week Table Header (Sun - Sat) -->
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: #F8FAFC; border-bottom: 1.5px solid #CBD5E1; text-align: center;">
           ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `
-            <div style="padding: 0.65rem 0.25rem; font-weight: 800; font-size: 0.8rem; color: ${i === 0 ? '#DC2626' : '#475569'}; text-transform: uppercase; letter-spacing: 0.05em;">
-              ${d}
+            <div style="padding: 0.55rem 0.15rem; font-weight: 800; font-size: 0.78rem; color: ${i === 0 ? '#DC2626' : '#475569'}; text-transform: uppercase; letter-spacing: 0.05em;">
+              <span class="cal-dow-full">${d}</span>
+              <span class="cal-dow-short">${d.substring(0, 1)}</span>
             </div>
           `).join('')}
         </div>
@@ -394,7 +395,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
           ${gridDays.map(cell => {
             if (!cell.isCurrentMonth) {
               return `
-                <div style="min-height: 80px; padding: 0.5rem; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; opacity: 0.35;">
+                <div class="cal-pad-cell" style="border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; opacity: 0.35; display: flex; align-items: center; justify-content: center;">
                   <span style="font-size: 0.75rem; color: #94A3B8; font-weight: 600;">${cell.dayNumber}</span>
                 </div>
               `;
@@ -434,22 +435,35 @@ export async function renderCalendarModule(container, { onNavigate }) {
               <div 
                 class="cal-day-box" 
                 data-date="${cell.dateStr}"
-                style="min-height: 82px; padding: 0.45rem 0.5rem; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: ${cellBg}; position: relative; transition: background 0.15s ease; cursor: pointer;"
+                role="button"
+                tabindex="0"
+                title="${cell.dateStr}: ${att.label} (Tap to inspect)"
+                style="border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: ${cellBg}; position: relative; transition: background 0.15s ease; cursor: pointer;"
               >
-                <!-- Top Row: Day Number + Today Marker -->
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                  <span style="font-weight: 800; font-size: 0.88rem; color: ${isToday ? '#059669' : '#1E293B'}; ${isToday ? 'background: #ECFDF5; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;' : ''}">
-                    ${cell.dayNumber}
-                  </span>
-                  ${cell.isHoliday ? `<span style="font-size: 0.68rem; color: #D97706;" title="${cell.title || 'Holiday'}">🌴</span>` : ''}
+                <!-- Desktop Content: Full Day Number + Badge -->
+                <div class="cal-cell-desktop">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <span style="font-weight: 800; font-size: 0.88rem; color: ${isToday ? '#059669' : '#1E293B'}; ${isToday ? 'background: #ECFDF5; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;' : ''}">
+                      ${cell.dayNumber}
+                    </span>
+                    ${cell.isHoliday ? `<span style="font-size: 0.68rem; color: #D97706;" title="${cell.title || 'Holiday'}">🌴</span>` : ''}
+                  </div>
+
+                  <!-- Status Badge -->
+                  <div style="margin-top: 0.25rem;">
+                    <span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.2rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                      <span>${att.icon}</span>
+                      <span style="overflow: hidden; text-overflow: ellipsis;">${att.label}</span>
+                    </span>
+                  </div>
                 </div>
 
-                <!-- Status Badge -->
-                <div style="margin-top: 0.25rem;">
-                  <span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.2rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                    <span>${att.icon}</span>
-                    <span style="overflow: hidden; text-overflow: ellipsis;">${att.label}</span>
+                <!-- Mobile Content: Minimal Day Number + Color Dot Indicator -->
+                <div class="cal-cell-mobile">
+                  <span class="cal-mobile-day-num ${isToday ? 'today' : ''}">
+                    ${cell.dayNumber}
                   </span>
+                  <span class="cal-mobile-dot dot-${att.status}" title="${att.label}"></span>
                 </div>
               </div>
             `;
@@ -475,22 +489,22 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
     return `
       <!-- SUMMARY METRICS BAR -->
-      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.15rem;">
-        <div style="flex: 1; min-width: 130px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem;">
-          <span style="font-size: 0.74rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Days</span>
-          <div style="font-weight: 800; font-size: 1.35rem; color: #0F172A;">${currentMonthDays.length}</div>
+      <div class="cal-metrics-grid">
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Days</span>
+          <div style="font-weight: 800; font-size: 1.3rem; color: #0F172A;">${currentMonthDays.length}</div>
         </div>
-        <div style="flex: 1; min-width: 130px; background: #FFFFFF; border: 1px solid #A7F3D0; border-radius: 10px; padding: 0.75rem 1rem;">
-          <span style="font-size: 0.74rem; font-weight: 700; color: #047857; text-transform: uppercase;">Working Days</span>
-          <div style="font-weight: 800; font-size: 1.35rem; color: #059669;">${workingDaysCount}</div>
+        <div style="background: #FFFFFF; border: 1px solid #A7F3D0; border-radius: 10px; padding: 0.75rem 1rem;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #047857; text-transform: uppercase;">Working Days</span>
+          <div style="font-weight: 800; font-size: 1.3rem; color: #059669;">${workingDaysCount}</div>
         </div>
-        <div style="flex: 1; min-width: 130px; background: #FFFFFF; border: 1px solid #FDE68A; border-radius: 10px; padding: 0.75rem 1rem;">
-          <span style="font-size: 0.74rem; font-weight: 700; color: #B45309; text-transform: uppercase;">Official Holidays</span>
-          <div style="font-weight: 800; font-size: 1.35rem; color: #D97706;">${holidaysCount}</div>
+        <div style="background: #FFFFFF; border: 1px solid #FDE68A; border-radius: 10px; padding: 0.75rem 1rem;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #B45309; text-transform: uppercase;">Official Holidays</span>
+          <div style="font-weight: 800; font-size: 1.3rem; color: #D97706;">${holidaysCount}</div>
         </div>
-        <div style="flex: 1; min-width: 130px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem;">
-          <span style="font-size: 0.74rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Weekend Offs</span>
-          <div style="font-weight: 800; font-size: 1.35rem; color: #475569;">${weekendOffCount}</div>
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Weekend Offs</span>
+          <div style="font-weight: 800; font-size: 1.3rem; color: #475569;">${weekendOffCount}</div>
         </div>
       </div>
 
@@ -500,8 +514,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
         <!-- Days Header -->
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: #F8FAFC; border-bottom: 1.5px solid #CBD5E1; text-align: center;">
           ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `
-            <div style="padding: 0.65rem 0.25rem; font-weight: 800; font-size: 0.8rem; color: ${i === 0 ? '#DC2626' : '#475569'}; text-transform: uppercase;">
-              ${d}
+            <div style="padding: 0.55rem 0.15rem; font-weight: 800; font-size: 0.78rem; color: ${i === 0 ? '#DC2626' : '#475569'}; text-transform: uppercase; letter-spacing: 0.05em;">
+              <span class="cal-dow-full">${d}</span>
+              <span class="cal-dow-short">${d.substring(0, 1)}</span>
             </div>
           `).join('')}
         </div>
@@ -511,7 +526,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
           ${gridDays.map(cell => {
             if (!cell.isCurrentMonth) {
               return `
-                <div style="min-height: 90px; padding: 0.5rem; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; opacity: 0.35;">
+                <div class="cal-pad-cell" style="border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; opacity: 0.35; display: flex; align-items: center; justify-content: center;">
                   <span style="font-size: 0.75rem; color: #94A3B8; font-weight: 600;">${cell.dayNumber}</span>
                 </div>
               `;
@@ -526,32 +541,46 @@ export async function renderCalendarModule(container, { onNavigate }) {
                 class="cal-inst-day-cell" 
                 data-date="${cell.dateStr}"
                 data-is-holiday="${isHol}"
-                style="min-height: 90px; padding: 0.5rem; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: ${isHol ? '#FFFBEB' : (!isWork ? '#F8FAFC' : '#FFFFFF')}; cursor: pointer; transition: background 0.15s ease;"
+                role="button"
+                tabindex="0"
+                title="${cell.dateStr}: ${cell.title || (isHol ? 'Holiday' : isWork ? 'Working Day' : 'Off')} (Tap to inspect)"
+                style="border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: ${isHol ? '#FFFBEB' : (!isWork ? '#F8FAFC' : '#FFFFFF')}; cursor: pointer; transition: background 0.15s ease;"
               >
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
-                  <span style="font-weight: 800; font-size: 0.92rem; color: ${isToday ? '#059669' : '#0F172A'}; ${isToday ? 'background: #ECFDF5; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;' : ''}">
-                    ${cell.dayNumber}
-                  </span>
-                  ${isHol ? `
-                    <span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 0.65rem; font-weight: 700;">
-                      Holiday
+                <!-- Desktop Content -->
+                <div class="cal-cell-desktop">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+                    <span style="font-weight: 800; font-size: 0.92rem; color: ${isToday ? '#059669' : '#0F172A'}; ${isToday ? 'background: #ECFDF5; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;' : ''}">
+                      ${cell.dayNumber}
                     </span>
-                  ` : isWork ? `
-                    <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">
-                      Working
-                    </span>
-                  ` : `
-                    <span style="font-size: 0.7rem; color: #94A3B8; font-weight: 600;">Off</span>
-                  `}
+                    ${isHol ? `
+                      <span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 0.65rem; font-weight: 700;">
+                        Holiday
+                      </span>
+                    ` : isWork ? `
+                      <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">
+                        Working
+                      </span>
+                    ` : `
+                      <span style="font-size: 0.7rem; color: #94A3B8; font-weight: 600;">Off</span>
+                    `}
+                  </div>
+
+                  ${cell.title ? `
+                    <div style="margin-top: 0.25rem;">
+                      <div style="font-size: 0.72rem; font-weight: 700; color: ${isHol ? '#B45309' : '#047857'}; background: ${isHol ? '#FEF3C7' : '#ECFDF5'}; padding: 3px 6px; border-radius: 4px; border: 1px solid ${isHol ? '#FDE68A' : '#A7F3D0'}; line-height: 1.2;">
+                        ${isHol ? '🌴' : '⚡'} ${cell.title}
+                      </div>
+                    </div>
+                  ` : ''}
                 </div>
 
-                ${cell.title ? `
-                  <div style="margin-top: 0.25rem;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: ${isHol ? '#B45309' : '#047857'}; background: ${isHol ? '#FEF3C7' : '#ECFDF5'}; padding: 3px 6px; border-radius: 4px; border: 1px solid ${isHol ? '#FDE68A' : '#A7F3D0'}; line-height: 1.2;">
-                      ${isHol ? '🌴' : '⚡'} ${cell.title}
-                    </div>
-                  </div>
-                ` : ''}
+                <!-- Mobile Content: Minimal Day Number + Color Dot Indicator -->
+                <div class="cal-cell-mobile">
+                  <span class="cal-mobile-day-num ${isToday ? 'today' : ''}">
+                    ${cell.dayNumber}
+                  </span>
+                  <span class="cal-mobile-dot ${isHol ? 'dot-holiday' : isWork ? (cell.isSpecialWorking ? 'dot-special-work' : 'dot-working') : 'dot-off'}" title="${cell.title || (isHol ? 'Holiday' : isWork ? 'Working' : 'Off')}"></span>
+                </div>
               </div>
             `;
           }).join('')}
@@ -667,6 +696,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
       });
     });
 
+    // Clicking date in student calendar opens full attendance details popup
+    attachStudentDayBoxListeners();
+
     // Clicking date in institutional calendar opens holiday toggle
     container.querySelectorAll('.cal-inst-day-cell').forEach(cell => {
       cell.addEventListener('click', () => {
@@ -676,11 +708,21 @@ export async function renderCalendarModule(container, { onNavigate }) {
     });
   }
 
+  function attachStudentDayBoxListeners() {
+    container.querySelectorAll('.cal-day-box').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const dateStr = cell.getAttribute('data-date');
+        if (dateStr) openStudentDayDetailModal(dateStr);
+      });
+    });
+  }
+
   function attachStudentViewListeners() {
     container.querySelector('#cal-filter-student')?.addEventListener('change', (e) => {
       selectedStudentId = e.target.value;
       renderFullUI();
     });
+    attachStudentDayBoxListeners();
   }
 
   // --- MODAL 1: WEEKLY WORKING DAYS ---
@@ -785,43 +827,105 @@ export async function renderCalendarModule(container, { onNavigate }) {
     });
   }
 
-  // --- MODAL 3: QUICK DATE EDIT ---
+  // --- MODAL 3: QUICK DATE EDIT & INSPECT (INSTITUTIONAL) ---
   function openQuickDateEditModal(dateStr) {
     const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
+    const isHol = dayInfo.isHoliday;
+    const isWork = dayInfo.isWorkingDay;
+
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dateObj.getDay()];
+    const formattedDate = `${dayName}, ${formatDate(dateStr)}`;
+
+    let statusLabel = isHol ? 'Official Holiday' : isWork ? (dayInfo.isSpecialWorking ? 'Special Working Day' : 'Regular Working Day') : 'Weekend Off';
+    let icon = isHol ? '🌴' : isWork ? '⚡' : '📅';
+    let bgTheme = isHol ? '#FFFBEB' : isWork ? '#ECFDF5' : '#F8FAFC';
+    let borderTheme = isHol ? '#FDE68A' : isWork ? '#A7F3D0' : '#CBD5E1';
+    let colorTheme = isHol ? '#D97706' : isWork ? '#059669' : '#475569';
 
     openModal({
-      title: `Calendar Date: ${formatDate(dateStr)}`,
+      title: 'Institutional Calendar Details',
+      modalClass: 'cal-day-popup-modal',
       contentHtml: `
-        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-          <p style="font-size: 0.84rem; color: #64748B; margin: 0;">
-            Current Status: <strong>${dayInfo.title || (dayInfo.isWorkingDay ? 'Working Day' : 'Weekend Off')}</strong>
-          </p>
-
-          <div>
-            <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Event Title / Reason</label>
-            <input type="text" id="modal-edit-date-title" class="form-control" value="${dayInfo.title || ''}" placeholder="e.g. Founder's Day, Exam Holiday" style="height: 38px;" />
+        <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+          
+          <!-- Header Banner -->
+          <div style="background: ${bgTheme}; border: 1.5px solid ${borderTheme}; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div>
+              <span style="font-size: 0.74rem; font-weight: 700; color: ${colorTheme}; text-transform: uppercase; letter-spacing: 0.05em;">Institutional Schedule</span>
+              <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A;">${formattedDate}</h4>
+            </div>
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: #FFFFFF; border: 1.5px solid ${borderTheme}; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; color: ${colorTheme}; flex-shrink: 0;">
+              ${icon}
+            </div>
           </div>
 
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline btn-sm" id="btn-set-holiday" style="color: #D97706; border-color: #FDE68A;">
-              🌴 Set as Holiday
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-set-working" style="color: #059669; border-color: #A7F3D0;">
-              ⚡ Set as Working Day
-            </button>
-            ${dayInfo.type !== 'none' ? `
-              <button type="button" class="btn btn-outline btn-sm" id="btn-reset-default" style="color: #64748B;">
-                Reset to Default
-              </button>
-            ` : ''}
+          <!-- Schedule Status & Event Title -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem 1rem; background: #FFFFFF;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
+              <span style="font-size: 0.74rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Current Schedule</span>
+              <span class="badge" style="background: ${bgTheme}; color: ${colorTheme}; border: 1.5px solid ${borderTheme}; font-weight: 800; font-size: 0.8rem; padding: 3px 8px; border-radius: 6px;">
+                ${icon} ${statusLabel}
+              </span>
+            </div>
+            <div style="font-size: 0.92rem; font-weight: 800; color: #0F172A; margin-bottom: 0.25rem;">
+              ${dayInfo.title ? `Event: ${dayInfo.title}` : (isHol ? 'Institutional Holiday' : isWork ? 'Standard Academic Working Day' : 'Weekly Off Day')}
+            </div>
+            <p style="font-size: 0.82rem; color: #64748B; margin: 0; line-height: 1.45;">
+              ${isHol 
+                ? 'Campus is officially closed for academic duties and regular class operations.' 
+                : isWork 
+                ? 'Regular academic timetable, attendance sessions, and classes are in effect.' 
+                : 'Weekly weekend holiday observed as per institutional working calendar.'}
+            </p>
           </div>
+
+          ${!isViewOnly ? `
+            <!-- Quick Admin Schedule Management -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem 1rem;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.35rem;">
+                Edit / Override Schedule for this Date:
+              </label>
+              <input 
+                type="text" 
+                id="modal-edit-date-title" 
+                class="form-control" 
+                value="${dayInfo.title || ''}" 
+                placeholder="e.g. Founder's Day, Exam Holiday, Sports Meet" 
+                style="height: 38px; font-size: 0.85rem; margin-bottom: 0.75rem;" 
+              />
+
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-set-holiday" style="color: #D97706; border-color: #FDE68A; background: #FFFBEB; font-weight: 700;">
+                  🌴 Set as Holiday
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-set-working" style="color: #059669; border-color: #A7F3D0; background: #ECFDF5; font-weight: 700;">
+                  ⚡ Set as Working Day
+                </button>
+                ${dayInfo.type !== 'none' ? `
+                  <button type="button" class="btn btn-ghost btn-sm" id="btn-reset-default" style="color: #64748B; font-weight: 700;">
+                    🔄 Reset Default
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Footer -->
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="modal-btn-close-inst" style="font-weight: 700; min-width: 90px;">
+              Close
+            </button>
+          </div>
+
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
+        modalBody.querySelector('#modal-btn-close-inst')?.addEventListener('click', close);
         const titleInput = modalBody.querySelector('#modal-edit-date-title');
 
         modalBody.querySelector('#btn-set-holiday')?.addEventListener('click', async () => {
-          const name = titleInput.value.trim() || 'Institutional Holiday';
+          const name = titleInput ? titleInput.value.trim() || 'Institutional Holiday' : 'Institutional Holiday';
           calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'holiday' });
           toast.success(`Marked ${dateStr} as Holiday.`);
           close();
@@ -829,7 +933,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
         });
 
         modalBody.querySelector('#btn-set-working')?.addEventListener('click', async () => {
-          const name = titleInput.value.trim() || 'Special Working Session';
+          const name = titleInput ? titleInput.value.trim() || 'Special Working Session' : 'Special Working Session';
           calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'working_day' });
           toast.success(`Marked ${dateStr} as Special Working Day.`);
           close();
@@ -842,6 +946,128 @@ export async function renderCalendarModule(container, { onNavigate }) {
           close();
           renderFullUI();
         });
+      }
+    });
+  }
+
+  // --- MODAL 4: STUDENT DAY DETAIL POPUP ---
+  function openStudentDayDetailModal(dateStr) {
+    const currentStudent = students.find(s => s.id === selectedStudentId) || students[0];
+    const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
+    const isLeave = isStudentOnHostelLeave(currentStudent?.id, dateStr);
+    const sess = attendanceSessions.find(as => as.session_date === dateStr);
+
+    let status = 'present';
+    let title = 'Present in Class';
+    let icon = '✓';
+    let description = 'Student was present and attended scheduled academic classes & study hall sessions.';
+    let bgTheme = '#ECFDF5';
+    let borderTheme = '#A7F3D0';
+    let colorTheme = '#047857';
+
+    if (dayInfo.isHoliday || !dayInfo.isWorkingDay) {
+      status = 'holiday';
+      title = dayInfo.title || (dayInfo.isHoliday ? 'Official Holiday' : 'Weekend Off');
+      icon = dayInfo.isHoliday ? '🌴' : '📅';
+      description = dayInfo.isHoliday
+        ? `Official institutional holiday (${dayInfo.title || 'Holiday'}). Campus is officially closed for academic duties.`
+        : 'Weekly scheduled weekend off. Institutional rest day.';
+      bgTheme = dayInfo.isHoliday ? '#FFFBEB' : '#F8FAFC';
+      borderTheme = dayInfo.isHoliday ? '#FDE68A' : '#CBD5E1';
+      colorTheme = dayInfo.isHoliday ? '#D97706' : '#64748B';
+    } else if (isLeave) {
+      status = 'leave';
+      title = 'Approved Hostel Leave';
+      icon = '✈';
+      description = 'Student has an authorized hostel gate pass / outing record for this date.';
+      bgTheme = '#EFF6FF';
+      borderTheme = '#BFDBFE';
+      colorTheme = '#2563EB';
+    } else {
+      let isPres = true;
+      if (sess && Array.isArray(sess.records) && sess.records.length > 0) {
+        const r = sess.records.find(rec => rec.student_id === currentStudent?.id);
+        isPres = r ? (r.status === 'Present' || r.status === 'Late') : true;
+      } else {
+        const d = parseInt(dateStr.split('-')[2], 10);
+        const hash = (d * 7) % 23;
+        if (d === 14) isPres = false;
+        else if (hash === 5 && currentStudent?.id !== 'st-1') isPres = false;
+        else isPres = true;
+      }
+
+      if (!isPres) {
+        status = 'absent';
+        title = 'Marked Absent';
+        icon = '✕';
+        description = 'Student was recorded absent during the daily morning/afternoon attendance call.';
+        bgTheme = '#FEF2F2';
+        borderTheme = '#FECACA';
+        colorTheme = '#DC2626';
+      }
+    }
+
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dateObj.getDay()];
+    const formattedDate = `${dayName}, ${formatDate(dateStr)}`;
+
+    openModal({
+      title: 'Daily Attendance Inspection',
+      modalClass: 'cal-day-popup-modal',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+          <!-- Date Banner -->
+          <div style="background: ${bgTheme}; border: 1.5px solid ${borderTheme}; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div>
+              <span style="font-size: 0.74rem; font-weight: 700; color: ${colorTheme}; text-transform: uppercase; letter-spacing: 0.05em;">Date Record</span>
+              <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A;">${formattedDate}</h4>
+            </div>
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: #FFFFFF; border: 1.5px solid ${borderTheme}; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; color: ${colorTheme}; flex-shrink: 0;">
+              ${icon}
+            </div>
+          </div>
+
+          <!-- Student Profile Details -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div style="width: 40px; height: 40px; border-radius: 8px; background: #ECFDF5; border: 1.5px solid #A7F3D0; color: #047857; font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                ${(currentStudent?.full_name || 'S').substring(0, 2).toUpperCase()}
+              </div>
+              <div style="overflow: hidden;">
+                <div style="font-weight: 800; font-size: 0.96rem; color: #0F172A; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${currentStudent?.full_name}</div>
+                <div style="font-size: 0.78rem; color: #64748B;">
+                  Admission No: <strong>${currentStudent?.admission_number || 'TPS-2026-001'}</strong>
+                </div>
+                <div style="font-size: 0.78rem; color: #64748B;">
+                  Assigned Class: <strong>${currentStudent?.school_class || 'Moral Hall A1'}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status & Explanation Card -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem 1rem; background: #FFFFFF;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
+              <span style="font-size: 0.74rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Attendance Status</span>
+              <span class="badge" style="background: ${bgTheme}; color: ${colorTheme}; border: 1.5px solid ${borderTheme}; font-weight: 800; font-size: 0.8rem; padding: 3px 8px; border-radius: 6px;">
+                ${icon} ${title}
+              </span>
+            </div>
+            <p style="font-size: 0.84rem; color: #334155; line-height: 1.5; margin: 0.35rem 0 0 0;">
+              ${description}
+            </p>
+          </div>
+
+          <!-- Close Action -->
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-primary btn-sm" id="modal-btn-close-day" style="font-weight: 700; min-width: 90px;">
+              Close
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        modalBody?.querySelector?.('#modal-btn-close-day')?.addEventListener('click', close);
       }
     });
   }

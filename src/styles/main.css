@@ -6087,12 +6087,55 @@ body.tps-wheel-open {
 }
 
 /* ------------------------------------------------------------
-   VISUAL MONTHLY CALENDAR GRID & SCREENSHOT 3 COMPACT FILTER
+   VISUAL MONTHLY CALENDAR GRID & MOBILE RESPONSIVE OPTIMIZATION
    ------------------------------------------------------------ */
+.cal-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+}
+
 .cal-month-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   width: 100%;
+}
+
+.cal-dow-full {
+  display: inline;
+}
+
+.cal-dow-short {
+  display: none;
+}
+
+.cal-cell-desktop {
+  display: block;
+  width: 100%;
+}
+
+.cal-cell-mobile {
+  display: none;
+}
+
+.cal-day-box {
+  min-height: 82px;
+  padding: 0.45rem 0.5rem;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cal-inst-day-cell {
+  min-height: 90px;
+  padding: 0.5rem;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cal-pad-cell {
+  min-height: 80px;
+  padding: 0.5rem;
 }
 
 .cal-day-box:hover {
@@ -6103,25 +6146,122 @@ body.tps-wheel-open {
   filter: brightness(0.97);
 }
 
+/* Minimal Dots for Mobile UI */
+.cal-mobile-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.cal-mobile-dot.dot-present {
+  background-color: #10B981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.cal-mobile-dot.dot-absent {
+  background-color: #EF4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.cal-mobile-dot.dot-leave {
+  background-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.cal-mobile-dot.dot-holiday {
+  background-color: #F59E0B;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.cal-mobile-dot.dot-working {
+  background-color: #059669;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+}
+
+.cal-mobile-dot.dot-special-work {
+  background-color: #0D9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
+}
+
+.cal-mobile-dot.dot-off {
+  background-color: #CBD5E1;
+}
+
+.cal-mobile-day-num {
+  font-weight: 700;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.cal-mobile-day-num.today {
+  color: #059669 !important;
+  font-weight: 800 !important;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
 @media (max-width: 768px) {
-  .cal-month-grid {
+  .cal-metrics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .cal-dow-full {
+    display: none !important;
+  }
+
+  .cal-dow-short {
+    display: inline !important;
     font-size: 0.72rem;
   }
-  .cal-day-box {
-    min-height: 58px !important;
-    padding: 0.25rem 0.2rem !important;
+
+  .cal-cell-desktop {
+    display: none !important;
   }
-  .cal-day-box span.badge {
-    font-size: 0.58rem !important;
-    padding: 1px 2px !important;
+
+  .cal-cell-mobile {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
   }
+
+  .cal-day-box,
   .cal-inst-day-cell {
-    min-height: 60px !important;
-    padding: 0.3rem 0.25rem !important;
+    min-height: 48px !important;
+    height: 52px !important;
+    padding: 0.2rem 0.1rem !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
-  .cal-inst-day-cell .badge {
-    font-size: 0.58rem !important;
-    padding: 1px 3px !important;
+
+  .cal-pad-cell {
+    min-height: 48px !important;
+    height: 52px !important;
+    padding: 0.2rem 0.1rem !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cal-day-box:active,
+  .cal-inst-day-cell:active {
+    background-color: #E2E8F0 !important;
+    transform: scale(0.96);
+  }
+
+  .cal-day-popup-modal {
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem !important;
   }
 }
 

@@ -1533,5 +1533,77 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('Tue');
     expect(container.innerHTML).toContain('cal-month-grid');
     expect(container.innerHTML).toContain('cal-day-box');
+
+    // Mobile minimal layout & status dot indicators
+    expect(container.innerHTML).toContain('cal-cell-desktop');
+    expect(container.innerHTML).toContain('cal-cell-mobile');
+    expect(container.innerHTML).toContain('cal-mobile-dot');
+    expect(container.innerHTML).toContain('cal-dow-full');
+    expect(container.innerHTML).toContain('cal-dow-short');
+  });
+
+  it('Academic Calendar Mobile View: day box click triggers inspection popup modal with day details', async () => {
+    let appendedModal = null;
+    const originalDocument = global.document;
+    global.document = {
+      createElement: (tag) => {
+        const el = {
+          tagName: tag,
+          className: '',
+          innerHTML: '',
+          classList: { remove: () => {} },
+          querySelector: (sel) => ({
+            addEventListener: () => {},
+            querySelector: () => null,
+            querySelectorAll: () => []
+          }),
+          querySelectorAll: (sel) => [],
+          addEventListener: () => {},
+          remove: () => {}
+        };
+        return el;
+      },
+      body: {
+        appendChild: (el) => {
+          appendedModal = el;
+        }
+      }
+    };
+
+    try {
+      const dayBoxCallbacks = {};
+      const mockContainer = {
+        innerHTML: '',
+        querySelector: (selector) => null,
+        querySelectorAll: (selector) => {
+          if (selector === '.cal-day-box') {
+            return [
+              {
+                getAttribute: (attr) => attr === 'data-date' ? '2026-10-12' : null,
+                addEventListener: (event, cb) => {
+                  dayBoxCallbacks[event] = cb;
+                }
+              }
+            ];
+          }
+          return [];
+        }
+      };
+
+      await renderCalendarModule(mockContainer, { onNavigate: () => {} });
+
+      // Simulate click on calendar day box
+      expect(typeof dayBoxCallbacks['click']).toBe('function');
+      dayBoxCallbacks['click']();
+
+      // Verify modal overlay was injected into document.body
+      expect(appendedModal).toBeTruthy();
+      expect(appendedModal.className).toContain('modal-overlay');
+      expect(appendedModal.innerHTML).toContain('Daily Attendance Inspection');
+      expect(appendedModal.innerHTML).toContain('MD Aamir');
+      expect(appendedModal.innerHTML).toContain('2026');
+    } finally {
+      global.document = originalDocument;
+    }
   });
 });
