@@ -382,14 +382,22 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       updateVisuals();
     }
 
-    function updateVisuals() {
-      const itemEls = itemsListEl.querySelectorAll('.tps-wheel-item');
-      if (itemEls.length === 0) return;
+    function updateVisuals(notify = true) {
+      const allItemEls = itemsListEl.children;
+      if (allItemEls.length === 0) return;
+
+      const visibleEls = [];
+      for (let i = 0; i < allItemEls.length; i++) {
+        if (allItemEls[i].style.display !== 'none') {
+          visibleEls.push(allItemEls[i]);
+        }
+      }
+      if (visibleEls.length === 0) return;
 
       const scrollTop = colEl.scrollTop;
-      const activeIdx = Math.max(0, Math.min(itemEls.length - 1, Math.round(scrollTop / ITEM_HEIGHT)));
+      const activeIdx = Math.max(0, Math.min(visibleEls.length - 1, Math.round(scrollTop / ITEM_HEIGHT)));
 
-      itemEls.forEach((el, idx) => {
+      visibleEls.forEach((el, idx) => {
         const dist = Math.abs(idx - activeIdx);
         el.className = 'tps-wheel-item';
         if (dist === 0) {
@@ -403,14 +411,16 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
         }
       });
 
-      if (activeIdx !== currentIdx) {
+      if (notify && activeIdx !== currentIdx) {
         currentIdx = activeIdx;
         onIndexChanged(activeIdx);
       }
     }
 
     function scrollToIdx(idx, smooth = false) {
-      const maxIdx = getItems().length - 1;
+      const allItemEls = itemsListEl.children;
+      const visibleCount = Array.from(allItemEls).filter(el => el.style.display !== 'none').length || getItems().length;
+      const maxIdx = Math.max(0, visibleCount - 1);
       const targetIdx = Math.max(0, Math.min(maxIdx, idx));
       currentIdx = targetIdx;
       const targetScrollTop = targetIdx * ITEM_HEIGHT;
@@ -455,7 +465,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     // Tap on item to snap to center
     itemsListEl.addEventListener('click', (e) => {
       const itemEl = e.target.closest('.tps-wheel-item');
-      if (itemEl) {
+      if (itemEl && itemEl.style.display !== 'none') {
         const idx = parseInt(itemEl.getAttribute('data-index'), 10);
         if (!isNaN(idx)) {
           scrollToIdx(idx, true);
@@ -488,7 +498,9 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       isMouseDown = false;
       colEl.style.scrollSnapType = 'y mandatory';
       colEl.style.userSelect = '';
-      const maxIdx = getItems().length - 1;
+      const allItemEls = itemsListEl.children;
+      const visibleCount = Array.from(allItemEls).filter(el => el.style.display !== 'none').length || getItems().length;
+      const maxIdx = Math.max(0, visibleCount - 1);
       const nearestIdx = Math.max(0, Math.min(maxIdx, Math.round(colEl.scrollTop / ITEM_HEIGHT)));
       scrollToIdx(nearestIdx, true);
     };
@@ -503,24 +515,26 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     return {
       renderItems,
       scrollToIdx,
+      updateVisualsOnly: () => updateVisuals(false),
       getActiveIdx: () => {
-        const maxIdx = getItems().length - 1;
+        const allItemEls = itemsListEl.children;
+        const visibleCount = Array.from(allItemEls).filter(el => el.style.display !== 'none').length || getItems().length;
+        const maxIdx = Math.max(0, visibleCount - 1);
         return Math.max(0, Math.min(maxIdx, Math.round(colEl.scrollTop / ITEM_HEIGHT)));
       }
     };
   }
 
-  // 1. Day Column Controller (01 .. 31)
+  // 1. Day Column Controller (Pre-renders all 31 days once to prevent layout vibration)
+  const allDaysList = [];
+  for (let d = 1; d <= 31; d++) {
+    allDaysList.push(pad2(d));
+  }
+
   const dayController = setupWheelColumn({
     colEl: dayCol,
     itemsListEl: dayItemsList,
-    getItems: () => {
-      const days = [];
-      for (let d = 1; d <= curMaxDays; d++) {
-        days.push(pad2(d));
-      }
-      return days;
-    },
+    getItems: () => allDaysList,
     getIndex: () => curDay - 1,
     onIndexChanged: (newIdx) => {
       curDay = newIdx + 1;
@@ -553,12 +567,23 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
 
   function updateDaysForMonthYear() {
     const newMaxDays = getDaysInMonth(curYear, curMonth);
-    if (newMaxDays !== curMaxDays) {
-      curMaxDays = newMaxDays;
-      const savedDay = Math.min(curDay, curMaxDays);
-      curDay = savedDay;
-      dayController.renderItems();
-      dayController.scrollToIdx(savedDay - 1, false);
+    if (newMaxDays === curMaxDays) return;
+    curMaxDays = newMaxDays;
+
+    // Adjust days 29, 30, 31 display property without destroying DOM nodes
+    const dayEls = dayItemsList.children;
+    for (let i = 28; i < 31; i++) {
+      if (dayEls[i]) {
+        dayEls[i].style.display = (i < curMaxDays) ? 'flex' : 'none';
+      }
+    }
+
+    // Only if the current day exceeds the month length (e.g. was 31, changed to Feb)
+    if (curDay > curMaxDays) {
+      curDay = curMaxDays;
+      dayController.scrollToIdx(curDay - 1, true);
+    } else {
+      dayController.updateVisualsOnly();
     }
   }
 
@@ -566,6 +591,13 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
   dayController.renderItems();
   monthController.renderItems();
   yearController.renderItems();
+
+  const initialDayEls = dayItemsList.children;
+  for (let i = 28; i < 31; i++) {
+    if (initialDayEls[i]) {
+      initialDayEls[i].style.display = (i < curMaxDays) ? 'flex' : 'none';
+    }
+  }
 
   function applyInitialScrolls() {
     dayController.scrollToIdx(curDay - 1, false);

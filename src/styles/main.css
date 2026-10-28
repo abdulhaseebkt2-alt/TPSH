@@ -2800,32 +2800,29 @@ a {
   cursor: pointer;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  transition: color 0.12s ease, transform 0.12s ease, font-size 0.12s ease, opacity 0.12s ease;
+  transition: color 0.1s ease, opacity 0.1s ease;
 }
 
-/* Visual States */
+/* Visual States - Crisp typography without transform-scale vibration */
 .tps-wheel-item.state-center {
   font-size: 1.25rem;
   font-weight: 700;
   color: #0F172A;
   opacity: 1;
-  transform: scale(1.05);
 }
 
 .tps-wheel-item.state-near {
   font-size: 1.05rem;
   font-weight: 500;
   color: #64748B;
-  opacity: 0.9;
-  transform: scale(0.96);
+  opacity: 0.88;
 }
 
 .tps-wheel-item.state-far {
   font-size: 0.92rem;
   font-weight: 400;
   color: #94A3B8;
-  opacity: 0.7;
-  transform: scale(0.88);
+  opacity: 0.65;
 }
 
 .tps-wheel-item.state-hidden {
