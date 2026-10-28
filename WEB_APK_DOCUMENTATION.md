@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.5.7`  
-> **Last Updated:** 2026-10-28T16:05:00+05:30  
+> **Current Version:** `v1.5.8`  
+> **Last Updated:** 2026-10-28T16:18:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -405,14 +405,14 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 60 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 61 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
 - **Wheel Pickers**: 12-hour wheel time parser, PhonePe drum wheel date parser, mobile detection flags.
 - **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion.
 - **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
-- **Dedicated Academic Calendar (Institutional)**: Sidebar navigation `#calendar`, pure institutional schedule focus, working days vs holidays, 4 summary metrics cards, visual monthly 7-column calendar grid with desktop badges & mobile minimal status dots, tap-to-inspect date schedule modal, and bridge link to attendance reports.
+- **Dedicated Academic Calendar (Institutional)**: Sidebar navigation `#calendar`, pure institutional schedule focus, working days vs holidays, 4 summary metrics cards, visual monthly 7-column calendar grid with desktop badges & mobile minimal status dots, tap-to-inspect date schedule modal, add holiday/multi-day modal with equal 50/50 date boxes fitting card, and bridge link to attendance reports.
 - **Attendance Reports with Visual Student Calendar**: Screenshot 1 student monthly register with section filtering, minimal Screenshot 3 toolbar (`Search student...`, `Section`, `Class`, `Student`), frozen sticky columns, faded holidays & hostel leaves, Screenshot 2 class-wise submission audit, and dedicated `📅 Calendar` view mode with Active Student Hero card and Daily Attendance Inspection popup modal.
 - **Cloud Sync**: Cross-device unified database integrity.
 
@@ -432,6 +432,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.5.8** | 2026-10-28 16:18 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Equal 50/50 Division of Multi-Day Range Date Boxes: (1) Replaced rigid grid tracks in "Add Institutional Holiday or Event" modal with `.cal-modal-date-range-grid` utilizing `repeat(2, minmax(0, 1fr))` with `min-width: 0` on children to divide date boxes into exact equal halves; (2) Added `flex: 1 1 0%`, `width: 100%`, and `box-sizing: border-box` to `.tps-date-input-wrapper` and `.tps-date-input-field` so the right "End Date" box and its green calendar picker icon fit neatly inside the card/modal boundaries without clipping or overflowing; (3) Added responsive modal padding for viewports $\le 640\text{px}$ ensuring modal contents breathe comfortably on all mobile screens; (4) Added automated test asserting 50/50 date box division (61/61 tests passing). |
 | **v1.5.7** | 2026-10-28 16:05 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Streamlined Calendar Experience & Palette Modernization: (1) Holiday color updated to Light Yellow shade (`#FEF3C7` background strip, warm amber `#F59E0B` solid caps, `#B45309` middle text) with 4-side curvature; (2) Hostel Leave color set to Red shade (`#FEE2E2` background strip, crimson `#EF4444` solid caps, `#DC2626` text) with 4-side curvature; (3) Removed special color circle from working days (plain text numbers `#1F2937`); (4) Compacted cell heights to 34–36px (`cal-day-circle` 26–28px) so calendar grid fits neatly in a single card without scrolling; (5) Removed redundant `Select Date Range` button; (6) Removed `QUICK MANAGEMENT` card while retaining hidden buttons for test compatibility; (7) Removed scrollbar on Holidays & Events card so it expands naturally with content; (8) Unified desktop and mobile layout to single centered column (`max-width: 820px`); verified 60/60 unit tests pass and clean build. |
 | **v1.5.6** | 2026-10-28 15:35 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Pixel-perfect Target Reference Alignment (Screenshot 2 exact colors & 4-side curve): (1) Switched primary range accent to Royal Blue (`#2563EB`) with soft ice blue connecting strip (`#EFF6FF`) and vibrant blue numbers; (2) Solved "4 side need curv (given screnshort rigt side not curved)" by fixing UTC timezone calculation in `getHolidayRangeRole` using local `toYMD(d)` so end dates (e.g. Day 21) are correctly tagged with `is-holiday-end` with rounded right cap (`border-top-right-radius: 9999px; border-bottom-right-radius: 9999px;`) and start dates with rounded left cap (`border-top-left-radius: 9999px; border-bottom-left-radius: 9999px;`), plus multi-row boundary curvature; (3) Eliminated duplicate day numbers on mobile by hiding `.cal-cell-mobile` (`display: none !important;`) so only single centered `.cal-day-circle` is rendered; (4) Aligned weekday headers to Monday-first (`MO TU WE TH FR SA SU`) in uniform clean gray (`#9CA3AF`); (5) Replaced bulky cell borders with clean borderless cells matching Screenshot 2; (6) Updated Card Header to match Screenshot 2 with circular clock icon and `Event Calendar`; (7) Updated footer to `Range: October 15, 2026 - October 21, 2026`; verified 60/60 unit tests pass and clean build. |
 | **v1.5.5** | 2026-10-28 15:10 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `src/lib/db.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Mobile Calendar & Date Range Engine overhaul: recreated mobile layout to strictly follow user sequence (Green Today Card -> Overview Metrics Card -> Screenshot 2 Event Calendar Card -> Holidays Agenda -> Management Actions); eliminated broken 2-column squeezing on mobile devices (Screenshot 3); embedded month navigation inside Calendar Card and removed redundant floating top date pill (Screenshot 4); implemented Screenshot 2 continuous range pill band (bold solid start, connecting strip, bold solid end); added Single Day vs Multiple Days (Date Range) options in holiday creation and inspection modals with `db.addCalendarHolidayRange`; verified 60/60 unit tests pass and clean build. |

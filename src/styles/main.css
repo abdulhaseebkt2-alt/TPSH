@@ -1444,6 +1444,23 @@ a {
   flex: 1;
 }
 
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0.75rem;
+  }
+  .modal-dialog {
+    max-width: 100%;
+    margin: 0 auto;
+    border-radius: var(--radius-lg);
+  }
+  .modal-header {
+    padding: 0.9rem 1rem;
+  }
+  .modal-body {
+    padding: 1.1rem 1rem;
+  }
+}
+
 .modal-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border-subtle);
@@ -2276,17 +2293,23 @@ a {
   display: flex;
   align-items: center;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .tps-date-input-field {
   cursor: pointer;
   background-color: var(--bg-surface);
-  padding-right: 2.5rem !important;
+  padding-right: 2.2rem !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  box-sizing: border-box !important;
 }
 
 .tps-date-icon {
   position: absolute;
-  right: 0.85rem;
+  right: 0.75rem;
   color: var(--brand-primary);
   pointer-events: none;
   display: flex;
@@ -6727,5 +6750,46 @@ body.tps-wheel-open {
     max-width: calc(100vw - 2rem) !important;
     margin: 1rem !important;
   }
+}
+
+/* Multi-Day Range Date Input Grid (Equally divided 50/50 to fit card perfectly without clipping) */
+.cal-modal-date-range-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.65rem !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.cal-modal-date-range-grid > div {
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.cal-modal-date-range-grid .tps-date-input-wrapper {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.cal-modal-date-range-grid input.form-control,
+.cal-modal-date-range-grid .tps-date-input-field,
+.cal-modal-date-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  flex: 1 1 0% !important;
+  box-sizing: border-box !important;
+  height: 38px !important;
+  padding-left: 0.65rem !important;
+  padding-right: 2.1rem !important;
+  font-size: 0.82rem !important;
+  letter-spacing: -0.01em !important;
+}
+
+.cal-modal-date-range-grid .tps-date-icon {
+  right: 0.65rem !important;
 }
 

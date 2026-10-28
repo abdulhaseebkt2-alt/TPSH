@@ -682,24 +682,24 @@ export async function renderCalendarModule(container, { onNavigate }) {
           <form id="modal-form-add-holiday" style="display: flex; flex-direction: column; gap: 0.85rem;">
             
             <!-- Single Day Input Container -->
-            <div id="modal-single-day-box" style="display: ${isMultiDayMode ? 'none' : 'block'};">
+            <div id="modal-single-day-box" style="display: ${isMultiDayMode ? 'none' : 'block'}; width: 100%; box-sizing: border-box;">
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Date</label>
-              <input type="date" id="modal-holiday-date" class="form-control" value="${defaultDate}" style="height: 38px;" />
+              <input type="date" id="modal-holiday-date" class="form-control cal-modal-date-input" value="${defaultDate}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" />
             </div>
 
-            <!-- Multiple Days Inputs Container -->
-            <div id="modal-multi-day-box" style="display: ${isMultiDayMode ? 'block' : 'none'};">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem;">
-                <div>
-                  <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Start Date</label>
-                  <input type="date" id="modal-holiday-start-date" class="form-control" value="${defaultDate}" style="height: 38px;" />
+            <!-- Multiple Days Inputs Container (Equal 50/50 division to fit card) -->
+            <div id="modal-multi-day-box" style="display: ${isMultiDayMode ? 'block' : 'none'}; width: 100%; box-sizing: border-box;">
+              <div class="cal-modal-date-range-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; width: 100%; box-sizing: border-box;">
+                <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Start Date</label>
+                  <input type="date" id="modal-holiday-start-date" class="form-control cal-modal-date-input" value="${defaultDate}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" />
                 </div>
-                <div>
-                  <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">End Date</label>
-                  <input type="date" id="modal-holiday-end-date" class="form-control" value="${defaultEndDate}" style="height: 38px;" />
+                <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">End Date</label>
+                  <input type="date" id="modal-holiday-end-date" class="form-control cal-modal-date-input" value="${defaultEndDate}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" />
                 </div>
               </div>
-              <p style="font-size: 0.72rem; color: #64748B; margin: 0.35rem 0 0 0;">
+              <p style="font-size: 0.72rem; color: #64748B; margin: 0.35rem 0 0 0; line-height: 1.35;">
                 All consecutive dates between start and end will be highlighted as a continuous holiday block.
               </p>
             </div>

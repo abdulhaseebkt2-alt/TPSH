@@ -1636,6 +1636,64 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     }
   });
 
+  it('Academic Calendar Add Holiday Modal: divides date boxes equally to fit card (50/50 multi-day grid)', async () => {
+    let appendedModal = null;
+    const originalDocument = global.document;
+    global.document = {
+      createElement: (tag) => {
+        const el = {
+          tagName: tag,
+          className: '',
+          innerHTML: '',
+          classList: { remove: () => {} },
+          querySelector: (sel) => ({
+            addEventListener: () => {},
+            querySelector: () => null,
+            querySelectorAll: () => []
+          }),
+          querySelectorAll: (sel) => [],
+          addEventListener: () => {},
+          remove: () => {}
+        };
+        return el;
+      },
+      body: {
+        appendChild: (el) => {
+          appendedModal = el;
+        }
+      }
+    };
+
+    try {
+      const container = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#btn-add-cal-holiday') {
+            return {
+              addEventListener: (event, cb) => {
+                if (event === 'click') cb();
+              }
+            };
+          }
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+
+      await renderCalendarModule(container, { onNavigate: () => {} });
+
+      // Trigger add holiday modal
+      expect(appendedModal).toBeTruthy();
+      expect(appendedModal.innerHTML).toContain('Add Institutional Holiday or Event');
+      expect(appendedModal.innerHTML).toContain('cal-modal-date-range-grid');
+      expect(appendedModal.innerHTML).toContain('modal-holiday-start-date');
+      expect(appendedModal.innerHTML).toContain('modal-holiday-end-date');
+      expect(appendedModal.innerHTML).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    } finally {
+      global.document = originalDocument;
+    }
+  });
+
   it('Attendance Reports Student Calendar View: renders Screenshot 3 student filter toolbar and day box click triggers student inspection popup modal', async () => {
     let appendedModal = null;
     const originalDocument = global.document;
