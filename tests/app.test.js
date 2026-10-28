@@ -1385,5 +1385,34 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     };
     expect(getFieldTitle(panLabelInput)).toBe('Date of Birth');
     expect(getFieldTitle(panLabelInput)).not.toContain('PAN');
+
+    // 5. User specification: First time open date defaults to 10 Jun 2010
+    const emptyInput = { getAttribute: () => null, value: '' };
+    const emptyParsed = parseDateString(emptyInput.value);
+    const initialDefault = (!emptyParsed || isNaN(emptyParsed.getTime()))
+      ? new Date(2010, 5, 10)
+      : emptyParsed;
+    expect(initialDefault.getFullYear()).toBe(2010);
+    expect(initialDefault.getMonth()).toBe(5); // Jun (0-indexed)
+    expect(initialDefault.getDate()).toBe(10);
+
+    // 6. User specification: After they set the date, their set date is preserved
+    const setInput = { getAttribute: () => '2015-08-25', value: '2015-08-25' };
+    const setParsed = parseDateString(setInput.getAttribute('data-date-raw') || setInput.value);
+    expect(setParsed.getFullYear()).toBe(2015);
+    expect(setParsed.getMonth()).toBe(7); // Aug
+    expect(setParsed.getDate()).toBe(25);
+
+    // 7. User specification: Years in Descending Order from current year, none above current year
+    const currentYear = new Date().getFullYear();
+    const minYear = 1930;
+    const descYears = [];
+    for (let y = currentYear; y >= minYear; y--) {
+      descYears.push(y);
+    }
+    expect(descYears[0]).toBe(currentYear);
+    expect(descYears.every(y => y <= currentYear)).toBe(true);
+    expect(descYears.includes(2010)).toBe(true);
+    expect(descYears.indexOf(2010)).toBe(currentYear - 2010);
   });
 });

@@ -283,26 +283,22 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     selectedDate = parseDateString(initialDate);
   }
 
+  // User requirement: Default at first open is 10 Jun 2010
   if (!selectedDate || isNaN(selectedDate.getTime())) {
-    const isDob = title && title.toLowerCase().includes('birth');
-    if (isDob) {
-      const now = new Date();
-      selectedDate = new Date(now.getFullYear() - 15, 0, 1);
-    } else {
-      selectedDate = new Date();
-    }
+    selectedDate = new Date(2010, 5, 10);
   }
 
-  const START_YEAR = 1920;
-  const END_YEAR = 2050;
+  // Descending order from CURRENT_YEAR down to 1930 (no years above current year)
+  const CURRENT_YEAR = new Date().getFullYear();
+  const MIN_YEAR = 1930;
   const yearsList = [];
-  for (let y = START_YEAR; y <= END_YEAR; y++) {
+  for (let y = CURRENT_YEAR; y >= MIN_YEAR; y--) {
     yearsList.push(y);
   }
 
   let curYear = selectedDate.getFullYear();
-  if (curYear < START_YEAR) curYear = START_YEAR;
-  if (curYear > END_YEAR) curYear = END_YEAR;
+  if (curYear > CURRENT_YEAR) curYear = CURRENT_YEAR;
+  if (curYear < MIN_YEAR) curYear = MIN_YEAR;
 
   let curMonth = selectedDate.getMonth();
   let curMaxDays = getDaysInMonth(curYear, curMonth);
@@ -341,7 +337,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
           <div class="tps-wheel-spacer"></div>
         </div>
 
-        <!-- Column 3: YEAR (1920 .. 2050) -->
+        <!-- Column 3: YEAR (Descending from current year down to 1930) -->
         <div class="tps-wheel-col col-year" id="tps-wheel-col-year" data-wheel="year" tabindex="0">
           <div class="tps-wheel-spacer"></div>
           <div class="tps-wheel-items" id="tps-wheel-items-year"></div>
@@ -417,11 +413,31 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       const maxIdx = getItems().length - 1;
       const targetIdx = Math.max(0, Math.min(maxIdx, idx));
       currentIdx = targetIdx;
-      colEl.scrollTo({
-        top: targetIdx * ITEM_HEIGHT,
-        behavior: smooth ? 'smooth' : 'auto'
-      });
-      setTimeout(updateVisuals, smooth ? 140 : 10);
+      const targetScrollTop = targetIdx * ITEM_HEIGHT;
+
+      // Temporarily disable scrollSnapType so browser doesn't force-snap to 0 during programmatic positioning
+      colEl.style.scrollSnapType = 'none';
+      colEl.scrollTop = targetScrollTop;
+
+      if (smooth) {
+        colEl.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        });
+      } else {
+        colEl.scrollTo({
+          top: targetScrollTop,
+          behavior: 'auto'
+        });
+      }
+
+      updateVisuals();
+
+      // Restore scrollSnapType after layout settles
+      setTimeout(() => {
+        colEl.style.scrollSnapType = 'y mandatory';
+        updateVisuals();
+      }, smooth ? 200 : 40);
     }
 
     // Scroll listener with RAF throttle
@@ -494,7 +510,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     };
   }
 
-  // 1. Day Column Controller
+  // 1. Day Column Controller (01 .. 31)
   const dayController = setupWheelColumn({
     colEl: dayCol,
     itemsListEl: dayItemsList,
@@ -511,7 +527,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     }
   });
 
-  // 2. Month Column Controller
+  // 2. Month Column Controller (Jan .. Dec)
   const monthController = setupWheelColumn({
     colEl: monthCol,
     itemsListEl: monthItemsList,
@@ -523,14 +539,14 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     }
   });
 
-  // 3. Year Column Controller
+  // 3. Year Column Controller (Descending Order: index 0 is CURRENT_YEAR, index (CURRENT_YEAR - curYear) is curYear)
   const yearController = setupWheelColumn({
     colEl: yearCol,
     itemsListEl: yearItemsList,
     getItems: () => yearsList,
-    getIndex: () => curYear - START_YEAR,
+    getIndex: () => CURRENT_YEAR - curYear,
     onIndexChanged: (newIdx) => {
-      curYear = START_YEAR + newIdx;
+      curYear = CURRENT_YEAR - newIdx;
       updateDaysForMonthYear();
     }
   });
@@ -554,15 +570,21 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
   function applyInitialScrolls() {
     dayController.scrollToIdx(curDay - 1, false);
     monthController.scrollToIdx(curMonth, false);
-    yearController.scrollToIdx(curYear - START_YEAR, false);
+    yearController.scrollToIdx(CURRENT_YEAR - curYear, false);
   }
 
-  // Position immediately and after CSS scale / layout completes
+  // Position immediately and across animation intervals to ensure layout completion
   applyInitialScrolls();
   safeRAF(applyInitialScrolls);
-  setTimeout(applyInitialScrolls, 50);
-  setTimeout(applyInitialScrolls, 150);
-  setTimeout(applyInitialScrolls, 300);
+  setTimeout(applyInitialScrolls, 40);
+  setTimeout(applyInitialScrolls, 120);
+  setTimeout(applyInitialScrolls, 250);
+  setTimeout(applyInitialScrolls, 400);
+
+  const dialogEl = backdrop.querySelector('.tps-wheel-dialog');
+  if (dialogEl) {
+    dialogEl.addEventListener('animationend', applyInitialScrolls, { once: true });
+  }
 
   // Footer Buttons Listeners
   backdrop.querySelector('#tps-wheel-done-btn').addEventListener('click', (e) => {
@@ -573,7 +595,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
 
     const finalDay = activeDayIdx + 1;
     const finalMonth = activeMonthIdx;
-    const finalYear = START_YEAR + activeYearIdx;
+    const finalYear = CURRENT_YEAR - activeYearIdx;
 
     const finalDate = new Date(finalYear, finalMonth, finalDay);
     if (onSelect) {
@@ -601,15 +623,13 @@ export function showMobileDatePickerModal(input) {
   const parsed = parseDateString(initialDateStr);
   const title = getFieldTitle(input);
 
-  let initialDate = parsed;
-  if (!initialDate || isNaN(initialDate.getTime())) {
-    const isDob = title && title.toLowerCase().includes('birth');
-    if (isDob) {
-      const now = new Date();
-      initialDate = new Date(now.getFullYear() - 15, 0, 1);
-    } else {
-      initialDate = new Date();
-    }
+  let initialDate;
+  if (parsed && !isNaN(parsed.getTime())) {
+    // If a date is already set, open at their set date!
+    initialDate = parsed;
+  } else {
+    // User requirement: First time open (empty/unset date) defaults to 10 Jun 2010
+    initialDate = new Date(2010, 5, 10);
   }
 
   openMobileWheelPicker({
