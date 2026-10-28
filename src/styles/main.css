@@ -2647,6 +2647,249 @@ a {
   text-decoration: underline !important;
 }
 
+/* ============================================================
+   MOBILE PHONEPE 3-COLUMN DRUM / WHEEL ROLLER DATE PICKER MODAL
+   ============================================================ */
+.tps-wheel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  animation: tps-wheel-fade 0.18s ease-out;
+}
+
+@keyframes tps-wheel-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tps-wheel-dialog {
+  background: #FFFFFF;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  animation: tps-wheel-scale 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes tps-wheel-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.tps-wheel-header {
+  padding: 1.35rem 1.4rem 0.65rem 1.4rem;
+}
+
+.tps-wheel-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* Wheel Container (5 visible rows of 42px each = 210px) */
+.tps-wheel-container {
+  position: relative;
+  height: 210px;
+  display: flex;
+  background: #FFFFFF;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Gradient Fade Masks Top and Bottom */
+.tps-wheel-gradient-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: linear-gradient(to bottom, #FFFFFF 15%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.tps-wheel-gradient-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: linear-gradient(to top, #FFFFFF 15%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* The 2 Horizontal Divider Lines Framing Center Selection Row (at top: 84px, height: 42px) */
+.tps-wheel-selection-frame {
+  position: absolute;
+  top: 84px;
+  left: 0;
+  right: 0;
+  height: 42px;
+  display: flex;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tps-wheel-frame-col {
+  height: 100%;
+  border-top: 1px solid #E2E8F0;
+  border-bottom: 1px solid #E2E8F0;
+  margin: 0 10px;
+}
+
+.tps-wheel-frame-col.col-day {
+  flex: 0 0 28%;
+}
+
+.tps-wheel-frame-col.col-month {
+  flex: 0 0 36%;
+}
+
+.tps-wheel-frame-col.col-year {
+  flex: 0 0 36%;
+}
+
+/* Individual Scrollable Columns */
+.tps-wheel-col {
+  height: 100%;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 2;
+  outline: none;
+}
+
+.tps-wheel-col::-webkit-scrollbar {
+  display: none;
+}
+
+.tps-wheel-col.col-day {
+  flex: 0 0 28%;
+}
+
+.tps-wheel-col.col-month {
+  flex: 0 0 36%;
+}
+
+.tps-wheel-col.col-year {
+  flex: 0 0 36%;
+}
+
+.tps-wheel-spacer {
+  height: 84px;
+  flex-shrink: 0;
+}
+
+.tps-wheel-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.tps-wheel-item {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  cursor: pointer;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.12s ease, transform 0.12s ease, font-size 0.12s ease;
+}
+
+/* Visual States */
+.tps-wheel-item.state-center {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0F172A;
+  transform: scale(1.05);
+}
+
+.tps-wheel-item.state-near {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #94A3B8;
+  transform: scale(0.96);
+}
+
+.tps-wheel-item.state-far {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #CBD5E1;
+  transform: scale(0.88);
+}
+
+.tps-wheel-item.state-hidden {
+  opacity: 0.15;
+  font-size: 0.85rem;
+  color: #E2E8F0;
+}
+
+/* Footer Action Buttons (PhonePe Purple Theme) */
+.tps-wheel-footer {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #F1F5F9;
+  height: 52px;
+  background: #FFFFFF;
+}
+
+.tps-wheel-btn {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #5F259F;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: rgba(95, 37, 159, 0.1);
+}
+
+.tps-wheel-btn:active {
+  background-color: #F8F5FC;
+}
+
+.tps-wheel-btn-divider {
+  width: 1px;
+  height: 60%;
+  background-color: #E2E8F0;
+}
+
+body.tps-wheel-open {
+  overflow: hidden;
+}
+
 /* ------------------------------------------------------------
    INSTITUTIONAL DROPDOWN PATTERN (IMAGE 2 SPECIFICATION)
    ------------------------------------------------------------ */

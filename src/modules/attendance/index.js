@@ -4,6 +4,7 @@ import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
 import { formatTime, normalizeClassPattern, formatDaysSingleLetters } from '../../lib/utils.js';
+import { openMobileWheelPicker, formatDateYMD } from '../../components/date-picker.js';
 
 function parseMinutes(timeStr) {
   if (!timeStr) return 0;
@@ -210,7 +211,7 @@ export async function renderAttendanceModule(container, { onNavigate }) {
             <h2 class="att-class-title">${activeCls?.name || 'Classroom Session'}</h2>
             <div class="att-class-sub">${activeProg?.name || 'Class Session'}</div>
           </div>
-          <div class="att-card-date-badge">
+          <div class="att-card-date-badge" id="att-date-badge-trigger" style="cursor: pointer;" title="Tap to select session date">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span>${sessionDate}</span>
           </div>
@@ -512,6 +513,18 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       await db.unlockAttendanceWindow(activeClassroomId, sessionDate);
       toast.success('Unlocked late attendance window. Faculty can now record attendance.');
       renderFullUI();
+    });
+
+    // Date badge picker trigger
+    container.querySelector('#att-date-badge-trigger')?.addEventListener('click', () => {
+      openMobileWheelPicker({
+        initialDate: sessionDate,
+        title: 'Attendance Date',
+        onSelect: (selectedDate) => {
+          sessionDate = formatDateYMD(selectedDate);
+          renderFullUI();
+        }
+      });
     });
 
     // View Reports

@@ -1,13 +1,14 @@
 /**
  * TPS Hostel ERP — Custom Institutional Date Picker
- * Pixel-perfect implementation matching user-provided "Select Date" pattern:
- * - Bold "Select Date" header
- * - 3D Emerald Institutional Calendar day-badge on top-right with binder tabs
- * - Side-by-side Month & Year pill dropdown triggers
- * - Sunday-first weekday row with accented SUN
- * - 2-digit days grid (01..31) with accented Sunday column & today underline
- * - Centered prominent emerald Confirm button
- * - Instant 1-step Year & Month jumping
+ * Dual-Mode Intelligent Date Picker:
+ * 1. Mobile UI: Pixel-perfect PhonePe 3-column Drum / Wheel Roller Modal Dialog
+ *    - Centered white rounded modal dialog with dimmed backdrop
+ *    - Contextual header ("Date of Birth (as per PAN)", "Admission Date", etc.)
+ *    - 3-column scrollable drum/wheel picker (Day, Month, Year)
+ *    - 5 visible rows with optical scaling, center selected item in bold black
+ *    - Two horizontal divider lines framing the active center slot
+ *    - Bottom full-width border with CANCEL and DONE action buttons in PhonePe purple (#5F259F)
+ * 2. Desktop UI: Emerald Institutional Calendar with 3D day-badge and month/year jumps
  */
 
 const MONTH_NAMES = [
@@ -20,8 +21,31 @@ const SHORT_MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
+const safeRAF = typeof requestAnimationFrame !== 'undefined'
+  ? requestAnimationFrame
+  : (typeof window !== 'undefined' && window.requestAnimationFrame ? window.requestAnimationFrame : (fn) => setTimeout(fn, 16));
+
 let activePopup = null;
 let activeCleanup = null;
+
+export function isMobileDatePicker() {
+  if (typeof window === 'undefined') return false;
+  if (window.__TPS_FORCE_MOBILE_PICKER__ === true) return true;
+  if (window.__TPS_FORCE_DESKTOP_PICKER__ === true) return false;
+
+  const isSmallScreen = window.innerWidth <= 768;
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+
+  return isSmallScreen || isTouch || isMobileUA;
+}
+
+if (typeof window !== 'undefined') {
+  window.isMobileDatePicker = isMobileDatePicker;
+  window.setMobileDatePickerForce = (force) => {
+    window.__TPS_FORCE_MOBILE_PICKER__ = force;
+  };
+}
 
 export function closeActiveDatePicker() {
   if (activePopup) {
@@ -32,16 +56,44 @@ export function closeActiveDatePicker() {
     activeCleanup();
     activeCleanup = null;
   }
+  if (typeof document !== 'undefined') {
+    document.body.classList.remove('tps-wheel-open');
+  }
 }
 
-// Global click outside listener
+// Global click outside listener for desktop popups
 if (typeof window !== 'undefined') {
   document.addEventListener('click', (e) => {
     if (!activePopup) return;
+    // Mobile modal backdrop handles its own dismiss
+    if (activePopup.classList && activePopup.classList.contains('tps-wheel-backdrop')) {
+      return;
+    }
     if (activePopup.contains(e.target)) return;
     if (e.target.closest && e.target.closest('.tps-date-picker-trigger')) return;
     closeActiveDatePicker();
   });
+
+  // Global capture click listener to intercept any date input on mobile
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!target) return;
+    const trigger = target.closest ? target.closest('.tps-date-picker-trigger, input[type="date"], input[data-datepicker], .tps-date-input-field') : null;
+    if (trigger) {
+      const dateInput = trigger.tagName === 'INPUT' ? trigger : trigger.querySelector('input');
+      if (dateInput) {
+        if (!dateInput.hasAttribute('data-tps-datepicker')) {
+          enhanceDateInput(dateInput);
+        }
+        if (isMobileDatePicker()) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeActiveDatePicker();
+          showMobileDatePickerModal(dateInput);
+        }
+      }
+    }
+  }, true);
 }
 
 export function enhanceDateInput(input) {
@@ -56,18 +108,20 @@ export function enhanceDateInput(input) {
   input.readOnly = true;
   input.classList.add('tps-date-input-field');
 
-  // Format initial date value as DD.MMM.YYYY
+  // Format initial date value
   if (input.value) {
     const parsed = parseDateString(input.value);
     if (parsed) {
-      input.value = formatDateCustom(parsed);
+      input.value = formatDateYMD(parsed);
+      input.setAttribute('data-date-raw', formatDateYMD(parsed));
+      input.setAttribute('data-date-formatted', formatDateCustom(parsed));
     }
   }
 
   let wrapper = input.parentElement;
   if (!wrapper || !wrapper.classList.contains('tps-date-input-wrapper')) {
     wrapper = document.createElement('div');
-    wrapper.className = 'tps-date-input-wrapper';
+    wrapper.className = 'tps-date-input-wrapper tps-date-picker-trigger';
     input.parentNode.insertBefore(wrapper, input);
     wrapper.appendChild(input);
 
@@ -82,9 +136,10 @@ export function enhanceDateInput(input) {
       </svg>
     `;
     wrapper.appendChild(calIcon);
+  } else {
+    wrapper.classList.add('tps-date-picker-trigger');
   }
 
-  wrapper.classList.add('tps-date-picker-trigger');
   wrapper.style.cursor = 'pointer';
 
   let lastToggleTime = 0;
@@ -105,7 +160,12 @@ export function enhanceDateInput(input) {
     }
 
     closeActiveDatePicker();
-    showDatePickerPopup(input, wrapper);
+
+    if (isMobileDatePicker() || input.dataset.picker === 'wheel') {
+      showMobileDatePickerModal(input);
+    } else {
+      showDatePickerPopup(input, wrapper);
+    }
   }
 
   wrapper.addEventListener('click', togglePicker);
@@ -124,6 +184,359 @@ function pad2(num) {
   return String(num).padStart(2, '0');
 }
 
+function applyDateToInput(input, dateInput) {
+  let dateObj = dateInput;
+  if (typeof dateInput === 'string') {
+    dateObj = parseDateString(dateInput) || new Date();
+  }
+  const ymd = formatDateYMD(dateObj);
+  const formatted = formatDateCustom(dateObj);
+  input.value = ymd;
+  input.setAttribute('data-date-raw', ymd);
+  input.setAttribute('data-date-formatted', formatted);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  closeActiveDatePicker();
+}
+
+function getFieldTitle(input) {
+  if (input.dataset && input.dataset.title) return input.dataset.title;
+  if (input.getAttribute('data-title')) return input.getAttribute('data-title');
+
+  const id = (input.id || '').toLowerCase();
+  let labelText = '';
+
+  if (input.id) {
+    const labelEl = document.querySelector(`label[for="${input.id}"]`);
+    if (labelEl && labelEl.textContent.trim()) {
+      labelText = labelEl.textContent.replace(/[*:]/g, '').trim();
+    }
+  }
+
+  if (!labelText && input.closest) {
+    const formGroup = input.closest('.form-group, .input-group, .form-field');
+    if (formGroup) {
+      const labelEl = formGroup.querySelector('label');
+      if (labelEl && labelEl.textContent.trim()) {
+        labelText = labelEl.textContent.replace(/[*:]/g, '').trim();
+      }
+    }
+  }
+
+  if (!labelText && input.placeholder && input.placeholder.trim()) {
+    labelText = input.placeholder.trim();
+  }
+
+  const isDob = id.includes('dob') || id.includes('birth') || (labelText && labelText.toLowerCase().includes('birth'));
+  if (isDob) {
+    return 'Date of Birth (as per PAN)';
+  }
+
+  return labelText || 'Select Date';
+}
+
+function getDaysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+// ============================================================
+// MOBILE PHONEPE 3-COLUMN DRUM / WHEEL ROLLER PICKER MODAL
+// ============================================================
+export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSelect, onCancel }) {
+  closeActiveDatePicker();
+
+  const selectedDate = (initialDate instanceof Date && !isNaN(initialDate.getTime()))
+    ? initialDate
+    : (parseDateString(initialDate) || new Date());
+
+  const START_YEAR = 1920;
+  const END_YEAR = 2050;
+  const yearsList = [];
+  for (let y = START_YEAR; y <= END_YEAR; y++) {
+    yearsList.push(y);
+  }
+
+  let curYear = selectedDate.getFullYear();
+  if (curYear < START_YEAR) curYear = START_YEAR;
+  if (curYear > END_YEAR) curYear = END_YEAR;
+
+  let curMonth = selectedDate.getMonth();
+  let curMaxDays = getDaysInMonth(curYear, curMonth);
+  let curDay = Math.min(selectedDate.getDate(), curMaxDays);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'tps-wheel-backdrop';
+  backdrop.id = 'tps-mobile-wheel-modal';
+
+  backdrop.innerHTML = `
+    <div class="tps-wheel-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+      <div class="tps-wheel-header">
+        <h3 class="tps-wheel-title">${escapeHtml(title)}</h3>
+      </div>
+
+      <div class="tps-wheel-container">
+        <!-- Top and Bottom Gradient Fade Masks -->
+        <div class="tps-wheel-gradient-top"></div>
+        <div class="tps-wheel-gradient-bottom"></div>
+
+        <!-- 2 Horizontal Divider Lines Framing Center Selection Row -->
+        <div class="tps-wheel-selection-frame" aria-hidden="true">
+          <div class="tps-wheel-frame-col col-day"></div>
+          <div class="tps-wheel-frame-col col-month"></div>
+          <div class="tps-wheel-frame-col col-year"></div>
+        </div>
+
+        <!-- Column 1: DAY (01 .. 31) -->
+        <div class="tps-wheel-col col-day" data-wheel="day" tabindex="0">
+          <div class="tps-wheel-spacer"></div>
+          <div class="tps-wheel-items" data-items="day"></div>
+          <div class="tps-wheel-spacer"></div>
+        </div>
+
+        <!-- Column 2: MONTH (Jan .. Dec) -->
+        <div class="tps-wheel-col col-month" data-wheel="month" tabindex="0">
+          <div class="tps-wheel-spacer"></div>
+          <div class="tps-wheel-items" data-items="month"></div>
+          <div class="tps-wheel-spacer"></div>
+        </div>
+
+        <!-- Column 3: YEAR (1920 .. 2050) -->
+        <div class="tps-wheel-col col-year" data-wheel="year" tabindex="0">
+          <div class="tps-wheel-spacer"></div>
+          <div class="tps-wheel-items" data-items="year"></div>
+          <div class="tps-wheel-spacer"></div>
+        </div>
+      </div>
+
+      <div class="tps-wheel-footer">
+        <button type="button" class="tps-wheel-btn btn-cancel" id="tps-wheel-cancel-btn">CANCEL</button>
+        <div class="tps-wheel-btn-divider"></div>
+        <button type="button" class="tps-wheel-btn btn-done" id="tps-wheel-done-btn">DONE</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+  document.body.classList.add('tps-wheel-open');
+  activePopup = backdrop;
+
+  const dayCol = backdrop.querySelector('.col-day');
+  const dayItemsList = backdrop.querySelector('[data-items="day"]');
+  const monthCol = backdrop.querySelector('.col-month');
+  const monthItemsList = backdrop.querySelector('[data-items="month"]');
+  const yearCol = backdrop.querySelector('.col-year');
+  const yearItemsList = backdrop.querySelector('[data-items="year"]');
+
+  const ITEM_HEIGHT = 42;
+
+  function setupWheelColumn({ colEl, itemsListEl, getItems, getIndex, onIndexChanged }) {
+    let currentIdx = getIndex();
+
+    function renderItems() {
+      const items = getItems();
+      itemsListEl.innerHTML = items.map((val, idx) => `
+        <div class="tps-wheel-item" data-index="${idx}">${val}</div>
+      `).join('');
+      updateVisuals();
+    }
+
+    function updateVisuals() {
+      const itemEls = itemsListEl.querySelectorAll('.tps-wheel-item');
+      if (itemEls.length === 0) return;
+
+      const scrollTop = colEl.scrollTop;
+      const activeIdx = Math.max(0, Math.min(itemEls.length - 1, Math.round(scrollTop / ITEM_HEIGHT)));
+
+      itemEls.forEach((el, idx) => {
+        const dist = Math.abs(idx - activeIdx);
+        el.className = 'tps-wheel-item';
+        if (dist === 0) {
+          el.classList.add('state-center');
+        } else if (dist === 1) {
+          el.classList.add('state-near');
+        } else if (dist === 2) {
+          el.classList.add('state-far');
+        } else {
+          el.classList.add('state-hidden');
+        }
+      });
+
+      if (activeIdx !== currentIdx) {
+        currentIdx = activeIdx;
+        onIndexChanged(activeIdx);
+      }
+    }
+
+    function scrollToIdx(idx, smooth = false) {
+      const maxIdx = getItems().length - 1;
+      const targetIdx = Math.max(0, Math.min(maxIdx, idx));
+      currentIdx = targetIdx;
+      colEl.scrollTo({
+        top: targetIdx * ITEM_HEIGHT,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+      setTimeout(updateVisuals, smooth ? 120 : 10);
+    }
+
+    // Scroll listener with RAF throttle
+    let ticking = false;
+    colEl.addEventListener('scroll', () => {
+      if (!ticking) {
+        safeRAF(() => {
+          updateVisuals();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    });
+
+    // Tap on item to snap to center
+    itemsListEl.addEventListener('click', (e) => {
+      const itemEl = e.target.closest('.tps-wheel-item');
+      if (itemEl) {
+        const idx = parseInt(itemEl.getAttribute('data-index'), 10);
+        if (!isNaN(idx)) {
+          scrollToIdx(idx, true);
+        }
+      }
+    });
+
+    // Mouse drag support for desktop browsers testing mobile
+    let isMouseDown = false;
+    let startY = 0;
+    let startScroll = 0;
+
+    colEl.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      startY = e.clientY;
+      startScroll = colEl.scrollTop;
+      colEl.style.scrollSnapType = 'none';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+      const deltaY = e.clientY - startY;
+      colEl.scrollTop = startScroll - deltaY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+      colEl.style.scrollSnapType = 'y mandatory';
+      const nearestIdx = Math.round(colEl.scrollTop / ITEM_HEIGHT);
+      scrollToIdx(nearestIdx, true);
+    });
+
+    return {
+      renderItems,
+      scrollToIdx,
+      getCurrentIdx: () => currentIdx
+    };
+  }
+
+  // 1. Day Column Controller
+  const dayController = setupWheelColumn({
+    colEl: dayCol,
+    itemsListEl: dayItemsList,
+    getItems: () => {
+      const days = [];
+      for (let d = 1; d <= curMaxDays; d++) {
+        days.push(pad2(d));
+      }
+      return days;
+    },
+    getIndex: () => curDay - 1,
+    onIndexChanged: (newIdx) => {
+      curDay = newIdx + 1;
+    }
+  });
+
+  // 2. Month Column Controller
+  const monthController = setupWheelColumn({
+    colEl: monthCol,
+    itemsListEl: monthItemsList,
+    getItems: () => SHORT_MONTHS,
+    getIndex: () => curMonth,
+    onIndexChanged: (newIdx) => {
+      curMonth = newIdx;
+      updateDaysForMonthYear();
+    }
+  });
+
+  // 3. Year Column Controller
+  const yearController = setupWheelColumn({
+    colEl: yearCol,
+    itemsListEl: yearItemsList,
+    getItems: () => yearsList,
+    getIndex: () => curYear - START_YEAR,
+    onIndexChanged: (newIdx) => {
+      curYear = START_YEAR + newIdx;
+      updateDaysForMonthYear();
+    }
+  });
+
+  function updateDaysForMonthYear() {
+    curMaxDays = getDaysInMonth(curYear, curMonth);
+    dayController.renderItems();
+    if (curDay > curMaxDays) {
+      curDay = curMaxDays;
+      dayController.scrollToIdx(curDay - 1, true);
+    }
+  }
+
+  // Initial render
+  dayController.renderItems();
+  monthController.renderItems();
+  yearController.renderItems();
+
+  // Scroll to initial selected position
+  safeRAF(() => {
+    dayController.scrollToIdx(curDay - 1, false);
+    monthController.scrollToIdx(curMonth, false);
+    yearController.scrollToIdx(curYear - START_YEAR, false);
+  });
+
+  // Footer Buttons Listeners
+  backdrop.querySelector('#tps-wheel-done-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const finalDate = new Date(curYear, curMonth, curDay);
+    if (onSelect) {
+      onSelect(finalDate);
+    }
+    closeActiveDatePicker();
+  });
+
+  backdrop.querySelector('#tps-wheel-cancel-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (onCancel) onCancel();
+    closeActiveDatePicker();
+  });
+
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) {
+      if (onCancel) onCancel();
+      closeActiveDatePicker();
+    }
+  });
+}
+
+export function showMobileDatePickerModal(input) {
+  const initialDateStr = input.getAttribute('data-date-raw') || input.value || '';
+  const initialDate = parseDateString(initialDateStr) || new Date();
+  const title = getFieldTitle(input);
+
+  openMobileWheelPicker({
+    initialDate,
+    title,
+    onSelect: (selectedDate) => {
+      applyDateToInput(input, selectedDate);
+    }
+  });
+}
+
+// ============================================================
+// DESKTOP INSTITUTIONAL CALENDAR POPUP
+// ============================================================
 function showDatePickerPopup(input, anchorEl) {
   const initialDateStr = input.value ? input.value.trim() : '';
   let selectedDate = parseDateString(initialDateStr) || new Date();
@@ -147,137 +560,154 @@ function showDatePickerPopup(input, anchorEl) {
     }
   }
 
-  // 1. DAYS VIEW (Exact Reference Pattern)
+  // 1. DAYS VIEW
   function renderDaysView() {
-    const today = new Date();
-    const todayStr = formatDateYMD(today);
-    const selectedStr = formatDateYMD(selectedDate);
+    const daysInMonth = getDaysInMonth(viewYear, viewMonth);
+    const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
+    const prevMonthDays = getDaysInMonth(viewYear, viewMonth - 1);
 
-    // Sunday-based start index (0 = Sun, 1 = Mon ... 6 = Sat)
-    const startOffset = new Date(viewYear, viewMonth, 1).getDay();
-
-    const daysInCurrentMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+    const now = new Date();
+    const isCurrentMonth = now.getFullYear() === viewYear && now.getMonth() === viewMonth;
+    const todayDate = now.getDate();
 
     let daysHtml = '';
 
-    // Overflow days from previous month
-    for (let i = startOffset - 1; i >= 0; i--) {
-      const d = daysInPrevMonth - i;
-      const prevDate = new Date(viewYear, viewMonth - 1, d);
-      const prevDateStr = formatDateYMD(prevDate);
+    // Prev month trailing days
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const d = prevMonthDays - i;
       daysHtml += `
-        <div class="tps-cal-day other-month" data-date="${prevDateStr}">${pad2(d)}</div>
-      `;
-    }
-
-    // Days in current month
-    for (let day = 1; day <= daysInCurrentMonth; day++) {
-      const curDate = new Date(viewYear, viewMonth, day);
-      const curDateStr = formatDateYMD(curDate);
-      const isSunday = curDate.getDay() === 0;
-      const isSelected = curDateStr === selectedStr;
-      const isToday = curDateStr === todayStr;
-
-      daysHtml += `
-        <div class="tps-cal-day current-month ${isSunday ? 'col-sun' : ''} ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}" data-date="${curDateStr}">
-          <span>${pad2(day)}</span>
+        <div class="tps-cal-day other-month" data-day="${d}" data-nav="prev">
+          ${pad2(d)}
         </div>
       `;
     }
 
-    // Overflow days for next month
-    const totalRendered = startOffset + daysInCurrentMonth;
-    const remainingSlots = (7 - (totalRendered % 7)) % 7;
-    const targetSlots = totalRendered + remainingSlots < 35 ? remainingSlots + 7 : remainingSlots;
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const isSelected = selectedDate.getFullYear() === viewYear &&
+                         selectedDate.getMonth() === viewMonth &&
+                         selectedDate.getDate() === d;
+      const isToday = isCurrentMonth && d === todayDate;
+      const dayOfWeek = (firstDayOfWeek + d - 1) % 7;
+      const isSunday = dayOfWeek === 0;
 
-    for (let nextDay = 1; nextDay <= targetSlots; nextDay++) {
-      const nextDate = new Date(viewYear, viewMonth + 1, nextDay);
-      const nextDateStr = formatDateYMD(nextDate);
+      let classes = 'tps-cal-day';
+      if (isSelected) classes += ' selected';
+      if (isToday) classes += ' today';
+      if (isSunday) classes += ' sun-col';
+
+      const dateStr = `${viewYear}-${pad2(viewMonth + 1)}-${pad2(d)}`;
       daysHtml += `
-        <div class="tps-cal-day other-month" data-date="${nextDateStr}">${pad2(nextDay)}</div>
+        <div class="${classes}" data-day="${d}" data-date="${dateStr}">
+          ${pad2(d)}
+        </div>
       `;
     }
 
-    const badgeDay = pad2(selectedDate.getDate());
+    // Next month leading days (fill 42 cells total for consistent 6 rows)
+    const totalFilled = firstDayOfWeek + daysInMonth;
+    const nextDays = (totalFilled > 35 ? 42 : 35) - totalFilled;
+    for (let d = 1; d <= nextDays; d++) {
+      daysHtml += `
+        <div class="tps-cal-day other-month" data-day="${d}" data-nav="next">
+          ${pad2(d)}
+        </div>
+      `;
+    }
 
     popup.innerHTML = `
-      <!-- Top Header: Title & Dropdown Pills (Left) + 3D Calendar Day Badge (Right) -->
       <div class="tps-cal-top-section">
         <div class="tps-cal-top-left">
           <div class="tps-cal-main-title">Select Date</div>
           <div class="tps-cal-pills-row">
-            <button type="button" class="tps-cal-pill-btn btn-open-months" title="Choose Month">
-              <span>${MONTH_NAMES[viewMonth]}</span>
+            <button type="button" class="tps-cal-pill-btn btn-trigger-month">
+              <span>${SHORT_MONTHS[viewMonth]}</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <button type="button" class="tps-cal-pill-btn btn-open-years" title="Choose Year in 1 Step">
+            <button type="button" class="tps-cal-pill-btn btn-trigger-year">
               <span>${viewYear}</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="tps-cal-badge-card" title="Selected Day: ${badgeDay}">
+        <div class="tps-cal-badge-card" aria-hidden="true">
           <div class="tps-cal-badge-tabs">
-            <span class="tps-cal-tab"></span>
-            <span class="tps-cal-tab"></span>
+            <div class="tps-cal-tab"></div>
+            <div class="tps-cal-tab"></div>
           </div>
-          <div class="tps-cal-badge-num">${badgeDay}</div>
+          <div class="tps-cal-badge-num">${pad2(selectedDate.getDate())}</div>
         </div>
       </div>
 
-      <!-- Sunday-First Weekday Header -->
-      <div class="tps-cal-weekdays">
-        <span class="weekday-sun">SUN</span>
-        <span>MON</span>
-        <span>TUE</span>
-        <span>WED</span>
-        <span>THU</span>
-        <span>FRI</span>
-        <span>SAT</span>
+      <div class="tps-cal-grid-header">
+        <span class="tps-cal-wh sun">SUN</span>
+        <span class="tps-cal-wh">MON</span>
+        <span class="tps-cal-wh">TUE</span>
+        <span class="tps-cal-wh">WED</span>
+        <span class="tps-cal-wh">THU</span>
+        <span class="tps-cal-wh">FRI</span>
+        <span class="tps-cal-wh">SAT</span>
       </div>
 
-      <!-- Days Grid (2-digit numbers) -->
       <div class="tps-cal-days-grid">
         ${daysHtml}
       </div>
 
-      <!-- Centered Prominent Confirm Button (Theme Emerald) -->
-      <div class="tps-cal-actions">
-        <button type="button" class="tps-cal-confirm-btn">Confirm</button>
+      <div class="tps-cal-action-bar">
+        <button type="button" class="tps-cal-confirm-btn">
+          Confirm
+        </button>
       </div>
     `;
 
-    // Dropdown pill interactions
-    popup.querySelector('.btn-open-months')?.addEventListener('click', (e) => {
+    // Event handlers
+    popup.querySelector('.btn-trigger-month')?.addEventListener('click', (e) => {
       e.stopPropagation();
       viewMode = 'months';
       renderView();
     });
 
-    popup.querySelector('.btn-open-years')?.addEventListener('click', (e) => {
+    popup.querySelector('.btn-trigger-year')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      decadeStart = Math.floor(viewYear / 12) * 12;
       viewMode = 'years';
       renderView();
     });
 
-    // Day Selection
     popup.querySelectorAll('.tps-cal-day').forEach(cell => {
       cell.addEventListener('click', (e) => {
         e.stopPropagation();
-        const dateStr = cell.getAttribute('data-date');
-        if (!dateStr) return;
+        const nav = cell.getAttribute('data-nav');
+        const dayVal = parseInt(cell.getAttribute('data-day'), 10);
 
-        const newDate = parseDateString(dateStr);
-        if (newDate) {
-          selectedDate = newDate;
+        if (nav === 'prev') {
+          viewMonth--;
+          if (viewMonth < 0) {
+            viewMonth = 11;
+            viewYear--;
+          }
+          selectedDate = new Date(viewYear, viewMonth, dayVal);
+          renderView();
+        } else if (nav === 'next') {
+          viewMonth++;
+          if (viewMonth > 11) {
+            viewMonth = 0;
+            viewYear++;
+          }
+          selectedDate = new Date(viewYear, viewMonth, dayVal);
+          renderView();
+        } else {
+          const dateStr = cell.getAttribute('data-date');
+          if (dateStr) {
+            const newDate = parseDateString(dateStr);
+            if (newDate) selectedDate = newDate;
+          } else {
+            selectedDate = new Date(viewYear, viewMonth, dayVal);
+          }
 
-          // If clicked day belongs to other month, navigate to that month
-          if (newDate.getMonth() !== viewMonth || newDate.getFullYear() !== viewYear) {
-            viewMonth = newDate.getMonth();
-            viewYear = newDate.getFullYear();
+          if (selectedDate.getMonth() !== viewMonth || selectedDate.getFullYear() !== viewYear) {
+            viewMonth = selectedDate.getMonth();
+            viewYear = selectedDate.getFullYear();
             renderView();
             return;
           }
@@ -295,17 +725,17 @@ function showDatePickerPopup(input, anchorEl) {
       cell.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         const dateStr = cell.getAttribute('data-date');
-        if (dateStr) applyDate(dateStr);
+        if (dateStr) applyDateToInput(input, dateStr);
       });
     });
 
     popup.querySelector('.tps-cal-confirm-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      applyDate(formatDateYMD(selectedDate));
+      applyDateToInput(input, formatDateYMD(selectedDate));
     });
   }
 
-  // 2. YEARS SELECTION VIEW (Instant 1-Step Jump)
+  // 2. YEARS SELECTION VIEW
   function renderYearsView() {
     let yearsHtml = '';
     for (let y = decadeStart; y < decadeStart + 12; y++) {
@@ -433,24 +863,10 @@ function showDatePickerPopup(input, anchorEl) {
     });
   }
 
-  function applyDate(dateInput) {
-    let dateObj = dateInput;
-    if (typeof dateInput === 'string') {
-      dateObj = parseDateString(dateInput) || new Date();
-    }
-    const formatted = formatDateCustom(dateObj);
-    input.value = formatted;
-    input.setAttribute('data-date-raw', formatDateYMD(dateObj));
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    closeActiveDatePicker();
-  }
-
   document.body.appendChild(popup);
   activePopup = popup;
 
   positionPopup(popup, anchorEl);
-
   renderView();
 }
 
@@ -483,7 +899,7 @@ export function formatDateCustom(d) {
   return `${day}.${month}.${year}`;
 }
 
-function parseDateString(str) {
+export function parseDateString(str) {
   if (!str) return null;
   if (str instanceof Date) return isNaN(str.getTime()) ? null : str;
   const s = String(str).trim();
@@ -506,10 +922,20 @@ function parseDateString(str) {
 
   // YYYY-MM-DD
   const dashParts = s.split('T')[0].split('-');
-  if (dashParts.length === 3) {
+  if (dashParts.length === 3 && dashParts[0].length === 4) {
     const y = parseInt(dashParts[0], 10);
     const m = parseInt(dashParts[1], 10) - 1;
     const d = parseInt(dashParts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m, d);
+    }
+  }
+
+  // DD-MM-YYYY
+  if (dashParts.length === 3 && dashParts[0].length <= 2 && dashParts[2].length === 4) {
+    const d = parseInt(dashParts[0], 10);
+    const m = parseInt(dashParts[1], 10) - 1;
+    const y = parseInt(dashParts[2], 10);
     if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
       return new Date(y, m, d);
     }
@@ -519,10 +945,20 @@ function parseDateString(str) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function formatDateYMD(d) {
+export function formatDateYMD(d) {
   if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '';
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

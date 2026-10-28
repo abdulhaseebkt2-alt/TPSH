@@ -16,6 +16,7 @@ import { renderTimetableModule } from '../src/modules/timetable/index.js';
 import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
+import { formatDateYMD, parseDateString, isMobileDatePicker } from '../src/components/date-picker.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -1269,6 +1270,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
     // Big Class Description Card on Top
     expect(container.innerHTML).toContain('att-big-class-card');
+    expect(container.innerHTML).toContain('att-card-date-badge');
+    expect(container.innerHTML).toContain('att-date-badge-trigger');
     expect(container.innerHTML).toContain('Class Time');
     expect(container.innerHTML).toContain('Total Students');
 
@@ -1336,5 +1339,29 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     // Verify student assignments for Htl BB
     const assignedStudents = await db.getClassroomStudents('cls-4');
     expect(Array.isArray(assignedStudents)).toBe(true);
+  });
+
+  it('PhonePe-style 3-Column Drum Wheel Date Picker: utility parsing and mobile detection tests', () => {
+    // 1. formatDateYMD
+    const testDate = new Date(1995, 11, 8); // 8 Dec 1995
+    expect(formatDateYMD(testDate)).toBe('1995-12-08');
+
+    // 2. parseDateString
+    const parsed1 = parseDateString('1995-12-08');
+    expect(parsed1.getFullYear()).toBe(1995);
+    expect(parsed1.getMonth()).toBe(11);
+    expect(parsed1.getDate()).toBe(8);
+
+    const parsed2 = parseDateString('08-Dec-1995');
+    expect(parsed2.getFullYear()).toBe(1995);
+    expect(parsed2.getMonth()).toBe(11);
+    expect(parsed2.getDate()).toBe(8);
+
+    // 3. Mobile picker detection and force flags
+    if (typeof window !== 'undefined') {
+      window.__TPS_FORCE_MOBILE_PICKER__ = true;
+      expect(isMobileDatePicker()).toBe(true);
+      window.__TPS_FORCE_MOBILE_PICKER__ = undefined;
+    }
   });
 });
