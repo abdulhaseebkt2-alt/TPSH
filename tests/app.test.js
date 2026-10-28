@@ -1776,6 +1776,33 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     }
   });
 
+  it('Academic Calendar Holidays & Events: groups multi-day leave or holiday range into a single consolidated card', async () => {
+    // Add multi-day hostel leave range (e.g. 03 Oct to 05 Oct 2026)
+    await db.addCalendarHolidayRange({
+      startDate: '2026-10-03',
+      endDate: '2026-10-05',
+      name: 'Llleve',
+      type: 'hostel_leave'
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderCalendarModule(container, { onNavigate: () => {} });
+
+    // Multi-day leave must render into a single card with range dates and day count
+    expect(container.innerHTML).toContain('Llleve');
+    expect(container.innerHTML).toContain('03.Oct.2026 – 05.Oct.2026');
+    expect(container.innerHTML).toContain('(3 Days)');
+    expect(container.innerHTML).toContain('Hostel Leave');
+
+    // Clean up
+    await db.removeCalendarHoliday('2026-10-03');
+  });
+
   it('Attendance Reports Student Calendar View: renders Screenshot 3 student filter toolbar and day box click triggers student inspection popup modal', async () => {
     let appendedModal = null;
     const originalDocument = global.document;

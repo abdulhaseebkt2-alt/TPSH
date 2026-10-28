@@ -1820,7 +1820,20 @@ class DatabaseService {
 
   async removeCalendarHoliday(eventIdOrDate) {
     const cal = await this.getAcademicCalendar();
-    const events = (cal.events || []).filter(e => e.id !== eventIdOrDate && e.date !== eventIdOrDate);
+    let events = cal.events || [];
+
+    if (Array.isArray(eventIdOrDate)) {
+      events = events.filter(e => !eventIdOrDate.includes(e.id) && !eventIdOrDate.includes(e.date) && !eventIdOrDate.includes(e.range_id));
+    } else {
+      const target = events.find(e => e.id === eventIdOrDate || e.date === eventIdOrDate || e.range_id === eventIdOrDate);
+      if (target && target.range_id) {
+        // If part of a multi-day range, remove all days in that range
+        events = events.filter(e => e.range_id !== target.range_id);
+      } else {
+        events = events.filter(e => e.id !== eventIdOrDate && e.date !== eventIdOrDate && e.range_id !== eventIdOrDate);
+      }
+    }
+
     const updated = {
       ...cal,
       events

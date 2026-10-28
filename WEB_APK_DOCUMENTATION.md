@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.5.9`  
-> **Last Updated:** 2026-10-28T17:00:00+05:30  
+> **Current Version:** `v1.6.0`  
+> **Last Updated:** 2026-10-28T17:10:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -187,6 +187,7 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
   - Sequence: Today Green Snapshot Card $\to$ Monthly Breakdown Metrics Card $\to$ Compact Event Calendar Card $\to$ Chronological Holidays & Events Card.
   - **No-Scroll Calendar Card**: Cell heights compacted to 34–36px (`cal-day-circle` 26–28px) so the entire month fits within a single card without scrolling.
   - **Naturally Expanding Agenda Card**: Removed artificial `max-height` and internal scrollbar from the Holidays & Events card so it expands naturally with content.
+  - **Single Consolidated Card for Multi-Day Events (v1.6.0)**: Multi-day hostel leaves, holiday vacations, or contiguous school events automatically consolidate into a single clean card in the "Holidays & Events" agenda instead of duplicating cards for each day. Displays consolidated range (`03.Oct.2026 – 05.Oct.2026`) with event type and day count badge (`(3 Days)`), and atomic single-click delete for the entire range.
   - **Color Palette & Continuous Pill Bands (v1.5.7)**:
     - **Official Holidays (Light Yellow Shade)**: Soft yellow connecting strip (`#FEF3C7`), solid warm amber circles (`#F59E0B`, white text) on start/end dates, and amber day numbers (`#B45309`) on middle days, with 4-side curved caps.
     - **Hostel Leaves (Red Shade)**: Light rose-red connecting strip (`#FEE2E2`), solid crimson circles (`#EF4444`, white text) on start/end dates, and deep red day numbers (`#DC2626`) on middle days, with 4-side curved caps.
@@ -405,14 +406,14 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 62 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 63 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
 - **Wheel Pickers**: 12-hour wheel time parser, PhonePe drum wheel date parser, mobile detection flags, exact set-date preservation on reopen without 01 Jan preset reset.
 - **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion.
 - **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
-- **Dedicated Academic Calendar (Institutional)**: Sidebar navigation `#calendar`, pure institutional schedule focus, working days vs holidays, 4 summary metrics cards, visual monthly 7-column calendar grid with desktop badges & mobile minimal status dots, tap-to-inspect date schedule modal, add holiday/multi-day modal with equal 50/50 date boxes fitting card, and bridge link to attendance reports.
+- **Dedicated Academic Calendar (Institutional)**: Sidebar navigation `#calendar`, pure institutional schedule focus, working days vs holidays, 4 summary metrics cards, visual monthly 7-column calendar grid with desktop badges & mobile minimal status dots, tap-to-inspect date schedule modal, add holiday/multi-day modal with equal 50/50 date boxes fitting card, consolidated single-card display for multi-day leaves/events, and bridge link to attendance reports.
 - **Attendance Reports with Visual Student Calendar**: Screenshot 1 student monthly register with section filtering, minimal Screenshot 3 toolbar (`Search student...`, `Section`, `Class`, `Student`), frozen sticky columns, faded holidays & hostel leaves, Screenshot 2 class-wise submission audit, and dedicated `📅 Calendar` view mode with Active Student Hero card and Daily Attendance Inspection popup modal.
 - **Cloud Sync**: Cross-device unified database integrity.
 
@@ -424,7 +425,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 2. **Strict Domain Separation**: Academic Calendar (`#calendar`) is exclusively for the institutional calendar, working days schedule, and official holidays. Student attendance data, student search, student dropdowns, and student attendance calendars are housed strictly inside Attendance Reports (`#reports`).
 3. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 4. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-5. **Preserve Unit Tests**: Never commit changes that cause any of the 62 unit tests to fail.
+5. **Preserve Unit Tests**: Never commit changes that cause any of the 63 unit tests to fail.
 
 ---
 
@@ -432,6 +433,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.6.0** | 2026-10-28 17:10 | Antigravity AI | `src/modules/calendar/index.js`, `src/lib/db.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Consolidated Multi-Day Leave/Event Cards in Holidays & Events: (1) Added `groupCalendarEvents` helper in `src/modules/calendar/index.js` to group contiguous dates sharing the same title & type into a single consolidated card (e.g. `03.Oct.2026 – 05.Oct.2026 • Hostel Leave (3 Days)`); (2) Updated agenda header badge count to display consolidated distinct events count; (3) Upgraded `db.removeCalendarHoliday` in `src/lib/db.js` and delete button handlers so deleting a multi-day card deletes all constituent dates in a single atomic action; (4) Added unit test verifying multi-day card consolidation (63/63 tests passing). |
 | **v1.5.9** | 2026-10-28 17:00 | Antigravity AI | `src/components/date-picker.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Fixed Mobile Wheel Date Picker Resetting to 01 Jan: (1) Resolved root cause in `setupWheelColumn` where initial `renderItems()` executed `updateVisuals(true)` with `scrollTop = 0` before layout settled, which triggered `onIndexChanged(0)` and overwrote active date to `01 Jan`; (2) Introduced `isReady` and `isProgrammatic` state gating so initial programmatic scroll and layout positioning never fires `onIndexChanged` or resets active indices; (3) Added `getCurrentIdx()` source-of-truth getters so closing/done retains user-selected dates; (4) Updated fallback logic to default to current date (`new Date()`) for institutional calendar and general date inputs while preserving 10 Jun 2010 default for student DoB fields; (5) Added unit test asserting set date preservation across opens without 01 Jan reset (all 62 tests passing). |
 | **v1.5.8** | 2026-10-28 16:18 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Equal 50/50 Division of Multi-Day Range Date Boxes: (1) Replaced rigid grid tracks in "Add Institutional Holiday or Event" modal with `.cal-modal-date-range-grid` utilizing `repeat(2, minmax(0, 1fr))` with `min-width: 0` on children to divide date boxes into exact equal halves; (2) Added `flex: 1 1 0%`, `width: 100%`, and `box-sizing: border-box` to `.tps-date-input-wrapper` and `.tps-date-input-field` so the right "End Date" box and its green calendar picker icon fit neatly inside the card/modal boundaries without clipping or overflowing; (3) Added responsive modal padding for viewports $\le 640\text{px}$ ensuring modal contents breathe comfortably on all mobile screens; (4) Added automated test asserting 50/50 date box division (61/61 tests passing). |
 | **v1.5.7** | 2026-10-28 16:05 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Streamlined Calendar Experience & Palette Modernization: (1) Holiday color updated to Light Yellow shade (`#FEF3C7` background strip, warm amber `#F59E0B` solid caps, `#B45309` middle text) with 4-side curvature; (2) Hostel Leave color set to Red shade (`#FEE2E2` background strip, crimson `#EF4444` solid caps, `#DC2626` text) with 4-side curvature; (3) Removed special color circle from working days (plain text numbers `#1F2937`); (4) Compacted cell heights to 34–36px (`cal-day-circle` 26–28px) so calendar grid fits neatly in a single card without scrolling; (5) Removed redundant `Select Date Range` button; (6) Removed `QUICK MANAGEMENT` card while retaining hidden buttons for test compatibility; (7) Removed scrollbar on Holidays & Events card so it expands naturally with content; (8) Unified desktop and mobile layout to single centered column (`max-width: 820px`); verified 60/60 unit tests pass and clean build. |

@@ -147,9 +147,75 @@ export async function renderCalendarModule(container, { onNavigate }) {
     return `${MONTH_NAMES[m - 1]} ${d}, ${y}`;
   }
 
+  // Helper: Group contiguous multi-day events with the same title & type into a single card
+  function groupCalendarEvents(eventsList) {
+    if (!Array.isArray(eventsList) || eventsList.length === 0) return [];
+
+    const sorted = [...eventsList].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const groups = [];
+    let cur = null;
+
+    for (const ev of sorted) {
+      if (!ev || !ev.date) continue;
+
+      if (!cur) {
+        cur = {
+          id: ev.id,
+          name: ev.name || 'Institutional Holiday',
+          type: ev.type || 'holiday',
+          range_id: ev.range_id,
+          startDate: ev.date,
+          endDate: ev.date,
+          allDates: [ev.date],
+          allIds: [ev.id]
+        };
+        continue;
+      }
+
+      const sameName = cur.name.trim().toLowerCase() === (ev.name || '').trim().toLowerCase();
+      const sameType = cur.type === ev.type;
+      const sameRange = Boolean(cur.range_id && ev.range_id && cur.range_id === ev.range_id);
+
+      const isNext = (() => {
+        const [y, m, d] = cur.endDate.split('-').map(Number);
+        const nextDate = new Date(y, m - 1, d + 1);
+        const nextStr = toYMD(nextDate);
+        return nextStr === ev.date;
+      })();
+
+      if (sameRange || (sameName && sameType && isNext)) {
+        cur.endDate = ev.date;
+        cur.allDates.push(ev.date);
+        cur.allIds.push(ev.id);
+        if (!cur.range_id && ev.range_id) {
+          cur.range_id = ev.range_id;
+        }
+      } else {
+        groups.push(cur);
+        cur = {
+          id: ev.id,
+          name: ev.name || 'Institutional Holiday',
+          type: ev.type || 'holiday',
+          range_id: ev.range_id,
+          startDate: ev.date,
+          endDate: ev.date,
+          allDates: [ev.date],
+          allIds: [ev.id]
+        };
+      }
+    }
+
+    if (cur) {
+      groups.push(cur);
+    }
+
+    return groups;
+  }
+
   function renderFullUI() {
     const gridDays = getCalendarGridDays(currentYear, currentMonth);
     const events = (calendar.events || []).slice().sort((a, b) => (a.date > b.date ? 1 : -1));
+    const groupedEvents = groupCalendarEvents(events);
 
     // Summary counts
     const currentMonthDays = gridDays.filter(d => d.isCurrentMonth);
@@ -420,13 +486,13 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
           </div>
 
-          <!-- 4. SCHEDULED HOLIDAYS & SPECIAL EVENTS AGENDA (EXPANDS NATURALLY WITHOUT SCROLLBAR!) -->
+          <!-- 4. SCHEDULED HOLIDAYS & SPECIAL EVENTS AGENDA (EXPANDS NATURALLY WITHOUT SCROLLBAR, MULTI-DAY MERGED INTO SINGLE CARDS) -->
           <div class="cal-agenda-card-box" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.95rem 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
               <h4 style="font-weight: 800; font-size: 0.88rem; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
                 <span>🌴</span>
                 <span>Holidays & Events</span>
-                <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">${events.length}</span>
+                <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">${groupedEvents.length}</span>
               </h4>
               ${!isViewOnly ? `
                 <button type="button" class="btn btn-ghost btn-xs" id="btn-add-cal-holiday-inline" style="color: #059669; font-weight: 700; font-size: 0.75rem; padding: 2px 6px;">
@@ -435,27 +501,36 @@ export async function renderCalendarModule(container, { onNavigate }) {
               ` : ''}
             </div>
 
-            <!-- Natural list without scrollbar, expanding according to content! -->
+            <!-- Natural list without scrollbar: multi-day leave/holiday/event rendered in a single consolidated card -->
             <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              ${events.length > 0 ? events.map(ev => {
-                const isLeave = ev.type === 'hostel_leave';
-                const isHol = ev.type === 'holiday';
+              ${groupedEvents.length > 0 ? groupedEvents.map(grp => {
+                const isLeave = grp.type === 'hostel_leave';
+                const isHol = grp.type === 'holiday';
                 const itemBg = isLeave ? '#FEF2F2' : isHol ? '#FFFDF5' : '#F0FDF4';
                 const itemBorder = isLeave ? '#FECACA' : isHol ? '#FDE68A' : '#A7F3D0';
                 const itemColor = isLeave ? '#DC2626' : isHol ? '#B45309' : '#047857';
                 const itemLabel = isLeave ? 'Hostel Leave' : isHol ? 'Official Holiday' : 'Special Session';
+                const isMulti = grp.startDate !== grp.endDate;
+                const dateDisplay = isMulti 
+                  ? `${formatDate(grp.startDate)} – ${formatDate(grp.endDate)}` 
+                  : formatDate(grp.startDate);
+                const dayCountBadge = isMulti 
+                  ? `<span style="font-size: 0.68rem; font-weight: 700; background: rgba(0,0,0,0.04); border: 1px solid ${itemBorder}; padding: 1px 5px; border-radius: 4px; margin-left: 4px; color: ${itemColor};">(${grp.allDates.length} Days)</span>` 
+                  : '';
+
                 return `
                   <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid ${itemBorder}; background: ${itemBg};">
                     <div style="min-width: 0;">
                       <div style="font-weight: 700; font-size: 0.82rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${ev.name}
+                        ${grp.name}
                       </div>
                       <div style="font-size: 0.72rem; color: #64748B;">
-                        ${formatDate(ev.date)} • <span style="color: ${itemColor}; font-weight: 600;">${itemLabel}</span>
+                        ${dateDisplay} • <span style="color: ${itemColor}; font-weight: 600;">${itemLabel}</span>
+                        ${dayCountBadge}
                       </div>
                     </div>
                     ${!isViewOnly ? `
-                      <button type="button" class="btn btn-ghost btn-xs btn-del-event" data-event-id="${ev.id}" title="Delete Holiday" style="color: #DC2626; padding: 2px 6px; font-size: 0.74rem; flex-shrink: 0; font-weight: 700;">
+                      <button type="button" class="btn btn-ghost btn-xs btn-del-event" data-event-id="${grp.id}" data-all-dates="${grp.allDates.join(',')}" data-range-id="${grp.range_id || ''}" title="Delete Holiday" style="color: #DC2626; padding: 2px 6px; font-size: 0.74rem; flex-shrink: 0; font-weight: 700;">
                         ✕
                       </button>
                     ` : ''}
@@ -567,11 +642,21 @@ export async function renderCalendarModule(container, { onNavigate }) {
     container.querySelector('#btn-add-cal-holiday')?.addEventListener('click', () => openAddHolidayModal());
     container.querySelector('#btn-add-cal-holiday-inline')?.addEventListener('click', () => openAddHolidayModal());
 
-    // Event delegation for deleting holidays
+    // Event delegation for deleting holidays (supports single-day and multi-day cards)
     container.querySelectorAll('.btn-del-event').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const allDatesStr = btn.getAttribute('data-all-dates');
+        const rangeId = btn.getAttribute('data-range-id');
         const id = btn.getAttribute('data-event-id');
-        calendar = await db.removeCalendarHoliday(id);
+
+        if (rangeId) {
+          calendar = await db.removeCalendarHoliday(rangeId);
+        } else if (allDatesStr && allDatesStr.includes(',')) {
+          const dates = allDatesStr.split(',').filter(Boolean);
+          calendar = await db.removeCalendarHoliday(dates);
+        } else if (id) {
+          calendar = await db.removeCalendarHoliday(id);
+        }
         toast.success('Calendar holiday deleted.');
         renderFullUI();
       });
