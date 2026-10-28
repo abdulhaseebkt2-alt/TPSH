@@ -1,0 +1,10 @@
+# Web APK & Repository Governance Rules
+
+1. **Mandatory Documentation Sync**:
+   Every time any code or style is modified (even a slight change), `WEB_APK_DOCUMENTATION.md` MUST be updated. Record the changes in its Section 10 "Living Changelog & Revision History" and update any changed technical specifications.
+
+2. **Automated Verification**:
+   Always verify with `npm test` and `npm run build` (on Windows, use `cmd /c npm test` and `cmd /c npm run build`).
+
+3. **Light-Theme First & Institutional Integrity**:
+   Keep SaaS light-theme aesthetics, PhonePe purple accents (`#5F259F`), minimal clean cards, and avoid unnecessary emojis.
