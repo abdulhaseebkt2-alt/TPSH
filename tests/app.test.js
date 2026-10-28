@@ -1564,6 +1564,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('TU');
     expect(container.innerHTML).toContain('SU');
     expect(container.innerHTML).toContain('Range:');
+
+    // Light yellow holiday, red hostel leave, and removal of select range button
+    expect(container.innerHTML).not.toContain('id="btn-toggle-range-mode"');
+    expect(container.innerHTML).toContain('Holiday (Yellow)');
+    expect(container.innerHTML).toContain('Hostel Leave (Red)');
   });
 
   it('Academic Calendar Mobile View: day box click triggers institutional schedule inspection popup modal', async () => {

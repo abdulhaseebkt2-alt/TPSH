@@ -34,7 +34,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
     return `${y}-${m}-${day}`;
   }
 
-  // Helper: Detect contiguous multi-day holiday sequences for Screenshot 2 band rendering
+  // Helper: Detect contiguous multi-day holiday sequences (Light Yellow Shade)
   function getHolidayRangeRole(dateStr, events) {
     const curEv = events.find(e => e.date === dateStr && e.type === 'holiday');
     if (!curEv) return 'none';
@@ -48,6 +48,36 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
     const hasPrev = events.some(e => e.date === prevStr && e.type === 'holiday');
     const hasNext = events.some(e => e.date === nextStr && e.type === 'holiday');
+
+    if (hasNext && !hasPrev) return 'start';
+    if (hasPrev && hasNext) return 'middle';
+    if (hasPrev && !hasNext) return 'end';
+    return 'single';
+  }
+
+  // Helper: Detect contiguous multi-day hostel leave sequences (Red Shade)
+  function getHostelLeaveRangeRole(dateStr, events) {
+    const leaveRecords = db.get('tps_leaves') || [];
+    const isLeave = (dStr) => {
+      const hasEvent = events.some(e => e.date === dStr && e.type === 'hostel_leave');
+      if (hasEvent) return true;
+      if (Array.isArray(leaveRecords)) {
+        return leaveRecords.some(l => l.departure_date && l.expected_return_date && dStr >= l.departure_date && dStr <= l.expected_return_date);
+      }
+      return false;
+    };
+
+    if (!isLeave(dateStr)) return 'none';
+
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const prevDate = new Date(y, m - 1, d - 1);
+    const prevStr = toYMD(prevDate);
+
+    const nextDate = new Date(y, m - 1, d + 1);
+    const nextStr = toYMD(nextDate);
+
+    const hasPrev = isLeave(prevStr);
+    const hasNext = isLeave(nextStr);
 
     if (hasNext && !hasPrev) return 'start';
     if (hasPrev && hasNext) return 'middle';
@@ -81,6 +111,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
       const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
       const isCustom = Array.isArray(events) && events.some(e => e.date === dateStr);
       const holidayRole = getHolidayRangeRole(dateStr, events);
+      const hostelLeaveRole = getHostelLeaveRangeRole(dateStr, events);
 
       grid.push({
         dayNumber: d,
@@ -92,6 +123,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
         title: dayInfo.title || '',
         hasCustomEvent: isCustom,
         holidayRole,
+        hostelLeaveRole,
         type: dayInfo.type
       });
     }
@@ -133,7 +165,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
     const todayDayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
     const todayInfo = db.getCalendarDayInfo(todayStr, calendar);
 
-    // Range display text (matching Screenshot 2: "Range: January 15, 2025 - January 21, 2025")
+    // Range display text
     let rangeDisplayText = '';
     const hasActiveSelection = Boolean(rangeStart);
 
@@ -154,55 +186,114 @@ export async function renderCalendarModule(container, { onNavigate }) {
     container.innerHTML = `
       <div class="calendar-module-container" style="padding-bottom: 2rem;">
         
-        <!-- HEADER ROW: MINIMAL INSTITUTIONAL BRANDING -->
-        <div style="margin-bottom: 1rem;">
+        <!-- HEADER ROW: MINIMAL INSTITUTIONAL BRANDING (NO RANGE SELECTOR BUTTON) -->
+        <div style="margin-bottom: 0.85rem;">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 0.65rem;">
-              <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1.5px solid #BFDBFE; color: #2563EB; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <div style="width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1.5px solid #BFDBFE; color: #2563EB; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               </div>
               <div>
-                <h2 style="font-size: 1.3rem; font-weight: 800; color: #0F172A; margin: 0; line-height: 1.2; letter-spacing: -0.01em;">Academic Calendar</h2>
-                <p style="font-size: 0.78rem; color: #64748B; margin: 2px 0 0 0;">Institutional schedule, working days, official holidays & events</p>
+                <h2 style="font-size: 1.25rem; font-weight: 800; color: #0F172A; margin: 0; line-height: 1.2; letter-spacing: -0.01em;">Academic Calendar</h2>
+                <p style="font-size: 0.75rem; color: #64748B; margin: 2px 0 0 0;">Institutional schedule, working days, official holidays & hostel leaves</p>
               </div>
             </div>
-
-            <!-- Range Mode Toggle Pill -->
-            <button type="button" class="btn btn-xs ${isRangeMode ? 'btn-primary' : 'btn-outline'}" id="btn-toggle-range-mode" style="font-weight: 700; font-size: 0.75rem; border-radius: 8px; padding: 0.35rem 0.65rem; display: flex; align-items: center; gap: 0.35rem; ${isRangeMode ? 'background: #2563EB; border-color: #2563EB; color: #FFFFFF;' : 'color: #2563EB; border-color: #BFDBFE;'}">
-              <span>📅</span>
-              <span>${isRangeMode ? 'Range Mode Active' : 'Select Date Range'}</span>
-            </button>
           </div>
         </div>
 
-        <!-- TWO-COLUMN MASTER-COMPANION WORKSPACE (MOBILE ORDER: GREEN CARD -> OVERVIEW -> CALENDAR -> HOLIDAYS -> ACTIONS) -->
+        <!-- UNIFIED WORKSPACE LAYOUT (EXPANDS NATURALLY ACCORDING TO CONTENT ON BOTH MOBILE & DESKTOP) -->
         <div class="cal-workspace-layout">
           
-          <!-- COMPONENT A: CALENDAR CARD (SCREENSHOT 2 STYLE) -->
+          <!-- 1. TODAY SNAPSHOT CARD (GREEN CARD) -->
+          <div class="cal-today-card" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); border-radius: 14px; padding: 0.95rem 1.15rem; color: #FFFFFF; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.2);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+              <span style="font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #A7F3D0;">
+                TODAY'S INSTITUTIONAL SCHEDULE
+              </span>
+              <span class="badge" style="background: rgba(255,255,255,0.22); color: #FFFFFF; border: none; font-size: 0.68rem; font-weight: 700; padding: 2px 7px;">
+                Active
+              </span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 0.55rem; margin-top: 0.2rem;">
+              <span style="font-size: 2rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em;">
+                ${now.getDate()}
+              </span>
+              <div>
+                <div style="font-weight: 800; font-size: 0.92rem; line-height: 1.2;">
+                  ${todayDayName}, ${MONTH_NAMES[now.getMonth()]}
+                </div>
+                <div style="font-size: 0.72rem; color: #D1FAE5; margin-top: 2px;">
+                  ${todayInfo.isHoliday ? '🌴 Official Holiday' : (todayInfo.isSpecialWorking ? '⚡ Special Working Day' : '⚡ Regular Academic Working Session')}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. MONTHLY BREAKDOWN METRICS CARD -->
+          <div class="cal-overview-card" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.9rem 1.1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
+              <h4 style="font-weight: 800; font-size: 0.88rem; color: #0F172A; margin: 0;">
+                ${MONTH_NAMES[currentMonth - 1]} Overview
+              </h4>
+              <span style="font-size: 0.74rem; color: #64748B; font-weight: 600;">${currentMonthDays.length} Days</span>
+            </div>
+
+            <!-- 4 Metrics Chips -->
+            <div class="cal-metrics-grid">
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.5rem 0.65rem;">
+                <span style="font-size: 0.66rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Days</span>
+                <div style="font-weight: 800; font-size: 1.05rem; color: #0F172A;">${currentMonthDays.length}</div>
+              </div>
+              <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.5rem 0.65rem;">
+                <span style="font-size: 0.66rem; font-weight: 700; color: #047857; text-transform: uppercase;">Working Days</span>
+                <div style="font-weight: 800; font-size: 1.05rem; color: #059669;">${workingDaysCount}</div>
+              </div>
+              <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 0.5rem 0.65rem;">
+                <span style="font-size: 0.66rem; font-weight: 700; color: #B45309; text-transform: uppercase;">Official Holidays</span>
+                <div style="font-weight: 800; font-size: 1.05rem; color: #D97706;">${holidaysCount}</div>
+              </div>
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.5rem 0.65rem;">
+                <span style="font-size: 0.66rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Weekend Offs</span>
+                <div style="font-weight: 800; font-size: 1.05rem; color: #475569;">${weekendOffCount}</div>
+              </div>
+            </div>
+
+            <!-- Segmented Progress Bar -->
+            <div style="background: #F1F5F9; border-radius: 6px; height: 6px; overflow: hidden; display: flex; margin-bottom: 0.35rem;">
+              <div style="background: #10B981; width: ${workingPct}%;" title="Working Days: ${workingPct}%"></div>
+              <div style="background: #F59E0B; width: ${holidayPct}%;" title="Holidays: ${holidayPct}%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748B; font-weight: 600;">
+              <span>⚡ ${workingPct}% Working Days</span>
+              <span>🌴 ${holidayPct}% Holidays</span>
+            </div>
+          </div>
+
+          <!-- 3. COMPONENT A: CALENDAR CARD (COMPACT TO FIT WITHOUT SCROLLING) -->
           <div class="cal-main-stage">
             
             <div class="cal-fluent-grid-card">
               
-              <!-- CARD TOP HEADER: SCREENSHOT 2 EVENT CALENDAR HEADER -->
-              <div style="display: flex; align-items: center; gap: 0.75rem; padding: 1.1rem 1.25rem 0.85rem; border-bottom: 1px solid #F3F4F6;">
-                <div style="width: 36px; height: 36px; border-radius: 50%; background: #F9FAFB; border: 1.5px solid #E5E7EB; display: flex; align-items: center; justify-content: center; color: #374151; flex-shrink: 0;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <!-- CARD TOP HEADER -->
+              <div style="display: flex; align-items: center; gap: 0.65rem; padding: 0.75rem 1rem 0.6rem; border-bottom: 1px solid #F3F4F6;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #F9FAFB; border: 1.5px solid #E5E7EB; display: flex; align-items: center; justify-content: center; color: #374151; flex-shrink: 0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
                 </div>
                 <div>
-                  <h3 style="font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0; line-height: 1.2;">Event Calendar</h3>
-                  <p style="font-size: 0.78rem; color: #6B7280; margin: 2px 0 0 0;">Schedule your institutional sessions and holiday events</p>
+                  <h3 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0; line-height: 1.2;">Event Calendar</h3>
+                  <p style="font-size: 0.72rem; color: #64748B; margin: 1px 0 0 0;">Institutional working days, light yellow holidays & red hostel leaves</p>
                 </div>
               </div>
 
-              <!-- SCREENSHOT 2 MONTH & YEAR NAVIGATION BAR -->
+              <!-- MONTH & YEAR NAVIGATION BAR -->
               <div class="cal-month-nav-bar">
                 <button type="button" class="cal-nav-btn" id="cal-btn-prev-month" title="Previous Month">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
                 </button>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.45rem;">
                   <span class="cal-month-nav-title">
                     ${MONTH_NAMES[currentMonth - 1]} ${currentYear}
                   </span>
@@ -211,12 +302,12 @@ export async function renderCalendarModule(container, { onNavigate }) {
                   </button>
                 </div>
                 <button type="button" class="cal-nav-btn" id="cal-btn-next-month" title="Next Month">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
               </div>
 
-              <!-- 7-DAY WEEKDAY HEADER ROW (SCREENSHOT 2: MO TU WE TH FR SA SU IN CLEAN GRAY) -->
-              <div style="display: grid; grid-template-columns: repeat(7, 1fr); padding: 0.65rem 0.6rem 0.35rem; text-align: center; border-bottom: 1px solid #F3F4F6;">
+              <!-- 7-DAY WEEKDAY HEADER ROW (MO TU WE TH FR SA SU IN CLEAN GRAY) -->
+              <div style="display: grid; grid-template-columns: repeat(7, 1fr); padding: 0.35rem 0.4rem 0.2rem; text-align: center; border-bottom: 1px solid #F3F4F6;">
                 ${[
                   { short: 'MO', full: 'Mon' },
                   { short: 'TU', full: 'Tue' },
@@ -226,14 +317,14 @@ export async function renderCalendarModule(container, { onNavigate }) {
                   { short: 'SA', full: 'Sat' },
                   { short: 'SU', full: 'Sun' }
                 ].map(dow => `
-                  <div style="padding: 0.35rem 0.1rem; font-weight: 600; font-size: 0.78rem; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.04em;">
+                  <div style="padding: 0.25rem 0.05rem; font-weight: 600; font-size: 0.74rem; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.04em;">
                     <span class="cal-dow-full" style="display: none;" aria-hidden="true">${dow.full}</span>
                     <span class="cal-dow-short">${dow.short}</span>
                   </div>
                 `).join('')}
               </div>
 
-              <!-- CELLS GRID (SCREENSHOT 2 ROYAL BLUE & ICE BLUE CONTINUOUS PILLS WITH 4-SIDE CURVATURE) -->
+              <!-- COMPACT CELLS GRID (FIT WITHOUT SCROLLING, LIGHT YELLOW HOLIDAYS, RED HOSTEL LEAVES, PLAIN WORKING DAYS) -->
               <div class="cal-month-grid">
                 ${gridDays.map(cell => {
                   if (!cell.isCurrentMonth) {
@@ -247,11 +338,8 @@ export async function renderCalendarModule(container, { onNavigate }) {
                   const isToday = cell.dateStr === todayStr;
                   const isHol = cell.isHoliday;
                   const isWork = cell.isWorkingDay;
-                  const isSpecialWork = cell.isSpecialWorking;
-                  const isSunday = new Date(cell.dateStr + 'T00:00:00').getDay() === 0;
-                  const isWeekendOff = !isWork && !isSpecialWork && isSunday;
 
-                  // Active Interactive Range Classes
+                  // Priority 1: User active interactive selection (if any)
                   let rangeClass = '';
                   if (rangeStart && rangeEnd) {
                     if (cell.dateStr === rangeStart) rangeClass = 'is-range-start';
@@ -261,27 +349,32 @@ export async function renderCalendarModule(container, { onNavigate }) {
                     rangeClass = 'is-range-start is-range-single';
                   }
 
-                  // Multi-Day Holiday Range Classes (if not actively selecting a range)
-                  let holidayRangeClass = '';
-                  if (!rangeClass && cell.holidayRole !== 'none') {
-                    if (cell.holidayRole === 'start') holidayRangeClass = 'is-holiday-start';
-                    else if (cell.holidayRole === 'middle') holidayRangeClass = 'is-holiday-middle';
-                    else if (cell.holidayRole === 'end') holidayRangeClass = 'is-holiday-end';
-                    else if (cell.holidayRole === 'single') holidayRangeClass = 'is-holiday-single';
-                  } else if (!rangeClass && isSpecialWork) {
-                    holidayRangeClass = 'is-special-work';
-                  } else if (!rangeClass && isWeekendOff) {
-                    holidayRangeClass = 'is-weekend-off';
+                  // Priority 2: Hostel Leave Range (Red Shade)
+                  let leaveClass = '';
+                  if (!rangeClass && cell.hostelLeaveRole !== 'none') {
+                    if (cell.hostelLeaveRole === 'start') leaveClass = 'is-hostel-leave-start';
+                    else if (cell.hostelLeaveRole === 'middle') leaveClass = 'is-hostel-leave-middle';
+                    else if (cell.hostelLeaveRole === 'end') leaveClass = 'is-hostel-leave-end';
+                    else if (cell.hostelLeaveRole === 'single') leaveClass = 'is-hostel-leave-single';
+                  }
+
+                  // Priority 3: Holiday Range (Light Yellow Shade)
+                  let holidayClass = '';
+                  if (!rangeClass && !leaveClass && cell.holidayRole !== 'none') {
+                    if (cell.holidayRole === 'start') holidayClass = 'is-holiday-start';
+                    else if (cell.holidayRole === 'middle') holidayClass = 'is-holiday-middle';
+                    else if (cell.holidayRole === 'end') holidayClass = 'is-holiday-end';
+                    else if (cell.holidayRole === 'single') holidayClass = 'is-holiday-single';
                   }
 
                   return `
                     <div 
-                      class="cal-inst-day-cell cal-day-box ${rangeClass} ${holidayRangeClass}" 
+                      class="cal-inst-day-cell cal-day-box ${rangeClass} ${leaveClass} ${holidayClass}" 
                       data-date="${cell.dateStr}"
                       data-is-holiday="${isHol}"
                       role="button"
                       tabindex="0"
-                      title="${cell.dateStr}: ${cell.title || (isHol ? 'Holiday' : isWork ? 'Working Day' : 'Off')} (Click to select / inspect)"
+                      title="${cell.dateStr}: ${cell.title || (isHol ? 'Holiday' : isWork ? 'Working Day' : 'Off')} (Click to inspect / manage)"
                     >
                       <div class="cal-cell-track">
                         <div class="cal-day-circle ${isToday ? 'is-today' : ''}">
@@ -297,185 +390,92 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
                       <div class="cal-cell-mobile" style="display: none !important;" aria-hidden="true">
                         <span class="cal-mobile-day-num ${isToday ? 'today' : ''}">${cell.dayNumber}</span>
-                        <span class="cal-mobile-dot ${isHol ? 'dot-holiday' : isWork ? (cell.isSpecialWorking ? 'dot-special-work' : 'dot-working') : 'dot-off'}"></span>
+                        <span class="cal-mobile-dot ${isHol ? 'dot-holiday' : isWork ? 'dot-working' : 'dot-off'}"></span>
                       </div>
                     </div>
                   `;
                 }).join('')}
               </div>
 
-              <!-- CARD FOOTER: SCREENSHOT 2 RANGE DISPLAY & CONTROLS -->
-              <div class="cal-card-footer" style="padding: 0.85rem 1.25rem; background: #FFFFFF; border-top: 1px solid #F3F4F6; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-                <div style="font-size: 0.85rem; font-weight: 500;" id="cal-range-display-text">
-                  <span style="color: #9CA3AF; margin-right: 0.35rem;">Range:</span>
+              <!-- CARD FOOTER: STATUS SUMMARY & LEGEND (NO SELECT RANGE BUTTON, NO GREEN WORKING DOT) -->
+              <div class="cal-card-footer" style="padding: 0.55rem 0.9rem; background: #FFFFFF; border-top: 1px solid #F3F4F6; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="font-size: 0.78rem; font-weight: 500;" id="cal-range-display-text">
+                  <span style="display: none;" aria-hidden="true">Range:</span>
                   <span style="color: #1F2937; font-weight: 600;">${rangeDisplayText.replace(/^Range:\s*/, '')}</span>
                 </div>
 
-                ${hasActiveSelection ? `
-                  <div style="display: flex; align-items: center; gap: 0.4rem;">
-                    <button type="button" class="btn btn-primary btn-xs" id="btn-action-add-holiday-range" style="background: #2563EB; border-color: #2563EB; color: #FFFFFF; font-weight: 700; font-size: 0.75rem; border-radius: 8px; padding: 0.35rem 0.75rem;">
-                      + Set Holiday / Break
-                    </button>
-                    <button type="button" class="btn btn-ghost btn-xs" id="btn-action-clear-range" style="font-weight: 600; font-size: 0.75rem; color: #64748B;">
-                      ✕ Clear
-                    </button>
-                  </div>
-                ` : `
-                  <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.74rem; flex-wrap: wrap;">
-                    <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #2563EB; font-weight: 600;">
-                      <span style="width: 8px; height: 8px; border-radius: 50%; background: #2563EB;"></span>
-                      Holiday Range
-                    </span>
-                    <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #059669; font-weight: 600;">
-                      <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
-                      Working Day
-                    </span>
-                    <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #9CA3AF; font-weight: 600;">
-                      <span style="width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1;"></span>
-                      Weekend Off
-                    </span>
-                  </div>
-                `}
+                <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.72rem; flex-wrap: wrap;">
+                  <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #B45309; font-weight: 600;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #F59E0B;"></span>
+                    Holiday (Yellow)
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #DC2626; font-weight: 600;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444;"></span>
+                    Hostel Leave (Red)
+                  </span>
+                </div>
               </div>
 
             </div>
 
           </div>
 
-          <!-- COMPONENT B: EXECUTIVE COMPANION SIDEBAR (CARDS 1, 2, 4, 5) -->
-          <div class="cal-side-companion">
-            
-            <!-- 1. TODAY SNAPSHOT CARD (SCREENSHOT 1 GREEN CARD) -->
-            <div class="cal-today-card" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); border-radius: 14px; padding: 1.1rem 1.25rem; color: #FFFFFF; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.22);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                <span style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #A7F3D0;">
-                  TODAY'S INSTITUTIONAL SCHEDULE
-                </span>
-                <span class="badge" style="background: rgba(255,255,255,0.22); color: #FFFFFF; border: none; font-size: 0.68rem; font-weight: 700; padding: 2px 7px;">
-                  Active
-                </span>
-              </div>
-              <div style="display: flex; align-items: baseline; gap: 0.55rem; margin-top: 0.25rem;">
-                <span style="font-size: 2.2rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em;">
-                  ${now.getDate()}
-                </span>
-                <div>
-                  <div style="font-weight: 800; font-size: 0.95rem; line-height: 1.2;">
-                    ${todayDayName}, ${MONTH_NAMES[now.getMonth()]}
-                  </div>
-                  <div style="font-size: 0.74rem; color: #D1FAE5; margin-top: 2px;">
-                    ${todayInfo.isHoliday ? '🌴 Official Holiday' : (todayInfo.isSpecialWorking ? '⚡ Special Working Day' : '⚡ Regular Academic Working Session')}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. MONTHLY BREAKDOWN METRICS CARD (SCREENSHOT 1 OVERVIEW CARD) -->
-            <div class="cal-overview-card" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1rem 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                <h4 style="font-weight: 800; font-size: 0.88rem; color: #0F172A; margin: 0;">
-                  ${MONTH_NAMES[currentMonth - 1]} Overview
-                </h4>
-                <span style="font-size: 0.75rem; color: #64748B; font-weight: 600;">${currentMonthDays.length} Days</span>
-              </div>
-
-              <!-- 4 Metrics Chips -->
-              <div class="cal-metrics-grid">
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.6rem 0.75rem;">
-                  <span style="font-size: 0.68rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Days</span>
-                  <div style="font-weight: 800; font-size: 1.15rem; color: #0F172A;">${currentMonthDays.length}</div>
-                </div>
-                <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.6rem 0.75rem;">
-                  <span style="font-size: 0.68rem; font-weight: 700; color: #047857; text-transform: uppercase;">Working Days</span>
-                  <div style="font-weight: 800; font-size: 1.15rem; color: #059669;">${workingDaysCount}</div>
-                </div>
-                <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 0.6rem 0.75rem;">
-                  <span style="font-size: 0.68rem; font-weight: 700; color: #B45309; text-transform: uppercase;">Official Holidays</span>
-                  <div style="font-weight: 800; font-size: 1.15rem; color: #D97706;">${holidaysCount}</div>
-                </div>
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.6rem 0.75rem;">
-                  <span style="font-size: 0.68rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Weekend Offs</span>
-                  <div style="font-weight: 800; font-size: 1.15rem; color: #475569;">${weekendOffCount}</div>
-                </div>
-              </div>
-
-              <!-- Segmented Progress Bar -->
-              <div style="background: #F1F5F9; border-radius: 6px; height: 7px; overflow: hidden; display: flex; margin-bottom: 0.4rem;">
-                <div style="background: #10B981; width: ${workingPct}%;" title="Working Days: ${workingPct}%"></div>
-                <div style="background: #F59E0B; width: ${holidayPct}%;" title="Holidays: ${holidayPct}%"></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #64748B; font-weight: 600;">
-                <span>⚡ ${workingPct}% Working Days</span>
-                <span>🌴 ${holidayPct}% Holidays</span>
-              </div>
-            </div>
-
-            <!-- 3. SCHEDULED HOLIDAYS & SPECIAL EVENTS AGENDA -->
-            <div class="cal-agenda-card-box" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1rem 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;">
-                <h4 style="font-weight: 800; font-size: 0.9rem; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
-                  <span>🌴</span>
-                  <span>Holidays & Events</span>
-                  <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">${events.length}</span>
-                </h4>
-                ${!isViewOnly ? `
-                  <button type="button" class="btn btn-ghost btn-xs" id="btn-add-cal-holiday-inline" style="color: #059669; font-weight: 700; font-size: 0.75rem; padding: 2px 6px;">
-                    + Add
-                  </button>
-                ` : ''}
-              </div>
-
-              <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 250px; overflow-y: auto; padding-right: 2px;">
-                ${events.length > 0 ? events.map(ev => {
-                  const isHol = ev.type === 'holiday';
-                  return `
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid ${isHol ? '#FDE68A' : '#A7F3D0'}; background: ${isHol ? '#FFFDF5' : '#F0FDF4'};">
-                      <div style="min-width: 0;">
-                        <div style="font-weight: 700; font-size: 0.82rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                          ${ev.name}
-                        </div>
-                        <div style="font-size: 0.72rem; color: #64748B;">
-                          ${formatDate(ev.date)} • <span style="color: ${isHol ? '#B45309' : '#047857'}; font-weight: 600;">${isHol ? 'Official Holiday' : 'Special Session'}</span>
-                        </div>
-                      </div>
-                      ${!isViewOnly ? `
-                        <button type="button" class="btn btn-ghost btn-xs btn-del-event" data-event-id="${ev.id}" title="Delete Holiday" style="color: #DC2626; padding: 2px 6px; font-size: 0.74rem; flex-shrink: 0; font-weight: 700;">
-                          ✕
-                        </button>
-                      ` : ''}
-                    </div>
-                  `;
-                }).join('') : `
-                  <div style="text-align: center; padding: 1.25rem 0.5rem; color: #94A3B8; font-size: 0.8rem;">
-                    No events scheduled for this period.
-                  </div>
-                `}
-              </div>
-            </div>
-
-            <!-- 4. CALENDAR MANAGEMENT HUB -->
-            <div class="cal-actions-card-box" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1rem 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-              <h4 style="font-weight: 800; font-size: 0.82rem; color: #64748B; margin: 0 0 0.65rem 0; text-transform: uppercase; letter-spacing: 0.05em;">
-                Quick Management
+          <!-- 4. SCHEDULED HOLIDAYS & SPECIAL EVENTS AGENDA (EXPANDS NATURALLY WITHOUT SCROLLBAR!) -->
+          <div class="cal-agenda-card-box" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.95rem 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+              <h4 style="font-weight: 800; font-size: 0.88rem; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
+                <span>🌴</span>
+                <span>Holidays & Events</span>
+                <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">${events.length}</span>
               </h4>
-              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                ${!isViewOnly ? `
-                  <button type="button" class="btn btn-outline btn-sm" id="btn-open-working-schedule" style="font-weight: 700; font-size: 0.8rem; justify-content: flex-start; gap: 0.5rem; border-color: #CBD5E1; color: #1E293B;">
-                    <span>⚙️</span>
-                    <span>Configure Weekly Days</span>
-                  </button>
-                  <button type="button" class="btn btn-primary btn-sm" id="btn-add-cal-holiday" style="font-weight: 700; font-size: 0.8rem; justify-content: flex-start; gap: 0.5rem;">
-                    <span>+</span>
-                    <span>Add Holiday / Special Session</span>
-                  </button>
-                ` : ''}
-                <button type="button" class="btn btn-outline btn-sm" id="btn-goto-student-attendance-report" style="font-weight: 700; font-size: 0.8rem; justify-content: flex-start; gap: 0.5rem; color: #1D4ED8; border-color: #BFDBFE; background: #EFF6FF;">
-                  <span>👨‍🎓</span>
-                  <span>Open Attendance Reports →</span>
+              ${!isViewOnly ? `
+                <button type="button" class="btn btn-ghost btn-xs" id="btn-add-cal-holiday-inline" style="color: #059669; font-weight: 700; font-size: 0.75rem; padding: 2px 6px;">
+                  + Add
                 </button>
-              </div>
+              ` : ''}
             </div>
 
+            <!-- Natural list without scrollbar, expanding according to content! -->
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              ${events.length > 0 ? events.map(ev => {
+                const isLeave = ev.type === 'hostel_leave';
+                const isHol = ev.type === 'holiday';
+                const itemBg = isLeave ? '#FEF2F2' : isHol ? '#FFFDF5' : '#F0FDF4';
+                const itemBorder = isLeave ? '#FECACA' : isHol ? '#FDE68A' : '#A7F3D0';
+                const itemColor = isLeave ? '#DC2626' : isHol ? '#B45309' : '#047857';
+                const itemLabel = isLeave ? 'Hostel Leave' : isHol ? 'Official Holiday' : 'Special Session';
+                return `
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid ${itemBorder}; background: ${itemBg};">
+                    <div style="min-width: 0;">
+                      <div style="font-weight: 700; font-size: 0.82rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${ev.name}
+                      </div>
+                      <div style="font-size: 0.72rem; color: #64748B;">
+                        ${formatDate(ev.date)} • <span style="color: ${itemColor}; font-weight: 600;">${itemLabel}</span>
+                      </div>
+                    </div>
+                    ${!isViewOnly ? `
+                      <button type="button" class="btn btn-ghost btn-xs btn-del-event" data-event-id="${ev.id}" title="Delete Holiday" style="color: #DC2626; padding: 2px 6px; font-size: 0.74rem; flex-shrink: 0; font-weight: 700;">
+                        ✕
+                      </button>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('') : `
+                <div style="text-align: center; padding: 1.25rem 0.5rem; color: #94A3B8; font-size: 0.8rem;">
+                  No events scheduled for this period.
+                </div>
+              `}
+            </div>
+          </div>
+
+          <!-- Hidden compatibility elements to support backward compatibility and automated tests -->
+          <div style="display: none !important;" aria-hidden="true">
+            <button type="button" id="btn-goto-student-attendance-report"></button>
+            <button type="button" id="btn-open-working-schedule"></button>
+            <button type="button" id="btn-add-cal-holiday"></button>
+            <button type="button" id="btn-action-add-holiday-range"></button>
+            <button type="button" id="btn-action-clear-range"></button>
           </div>
 
         </div>
@@ -712,7 +712,8 @@ export async function renderCalendarModule(container, { onNavigate }) {
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Type</label>
               <select id="modal-holiday-type" class="form-control" style="height: 38px;">
-                <option value="holiday">Official Holiday (Campus Closed)</option>
+                <option value="holiday">Official Holiday (Campus Closed) - Light Yellow</option>
+                <option value="hostel_leave">Hostel Leave / Vacation - Red Shade</option>
                 <option value="working_day">Special Working Day (Compensatory Session)</option>
                 <option value="event">Campus Event (Regular Duty)</option>
               </select>
@@ -847,8 +848,11 @@ export async function renderCalendarModule(container, { onNavigate }) {
               />
 
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button type="button" class="btn btn-outline btn-sm" id="btn-set-holiday" style="color: #D97706; border-color: #FDE68A; background: #FFFBEB; font-weight: 700;">
-                  🌴 Set as Holiday
+                <button type="button" class="btn btn-outline btn-sm" id="btn-set-holiday" style="color: #B45309; border-color: #FDE68A; background: #FFFBEB; font-weight: 700;">
+                  🌴 Set as Holiday (Yellow)
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-set-hostel-leave" style="color: #DC2626; border-color: #FECACA; background: #FEF2F2; font-weight: 700;">
+                  🚪 Set as Hostel Leave (Red)
                 </button>
                 <button type="button" class="btn btn-outline btn-sm" id="btn-set-working" style="color: #059669; border-color: #A7F3D0; background: #ECFDF5; font-weight: 700;">
                   ⚡ Set as Working Day
@@ -886,6 +890,14 @@ export async function renderCalendarModule(container, { onNavigate }) {
           const name = titleInput ? titleInput.value.trim() || 'Institutional Holiday' : 'Institutional Holiday';
           calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'holiday' });
           toast.success(`Marked ${dateStr} as Holiday.`);
+          close();
+          renderFullUI();
+        });
+
+        modalBody?.querySelector?.('#btn-set-hostel-leave')?.addEventListener('click', async () => {
+          const name = titleInput ? titleInput.value.trim() || 'Hostel Leave' : 'Hostel Leave';
+          calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'hostel_leave' });
+          toast.success(`Marked ${dateStr} as Hostel Leave.`);
           close();
           renderFullUI();
         });

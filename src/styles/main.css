@@ -6087,15 +6087,15 @@ body.tps-wheel-open {
 }
 
 /* ------------------------------------------------------------
-   VISUAL MONTHLY CALENDAR GRID & MOBILE RESPONSIVE OPTIMIZATION
-   (SCREENSHOT 1, 2 & 3 OPTIMIZED)
+   VISUAL MONTHLY CALENDAR GRID & UNIFIED DESKTOP/MOBILE LAYOUT
    ------------------------------------------------------------ */
 .cal-workspace-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 1.25rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
 }
 
 .cal-main-stage {
@@ -6113,48 +6113,10 @@ body.tps-wheel-open {
   width: 100%;
 }
 
-@media (max-width: 1024px) {
-  .cal-workspace-layout {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    gap: 1rem !important;
-  }
-
-  .cal-side-companion {
-    display: contents !important;
-  }
-
-  .cal-today-card {
-    order: 1 !important;
-    width: 100% !important;
-  }
-
-  .cal-overview-card {
-    order: 2 !important;
-    width: 100% !important;
-  }
-
-  .cal-main-stage {
-    order: 3 !important;
-    width: 100% !important;
-  }
-
-  .cal-agenda-card-box {
-    order: 4 !important;
-    width: 100% !important;
-  }
-
-  .cal-actions-card-box {
-    order: 5 !important;
-    width: 100% !important;
-  }
-}
-
 .cal-fluent-grid-card {
   background: #FFFFFF;
   border: 1px solid #E5E7EB;
-  border-radius: 20px;
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
   width: 100%;
@@ -6166,18 +6128,18 @@ body.tps-wheel-open {
   justify-content: space-between;
   background: #F9FAFB;
   border: 1px solid #F3F4F6;
-  border-radius: 14px;
-  padding: 0.35rem 0.6rem;
-  margin: 0.85rem 1rem 0.5rem;
+  border-radius: 12px;
+  padding: 0.25rem 0.5rem;
+  margin: 0.5rem 0.85rem 0.25rem;
 }
 
 .cal-nav-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #FFFFFF;
   border: 1px solid #E5E7EB;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6195,7 +6157,7 @@ body.tps-wheel-open {
 
 .cal-month-nav-title {
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #1F2937;
   letter-spacing: -0.01em;
 }
@@ -6205,9 +6167,9 @@ body.tps-wheel-open {
   border: 1px solid #BFDBFE;
   color: #2563EB;
   font-weight: 600;
-  font-size: 0.72rem;
-  padding: 2px 8px;
-  border-radius: 6px;
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -6227,7 +6189,7 @@ body.tps-wheel-open {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   width: 100%;
-  padding: 0.25rem 0.6rem 0.75rem;
+  padding: 0.15rem 0.4rem 0.35rem;
 }
 
 .cal-dow-full {
@@ -6248,8 +6210,8 @@ body.tps-wheel-open {
 
 .cal-day-box,
 .cal-inst-day-cell {
-  height: 48px;
-  min-height: 48px;
+  height: 36px;
+  min-height: 36px;
   padding: 0;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -6261,12 +6223,12 @@ body.tps-wheel-open {
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   background: transparent;
   border: none !important;
-  margin: 1px 0;
+  margin: 0;
 }
 
 .cal-pad-cell {
-  height: 48px;
-  min-height: 48px;
+  height: 36px;
+  min-height: 36px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -6274,7 +6236,7 @@ body.tps-wheel-open {
   border: none !important;
   color: #CBD5E1;
   font-weight: 500;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
 .cal-day-box:hover .cal-day-circle,
@@ -6282,12 +6244,9 @@ body.tps-wheel-open {
   background-color: #F1F5F9;
 }
 
-/* ------------------------------------------------------------
-   SCREENSHOT 2 ROYAL BLUE RANGE & HOLIDAY PILL CAPSULE (4-SIDE CURVATURE)
-   ------------------------------------------------------------ */
 .cal-cell-track {
   width: 100%;
-  height: 36px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6296,14 +6255,14 @@ body.tps-wheel-open {
 }
 
 .cal-day-circle {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   color: #1F2937;
   position: relative;
   z-index: 2;
@@ -6313,12 +6272,165 @@ body.tps-wheel-open {
 .cal-day-circle.is-today {
   border: 2px solid #2563EB;
   color: #2563EB;
-  font-weight: 700;
+  font-weight: 800;
 }
 
-/* Range Start & Holiday Start */
-.cal-inst-day-cell.is-range-start .cal-cell-track::after,
+/* ------------------------------------------------------------
+   HOLIDAY RANGE (LIGHT YELLOW SHADE WITH 4-SIDE CURVATURE)
+   ------------------------------------------------------------ */
 .cal-inst-day-cell.is-holiday-start .cal-cell-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: #FEF3C7;
+  z-index: 1;
+}
+
+.cal-inst-day-cell.is-holiday-start .cal-cell-track {
+  border-top-left-radius: 9999px;
+  border-bottom-left-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-holiday-start .cal-day-circle {
+  background: #F59E0B !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+  z-index: 2;
+}
+
+.cal-inst-day-cell.is-holiday-middle .cal-cell-track {
+  background: #FEF3C7;
+  border-radius: 0;
+}
+
+.cal-inst-day-cell.is-holiday-middle .cal-day-circle {
+  color: #B45309 !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 2;
+}
+
+.cal-inst-day-cell.is-holiday-end .cal-cell-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 50%;
+  top: 0;
+  bottom: 0;
+  background: #FEF3C7;
+  z-index: 1;
+}
+
+.cal-inst-day-cell.is-holiday-end .cal-cell-track {
+  border-top-right-radius: 9999px;
+  border-bottom-right-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-holiday-end .cal-day-circle {
+  background: #F59E0B !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+  z-index: 2;
+}
+
+.cal-inst-day-cell.is-holiday-single .cal-cell-track {
+  border-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-holiday-single .cal-day-circle {
+  background: #FEF3C7 !important;
+  color: #B45309 !important;
+  font-weight: 700 !important;
+  border: 1.5px solid #FDE68A;
+}
+
+/* ------------------------------------------------------------
+   HOSTEL LEAVE RANGE (RED SHADE WITH 4-SIDE CURVATURE)
+   ------------------------------------------------------------ */
+.cal-inst-day-cell.is-hostel-leave-start .cal-cell-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: #FEE2E2;
+  z-index: 1;
+}
+
+.cal-inst-day-cell.is-hostel-leave-start .cal-cell-track {
+  border-top-left-radius: 9999px;
+  border-bottom-left-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-hostel-leave-start .cal-day-circle {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+  z-index: 2;
+}
+
+.cal-inst-day-cell.is-hostel-leave-middle .cal-cell-track {
+  background: #FEE2E2;
+  border-radius: 0;
+}
+
+.cal-inst-day-cell.is-hostel-leave-middle .cal-day-circle {
+  color: #DC2626 !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 2;
+}
+
+.cal-inst-day-cell.is-hostel-leave-end .cal-cell-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 50%;
+  top: 0;
+  bottom: 0;
+  background: #FEE2E2;
+  z-index: 1;
+}
+
+.cal-inst-day-cell.is-hostel-leave-end .cal-cell-track {
+  border-top-right-radius: 9999px;
+  border-bottom-right-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-hostel-leave-end .cal-day-circle {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+  z-index: 2;
+}
+
+.cal-inst-day-cell.is-hostel-leave-single .cal-cell-track {
+  border-radius: 9999px;
+}
+
+.cal-inst-day-cell.is-hostel-leave-single .cal-day-circle {
+  background: #FEE2E2 !important;
+  color: #DC2626 !important;
+  font-weight: 700 !important;
+  border: 1.5px solid #FECACA;
+}
+
+/* ------------------------------------------------------------
+   INTERACTIVE USER RANGE SELECTION (ROYAL BLUE ACCENT)
+   ------------------------------------------------------------ */
+.cal-inst-day-cell.is-range-start .cal-cell-track::after {
   content: '';
   position: absolute;
   left: 50%;
@@ -6329,14 +6441,12 @@ body.tps-wheel-open {
   z-index: 1;
 }
 
-.cal-inst-day-cell.is-range-start .cal-cell-track,
-.cal-inst-day-cell.is-holiday-start .cal-cell-track {
+.cal-inst-day-cell.is-range-start .cal-cell-track {
   border-top-left-radius: 9999px;
   border-bottom-left-radius: 9999px;
 }
 
-.cal-inst-day-cell.is-range-start .cal-day-circle,
-.cal-inst-day-cell.is-holiday-start .cal-day-circle {
+.cal-inst-day-cell.is-range-start .cal-day-circle {
   background: #2563EB !important;
   color: #FFFFFF !important;
   font-weight: 700 !important;
@@ -6344,15 +6454,12 @@ body.tps-wheel-open {
   z-index: 2;
 }
 
-/* Range Middle & Holiday Middle */
-.cal-inst-day-cell.is-range-middle .cal-cell-track,
-.cal-inst-day-cell.is-holiday-middle .cal-cell-track {
+.cal-inst-day-cell.is-range-middle .cal-cell-track {
   background: #EFF6FF;
   border-radius: 0;
 }
 
-.cal-inst-day-cell.is-range-middle .cal-day-circle,
-.cal-inst-day-cell.is-holiday-middle .cal-day-circle {
+.cal-inst-day-cell.is-range-middle .cal-day-circle {
   color: #2563EB !important;
   font-weight: 700 !important;
   background: transparent !important;
@@ -6361,9 +6468,7 @@ body.tps-wheel-open {
   z-index: 2;
 }
 
-/* Range End & Holiday End */
-.cal-inst-day-cell.is-range-end .cal-cell-track::before,
-.cal-inst-day-cell.is-holiday-end .cal-cell-track::before {
+.cal-inst-day-cell.is-range-end .cal-cell-track::before {
   content: '';
   position: absolute;
   left: 0;
@@ -6374,14 +6479,12 @@ body.tps-wheel-open {
   z-index: 1;
 }
 
-.cal-inst-day-cell.is-range-end .cal-cell-track,
-.cal-inst-day-cell.is-holiday-end .cal-cell-track {
+.cal-inst-day-cell.is-range-end .cal-cell-track {
   border-top-right-radius: 9999px;
   border-bottom-right-radius: 9999px;
 }
 
-.cal-inst-day-cell.is-range-end .cal-day-circle,
-.cal-inst-day-cell.is-holiday-end .cal-day-circle {
+.cal-inst-day-cell.is-range-end .cal-day-circle {
   background: #2563EB !important;
   color: #FFFFFF !important;
   font-weight: 700 !important;
@@ -6389,25 +6492,23 @@ body.tps-wheel-open {
   z-index: 2;
 }
 
-/* Single Day Range / Standalone Holiday */
-.cal-inst-day-cell.is-range-single .cal-cell-track,
-.cal-inst-day-cell.is-holiday-single .cal-cell-track {
+.cal-inst-day-cell.is-range-single .cal-cell-track {
   border-radius: 9999px;
 }
 
-.cal-inst-day-cell.is-range-single .cal-day-circle,
-.cal-inst-day-cell.is-holiday-single .cal-day-circle {
+.cal-inst-day-cell.is-range-single .cal-day-circle {
   background: #2563EB !important;
   color: #FFFFFF !important;
   font-weight: 700 !important;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 
+/* WORKING DAYS: NO SPECIAL COLOR */
 .cal-inst-day-cell.is-special-work .cal-day-circle {
-  background: #ECFDF5;
-  color: #059669;
-  font-weight: 700;
-  border: 1.5px solid #A7F3D0;
+  color: #1F2937;
+  font-weight: 600;
+  background: transparent;
+  border: none;
 }
 
 .cal-inst-day-cell.is-weekend-off .cal-day-circle {
@@ -6415,25 +6516,29 @@ body.tps-wheel-open {
 }
 
 /* 4-Corner Row Wrapping Curvature Protection */
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-middle .cal-cell-track,
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-middle .cal-cell-track {
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-middle .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-hostel-leave-middle .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-middle .cal-cell-track {
   border-top-left-radius: 9999px;
   border-bottom-left-radius: 9999px;
 }
 
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-middle .cal-cell-track,
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-middle .cal-cell-track {
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-middle .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-hostel-leave-middle .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-middle .cal-cell-track {
   border-top-right-radius: 9999px;
   border-bottom-right-radius: 9999px;
 }
 
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-start .cal-cell-track::after,
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-start .cal-cell-track::after {
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-start .cal-cell-track::after,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-hostel-leave-start .cal-cell-track::after,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-start .cal-cell-track::after {
   display: none;
 }
 
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-end .cal-cell-track::before,
-.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-end .cal-cell-track::before {
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-end .cal-cell-track::before,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-hostel-leave-end .cal-cell-track::before,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-end .cal-cell-track::before {
   display: none;
 }
 
@@ -6584,8 +6689,8 @@ body.tps-wheel-open {
 
   .cal-day-box,
   .cal-inst-day-cell {
-    min-height: 44px !important;
-    height: 46px !important;
+    min-height: 34px !important;
+    height: 34px !important;
     padding: 0 !important;
     display: flex;
     flex-direction: column;
@@ -6594,12 +6699,22 @@ body.tps-wheel-open {
   }
 
   .cal-pad-cell {
-    min-height: 44px !important;
-    height: 46px !important;
+    min-height: 34px !important;
+    height: 34px !important;
     padding: 0 !important;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .cal-cell-track {
+    height: 26px !important;
+  }
+
+  .cal-day-circle {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.78rem !important;
   }
 
   .cal-day-box:active,
