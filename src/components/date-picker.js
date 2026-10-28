@@ -199,40 +199,71 @@ function applyDateToInput(input, dateInput) {
   closeActiveDatePicker();
 }
 
-function getFieldTitle(input) {
+export function getFieldTitle(input) {
+  if (!input) return 'Select Date';
   if (input.dataset && input.dataset.title) return input.dataset.title;
   if (input.getAttribute('data-title')) return input.getAttribute('data-title');
 
-  const id = (input.id || '').toLowerCase();
   let labelText = '';
 
-  if (input.id) {
+  if (input.id && typeof document !== 'undefined') {
     const labelEl = document.querySelector(`label[for="${input.id}"]`);
     if (labelEl && labelEl.textContent.trim()) {
-      labelText = labelEl.textContent.replace(/[*:]/g, '').trim();
+      labelText = labelEl.textContent;
     }
   }
 
   if (!labelText && input.closest) {
-    const formGroup = input.closest('.form-group, .input-group, .form-field');
-    if (formGroup) {
-      const labelEl = formGroup.querySelector('label');
+    const group = input.closest('.form-group, .input-group, .form-field, .col-span-1, .col-span-2, .adm-field, .field-wrapper, .modal-field');
+    if (group) {
+      const labelEl = group.querySelector('label');
       if (labelEl && labelEl.textContent.trim()) {
-        labelText = labelEl.textContent.replace(/[*:]/g, '').trim();
+        labelText = labelEl.textContent;
       }
     }
   }
 
   if (!labelText && input.placeholder && input.placeholder.trim()) {
-    labelText = input.placeholder.trim();
+    labelText = input.placeholder;
+  }
+  if (!labelText && input.getAttribute('aria-label')) {
+    labelText = input.getAttribute('aria-label');
   }
 
-  const isDob = id.includes('dob') || id.includes('birth') || (labelText && labelText.toLowerCase().includes('birth'));
-  if (isDob) {
-    return 'Date of Birth (as per PAN)';
+  if (labelText) {
+    const cleaned = labelText
+      .replace(/\s*\(as per[^)]*\)/gi, '')
+      .replace(/\s*\(required\)/gi, '')
+      .replace(/\s*\(optional\)/gi, '')
+      .replace(/[*:]/g, '')
+      .trim();
+    if (cleaned) return cleaned;
   }
 
-  return labelText || 'Select Date';
+  const idOrName = `${input.id || ''} ${input.name || ''}`.toLowerCase();
+  if (idOrName.includes('dob') || idOrName.includes('birth')) {
+    return 'Date of Birth';
+  }
+  if (idOrName.includes('adm')) {
+    return 'Admission Date';
+  }
+  if (idOrName.includes('attend') || idOrName.includes('session')) {
+    return 'Attendance Date';
+  }
+  if (idOrName.includes('exam')) {
+    return 'Exam Date';
+  }
+  if (idOrName.includes('inc')) {
+    return 'Incident Date';
+  }
+  if (idOrName.includes('dep')) {
+    return 'Departure Date';
+  }
+  if (idOrName.includes('ret')) {
+    return 'Return Date';
+  }
+
+  return 'Select Date';
 }
 
 function getDaysInMonth(year, month) {
@@ -245,9 +276,22 @@ function getDaysInMonth(year, month) {
 export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSelect, onCancel }) {
   closeActiveDatePicker();
 
-  const selectedDate = (initialDate instanceof Date && !isNaN(initialDate.getTime()))
-    ? initialDate
-    : (parseDateString(initialDate) || new Date());
+  let selectedDate;
+  if (initialDate instanceof Date && !isNaN(initialDate.getTime())) {
+    selectedDate = initialDate;
+  } else if (initialDate && typeof initialDate === 'string') {
+    selectedDate = parseDateString(initialDate);
+  }
+
+  if (!selectedDate || isNaN(selectedDate.getTime())) {
+    const isDob = title && title.toLowerCase().includes('birth');
+    if (isDob) {
+      const now = new Date();
+      selectedDate = new Date(now.getFullYear() - 15, 0, 1);
+    } else {
+      selectedDate = new Date();
+    }
+  }
 
   const START_YEAR = 1920;
   const END_YEAR = 2050;
@@ -264,6 +308,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
   let curMaxDays = getDaysInMonth(curYear, curMonth);
   let curDay = Math.min(selectedDate.getDate(), curMaxDays);
 
+  const cleanupFns = [];
   const backdrop = document.createElement('div');
   backdrop.className = 'tps-wheel-backdrop';
   backdrop.id = 'tps-mobile-wheel-modal';
@@ -279,31 +324,27 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
         <div class="tps-wheel-gradient-top"></div>
         <div class="tps-wheel-gradient-bottom"></div>
 
-        <!-- 2 Horizontal Divider Lines Framing Center Selection Row -->
-        <div class="tps-wheel-selection-frame" aria-hidden="true">
-          <div class="tps-wheel-frame-col col-day"></div>
-          <div class="tps-wheel-frame-col col-month"></div>
-          <div class="tps-wheel-frame-col col-year"></div>
-        </div>
+        <!-- 2 Continuous Horizontal Divider Lines Framing Center Selection Row -->
+        <div class="tps-wheel-selection-frame" aria-hidden="true"></div>
 
         <!-- Column 1: DAY (01 .. 31) -->
-        <div class="tps-wheel-col col-day" data-wheel="day" tabindex="0">
+        <div class="tps-wheel-col col-day" id="tps-wheel-col-day" data-wheel="day" tabindex="0">
           <div class="tps-wheel-spacer"></div>
-          <div class="tps-wheel-items" data-items="day"></div>
+          <div class="tps-wheel-items" id="tps-wheel-items-day"></div>
           <div class="tps-wheel-spacer"></div>
         </div>
 
         <!-- Column 2: MONTH (Jan .. Dec) -->
-        <div class="tps-wheel-col col-month" data-wheel="month" tabindex="0">
+        <div class="tps-wheel-col col-month" id="tps-wheel-col-month" data-wheel="month" tabindex="0">
           <div class="tps-wheel-spacer"></div>
-          <div class="tps-wheel-items" data-items="month"></div>
+          <div class="tps-wheel-items" id="tps-wheel-items-month"></div>
           <div class="tps-wheel-spacer"></div>
         </div>
 
         <!-- Column 3: YEAR (1920 .. 2050) -->
-        <div class="tps-wheel-col col-year" data-wheel="year" tabindex="0">
+        <div class="tps-wheel-col col-year" id="tps-wheel-col-year" data-wheel="year" tabindex="0">
           <div class="tps-wheel-spacer"></div>
-          <div class="tps-wheel-items" data-items="year"></div>
+          <div class="tps-wheel-items" id="tps-wheel-items-year"></div>
           <div class="tps-wheel-spacer"></div>
         </div>
       </div>
@@ -319,13 +360,18 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
   document.body.appendChild(backdrop);
   document.body.classList.add('tps-wheel-open');
   activePopup = backdrop;
+  activeCleanup = () => {
+    cleanupFns.forEach(fn => {
+      try { fn(); } catch (e) {}
+    });
+  };
 
-  const dayCol = backdrop.querySelector('.col-day');
-  const dayItemsList = backdrop.querySelector('[data-items="day"]');
-  const monthCol = backdrop.querySelector('.col-month');
-  const monthItemsList = backdrop.querySelector('[data-items="month"]');
-  const yearCol = backdrop.querySelector('.col-year');
-  const yearItemsList = backdrop.querySelector('[data-items="year"]');
+  const dayCol = backdrop.querySelector('#tps-wheel-col-day');
+  const dayItemsList = backdrop.querySelector('#tps-wheel-items-day');
+  const monthCol = backdrop.querySelector('#tps-wheel-col-month');
+  const monthItemsList = backdrop.querySelector('#tps-wheel-items-month');
+  const yearCol = backdrop.querySelector('#tps-wheel-col-year');
+  const yearItemsList = backdrop.querySelector('#tps-wheel-items-year');
 
   const ITEM_HEIGHT = 42;
 
@@ -375,7 +421,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
         top: targetIdx * ITEM_HEIGHT,
         behavior: smooth ? 'smooth' : 'auto'
       });
-      setTimeout(updateVisuals, smooth ? 120 : 10);
+      setTimeout(updateVisuals, smooth ? 140 : 10);
     }
 
     // Scroll listener with RAF throttle
@@ -401,7 +447,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       }
     });
 
-    // Mouse drag support for desktop browsers testing mobile
+    // Touch & Mouse drag support
     let isMouseDown = false;
     let startY = 0;
     let startScroll = 0;
@@ -411,26 +457,40 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       startY = e.clientY;
       startScroll = colEl.scrollTop;
       colEl.style.scrollSnapType = 'none';
+      colEl.style.userSelect = 'none';
     });
 
-    window.addEventListener('mousemove', (e) => {
+    const handleMouseMove = (e) => {
       if (!isMouseDown) return;
       const deltaY = e.clientY - startY;
       colEl.scrollTop = startScroll - deltaY;
-    });
+      updateVisuals();
+    };
 
-    window.addEventListener('mouseup', () => {
+    const handleMouseUp = () => {
       if (!isMouseDown) return;
       isMouseDown = false;
       colEl.style.scrollSnapType = 'y mandatory';
-      const nearestIdx = Math.round(colEl.scrollTop / ITEM_HEIGHT);
+      colEl.style.userSelect = '';
+      const maxIdx = getItems().length - 1;
+      const nearestIdx = Math.max(0, Math.min(maxIdx, Math.round(colEl.scrollTop / ITEM_HEIGHT)));
       scrollToIdx(nearestIdx, true);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    cleanupFns.push(() => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
     });
 
     return {
       renderItems,
       scrollToIdx,
-      getCurrentIdx: () => currentIdx
+      getActiveIdx: () => {
+        const maxIdx = getItems().length - 1;
+        return Math.max(0, Math.min(maxIdx, Math.round(colEl.scrollTop / ITEM_HEIGHT)));
+      }
     };
   }
 
@@ -476,30 +536,46 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
   });
 
   function updateDaysForMonthYear() {
-    curMaxDays = getDaysInMonth(curYear, curMonth);
-    dayController.renderItems();
-    if (curDay > curMaxDays) {
-      curDay = curMaxDays;
-      dayController.scrollToIdx(curDay - 1, true);
+    const newMaxDays = getDaysInMonth(curYear, curMonth);
+    if (newMaxDays !== curMaxDays) {
+      curMaxDays = newMaxDays;
+      const savedDay = Math.min(curDay, curMaxDays);
+      curDay = savedDay;
+      dayController.renderItems();
+      dayController.scrollToIdx(savedDay - 1, false);
     }
   }
 
-  // Initial render
+  // Initial render of columns
   dayController.renderItems();
   monthController.renderItems();
   yearController.renderItems();
 
-  // Scroll to initial selected position
-  safeRAF(() => {
+  function applyInitialScrolls() {
     dayController.scrollToIdx(curDay - 1, false);
     monthController.scrollToIdx(curMonth, false);
     yearController.scrollToIdx(curYear - START_YEAR, false);
-  });
+  }
+
+  // Position immediately and after CSS scale / layout completes
+  applyInitialScrolls();
+  safeRAF(applyInitialScrolls);
+  setTimeout(applyInitialScrolls, 50);
+  setTimeout(applyInitialScrolls, 150);
+  setTimeout(applyInitialScrolls, 300);
 
   // Footer Buttons Listeners
   backdrop.querySelector('#tps-wheel-done-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    const finalDate = new Date(curYear, curMonth, curDay);
+    const activeDayIdx = dayController.getActiveIdx();
+    const activeMonthIdx = monthController.getActiveIdx();
+    const activeYearIdx = yearController.getActiveIdx();
+
+    const finalDay = activeDayIdx + 1;
+    const finalMonth = activeMonthIdx;
+    const finalYear = START_YEAR + activeYearIdx;
+
+    const finalDate = new Date(finalYear, finalMonth, finalDay);
     if (onSelect) {
       onSelect(finalDate);
     }
@@ -522,8 +598,19 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
 
 export function showMobileDatePickerModal(input) {
   const initialDateStr = input.getAttribute('data-date-raw') || input.value || '';
-  const initialDate = parseDateString(initialDateStr) || new Date();
+  const parsed = parseDateString(initialDateStr);
   const title = getFieldTitle(input);
+
+  let initialDate = parsed;
+  if (!initialDate || isNaN(initialDate.getTime())) {
+    const isDob = title && title.toLowerCase().includes('birth');
+    if (isDob) {
+      const now = new Date();
+      initialDate = new Date(now.getFullYear() - 15, 0, 1);
+    } else {
+      initialDate = new Date();
+    }
+  }
 
   openMobileWheelPicker({
     initialDate,

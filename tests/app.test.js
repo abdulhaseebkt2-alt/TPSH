@@ -16,7 +16,7 @@ import { renderTimetableModule } from '../src/modules/timetable/index.js';
 import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
-import { formatDateYMD, parseDateString, isMobileDatePicker } from '../src/components/date-picker.js';
+import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle } from '../src/components/date-picker.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -1363,5 +1363,27 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(isMobileDatePicker()).toBe(true);
       window.__TPS_FORCE_MOBILE_PICKER__ = undefined;
     }
+
+    // 4. getFieldTitle dynamic contextual title resolution (never includes "(as per PAN)")
+    const dobInput = { id: 'adm-dob', dataset: {}, getAttribute: () => null };
+    expect(getFieldTitle(dobInput)).toBe('Date of Birth');
+    expect(getFieldTitle(dobInput)).not.toContain('PAN');
+
+    const admDateInput = { id: 'adm-date', dataset: {}, getAttribute: () => null };
+    expect(getFieldTitle(admDateInput)).toBe('Admission Date');
+
+    const examInput = { id: 'exam-start', dataset: {}, getAttribute: () => null };
+    expect(getFieldTitle(examInput)).toBe('Exam Date');
+
+    const panLabelInput = {
+      id: 'custom-field',
+      dataset: {},
+      getAttribute: () => null,
+      closest: () => ({
+        querySelector: () => ({ textContent: 'Date of Birth (as per PAN) *' })
+      })
+    };
+    expect(getFieldTitle(panLabelInput)).toBe('Date of Birth');
+    expect(getFieldTitle(panLabelInput)).not.toContain('PAN');
   });
 });
