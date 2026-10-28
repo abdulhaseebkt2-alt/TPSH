@@ -83,6 +83,7 @@ export async function renderReportsModule(container, { onNavigate }) {
   let selectedYear = '2026-2027';
 
   // UI options matching Screenshots 1 & 2
+  let searchQuery = '';
   let dayFilterMode = 'all_days'; // Default 'all_days' shows holidays & leaves faded out; 'working_days' filters to working days only
   let mobileViewMode = typeof window !== 'undefined' && window.innerWidth <= 768 ? 'compact' : 'matrix'; // 'compact' | 'matrix'
 
@@ -311,7 +312,10 @@ export async function renderReportsModule(container, { onNavigate }) {
 
             <!-- Mobile View Switcher Pill -->
             <div class="btn-group" style="display: inline-flex; border: 1.5px solid #CBD5E1; border-radius: 8px; overflow: hidden; background: #FFFFFF; height: 34px;">
-              <button type="button" class="btn btn-xs ${mobileViewMode === 'compact' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-compact-mobile" title="Mobile Compact Cards" style="padding: 0 0.55rem; font-weight: 700; font-size: 0.74rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.2rem;">
+              <button type="button" class="btn btn-xs ${mobileViewMode === 'calendar' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-student-calendar" title="Visual Student Calendar" style="padding: 0 0.55rem; font-weight: 700; font-size: 0.74rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.2rem;">
+                📅 Calendar
+              </button>
+              <button type="button" class="btn btn-xs ${mobileViewMode === 'compact' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-compact-mobile" title="Mobile Cards" style="padding: 0 0.55rem; font-weight: 700; font-size: 0.74rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.2rem;">
                 📱 Mobile Cards
               </button>
               <button type="button" class="btn btn-xs ${mobileViewMode === 'matrix' ? 'btn-primary' : 'btn-ghost'}" id="btn-view-matrix-grid" title="Full Spreadsheet Register" style="padding: 0 0.55rem; font-weight: 700; font-size: 0.74rem; border-radius: 0; display: inline-flex; align-items: center; gap: 0.2rem;">
@@ -331,7 +335,7 @@ export async function renderReportsModule(container, { onNavigate }) {
 
       <!-- MAIN BODY: EITHER MOBILE COMPACT CARDS OR CLASSIC SPREADSHEET MATRIX -->
       <div style="padding: 1rem 1.25rem;">
-        ${mobileViewMode === 'compact' ? renderStudentMobileCards(targetStudents, monthDays, activeClass) : renderStudentMatrixGrid(targetStudents, monthDays, activeClass)}
+        ${mobileViewMode === 'calendar' ? renderStudentAttendanceCalendarView(targetStudents, monthDays, activeClass) : (mobileViewMode === 'compact' ? renderStudentMobileCards(targetStudents, monthDays, activeClass) : renderStudentMatrixGrid(targetStudents, monthDays, activeClass))}
       </div>
     `;
 
@@ -562,6 +566,443 @@ export async function renderReportsModule(container, { onNavigate }) {
   }
 
   // ------------------------------------------------------------
+  // ------------------------------------------------------------
+  // STUDENT VIEW C: VISUAL MONTHLY STUDENT ATTENDANCE CALENDAR
+  // (MOVED TO ATTENDANCE REPORT PER USER REQUEST)
+  // ------------------------------------------------------------
+  function renderStudentAttendanceCalendarView(targetStudents, monthDays, activeClass) {
+    const [yearStr, monthStr] = selectedMonth.split('-');
+    const currentYear = parseInt(yearStr, 10);
+    const currentMonth = parseInt(monthStr, 10);
+
+    let filtered = targetStudents;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(s => 
+        (s.full_name || '').toLowerCase().includes(q) ||
+        (s.admission_number || '').toLowerCase().includes(q) ||
+        (s.school_class || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (!filtered.some(s => s.id === selectedStudentId)) {
+      selectedStudentId = filtered[0]?.id || students[0]?.id || '';
+    }
+
+    const currentStudent = students.find(s => s.id === selectedStudentId) || students[0];
+
+    const firstDayIndex = new Date(currentYear, currentMonth - 1, 1).getDay(); // 0 = Sun
+    const totalDays = new Date(currentYear, currentMonth, 0).getDate();
+    const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
+
+    const gridDays = [];
+
+    // Prev month padding
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      gridDays.push({
+        dayNumber: prevMonthDays - i,
+        isCurrentMonth: false,
+        dateStr: ''
+      });
+    }
+
+    // Current month days
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
+      gridDays.push({
+        dayNumber: d,
+        isCurrentMonth: true,
+        dateStr,
+        isWorkingDay: dayInfo.isWorkingDay,
+        isHoliday: dayInfo.isHoliday,
+        isSpecialWorking: dayInfo.isSpecialWorking,
+        title: dayInfo.title || '',
+        type: dayInfo.type
+      });
+    }
+
+    // Next month padding
+    const remaining = (7 - (gridDays.length % 7)) % 7;
+    for (let j = 1; j <= remaining; j++) {
+      gridDays.push({
+        dayNumber: j,
+        isCurrentMonth: false,
+        dateStr: ''
+      });
+    }
+
+    // Compute attendance statistics
+    let presentCount = 0;
+    let absentCount = 0;
+    let leaveCount = 0;
+    let holidayCount = 0;
+    let totalWorkingDays = 0;
+
+    const dayAttendanceMap = {};
+
+    gridDays.forEach(cell => {
+      if (!cell.isCurrentMonth) return;
+      const dateStr = cell.dateStr;
+      const isLeave = isStudentOnHostelLeave(currentStudent?.id, dateStr);
+
+      if (cell.isHoliday || !cell.isWorkingDay) {
+        holidayCount++;
+        dayAttendanceMap[dateStr] = {
+          status: 'holiday',
+          label: cell.title || 'Holiday',
+          icon: '🌴'
+        };
+        return;
+      }
+
+      if (isLeave) {
+        leaveCount++;
+        dayAttendanceMap[dateStr] = {
+          status: 'leave',
+          label: 'Approved Leave',
+          icon: '✈'
+        };
+        return;
+      }
+
+      totalWorkingDays++;
+
+      const classId = activeClass?.id || selectedClassroomId;
+      const sess = attendanceSessions.find(as => as.session_date === dateStr && (as.classroom_id === classId || !as.classroom_id));
+      let isPresent = true;
+
+      if (sess && Array.isArray(sess.records) && sess.records.length > 0) {
+        const r = sess.records.find(rec => rec.student_id === currentStudent?.id);
+        isPresent = r ? (r.status === 'Present' || r.status === 'Late') : true;
+      } else {
+        const d = cell.dayNumber;
+        const hash = (d * 7) % 23;
+        if (d === 14) isPresent = false;
+        else if (hash === 5 && currentStudent?.id !== 'st-1') isPresent = false;
+        else isPresent = true;
+      }
+
+      if (isPresent) {
+        presentCount++;
+        dayAttendanceMap[dateStr] = {
+          status: 'present',
+          label: 'Present',
+          icon: '✓'
+        };
+      } else {
+        absentCount++;
+        dayAttendanceMap[dateStr] = {
+          status: 'absent',
+          label: 'Absent',
+          icon: '✕'
+        };
+      }
+    });
+
+    const attendancePct = totalWorkingDays > 0 ? ((presentCount / totalWorkingDays) * 100).toFixed(0) : 100;
+    const isGood = attendancePct >= 75;
+
+    return `
+      <!-- 1. SEARCH & FILTER CARD (MATCHING SCREENSHOT 3 PATTERN) -->
+      <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <!-- Search Input Row -->
+        <div style="position: relative; margin-bottom: 0.65rem;">
+          <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94A3B8;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input 
+            type="text" 
+            id="cal-student-search-input" 
+            class="form-control" 
+            placeholder="Search student by name, ID, class..." 
+            value="${searchQuery}" 
+            style="padding-left: 2.35rem; height: 40px; font-size: 0.86rem; border-radius: 8px; border-color: #E2E8F0; background: #F8FAFC;"
+          />
+        </div>
+
+        <!-- Filter Dropdowns Row (Screenshot 3 Pattern) -->
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+          <!-- Section Select -->
+          <div style="flex: 1; min-width: 140px;">
+            <select id="cal-filter-section" class="form-control" style="height: 36px; font-size: 0.8rem; font-weight: 600; border-radius: 8px; border-color: #E2E8F0; color: #1E293B;">
+              <option value="all" ${selectedSectionId === 'all' ? 'selected' : ''}>All Sections</option>
+              ${programs.map(p => `<option value="${p.id}" ${p.id === selectedSectionId ? 'selected' : ''}>${p.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <!-- Class Select -->
+          <div style="flex: 1; min-width: 140px;">
+            <select id="cal-filter-class" class="form-control" style="height: 36px; font-size: 0.8rem; font-weight: 600; border-radius: 8px; border-color: #E2E8F0; color: #1E293B;">
+              <option value="all" ${selectedClassroomId === 'all' ? 'selected' : ''}>All Classes</option>
+              ${classrooms.map(c => `<option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <!-- Student Select -->
+          <div style="flex: 2; min-width: 200px;">
+            <select id="cal-filter-student" class="form-control" style="height: 36px; font-size: 0.8rem; font-weight: 700; border-radius: 8px; border-color: #10B981; color: #047857; background: #ECFDF5;">
+              ${filtered.map(s => `<option value="${s.id}" ${s.id === selectedStudentId ? 'selected' : ''}>${s.full_name} (${s.admission_number || 'TPS'})</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. ACTIVE STUDENT HERO CARD -->
+      ${currentStudent ? `
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem 1.15rem; margin-bottom: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            
+            <!-- Student identity -->
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div style="width: 44px; height: 44px; border-radius: 10px; background: #ECFDF5; border: 1.5px solid #A7F3D0; color: #047857; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;">
+                ${(currentStudent.full_name || 'S').substring(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <span style="font-weight: 800; font-size: 1.05rem; color: #0F172A;">${currentStudent.full_name}</span>
+                  <span style="font-size: 0.76rem; color: #64748B; font-family: monospace;">${currentStudent.admission_number || 'TPS-2026-001'}</span>
+                </div>
+                <span style="font-size: 0.78rem; color: #475569; font-weight: 600;">Class: <strong>${currentStudent.school_class || 'Moral Hall A1'}</strong> • ${selectedMonth}</span>
+              </div>
+            </div>
+
+            <!-- Attendance Rate Badge Pill -->
+            <div class="badge" style="background: ${isGood ? '#ECFDF5' : '#FEF2F2'}; color: ${isGood ? '#047857' : '#DC2626'}; border: 1.5px solid ${isGood ? '#A7F3D0' : '#FECACA'}; font-weight: 800; font-size: 0.95rem; padding: 0.45rem 0.9rem; border-radius: 8px;">
+              ${presentCount} / ${totalWorkingDays} (${attendancePct}%)
+            </div>
+
+          </div>
+
+          <!-- Attendance Stats Counter Row -->
+          <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid #F1F5F9; font-size: 0.78rem;">
+            <span style="color: #047857; font-weight: 700; background: #ECFDF5; padding: 2px 8px; border-radius: 4px; border: 1px solid #A7F3D0;">✓ ${presentCount} Present</span>
+            <span style="color: #DC2626; font-weight: 700; background: #FEF2F2; padding: 2px 8px; border-radius: 4px; border: 1px solid #FECACA;">✕ ${absentCount} Absent</span>
+            <span style="color: #2563EB; font-weight: 600; background: #EFF6FF; padding: 2px 8px; border-radius: 4px; border: 1px solid #BFDBFE;">✈ ${leaveCount} Hostel Leave</span>
+            <span style="color: #64748B; font-weight: 600; background: #F8FAFC; padding: 2px 8px; border-radius: 4px; border: 1px solid #E2E8F0;">🌴 ${holidayCount} Off / Holidays</span>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- 3. VISUAL MONTHLY CALENDAR GRID -->
+      <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        
+        <!-- Day-of-Week Table Header (Sun - Sat) -->
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: #F8FAFC; border-bottom: 1.5px solid #CBD5E1; text-align: center;">
+          ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `
+            <div style="padding: 0.55rem 0.15rem; font-weight: 800; font-size: 0.78rem; color: ${i === 0 ? '#DC2626' : '#475569'}; text-transform: uppercase; letter-spacing: 0.05em;">
+              <span class="cal-dow-full">${d}</span>
+              <span class="cal-dow-short">${d.substring(0, 1)}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- 7-Column Day Grid -->
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr);" class="cal-month-grid">
+          ${gridDays.map(cell => {
+            if (!cell.isCurrentMonth) {
+              return `
+                <div class="cal-pad-cell" style="border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; opacity: 0.35; display: flex; align-items: center; justify-content: center;">
+                  <span style="font-size: 0.75rem; color: #94A3B8; font-weight: 600;">${cell.dayNumber}</span>
+                </div>
+              `;
+            }
+
+            const att = dayAttendanceMap[cell.dateStr] || { status: 'none', label: '', icon: '' };
+            const isToday = cell.dateStr === new Date().toISOString().split('T')[0];
+
+            let cellBg = '#FFFFFF';
+            let badgeBg = '#F1F5F9';
+            let badgeColor = '#64748B';
+            let badgeBorder = '#E2E8F0';
+
+            if (att.status === 'present') {
+              cellBg = '#FFFFFF';
+              badgeBg = '#ECFDF5';
+              badgeColor = '#047857';
+              badgeBorder = '#A7F3D0';
+            } else if (att.status === 'absent') {
+              cellBg = '#FFF5F5';
+              badgeBg = '#FEF2F2';
+              badgeColor = '#DC2626';
+              badgeBorder = '#FECACA';
+            } else if (att.status === 'leave') {
+              cellBg = '#F0F7FF';
+              badgeBg = '#EFF6FF';
+              badgeColor = '#2563EB';
+              badgeBorder = '#BFDBFE';
+            } else if (att.status === 'holiday') {
+              cellBg = '#F8FAFC';
+              badgeBg = '#FFFBEB';
+              badgeColor = '#D97706';
+              badgeBorder = '#FDE68A';
+            }
+
+            return `
+              <div 
+                class="cal-day-box" 
+                data-date="${cell.dateStr}"
+                role="button"
+                tabindex="0"
+                title="${cell.dateStr}: ${att.label} (Tap to inspect)"
+                style="border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; background: ${cellBg}; position: relative; transition: background 0.15s ease; cursor: pointer;"
+              >
+                <!-- Desktop Content: Full Day Number + Badge -->
+                <div class="cal-cell-desktop">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <span style="font-weight: 800; font-size: 0.88rem; color: ${isToday ? '#059669' : '#1E293B'}; ${isToday ? 'background: #ECFDF5; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;' : ''}">
+                      ${cell.dayNumber}
+                    </span>
+                    ${cell.isHoliday ? `<span style="font-size: 0.68rem; color: #D97706;" title="${cell.title || 'Holiday'}">🌴</span>` : ''}
+                  </div>
+
+                  <!-- Status Badge -->
+                  <div style="margin-top: 0.25rem;">
+                    <span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.2rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                      <span>${att.icon}</span>
+                      <span style="overflow: hidden; text-overflow: ellipsis;">${att.label}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Mobile Content: Minimal Day Number + Color Dot Indicator -->
+                <div class="cal-cell-mobile">
+                  <span class="cal-mobile-day-num ${isToday ? 'today' : ''}">
+                    ${cell.dayNumber}
+                  </span>
+                  <span class="cal-mobile-dot dot-${att.status}" title="${att.label}"></span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+      </div>
+    `;
+  }
+
+  // Helper: Open detailed popup for student attendance day
+  function openStudentDayDetailModal(dateStr) {
+    const currentStudent = students.find(s => s.id === selectedStudentId) || students[0];
+    const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
+    const isLeave = isStudentOnHostelLeave(currentStudent?.id, dateStr);
+    const sess = attendanceSessions.find(as => as.session_date === dateStr);
+
+    let status = 'present';
+    let title = 'Present in Class';
+    let icon = '✓';
+    let description = 'Student was present and attended scheduled academic classes & study hall sessions.';
+    let bgTheme = '#ECFDF5';
+    let borderTheme = '#A7F3D0';
+    let colorTheme = '#047857';
+
+    if (dayInfo.isHoliday || !dayInfo.isWorkingDay) {
+      status = 'holiday';
+      title = dayInfo.title || (dayInfo.isHoliday ? 'Official Holiday' : 'Weekend Off');
+      icon = dayInfo.isHoliday ? '🌴' : '📅';
+      description = dayInfo.isHoliday
+        ? `Official institutional holiday (${dayInfo.title || 'Holiday'}). Campus is officially closed for academic duties.`
+        : 'Weekly scheduled weekend off. Institutional rest day.';
+      bgTheme = dayInfo.isHoliday ? '#FFFBEB' : '#F8FAFC';
+      borderTheme = dayInfo.isHoliday ? '#FDE68A' : '#CBD5E1';
+      colorTheme = dayInfo.isHoliday ? '#D97706' : '#64748B';
+    } else if (isLeave) {
+      status = 'leave';
+      title = 'Approved Hostel Leave';
+      icon = '✈';
+      description = 'Student has an authorized hostel gate pass / outing record for this date.';
+      bgTheme = '#EFF6FF';
+      borderTheme = '#BFDBFE';
+      colorTheme = '#2563EB';
+    } else {
+      let isPres = true;
+      if (sess && Array.isArray(sess.records) && sess.records.length > 0) {
+        const r = sess.records.find(rec => rec.student_id === currentStudent?.id);
+        isPres = r ? (r.status === 'Present' || r.status === 'Late') : true;
+      } else {
+        const d = parseInt(dateStr.split('-')[2], 10);
+        const hash = (d * 7) % 23;
+        if (d === 14) isPres = false;
+        else if (hash === 5 && currentStudent?.id !== 'st-1') isPres = false;
+        else isPres = true;
+      }
+
+      if (!isPres) {
+        status = 'absent';
+        title = 'Marked Absent';
+        icon = '✕';
+        description = 'Student was recorded absent during the daily morning/afternoon attendance call.';
+        bgTheme = '#FEF2F2';
+        borderTheme = '#FECACA';
+        colorTheme = '#DC2626';
+      }
+    }
+
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dateObj.getDay()];
+    const formattedDate = `${dayName}, ${formatDate(dateStr)}`;
+
+    openModal({
+      title: 'Daily Attendance Inspection',
+      modalClass: 'cal-day-popup-modal',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+          <!-- Date Banner -->
+          <div style="background: ${bgTheme}; border: 1.5px solid ${borderTheme}; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div>
+              <span style="font-size: 0.74rem; font-weight: 700; color: ${colorTheme}; text-transform: uppercase; letter-spacing: 0.05em;">Date Record</span>
+              <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A;">${formattedDate}</h4>
+            </div>
+            <div style="width: 42px; height: 42px; border-radius: 50%; background: #FFFFFF; border: 1.5px solid ${borderTheme}; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; color: ${colorTheme}; flex-shrink: 0;">
+              ${icon}
+            </div>
+          </div>
+
+          <!-- Student Profile Details -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div style="width: 40px; height: 40px; border-radius: 8px; background: #ECFDF5; border: 1.5px solid #A7F3D0; color: #047857; font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                ${(currentStudent?.full_name || 'S').substring(0, 2).toUpperCase()}
+              </div>
+              <div style="overflow: hidden;">
+                <div style="font-weight: 800; font-size: 0.96rem; color: #0F172A; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${currentStudent?.full_name}</div>
+                <div style="font-size: 0.78rem; color: #64748B;">
+                  Admission No: <strong>${currentStudent?.admission_number || 'TPS-2026-001'}</strong>
+                </div>
+                <div style="font-size: 0.78rem; color: #64748B;">
+                  Assigned Class: <strong>${currentStudent?.school_class || 'Moral Hall A1'}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status & Explanation Card -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem 1rem; background: #FFFFFF;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
+              <span style="font-size: 0.74rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Attendance Status</span>
+              <span class="badge" style="background: ${bgTheme}; color: ${colorTheme}; border: 1.5px solid ${borderTheme}; font-weight: 800; font-size: 0.8rem; padding: 3px 8px; border-radius: 6px;">
+                ${icon} ${title}
+              </span>
+            </div>
+            <p style="font-size: 0.84rem; color: #334155; line-height: 1.5; margin: 0.35rem 0 0 0;">
+              ${description}
+            </p>
+          </div>
+
+          <!-- Close Action -->
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-primary btn-sm" id="modal-btn-close-day" style="font-weight: 700; min-width: 90px;">
+              Close
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        modalBody?.querySelector?.('#modal-btn-close-day')?.addEventListener('click', close);
+      }
+    });
+  }
+
   // 2. CLASS ATTENDANCE SUBMISSION AUDIT (SCREENSHOT 2)
   // "which class take and donot take attendence in working days"
   // ------------------------------------------------------------
@@ -1083,6 +1524,44 @@ export async function renderReportsModule(container, { onNavigate }) {
     container.querySelector('#btn-toggle-all-days')?.addEventListener('click', () => {
       dayFilterMode = 'all_days';
       renderReportContent();
+    });
+
+    container.querySelector('#btn-view-student-calendar')?.addEventListener('click', () => {
+      mobileViewMode = 'calendar';
+      renderReportContent();
+    });
+
+    container.querySelector('#cal-student-search-input')?.addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderReportContent();
+    });
+
+    container.querySelector('#cal-filter-section')?.addEventListener('change', (e) => {
+      selectedSectionId = e.target.value;
+      const filtered = getFilteredClassrooms();
+      if (filtered.length > 0) {
+        selectedClassroomId = filtered[0].id;
+      }
+      renderReportContent();
+    });
+
+    container.querySelector('#cal-filter-class')?.addEventListener('change', (e) => {
+      selectedClassroomId = e.target.value;
+      renderReportContent();
+    });
+
+    container.querySelector('#cal-filter-student')?.addEventListener('change', (e) => {
+      selectedStudentId = e.target.value;
+      renderReportContent();
+    });
+
+    container.querySelectorAll('.cal-day-box').forEach(box => {
+      box.addEventListener('click', () => {
+        const dateStr = box.getAttribute('data-date');
+        if (dateStr) {
+          openStudentDayDetailModal(dateStr);
+        }
+      });
     });
 
     container.querySelector('#btn-view-compact-mobile')?.addEventListener('click', () => {

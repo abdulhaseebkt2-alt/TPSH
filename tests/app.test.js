@@ -1500,14 +1500,14 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(mockReportBox.innerHTML).toContain('matrix-cell-present');
   });
 
-  it('Dedicated Academic Calendar Module: registers calendar route, renders visual monthly grid, and Screenshot 3 student filter', async () => {
+  it('Dedicated Academic Calendar Module: registers calendar route, renders institutional visual monthly grid, and bridge link to attendance report', async () => {
     // 1. Verify module is registered in permissions
     const calDef = MODULE_DEFINITIONS.find(m => m.key === 'calendar');
     expect(calDef).toBeDefined();
     expect(calDef.label).toBe('Academic Calendar');
     expect(calDef.icon).toBe('calendar');
 
-    // 2. Render dedicated visual calendar module
+    // 2. Render dedicated visual calendar module (institutional)
     const container = {
       innerHTML: '',
       querySelector: () => null,
@@ -1516,16 +1516,16 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
     await renderCalendarModule(container, { onNavigate: () => {} });
 
-    // Verify visual calendar elements
-    expect(container.innerHTML).toContain('Academic & Student Calendar');
-    expect(container.innerHTML).toContain('Student Attendance Calendar');
-    expect(container.innerHTML).toContain('Institutional Working & Holidays');
+    // Verify institutional calendar elements
+    expect(container.innerHTML).toContain('Academic Calendar');
+    expect(container.innerHTML).toContain('cal-metrics-grid');
+    expect(container.innerHTML).toContain('Total Days');
+    expect(container.innerHTML).toContain('Working Days');
+    expect(container.innerHTML).toContain('Official Holidays');
+    expect(container.innerHTML).toContain('Weekend Offs');
 
-    // Screenshot 3 Filter Toolbar Elements
-    expect(container.innerHTML).toContain('Search student by name, ID, class...');
-    expect(container.innerHTML).toContain('cal-filter-section');
-    expect(container.innerHTML).toContain('cal-filter-class');
-    expect(container.innerHTML).toContain('cal-filter-student');
+    // Bridge link to student attendance in reports
+    expect(container.innerHTML).toContain('btn-goto-student-attendance-report');
 
     // Visual monthly grid elements
     expect(container.innerHTML).toContain('Sun');
@@ -1542,7 +1542,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('cal-dow-short');
   });
 
-  it('Academic Calendar Mobile View: day box click triggers inspection popup modal with day details', async () => {
+  it('Academic Calendar Mobile View: day box click triggers institutional schedule inspection popup modal', async () => {
     let appendedModal = null;
     const originalDocument = global.document;
     global.document = {
@@ -1597,6 +1597,99 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       dayBoxCallbacks['click']();
 
       // Verify modal overlay was injected into document.body
+      expect(appendedModal).toBeTruthy();
+      expect(appendedModal.className).toContain('modal-overlay');
+      expect(appendedModal.innerHTML).toContain('Institutional Calendar Details');
+      expect(appendedModal.innerHTML).toContain('Institutional Schedule');
+      expect(appendedModal.innerHTML).toContain('2026');
+    } finally {
+      global.document = originalDocument;
+    }
+  });
+
+  it('Attendance Reports Student Calendar View: renders Screenshot 3 student filter toolbar and day box click triggers student inspection popup modal', async () => {
+    let appendedModal = null;
+    const originalDocument = global.document;
+    global.document = {
+      createElement: (tag) => {
+        const el = {
+          tagName: tag,
+          className: '',
+          innerHTML: '',
+          classList: { remove: () => {} },
+          querySelector: (sel) => ({
+            addEventListener: () => {},
+            querySelector: () => null,
+            querySelectorAll: () => []
+          }),
+          querySelectorAll: (sel) => [],
+          addEventListener: () => {},
+          remove: () => {}
+        };
+        return el;
+      },
+      body: {
+        appendChild: (el) => {
+          appendedModal = el;
+        }
+      }
+    };
+
+    try {
+      const dayBoxCallbacks = {};
+      const mockReportBox = { innerHTML: '' };
+      let calendarSwitchCallback = null;
+
+      const container = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#report-view-container') return mockReportBox;
+          if (sel === '#btn-view-student-calendar') {
+            return {
+              addEventListener: (evt, cb) => {
+                calendarSwitchCallback = cb;
+              }
+            };
+          }
+          return null;
+        },
+        querySelectorAll: (sel) => {
+          if (sel === '.cal-day-box') {
+            return [
+              {
+                getAttribute: (attr) => attr === 'data-date' ? '2026-10-12' : null,
+                addEventListener: (event, cb) => {
+                  dayBoxCallbacks[event] = cb;
+                }
+              }
+            ];
+          }
+          return [];
+        }
+      };
+
+      await renderReportsModule(container, { onNavigate: () => {} });
+
+      // Switch to Student Calendar view mode
+      expect(typeof calendarSwitchCallback).toBe('function');
+      calendarSwitchCallback();
+
+      // Verify Screenshot 3 Student Filters live inside Attendance Reports
+      expect(mockReportBox.innerHTML).toContain('Search student by name, ID, class...');
+      expect(mockReportBox.innerHTML).toContain('cal-filter-section');
+      expect(mockReportBox.innerHTML).toContain('cal-filter-class');
+      expect(mockReportBox.innerHTML).toContain('cal-filter-student');
+
+      // Verify Active Student Hero & visual monthly grid
+      expect(mockReportBox.innerHTML).toContain('MD Aamir');
+      expect(mockReportBox.innerHTML).toContain('cal-month-grid');
+      expect(mockReportBox.innerHTML).toContain('cal-mobile-dot');
+
+      // Simulate day click
+      expect(typeof dayBoxCallbacks['click']).toBe('function');
+      dayBoxCallbacks['click']();
+
+      // Verify Daily Attendance Inspection popup modal was opened with student name
       expect(appendedModal).toBeTruthy();
       expect(appendedModal.className).toContain('modal-overlay');
       expect(appendedModal.innerHTML).toContain('Daily Attendance Inspection');
