@@ -1435,4 +1435,67 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('sections-desktop-nav');
     expect(container.innerHTML).toContain('btn-section-tab');
   });
+
+  it('Academic Calendar: retrieves weekly working days, evaluates working days vs holidays, and manages custom dates', async () => {
+    const cal = await db.getAcademicCalendar();
+    expect(Array.isArray(cal.weekly_working_days)).toBe(true);
+    expect(cal.weekly_working_days.includes('Mon')).toBe(true);
+    expect(cal.weekly_working_days.includes('Sun')).toBe(false);
+
+    // Gandhi Jayanti 2026-10-02 is a predefined holiday
+    expect(db.isDateWorkingDay('2026-10-02', cal)).toBe(false);
+
+    // Regular Wednesday 2026-10-07 is a working day
+    expect(db.isDateWorkingDay('2026-10-07', cal)).toBe(true);
+
+    // Sunday 2026-10-18 is weekend off
+    expect(db.isDateWorkingDay('2026-10-18', cal)).toBe(false);
+
+    // Special working day override on Sunday 2026-10-26
+    expect(db.isDateWorkingDay('2026-10-26', cal)).toBe(true);
+
+    // Add and remove custom holiday
+    const testDate = '2026-12-25';
+    await db.addCalendarHoliday({ date: testDate, name: 'Christmas Day', type: 'holiday' });
+    const updatedCal = await db.getAcademicCalendar();
+    expect(db.isDateWorkingDay(testDate, updatedCal)).toBe(false);
+
+    await db.removeCalendarHoliday(testDate);
+    const finalCal = await db.getAcademicCalendar();
+    expect(finalCal.events.some(e => e.date === testDate)).toBe(false);
+  });
+
+  it('Attendance Reports: renders Institutional ATTENDANCE RECORD badge, section selector, class submission audit, and mobile alternative views with faded holidays & leaves', async () => {
+    // Real container mock that stores innerHTML and resolves inner container
+    const mockReportBox = { innerHTML: '' };
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (sel === '#report-view-container') return mockReportBox;
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderReportsModule(container, { onNavigate: () => {} });
+
+    // Header & Tabs
+    expect(container.innerHTML).toContain('Student Attendance');
+    expect(container.innerHTML).toContain('Class Attendance Audit');
+    expect(container.innerHTML).toContain('Academic Calendar & Holidays');
+
+    // Screenshot 1 Elements in active report
+    expect(mockReportBox.innerHTML).toContain('ATTENDANCE RECORD');
+    expect(mockReportBox.innerHTML).toContain('THAIBA GARDEN');
+    expect(mockReportBox.innerHTML).toContain('Section :');
+    expect(mockReportBox.innerHTML).toContain('Class :');
+    expect(mockReportBox.innerHTML).toContain('Working Days');
+    expect(mockReportBox.innerHTML).toContain('Prec /');
+    expect(mockReportBox.innerHTML).toContain('Mobile Cards');
+    expect(mockReportBox.innerHTML).toContain('Wide Grid');
+
+    // Faded cells for holidays and leave
+    expect(mockReportBox.innerHTML).toContain('matrix-cell-faded-holiday');
+    expect(mockReportBox.innerHTML).toContain('matrix-cell-present');
+  });
 });

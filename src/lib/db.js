@@ -118,6 +118,21 @@ const INITIAL_AUDIT = [
   }
 ];
 
+export const INITIAL_ACADEMIC_CALENDAR = {
+  academic_year: '2026-2027',
+  weekly_working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  events: [
+    { id: 'cal-1', date: '2026-10-02', name: 'Gandhi Jayanti', type: 'holiday' },
+    { id: 'cal-2', date: '2026-10-12', name: 'Maha Navami / Puja Vacation', type: 'holiday' },
+    { id: 'cal-3', date: '2026-10-19', name: 'Deepavali Break Day 1', type: 'holiday' },
+    { id: 'cal-4', date: '2026-10-20', name: 'Eid Milad-un-Nabi', type: 'holiday' },
+    { id: 'cal-5', date: '2026-10-21', name: 'Institutional Mid-Term Break', type: 'holiday' },
+    { id: 'cal-6', date: '2026-10-26', name: 'Special Working Session', type: 'working_day' },
+    { id: 'cal-7', date: '2026-11-01', name: 'Kerala Piravi / State Foundation', type: 'holiday' },
+    { id: 'cal-8', date: '2026-11-14', name: 'Children\'s Day Celebration', type: 'event' }
+  ]
+};
+
 export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
   if (isTestEnv) {
     const cleanId = String(identifier || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -299,6 +314,9 @@ class DatabaseService {
     }
     if (!this.getStorageItem('tps_fine_payments')) {
       this.setStorageItem('tps_fine_payments', JSON.stringify([]));
+    }
+    if (!this.getStorageItem('tps_academic_calendar')) {
+      this.setStorageItem('tps_academic_calendar', JSON.stringify(INITIAL_ACADEMIC_CALENDAR));
     }
     if (!this.getStorageItem('tps_users')) {
       this.setStorageItem('tps_users', JSON.stringify([
@@ -1716,6 +1734,116 @@ class DatabaseService {
       return users[idx];
     }
     return null;
+  }
+
+  // --- ACADEMIC CALENDAR, WORKING DAYS & HOLIDAYS ---
+  async getAcademicCalendar() {
+    await this.pullCloudKeys(['tps_academic_calendar']);
+    const cal = this.get('tps_academic_calendar');
+    if (!cal || !cal.weekly_working_days) {
+      return INITIAL_ACADEMIC_CALENDAR;
+    }
+    return cal;
+  }
+
+  async saveAcademicCalendar(calendarData) {
+    this.set('tps_academic_calendar', calendarData);
+    this.logAudit('UPDATE_ACADEMIC_CALENDAR', 'academic_calendar', 'cal', 'Updated institutional calendar, working days & holidays');
+    return calendarData;
+  }
+
+  async addCalendarHoliday({ date, name, type = 'holiday', academic_year = '2026-2027' }) {
+    const cal = await this.getAcademicCalendar();
+    const events = Array.isArray(cal.events) ? [...cal.events] : [];
+    const existingIdx = events.findIndex(e => e.date === date);
+    const newEvent = {
+      id: 'cal-' + Date.now(),
+      date,
+      name: name || 'Institutional Holiday',
+      type: type || 'holiday'
+    };
+    if (existingIdx >= 0) {
+      events[existingIdx] = newEvent;
+    } else {
+      events.push(newEvent);
+    }
+    events.sort((a, b) => a.date.localeCompare(b.date));
+    const updated = {
+      ...cal,
+      events
+    };
+    await this.saveAcademicCalendar(updated);
+    return updated;
+  }
+
+  async removeCalendarHoliday(eventIdOrDate) {
+    const cal = await this.getAcademicCalendar();
+    const events = (cal.events || []).filter(e => e.id !== eventIdOrDate && e.date !== eventIdOrDate);
+    const updated = {
+      ...cal,
+      events
+    };
+    await this.saveAcademicCalendar(updated);
+    return updated;
+  }
+
+  async updateWeeklyWorkingDays(days) {
+    const cal = await this.getAcademicCalendar();
+    const updated = {
+      ...cal,
+      weekly_working_days: Array.isArray(days) ? days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    };
+    await this.saveAcademicCalendar(updated);
+    return updated;
+  }
+
+  isDateWorkingDay(dateStr, calendar = INITIAL_ACADEMIC_CALENDAR) {
+    if (!dateStr) return false;
+    const events = calendar?.events || [];
+    const custom = events.find(e => e.date === dateStr);
+    if (custom) {
+      if (custom.type === 'holiday') return false;
+      if (custom.type === 'working_day') return true;
+    }
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayOfWeek = dayNames[d.getDay()];
+      const workingDays = calendar?.weekly_working_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return workingDays.includes(dayOfWeek);
+    }
+    return true;
+  }
+
+  getCalendarDayInfo(dateStr, calendar = INITIAL_ACADEMIC_CALENDAR) {
+    if (!dateStr) return { isWorkingDay: false, isHoliday: false, isSpecialWorking: false, title: '', type: 'none' };
+    const events = calendar?.events || [];
+    const custom = events.find(e => e.date === dateStr);
+    const isWork = this.isDateWorkingDay(dateStr, calendar);
+    if (custom) {
+      return {
+        date: dateStr,
+        isWorkingDay: isWork,
+        isHoliday: custom.type === 'holiday',
+        isSpecialWorking: custom.type === 'working_day',
+        title: custom.name,
+        type: custom.type
+      };
+    }
+    const parts = dateStr.split('-');
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayOfWeek = dayNames[d.getDay()];
+    const isWeekendOff = !(calendar?.weekly_working_days || []).includes(dayOfWeek);
+    return {
+      date: dateStr,
+      isWorkingDay: isWork,
+      isHoliday: isWeekendOff,
+      isSpecialWorking: false,
+      title: isWeekendOff ? `${dayOfWeek} Weekend Off` : 'Regular Working Day',
+      type: isWeekendOff ? 'holiday' : 'working_day'
+    };
   }
 
   // --- AUDIT LOGS ---
