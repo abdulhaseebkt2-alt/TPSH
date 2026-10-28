@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.4.2`  
-> **Last Updated:** 2026-10-28T12:45:00+05:30  
+> **Current Version:** `v1.4.3`  
+> **Last Updated:** 2026-10-28T12:56:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -128,6 +128,16 @@ Located in [`src/modules/attendance/index.js`](file:///e:/Web%20Apk/TPSH/src/mod
 ### 3.3 Institutional Searchable Dropdown & Pill Chips
 Located in [`src/components/custom-select.js`](file:///e:/Web%20Apk/TPSH/src/components/custom-select.js).
 - Modern floating menu with fuzzy filtering, keyboard navigation (Arrow keys + Enter), active checkmark indicators, and rounded mint/slate pill styling.
+
+### 3.4 Mobile Section Selector Card (Matching Role Switcher Pattern)
+Located in [`src/modules/sections/index.js`](file:///e:/Web%20Apk/TPSH/src/modules/sections/index.js) and [`src/styles/main.css`](file:///e:/Web%20Apk/TPSH/src/styles/main.css#L4278-L4420).
+- **Mobile Experience ($\le 768\text{px}$)**: Replaces horizontal overflowing tab pills with a unified, high-contrast card:
+  - Left icon badge: Section layers icon with emerald branding.
+  - Overline kicker: `CONFIGURING SECTION`.
+  - Title & badge: Active section name (e.g. `Hostel Moral Class`) + `${count} Classrooms` count badge.
+  - Right action pill: `[ Switch ∨ ]` button triggering an institutional modal dialog to pick any section.
+  - Quick action sub-row: `Edit Section`, `Delete`, and `+ New Section` buttons.
+- **Desktop Experience ($\ge 769\text{px}$)**: Retains the full horizontal pill bar with active green indicators and count badges.
 
 ---
 
@@ -280,12 +290,13 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 54 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 55 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
 - **Wheel Pickers**: 12-hour wheel time parser, PhonePe drum wheel date parser, mobile detection flags.
 - **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion.
+- **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
 - **Cloud Sync**: Cross-device unified database integrity.
 
 ---
@@ -295,7 +306,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 1. **Maintain Light-Theme Saas Aesthetics**: Avoid dark backgrounds or jarring high-saturation blocks; use clean slate whites with high text contrast.
 2. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 3. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-4. **Preserve Unit Tests**: Never commit changes that cause any of the 54 unit tests to fail.
+4. **Preserve Unit Tests**: Never commit changes that cause any of the 55 unit tests to fail.
 
 ---
 
@@ -303,6 +314,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.4.3** | 2026-10-28 12:56 | Antigravity AI | `src/modules/sections/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Redesigned Sections & Classrooms mobile UI with Section Selector Card matching Screenshot 3 Role Switcher pattern; added modal picker. |
 | **v1.4.2** | 2026-10-28 12:45 | Antigravity AI | `WEB_APK_DOCUMENTATION.md` | Created master deep Web APK documentation; established mandatory auto-update protocol. |
 | **v1.4.1** | 2026-10-28 12:17 | Antigravity AI | `src/components/date-picker.js`, `src/styles/main.css` | Fixed day column vibration on month change: pre-rendered 31 days once, toggled end days silently, removed scale transitions. |
 | **v1.4.0** | 2026-10-28 11:49 | Antigravity AI | `src/components/date-picker.js`, `tests/app.test.js` | Defaulted first open date to `10 Jun 2010`; sorted years in descending order from current year (`2026` down to `1930`). |

@@ -11,7 +11,7 @@ import { renderTeacherDashboard } from '../src/modules/dashboard/teacher-dashboa
 import { renderMentorDashboard } from '../src/modules/dashboard/mentor-dashboard.js';
 import { renderParentDashboard } from '../src/modules/dashboard/parent-dashboard.js';
 import { renderStudentDashboard } from '../src/modules/dashboard/student-dashboard.js';
-import { WEEK_DAYS } from '../src/modules/sections/index.js';
+import { WEEK_DAYS, renderSectionsModule } from '../src/modules/sections/index.js';
 import { renderTimetableModule } from '../src/modules/timetable/index.js';
 import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
@@ -1414,5 +1414,25 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(descYears.every(y => y <= currentYear)).toBe(true);
     expect(descYears.includes(2010)).toBe(true);
     expect(descYears.indexOf(2010)).toBe(currentYear - 2010);
+  });
+
+  it('Sections & Classrooms: renders responsive Mobile Section Selector Card matching Role Switcher pattern alongside Desktop Nav', async () => {
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderSectionsModule(container, { onNavigate: () => {} });
+
+    // Mobile Section Selector Card
+    expect(container.innerHTML).toContain('sections-mobile-card');
+    expect(container.innerHTML).toContain('sec-mobile-trigger');
+    expect(container.innerHTML).toContain('CONFIGURING SECTION');
+    expect(container.innerHTML).toContain('Switch');
+
+    // Desktop Nav Bar
+    expect(container.innerHTML).toContain('sections-desktop-nav');
+    expect(container.innerHTML).toContain('btn-section-tab');
   });
 });

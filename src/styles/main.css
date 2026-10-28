@@ -4385,6 +4385,33 @@ body.tps-wheel-open {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+/* Sections & Classrooms Mobile Section Selector Card & Desktop Nav */
+.sections-mobile-card {
+  display: none;
+}
+
+.sections-desktop-nav {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .sections-desktop-nav {
+    display: none !important;
+  }
+  .sections-mobile-card {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .sections-desktop-nav {
+    display: flex !important;
+  }
+  .sections-mobile-card {
+    display: none !important;
+  }
+}
+
 /* Modal Role Picker List */
 .role-picker-modal-dialog {
   max-width: 480px;

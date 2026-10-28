@@ -83,8 +83,53 @@ export async function renderSectionsModule(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- Clean Horizontal Section Navigation Bar -->
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.85rem; margin-bottom: 1.5rem;">
+      <!-- 1. MOBILE SECTION SELECTOR CARD (Matches Screenshot 3 Role Switcher Design) -->
+      <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 1.25rem;">
+        <button type="button" class="rbac-mobile-role-trigger" id="sec-mobile-trigger" aria-label="Select section to configure classrooms">
+          <div class="rbac-trigger-left">
+            <div class="rbac-trigger-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+            <div class="rbac-trigger-text">
+              <span class="rbac-trigger-kicker">CONFIGURING SECTION</span>
+              <div class="rbac-trigger-name-row">
+                <span class="rbac-trigger-name">${prog ? prog.name : 'Select Section'}</span>
+                <span class="rbac-trigger-badge" style="background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;">
+                  ${progClassrooms.length} Classrooms
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="rbac-trigger-right">
+            <span class="rbac-trigger-action-pill">
+              <span>Switch</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+        </button>
+
+        ${canManage && prog ? `
+          <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid #F1F5F9; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-xs btn-edit-prog" data-prog-id="${prog.id}" style="font-weight: 600; font-size: 0.78rem; border-radius: 6px; padding: 0.35rem 0.65rem; color: #475569; display: inline-flex; align-items: center; gap: 0.3rem;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Edit Section
+            </button>
+            ${programs.length > 1 ? `
+              <button type="button" class="btn btn-outline btn-xs btn-delete-prog" data-prog-id="${prog.id}" style="font-weight: 600; font-size: 0.78rem; border-radius: 6px; padding: 0.35rem 0.65rem; color: #DC2626; border-color: #FECACA; display: inline-flex; align-items: center; gap: 0.3rem;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Delete
+              </button>
+            ` : ''}
+            <button type="button" class="btn btn-outline btn-xs btn-mobile-new-section" style="margin-left: auto; font-weight: 600; font-size: 0.78rem; border-radius: 6px; padding: 0.35rem 0.65rem; color: #059669; border-color: #A7F3D0; display: inline-flex; align-items: center; gap: 0.3rem;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Section
+            </button>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- 2. DESKTOP SECTION NAVIGATION BAR (Visible on Desktop >= 769px) -->
+      <div class="sections-desktop-nav" style="align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.85rem; margin-bottom: 1.5rem;">
         <!-- Section Tabs -->
         <div style="display: flex; gap: 0.5rem; align-items: center; overflow-x: auto; padding: 2px;" id="programs-nav-bar">
           ${programs.map(p => {
@@ -252,7 +297,66 @@ export async function renderSectionsModule(container, { onNavigate }) {
       `}
     `;
 
-    // Tab Clicking
+    // Mobile Section Selector Modal (Exact Match to Role Switcher Dialog)
+    container.querySelector('#sec-mobile-trigger')?.addEventListener('click', () => {
+      openModal({
+        title: 'Select Section to Manage',
+        modalClass: 'role-picker-modal-dialog',
+        contentHtml: `
+          <div style="margin-bottom: 0.5rem;">
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+              Select an institutional section to view and manage its classrooms:
+            </p>
+            <div class="role-picker-list">
+              ${programs.map(p => {
+                const isSelected = p.id === selectedProgramId;
+                const count = classrooms.filter(c => c.program_id === p.id || (c.section_id && progSecMap[p.id]?.includes(c.section_id))).length;
+                return `
+                  <div class="role-picker-item ${isSelected ? 'active' : ''}" data-prog-id="${p.id}" role="button" tabindex="0">
+                    <div class="role-picker-item-left">
+                      <div class="role-picker-item-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                      </div>
+                      <div class="role-picker-item-info">
+                        <div class="role-picker-item-title-row">
+                          <span class="role-picker-item-name" style="font-weight: 700;">${p.name}</span>
+                          ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">CURRENT</span>` : ''}
+                        </div>
+                        <span class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B;">${count} Classrooms configured</span>
+                      </div>
+                    </div>
+                    <div class="role-picker-item-radio">
+                      <div class="role-radio-circle ${isSelected ? 'active' : ''}">
+                        ${isSelected ? `<div class="role-radio-dot"></div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `,
+        onMount: ({ container: modalBody, close }) => {
+          modalBody.querySelectorAll('.role-picker-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const pid = item.getAttribute('data-prog-id');
+              if (pid && pid !== selectedProgramId) {
+                selectedProgramId = pid;
+                close();
+                renderFullUI();
+              } else {
+                close();
+              }
+            });
+          });
+        }
+      });
+    });
+
+    // Mobile Card New Section button
+    container.querySelector('.btn-mobile-new-section')?.addEventListener('click', openAddProgramModal);
+
+    // Tab Clicking (Desktop)
     container.querySelectorAll('.btn-section-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         selectedProgramId = btn.getAttribute('data-prog-id');
@@ -270,14 +374,20 @@ export async function renderSectionsModule(container, { onNavigate }) {
     container.querySelector('#btn-empty-add-cls')?.addEventListener('click', openAddClassroomModal);
     container.querySelector('#card-quick-add-cls')?.addEventListener('click', openAddClassroomModal);
 
-    // Edit Section
-    container.querySelector('.btn-edit-prog')?.addEventListener('click', () => {
-      openEditProgramModal(selectedProgramId);
+    // Edit Section (Both mobile and desktop)
+    container.querySelectorAll('.btn-edit-prog').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pid = btn.getAttribute('data-prog-id') || selectedProgramId;
+        openEditProgramModal(pid);
+      });
     });
 
-    // Delete Section
-    container.querySelector('.btn-delete-prog')?.addEventListener('click', () => {
-      handleDeleteProgram(selectedProgramId);
+    // Delete Section (Both mobile and desktop)
+    container.querySelectorAll('.btn-delete-prog').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pid = btn.getAttribute('data-prog-id') || selectedProgramId;
+        handleDeleteProgram(pid);
+      });
     });
 
     // Take Attendance
