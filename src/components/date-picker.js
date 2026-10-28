@@ -283,9 +283,10 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     selectedDate = parseDateString(initialDate);
   }
 
-  // User requirement: Default at first open is 10 Jun 2010
+  // Fallback if unset: 10 Jun 2010 for DoB / Admissions; today for calendar / general dates
   if (!selectedDate || isNaN(selectedDate.getTime())) {
-    selectedDate = new Date(2010, 5, 10);
+    const isDob = /birth|dob/i.test(title || '');
+    selectedDate = isDob ? new Date(2010, 5, 10) : new Date();
   }
 
   // Descending order from CURRENT_YEAR down to 1930 (no years above current year)
@@ -370,16 +371,18 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
   const yearItemsList = backdrop.querySelector('#tps-wheel-items-year');
 
   const ITEM_HEIGHT = 42;
+  let isReady = false;
 
   function setupWheelColumn({ colEl, itemsListEl, getItems, getIndex, onIndexChanged }) {
     let currentIdx = getIndex();
+    let isProgrammatic = false;
 
     function renderItems() {
       const items = getItems();
       itemsListEl.innerHTML = items.map((val, idx) => `
         <div class="tps-wheel-item" data-index="${idx}">${val}</div>
       `).join('');
-      updateVisuals();
+      updateVisuals(false);
     }
 
     function updateVisuals(notify = true) {
@@ -394,8 +397,14 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       }
       if (visibleEls.length === 0) return;
 
-      const scrollTop = colEl.scrollTop;
-      const activeIdx = Math.max(0, Math.min(visibleEls.length - 1, Math.round(scrollTop / ITEM_HEIGHT)));
+      let activeIdx;
+      if (!isReady || isProgrammatic) {
+        // While initializing or programmatically positioning, use currentIdx to avoid 0 layout snapping
+        activeIdx = Math.max(0, Math.min(visibleEls.length - 1, currentIdx));
+      } else {
+        const scrollTop = colEl.scrollTop;
+        activeIdx = Math.max(0, Math.min(visibleEls.length - 1, Math.round(scrollTop / ITEM_HEIGHT)));
+      }
 
       visibleEls.forEach((el, idx) => {
         const dist = Math.abs(idx - activeIdx);
@@ -411,7 +420,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
         }
       });
 
-      if (notify && activeIdx !== currentIdx) {
+      if (notify && isReady && !isProgrammatic && activeIdx !== currentIdx) {
         currentIdx = activeIdx;
         onIndexChanged(activeIdx);
       }
@@ -425,7 +434,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       currentIdx = targetIdx;
       const targetScrollTop = targetIdx * ITEM_HEIGHT;
 
-      // Temporarily disable scrollSnapType so browser doesn't force-snap to 0 during programmatic positioning
+      isProgrammatic = true;
       colEl.style.scrollSnapType = 'none';
       colEl.scrollTop = targetScrollTop;
 
@@ -441,21 +450,24 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
         });
       }
 
-      updateVisuals();
+      updateVisuals(false);
 
-      // Restore scrollSnapType after layout settles
       setTimeout(() => {
-        colEl.style.scrollSnapType = 'y mandatory';
-        updateVisuals();
-      }, smooth ? 200 : 40);
+        if (colEl) {
+          colEl.style.scrollSnapType = 'y mandatory';
+        }
+        isProgrammatic = false;
+        updateVisuals(false);
+      }, smooth ? 200 : 50);
     }
 
     // Scroll listener with RAF throttle
     let ticking = false;
     colEl.addEventListener('scroll', () => {
+      if (!isReady || isProgrammatic) return;
       if (!ticking) {
         safeRAF(() => {
-          updateVisuals();
+          updateVisuals(true);
           ticking = false;
         });
         ticking = true;
@@ -469,6 +481,8 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
         const idx = parseInt(itemEl.getAttribute('data-index'), 10);
         if (!isNaN(idx)) {
           scrollToIdx(idx, true);
+          currentIdx = idx;
+          onIndexChanged(idx);
         }
       }
     });
@@ -479,6 +493,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     let startScroll = 0;
 
     colEl.addEventListener('mousedown', (e) => {
+      if (!isReady) return;
       isMouseDown = true;
       startY = e.clientY;
       startScroll = colEl.scrollTop;
@@ -490,7 +505,7 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       if (!isMouseDown) return;
       const deltaY = e.clientY - startY;
       colEl.scrollTop = startScroll - deltaY;
-      updateVisuals();
+      updateVisuals(true);
     };
 
     const handleMouseUp = () => {
@@ -503,20 +518,26 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
       const maxIdx = Math.max(0, visibleCount - 1);
       const nearestIdx = Math.max(0, Math.min(maxIdx, Math.round(colEl.scrollTop / ITEM_HEIGHT)));
       scrollToIdx(nearestIdx, true);
+      currentIdx = nearestIdx;
+      onIndexChanged(nearestIdx);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    cleanupFns.push(() => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    });
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      cleanupFns.push(() => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      });
+    }
 
     return {
       renderItems,
       scrollToIdx,
       updateVisualsOnly: () => updateVisuals(false),
+      getCurrentIdx: () => currentIdx,
       getActiveIdx: () => {
+        if (!isReady || isProgrammatic) return currentIdx;
         const allItemEls = itemsListEl.children;
         const visibleCount = Array.from(allItemEls).filter(el => el.style.display !== 'none').length || getItems().length;
         const maxIdx = Math.max(0, visibleCount - 1);
@@ -605,17 +626,23 @@ export function openMobileWheelPicker({ initialDate, title = 'Select Date', onSe
     yearController.scrollToIdx(CURRENT_YEAR - curYear, false);
   }
 
-  // Position immediately and across animation intervals to ensure layout completion
+  // Position immediately and across layout/animation intervals to ensure accurate placement
   applyInitialScrolls();
   safeRAF(applyInitialScrolls);
-  setTimeout(applyInitialScrolls, 40);
-  setTimeout(applyInitialScrolls, 120);
-  setTimeout(applyInitialScrolls, 250);
-  setTimeout(applyInitialScrolls, 400);
+  setTimeout(applyInitialScrolls, 30);
+  setTimeout(applyInitialScrolls, 80);
+  setTimeout(applyInitialScrolls, 160);
+  setTimeout(() => {
+    applyInitialScrolls();
+    isReady = true;
+  }, 260);
 
   const dialogEl = backdrop.querySelector('.tps-wheel-dialog');
   if (dialogEl) {
-    dialogEl.addEventListener('animationend', applyInitialScrolls, { once: true });
+    dialogEl.addEventListener('animationend', () => {
+      applyInitialScrolls();
+      isReady = true;
+    }, { once: true });
   }
 
   // Footer Buttons Listeners
@@ -660,8 +687,9 @@ export function showMobileDatePickerModal(input) {
     // If a date is already set, open at their set date!
     initialDate = parsed;
   } else {
-    // User requirement: First time open (empty/unset date) defaults to 10 Jun 2010
-    initialDate = new Date(2010, 5, 10);
+    // Default fallback: 10 Jun 2010 for DoB / Admissions; today for calendar / general dates
+    const isDob = /birth|dob/i.test(title || '') || /dob/i.test(input?.id || '') || /dob/i.test(input?.name || '');
+    initialDate = isDob ? new Date(2010, 5, 10) : new Date();
   }
 
   openMobileWheelPicker({

@@ -17,7 +17,7 @@ import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
 import { renderCalendarModule } from '../src/modules/calendar/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
-import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle } from '../src/components/date-picker.js';
+import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -1415,6 +1415,88 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(descYears.every(y => y <= currentYear)).toBe(true);
     expect(descYears.includes(2010)).toBe(true);
     expect(descYears.indexOf(2010)).toBe(currentYear - 2010);
+  });
+
+  it('Mobile Date Picker: opens at the exact set date and does not reset to 01 Jan preset', async () => {
+    let capturedDate = null;
+    let appendedModal = null;
+    let doneCallback = null;
+    const originalDocument = global.document;
+
+    const createMockElement = (tag) => {
+      const el = {
+        tagName: tag.toUpperCase(),
+        className: '',
+        style: {},
+        innerHTML: '',
+        children: [],
+        scrollTop: 0,
+        getAttribute: (attr) => attr === 'data-index' ? '0' : null,
+        setAttribute: () => {},
+        classList: {
+          add: (c) => { el.className += ' ' + c; },
+          remove: () => {},
+          contains: (c) => el.className.includes(c)
+        },
+        querySelector: (sel) => {
+          if (sel === '#tps-wheel-col-day' || sel === '#tps-wheel-col-month' || sel === '#tps-wheel-col-year') {
+            return createMockElement('div');
+          }
+          if (sel === '#tps-wheel-items-day' || sel === '#tps-wheel-items-month' || sel === '#tps-wheel-items-year') {
+            return createMockElement('div');
+          }
+          if (sel === '#tps-wheel-done-btn') {
+            return {
+              addEventListener: (evt, cb) => {
+                if (evt === 'click') doneCallback = cb;
+              }
+            };
+          }
+          if (sel === '#tps-wheel-cancel-btn') {
+            return { addEventListener: () => {} };
+          }
+          return null;
+        },
+        querySelectorAll: () => [],
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        scrollTo: ({ top }) => { el.scrollTop = top; },
+        remove: () => {}
+      };
+      return el;
+    };
+
+    global.document = {
+      createElement: createMockElement,
+      body: {
+        classList: { add: () => {}, remove: () => {} },
+        appendChild: (el) => { appendedModal = el; }
+      }
+    };
+
+    try {
+      // Test opening with October 15, 2026
+      const initialDate = new Date(2026, 9, 15); // 15 Oct 2026
+      openMobileWheelPicker({
+        initialDate,
+        title: 'Select Date',
+        onSelect: (d) => { capturedDate = d; }
+      });
+
+      expect(appendedModal).toBeTruthy();
+
+      // Trigger DONE button click
+      expect(typeof doneCallback).toBe('function');
+      doneCallback({ stopPropagation: () => {} });
+
+      // Selected date must match 15 Oct 2026, NOT 01 Jan 2026
+      expect(capturedDate).toBeTruthy();
+      expect(capturedDate.getFullYear()).toBe(2026);
+      expect(capturedDate.getMonth()).toBe(9); // Oct (0-indexed)
+      expect(capturedDate.getDate()).toBe(15);
+    } finally {
+      global.document = originalDocument;
+    }
   });
 
   it('Sections & Classrooms: renders responsive Mobile Section Selector Card matching Role Switcher pattern alongside Desktop Nav', async () => {
