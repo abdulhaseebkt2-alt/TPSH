@@ -3,6 +3,7 @@ import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { openCropModal } from '../../components/crop-modal.js';
 import { updateSidebarLogo } from '../../components/sidebar.js';
+import { applyInstitutionalAppIcon } from '../../app.js';
 
 export async function renderSettingsModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -276,6 +277,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
     localStorage.removeItem('tps_institution_logo');
     currentLogo = '';
     updateSidebarLogo(null);
+    applyInstitutionalAppIcon(null);
     toast.success('Institution logo removed. Default badge restored.');
     renderSettingsModule(container, { onNavigate });
   });
@@ -284,6 +286,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
     currentLogo = logoUrl;
     localStorage.setItem('tps_institution_logo', logoUrl);
     updateSidebarLogo(logoUrl);
+    applyInstitutionalAppIcon(logoUrl);
     renderSettingsModule(container, { onNavigate });
   }
 
@@ -313,9 +316,10 @@ export async function renderSettingsModule(container, { onNavigate }) {
     mobileFileInput.value = '';
   });
 
-    container.querySelector('#btn-reset-mobile-logo')?.addEventListener('click', () => {
+  container.querySelector('#btn-reset-mobile-logo')?.addEventListener('click', () => {
     localStorage.removeItem('tps_mobile_front_logo');
     currentMobileLogo = '';
+    applyInstitutionalAppIcon(null);
     toast.success('Mobile front logo reset to official default Thaiba emblem.');
     renderSettingsModule(container, { onNavigate });
   });
@@ -323,6 +327,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
   function saveAndApplyMobileLogo(logoUrl) {
     currentMobileLogo = logoUrl;
     localStorage.setItem('tps_mobile_front_logo', logoUrl);
+    applyInstitutionalAppIcon(logoUrl);
     renderSettingsModule(container, { onNavigate });
   }
 

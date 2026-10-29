@@ -19,6 +19,7 @@ import { renderCalendarModule } from '../src/modules/calendar/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
 import { renderAttendanceReportModule } from '../src/modules/reports/attendance-report.js';
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
+import { applyInstitutionalAppIcon } from '../src/app.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -2352,5 +2353,55 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(restoredCls.teacher_id).toBe(teacherId);
     expect(restoredCls.teacher_assigned_date).toBe('2026-10-01');
     expect(restoredCls.teacher_removed_date).toBeNull();
+  });
+
+  it('Institutional App Icon & Manifest Sync: dynamic favicon, apple-touch-icon, and PWA manifest reflect Institution Settings logo', () => {
+    const mockFavicon = { href: '/tps-logo.png', type: 'image/png' };
+    const mockAppleIcon = { href: '/tps-logo.png' };
+    const mockManifest = { href: '/manifest.json' };
+
+    const fakeDoc = {
+      querySelector: (selector) => {
+        if (selector === 'link[rel="icon"]') return mockFavicon;
+        if (selector === 'link[rel="apple-touch-icon"]') return mockAppleIcon;
+        if (selector === 'link[rel="manifest"]') return mockManifest;
+        return null;
+      }
+    };
+    const prevDoc = globalThis.document;
+    globalThis.document = fakeDoc;
+
+    const memoryStorage = {};
+    const fakeStorage = {
+      getItem: (k) => memoryStorage[k] || null,
+      setItem: (k, v) => { memoryStorage[k] = String(v); },
+      removeItem: (k) => { delete memoryStorage[k]; }
+    };
+    const prevStorage = globalThis.localStorage;
+    globalThis.localStorage = fakeStorage;
+
+    try {
+      // 1. By default, applies official Thaiba logo
+      applyInstitutionalAppIcon();
+      expect(mockFavicon.href).toBe('/tps-logo.png');
+      expect(mockAppleIcon.href).toBe('/tps-logo.png');
+
+      // 2. Custom logo uploaded in Institution Settings dynamically updates favicon & apple icon
+      const customLogoData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      fakeStorage.setItem('tps_institution_logo', customLogoData);
+
+      applyInstitutionalAppIcon();
+      expect(mockFavicon.href).toBe(customLogoData);
+      expect(mockAppleIcon.href).toBe(customLogoData);
+
+      // 3. Resetting logo restores official default logo
+      fakeStorage.removeItem('tps_institution_logo');
+      applyInstitutionalAppIcon();
+      expect(mockFavicon.href).toBe('/tps-logo.png');
+      expect(mockAppleIcon.href).toBe('/tps-logo.png');
+    } finally {
+      globalThis.document = prevDoc;
+      globalThis.localStorage = prevStorage;
+    }
   });
 });

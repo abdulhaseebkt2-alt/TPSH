@@ -55,6 +55,69 @@ const MODULE_ROUTERS = {
   rbac: (container, props) => renderUsersModule(container, { ...props, initialTab: 'rbac' })
 };
 
+export function applyInstitutionalAppIcon(customLogoUrl = null) {
+  if (typeof document === 'undefined') return;
+  const storage = typeof localStorage !== 'undefined' ? localStorage : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+  const activeLogo = customLogoUrl || 
+    (storage ? storage.getItem('tps_institution_logo') : null) || 
+    (storage ? storage.getItem('tps_mobile_front_logo') : null) || 
+    '/tps-logo.png';
+
+  // 1. Update <link rel="icon">
+  let favIcon = document.querySelector('link[rel="icon"]');
+  if (favIcon) {
+    favIcon.href = activeLogo;
+    if (activeLogo.startsWith('data:image/svg') || activeLogo.endsWith('.svg')) {
+      favIcon.type = 'image/svg+xml';
+    } else {
+      favIcon.type = 'image/png';
+    }
+  }
+
+  // 2. Update <link rel="apple-touch-icon">
+  let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+  if (appleIcon) {
+    appleIcon.href = activeLogo;
+  }
+
+  // 3. Update dynamic PWA manifest so Install App dialog renders the exact institutional logo
+  try {
+    const dynamicManifest = {
+      name: "TPS Hostel ERP - Thaiba Public School",
+      short_name: "TPS ERP",
+      description: "Hostel ERP, Attendance, Examination & Result Management System for Thaiba Public School",
+      start_url: "/",
+      display: "standalone",
+      background_color: "#F8FAFC",
+      theme_color: "#0F172A",
+      icons: [
+        {
+          src: activeLogo,
+          sizes: "192x192 256x256 512x512",
+          type: activeLogo.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+          purpose: "any maskable"
+        },
+        {
+          src: "/tps-logo.png",
+          sizes: "192x192 256x256 512x512",
+          type: "image/png",
+          purpose: "any maskable"
+        }
+      ]
+    };
+    if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+      const blob = new Blob([JSON.stringify(dynamicManifest)], { type: 'application/manifest+json' });
+      const manifestBlobUrl = URL.createObjectURL(blob);
+      let manifestEl = document.querySelector('link[rel="manifest"]');
+      if (manifestEl) {
+        manifestEl.href = manifestBlobUrl;
+      }
+    }
+  } catch (e) {
+    // Silently continue in environments where dynamic manifest is not supported
+  }
+}
+
 export function getInstitutionalLogo(size = 46) {
   const customLogo = localStorage.getItem('tps_mobile_front_logo') || localStorage.getItem('tps_institution_logo');
   if (customLogo) {
@@ -140,6 +203,9 @@ class App {
   }
 
   init() {
+    // Synchronize Institutional App Icon, Favicon & PWA Manifest
+    applyInstitutionalAppIcon();
+
     // Register PWA service worker if supported
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('/sw.js').catch(e => console.warn('PWA SW error:', e));
@@ -897,5 +963,8 @@ class App {
   }
 }
 
-const app = new App();
-document.addEventListener('DOMContentLoaded', () => app.init());
+let app = null;
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  app = new App();
+  document.addEventListener('DOMContentLoaded', () => app.init());
+}
