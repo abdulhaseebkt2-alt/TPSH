@@ -3424,6 +3424,25 @@ body.tps-wheel-open {
   box-shadow: none !important;
 }
 
+/* Timetable Module: Dedicated Cards Grid */
+.timetable-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .timetable-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.timetable-cards-grid .teacher-upcoming-card {
+  margin-bottom: 0;
+  height: 100%;
+}
+
 .att-timetable-tabs {
   display: flex;
   gap: 0.5rem;

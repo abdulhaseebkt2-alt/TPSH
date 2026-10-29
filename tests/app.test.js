@@ -1014,6 +1014,15 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     await renderTimetableModule(teacherContainer, { onNavigate: () => {} });
     expect(teacherContainer.innerHTML).toContain('My Teaching Timetable');
     expect(teacherContainer.innerHTML).toContain('Personal Faculty Timetable Active');
+    expect(teacherContainer.innerHTML).toContain('teacher-upcoming-card');
+    expect(teacherContainer.innerHTML).toContain('Your upcoming class');
+    expect(teacherContainer.innerHTML).toContain('Scheduled teaching session');
+    expect(teacherContainer.innerHTML).toContain('upcoming-details-grid');
+    expect(teacherContainer.innerHTML).toContain('Schedule Time');
+    expect(teacherContainer.innerHTML).toContain('Classroom / Hall');
+    expect(teacherContainer.innerHTML).toContain('Enrolled Roster');
+    expect(teacherContainer.innerHTML).toContain('Scheduled Days');
+    expect(teacherContainer.innerHTML).toContain('Take Attendance →');
 
     // 2. Admin view
     updateCurrentUserProfile({
@@ -1034,6 +1043,44 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(adminContainer.innerHTML).toContain('Faculty Timetable & Schedule Governance');
     expect(adminContainer.innerHTML).toContain('Master Institutional Timetable');
     expect(adminContainer.innerHTML).toContain('All Faculty');
+  });
+
+  it('Teacher Timetable displays cards for all assigned classes with strict faculty isolation', async () => {
+    const originalCls = await db.getClassrooms();
+    try {
+      const updatedCls = originalCls.map(c => {
+        if (c.id === 'cls-1') return { ...c, name: 'Special Science Lab', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed'] };
+        if (c.id === 'cls-2') return { ...c, name: 'Advanced Robotics Hall', teacher_id: 'u-2', days: ['Thu', 'Fri', 'Sat'] };
+        return { ...c, name: 'Other Faculty Room', teacher_id: 'u-99' };
+      });
+      db.set('tps_classrooms', updatedCls);
+
+      updateCurrentUserProfile({
+        id: 'u-2',
+        email: 'teacher@thaibaschool.edu.in',
+        role: 'teacher',
+        approval_status: 'approved',
+        is_super_admin: false
+      });
+
+      const teacherDiv = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderTimetableModule(teacherDiv, { onNavigate: () => {} });
+
+      // Must show cards for both of teacher's assigned classes
+      expect(teacherDiv.innerHTML).toContain('Special Science Lab');
+      expect(teacherDiv.innerHTML).toContain('Advanced Robotics Hall');
+      // Must NOT show cards for other faculty's classrooms
+      expect(teacherDiv.innerHTML).not.toContain('Other Faculty Room');
+      // Must have the take attendance buttons
+      expect(teacherDiv.innerHTML).toContain('Take Attendance →');
+    } finally {
+      db.set('tps_classrooms', originalCls);
+    }
   });
 
   it('Teacher attendance duty is automatically recorded with timestamp when attendance is submitted', async () => {

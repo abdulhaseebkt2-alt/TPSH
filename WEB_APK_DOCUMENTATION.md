@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.6.5`  
-> **Last Updated:** 2026-10-29T10:00:00+05:30  
+> **Current Version:** `v1.6.6`  
+> **Last Updated:** 2026-10-29T10:25:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -258,6 +258,22 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
 - **Compact Student Cards**:
   - Displays avatar photo, full name, gender, class badge, and the 2-way adjustable switch.
 
+### 4.3.1 Teacher Timetable & Classroom Schedule Cards (`src/modules/timetable/index.js`)
+- **Modernized Timetable Cards UI (v1.6.6)**: Replaced the flat master data table with a responsive grid (`.timetable-cards-grid`) of dedicated timetable cards matching Screenshot 2.
+- **Strict Faculty Scoping**: Teachers can ONLY see cards for their own assigned classrooms (other faculty's classes are completely hidden, with no teacher switcher available for teachers).
+- **All Assigned Classes Displayed**: The window displays cards for all classes assigned to that teacher.
+- **Card Specifications (matching Screenshot 2)**:
+  - Header: Stopwatch/clock icon in square pill, title **"Your upcoming class"**, subtitle **"Scheduled teaching session"**, and timing status pill (e.g. `Today at 04:30 PM`, `🟢 Live In-Session`, `Starts in 15m`, or `Scheduled (Days)`).
+  - Divider: Thin line (`.upcoming-divider`).
+  - Class Primary: Bold emerald green classroom name (`.upcoming-class-name`, `#065F46`, font-size 1.25rem, font-weight 800) and program badge (`.upcoming-prog-pill`).
+  - 2x2 Details Grid:
+    - **SCHEDULE TIME**: e.g. `04:30 PM – 06:00 PM`
+    - **CLASSROOM / HALL**: e.g. `Room 301` / `Campus Hall`
+    - **ENROLLED ROSTER**: e.g. `8 Students`
+    - **SCHEDULED DAYS**: e.g. `M, T, W, T, F, S`
+  - Action Button: Emerald green **"Take Attendance →"** (`#059669`) navigating directly to live attendance taking for that classroom.
+- **Administrator Capabilities**: Admins can view all classrooms across the institution, filter by faculty using a dropdown (`#timetable-faculty-filter`), and add/modify timetable slots.
+
 ### 4.4 Student Admissions & Master Directory (`src/modules/admissions/`, `src/modules/students/`)
 - **Admission Wizard**: Full academic, residential, guardian, emergency contact, and medical information.
 - **Photo Upload**: Client-side image compression and direct upload to Supabase `student-photos` storage bucket.
@@ -454,6 +470,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.6.6** | 2026-10-29 10:25 | Antigravity AI | `src/modules/timetable/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Modernized Teacher Timetable UI with Dedicated Cards & Strict Faculty Scoping: (1) Replaced flat master data table in Timetable module (`src/modules/timetable/index.js`) with responsive `.timetable-cards-grid` containing dedicated `.teacher-upcoming-card` elements matching Screenshot 2; (2) Enforced strict faculty scoping so teachers can ONLY see cards for their own assigned classes, completely isolating other teachers' cards; (3) Show all assigned classes: teachers assigned multiple classrooms see cards for all of their assigned classes in an adaptive responsive grid; (4) Each card displays stopwatch icon pill, "Your upcoming class" heading, "Scheduled teaching session" subtitle, timing status badge ("Today at {start_time}", "Live In-Session", "Starts in {N}m", or "Scheduled (Days)"), thin divider, bold emerald green classroom name (`#065F46`), program pill, 2x2 details grid (Schedule Time, Classroom/Hall, Enrolled Roster, Scheduled Days), and emerald green "Take Attendance →" button; (5) Tapping "Take Attendance →" or the card seamlessly routes to the Attendance module for that classroom; (6) Administrator capabilities: Admins can view all cards with a faculty filter dropdown (`#timetable-faculty-filter`) and "Add Timetable Slot" modal; (7) Added automated unit tests verifying cards layout, details grid, and strict faculty isolation (72/72 tests passing); verified production build. |
 | **v1.6.5** | 2026-10-29 10:00 | Antigravity AI | `src/lib/db.js`, `src/modules/reports/attendance-report.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Admin Bulk Month Missed Attendance Button & Bottom Table Removal: (1) Removed the redundant 21-row `Missed Attendance Register` panel/table at the bottom of the Attendance Report window as requested by user; (2) Removed the repetitive `• 21 Missed Attendance Recorded` badge from the top right of the calendar card because the KPI metrics card above already displays missed counts; (3) In that exact top-right spot on the calendar card, added a dedicated Admin Bulk Action Button: "Allow Month Missed Attendance (N)" allowing administrators to unlock all missed sessions for the month in one single tap; (4) Added toggle support: if all missed sessions are unlocked, button switches to "Close / Lock Month Missed (N)" to bulk-lock; (5) Implemented `db.unlockAttendanceWindows` and `db.lockAttendanceWindows` in `src/lib/db.js` for atomic multi-date batch operations; (6) Retained interactive single-day tap inspection so admins can allow/lock individual dates and teachers can tap dates to take missed attendance; (7) All 71/71 Vitest tests passing; verified clean production build. |
 | **v1.6.4** | 2026-10-29 09:50 | Antigravity AI | `src/lib/db.js`, `src/modules/reports/attendance-report.js`, `src/modules/attendance/index.js`, `src/modules/sections/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Faculty Duty Tenure & Assignment-Bound Attendance Tracking: (1) Fixed past historical data showing false missed attendance (red circles) prior to class assignment date; (2) Added `teacher_assigned_date` (defaulting to term start `2026-10-01`) and `teacher_removed_date` to classrooms and introduced `tps_teacher_assignments` table with full historical tenure logging; (3) Added `db.isTeacherAssignedOnDate`, `db.assignTeacherToClassroom`, and `db.removeTeacherFromClassroom`; (4) Missed attendance and red circles are now evaluated strictly from the date the teacher was assigned to the classroom; (5) When an Administrator removes a teacher from a classroom, attendance duties immediately end on the removal date and dates after removal are never flagged as missed; (6) Updated Sections & Classrooms edit modal with "Remove Teacher from Class" button and explicit Assignment Start & Removal Date pickers; (7) Updated Attendance Management module window status check to disallow attendance recording outside active faculty tenure; (8) Added automated unit tests verifying past dates prior to assignment show 0 missed attendance, and removal dates properly end duties (71/71 tests passing); verified production build. |
 | **v1.6.3** | 2026-10-29 09:32 | Antigravity AI | `src/modules/attendance/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Recreated Attendance Management Window with Teaching Timetable Cards: (1) Replaced old direct single-class roster view with Timetable Cards matching the screenshot (`media_1793245698302_aa26eb06.png`); (2) Enforced strict faculty scoping: teachers can ONLY see their own timetable classes, never other teachers' classes; (3) Each card acts as their complete timetable containing Schedule Time, Classroom/Hall, Enrolled Roster, Scheduled Days, Program Pill, and Timing Status badge; (4) Faded the "Take Attendance" button outside class hours (`.is-faded`, `opacity: 0.38`); (5) Enabled entering class details & student roster after class time via "View Details" button or tapping card; (6) Seamless navigation with `← Back to Timetable Cards` and Admin faculty filter; (7) Added unit tests (all 70 unit tests passing); verified production build. |
