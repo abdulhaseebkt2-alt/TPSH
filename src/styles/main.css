@@ -5850,20 +5850,23 @@ body.tps-wheel-open {
 }
 
 .day-round {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  font-size: 0.64rem;
+  font-size: 0.68rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .day-round.active {
-  background: #10B981;
+  background: #059669;
   color: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
 }
 
 .day-round.inactive {

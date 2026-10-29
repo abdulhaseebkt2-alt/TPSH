@@ -2090,6 +2090,43 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(teacherContainer.innerHTML).toContain('att-rep-class-select');
   });
 
+  it('Cascading Attendance Filter UI: displays only assigned faculty names without role suffix, class names without time, round D-format meeting day badges without long names, and strict cascading', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceReportModule(adminContainer, { onNavigate: () => {} });
+    const html = adminContainer.innerHTML;
+
+    // 1. Faculty name only - no position/role suffix like (teacher) or (admin)
+    expect(html).toContain('Rashid Sir');
+    expect(html).not.toContain('Rashid Sir (teacher)');
+    expect(html).not.toContain('(faculty)');
+
+    // 2. Class name only in dropdown - no time range attached
+    expect(html).toContain('>Moral Hall A1</option>');
+    expect(html).not.toContain('Moral Hall A1 (06:00 AM – 07:00 AM)');
+    expect(html).not.toContain('Moral Hall A1 (06:00 AM - 07:00 AM)');
+
+    // 3. Meeting days format - round circular badges with 1-letter D format, no (Mon, Tue...) text
+    expect(html).toContain('day-round active');
+    expect(html).not.toContain('(Mon, Tue, Wed, Thu, Fri, Sat)');
+
+    // 4. Strict cascading: unassigned faculty (e.g. parent or new applicant) are NOT in the dropdown
+    expect(html).not.toContain('Ahmad K.T.');
+    expect(html).not.toContain('New Applicant');
+  });
+
   it('Calendar UI in Attendance Report: renders unworking class days as faded, holidays as yellow, hostel leaves as fade red text only, and missed attendance as red color round', async () => {
     updateCurrentUserProfile({
       id: 'd0000000-0000-0000-0000-000000000002',

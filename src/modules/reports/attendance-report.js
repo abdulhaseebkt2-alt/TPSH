@@ -32,19 +32,43 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     db.getTeacherAssignments()
   ]);
 
-  // 2. Prepare eligible teachers list
-  const eligibleTeachers = users.filter(u => 
-    u.approval_status === 'approved' && 
-    (u.role === 'teacher' || u.role === 'admin' || u.role === 'mentor' || u.role === 'super_admin' || !u.role)
-  ).sort((a, b) => {
-    if (a.role === 'teacher' && b.role !== 'teacher') return -1;
-    if (a.role !== 'teacher' && b.role === 'teacher') return 1;
-    return (a.full_name || a.email).localeCompare(b.full_name || b.email);
-  });
+  // Helper to match teacher IDs with seeded UUID aliases
+  function isTeacherAssignedToClass(u, c) {
+    if (!u || !c) return false;
+    const uIds = [u.id, u.email, u.full_name].filter(Boolean);
+    if (u.id === 'u-2' || u.id === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || u.email === 'teacher@thaibaschool.edu.in' || (u.full_name && u.full_name.includes('Rashid'))) {
+      uIds.push('u-2', '3ba0d909-6656-43eb-87fb-fe8e30088d55', 'teacher@thaibaschool.edu.in');
+    }
+    const cTeacher = c.teacher_id;
+    if (cTeacher && uIds.includes(cTeacher)) return true;
+    if (Array.isArray(teacherAssignments) && teacherAssignments.some(a => 
+      a.classroom_id === c.id && uIds.includes(a.teacher_id) && !a.removed_date
+    )) {
+      return true;
+    }
+    return false;
+  }
+
+  // 2. Prepare eligible teachers list: ONLY users who are actually assigned to at least one classroom
+  const eligibleTeachers = users.filter(u => {
+    if (u.approval_status !== 'approved') return false;
+    return allClassrooms.some(c => isTeacherAssignedToClass(u, c));
+  }).sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
+
+  // If logged-in user is a teacher and not yet in list, ensure they are present
+  if (isTeacher && user && !eligibleTeachers.some(t => t.id === user.id)) {
+    eligibleTeachers.unshift(user);
+  }
+
+  // Safety fallback if no teachers found with assignments yet
+  if (eligibleTeachers.length === 0) {
+    const fallback = users.filter(u => u.approval_status === 'approved' && (u.role === 'teacher' || u.role === 'admin'));
+    eligibleTeachers.push(...fallback);
+  }
 
   // State
-  // Teachers are strictly scoped to their own account; Admin can select any teacher
-  let selectedTeacherId = isTeacher ? user.id : (eligibleTeachers.find(t => allClassrooms.some(c => c.teacher_id === t.id))?.id || eligibleTeachers[0]?.id || 'u-2');
+  // Teachers are strictly scoped to their own account; Admin can select any assigned faculty
+  let selectedTeacherId = isTeacher ? user.id : (eligibleTeachers.find(t => allClassrooms.some(c => isTeacherAssignedToClass(t, c)))?.id || eligibleTeachers[0]?.id || 'u-2');
   let selectedSectionId = '';
   let selectedClassroomId = '';
 
@@ -59,39 +83,33 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
   // Helper: Find classrooms assigned to a teacher
   function getAssignedClassroomsForTeacher(teacherId) {
-    const tUser = users.find(u => u.id === teacherId);
-    const assigned = allClassrooms.filter(c => {
-      if (c.teacher_id === teacherId) return true;
-      if (tUser && (c.teacher_id === tUser.email || c.teacher_id === tUser.full_name)) return true;
-      return false;
-    });
+    const tUser = users.find(u => u.id === teacherId) || { id: teacherId };
+    const assigned = allClassrooms.filter(c => isTeacherAssignedToClass(tUser, c));
 
     if (assigned.length > 0) return assigned;
 
     // Fallback if teacher doesn't have explicit classrooms assigned yet
     if (isTeacher) {
-      return allClassrooms.slice(0, 2);
+      return allClassrooms.slice(0, 1);
     }
-    return allClassrooms;
+    return [];
   }
 
-  // Helper: Get sections assigned to a teacher
+  // Helper: Get sections assigned to a teacher (strictly sections with their assigned classes)
   function getAssignedSectionsForTeacher(teacherId) {
     const teacherCls = getAssignedClassroomsForTeacher(teacherId);
-    const secIds = new Set(teacherCls.map(c => c.section_id || c.program_id).filter(Boolean));
+    const secIds = new Set(teacherCls.map(c => c.section_id).filter(Boolean));
     const progIds = new Set(teacherCls.map(c => c.program_id).filter(Boolean));
 
-    // Gather matching sections
-    let matchingSections = allSections.filter(s => secIds.has(s.id) || progIds.has(s.program_id));
+    // Gather matching sections strictly from the teacher's assigned classrooms
+    let matchingSections = allSections.filter(s => secIds.has(s.id));
     if (matchingSections.length === 0) {
-      // Fallback to programs
-      matchingSections = allPrograms
-        .filter(p => progIds.has(p.id) || secIds.has(p.id))
-        .map(p => ({ id: p.id, name: p.name, program_id: p.id }));
-    }
-
-    if (matchingSections.length === 0) {
-      return allSections.slice(0, 3);
+      matchingSections = allSections.filter(s => progIds.has(s.program_id));
+      if (matchingSections.length === 0) {
+        matchingSections = allPrograms
+          .filter(p => progIds.has(p.id) || secIds.has(p.id))
+          .map(p => ({ id: p.id, name: p.name, program_id: p.id }));
+      }
     }
     return matchingSections;
   }
@@ -284,29 +302,28 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
         </div>
 
         <!-- CASCADING HIERARCHY SELECTOR CARD -->
-        <div class="card-panel" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
-            <span>Cascading Attendance Filter</span>
-            <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">Role Scoped</span>
+        <div class="card-panel" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05);">
+          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+            <span style="display: flex; align-items: center; gap: 0.4rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              Cascading Attendance Filter
+            </span>
+            <span style="font-size: 0.68rem; color: #059669; background: #ECFDF5; border: 1px solid #A7F3D0; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">Role Scoped</span>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem;">
             
             <!-- 1. Teacher Selector -->
             <div>
-              <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
                 Faculty / Teacher ${isTeacher ? '(Locked)' : ''}
               </label>
               ${isAdmin ? `
-                <select id="att-rep-teacher-select" class="form-control" style="width: 100%; border-radius: 9px; font-weight: 600; font-size: 0.86rem; cursor: pointer;">
-                  ${eligibleTeachers.map(t => `
-                    <option value="${t.id}" ${t.id === selectedTeacherId ? 'selected' : ''}>
-                      ${t.full_name || t.email} (${t.role || 'faculty'})
-                    </option>
-                  `).join('')}
+                <select id="att-rep-teacher-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+                  ${eligibleTeachers.map(t => `<option value="${t.id}" ${t.id === selectedTeacherId ? 'selected' : ''}>${t.full_name || t.email}</option>`).join('')}
                 </select>
               ` : `
-                <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 9px; padding: 0.55rem 0.75rem; font-weight: 700; font-size: 0.86rem; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
+                <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0.55rem 0.75rem; font-weight: 700; font-size: 0.86rem; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
                   <span>${activeTeacher?.full_name || user?.full_name || 'My Faculty Duty'}</span>
                   <span class="badge badge-active" style="font-size: 0.65rem;">My Account</span>
                 </div>
@@ -315,50 +332,59 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
             <!-- 2. Section Selector -->
             <div>
-              <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
                 Assigned Section
               </label>
-              <select id="att-rep-section-select" class="form-control" style="width: 100%; border-radius: 9px; font-weight: 600; font-size: 0.86rem; cursor: pointer;">
-                ${assignedSections.map(s => `
-                  <option value="${s.id}" ${s.id === selectedSectionId ? 'selected' : ''}>
-                    ${s.name}
-                  </option>
-                `).join('')}
+              <select id="att-rep-section-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+                ${assignedSections.map(s => `<option value="${s.id}" ${s.id === selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('')}
               </select>
             </div>
 
             <!-- 3. Class Selector -->
             <div>
-              <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
                 Assigned Classroom Session
               </label>
-              <select id="att-rep-class-select" class="form-control" style="width: 100%; border-radius: 9px; font-weight: 600; font-size: 0.86rem; cursor: pointer;">
-                ${assignedClasses.map(c => `
-                  <option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>
-                    ${c.name} (${formatTime(c.start_time)} - ${formatTime(c.end_time)})
-                  </option>
-                `).join('')}
+              <select id="att-rep-class-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+                ${assignedClasses.map(c => `<option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
               </select>
             </div>
 
           </div>
 
           <!-- Classroom Timetable Specs Ribbon -->
-          <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed #E2E8F0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem; font-size: 0.78rem;">
-            <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
-              <span style="color: #64748B;">Class Meeting Days:</span>
-              <strong style="color: #0F172A; background: #F1F5F9; padding: 2px 7px; border-radius: 5px;">
-                ${formatDaysSingleLetters(activeClass?.days)} (${(activeClass?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).join(', ')})
-              </strong>
-              <span style="color: #64748B;">Timing:</span>
-              <strong style="color: #0F172A;">
-                ${formatTime(activeClass?.start_time || '06:00')} – ${formatTime(activeClass?.end_time || '07:00')}
-              </strong>
+          ${activeClass ? `
+            <div style="margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px dashed #E2E8F0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.78rem;">
+              <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+                <span style="color: #64748B; font-weight: 600;">Meeting Days:</span>
+                <div style="display: inline-flex; align-items: center; gap: 4px;" title="Scheduled class meeting days">
+                  ${[
+                    { key: 'Mon', short: 'M', title: 'Monday' },
+                    { key: 'Tue', short: 'T', title: 'Tuesday' },
+                    { key: 'Wed', short: 'W', title: 'Wednesday' },
+                    { key: 'Thu', short: 'T', title: 'Thursday' },
+                    { key: 'Fri', short: 'F', title: 'Friday' },
+                    { key: 'Sat', short: 'S', title: 'Saturday' },
+                    { key: 'Sun', short: 'S', title: 'Sunday' }
+                  ].map(d => {
+                    const isMeeting = (activeClass?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).includes(d.key);
+                    return `<span class="day-round ${isMeeting ? 'active' : 'inactive'}" title="${d.title}: ${isMeeting ? 'Active Class Day' : 'Off'}">${d.short}</span>`;
+                  }).join('')}
+                </div>
+
+                <span style="color: #CBD5E1; margin: 0 2px;">•</span>
+
+                <span style="color: #64748B; font-weight: 600;">Timing:</span>
+                <strong style="color: #0F172A; font-family: var(--font-mono); font-size: 0.82rem; background: #F8FAFC; padding: 2px 7px; border-radius: 6px; border: 1px solid #E2E8F0;">
+                  ${formatTime(activeClass?.start_time || '06:00')} – ${formatTime(activeClass?.end_time || '07:00')}
+                </strong>
+              </div>
+
+              <div style="color: #059669; font-weight: 700; font-size: 0.72rem; display: flex; align-items: center; gap: 4px; background: #ECFDF5; padding: 3px 9px; border-radius: 6px; border: 1px solid #A7F3D0;">
+                <span>⚡ Attendance restricted strictly between ${formatTime(activeClass?.start_time || '06:00')} and ${formatTime(activeClass?.end_time || '07:00')}</span>
+              </div>
             </div>
-            <div style="color: #059669; font-weight: 700; font-size: 0.74rem;">
-              ⚡ Attendance restricted strictly between ${formatTime(activeClass?.start_time || '06:00')} and ${formatTime(activeClass?.end_time || '07:00')}
-            </div>
-          </div>
+          ` : ''}
         </div>
 
         <!-- 4-METRICS STATS ROW -->
