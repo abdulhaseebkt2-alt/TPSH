@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.6.2`  
-> **Last Updated:** 2026-10-29T08:52:00+05:30  
+> **Current Version:** `v1.6.3`  
+> **Last Updated:** 2026-10-29T09:32:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -406,15 +406,19 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 69 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 70 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention, dedicated `attendance_report` permissions for teachers, mentors, and admins.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
 - **Wheel Pickers**: 12-hour wheel time parser, PhonePe drum wheel date parser, mobile detection flags, exact set-date preservation on reopen without 01 Jan preset reset.
-- **Attendance & Late Arrival Tracking**:
-  - Hero card navigation, big class card layout, 2-way switch absent defaults.
-  - Right-side switch toggle with Yellow Area (`sw-late`, background `#F59E0B`) and short label `L` (replacing long `LATE`).
-  - Dynamic 3-stage switch cycling: Absent (`A`, Red) $\to$ Present (`P`, Green) $\to$ Late Present (`L`, Yellow) $\to$ Absent (`A`, Red).
+- **Attendance Management & Teaching Timetable Cards**:
+  - Attendance Management window cards matching design spec (`media_1793245698302_aa26eb06.png`).
+  - Strict teacher timetable scoping: each teacher can ONLY see their own timetable classes, never other faculty.
+  - Complete timetable details on each card: Schedule Time, Classroom/Hall, Enrolled Roster, Scheduled Days, Program Pill, and Timing Status.
+  - "Take Attendance" button faded (`is-faded`, `opacity: 0.38`) outside class hours.
+  - Users can enter class details & roster view after class time (via card click or View Details button).
+  - Roster Details View with `← Back to Timetable Cards` navigation.
+  - 2-way switch absent defaults, late switch yellow area (`sw-late`, background `#F59E0B`), and short label `L`.
   - Administration visibility of exact minutes late after class started (`⏱️ {late_minutes} min late (Class: {start_time})`) displayed dynamically on compact student card and stored in session records.
   - Strict start/end time window lock for everyone (including admins taking class), admin override/unlock, and teacher lock preventing unauthorized edits to already submitted attendance records.
 - **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
@@ -441,7 +445,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 2. **Strict Domain Separation**: Academic Calendar (`#calendar`) is exclusively for the institutional calendar, working days schedule, and official holidays. Student attendance data, student search, student dropdowns, and student attendance calendars are housed strictly inside Attendance Reports (`#reports` and `#attendance_report`).
 3. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 4. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-5. **Preserve Unit Tests**: Never commit changes that cause any of the 69 unit tests to fail.
+5. **Preserve Unit Tests**: Never commit changes that cause any of the 70 unit tests to fail.
 
 ---
 
@@ -449,6 +453,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.6.3** | 2026-10-29 09:32 | Antigravity AI | `src/modules/attendance/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Recreated Attendance Management Window with Teaching Timetable Cards: (1) Replaced old direct single-class roster view with Timetable Cards matching the screenshot (`media_1793245698302_aa26eb06.png`); (2) Enforced strict faculty scoping: teachers can ONLY see their own timetable classes, never other teachers' classes; (3) Each card acts as their complete timetable containing Schedule Time, Classroom/Hall, Enrolled Roster, Scheduled Days, Program Pill, and Timing Status badge; (4) Faded the "Take Attendance" button outside class hours (`.is-faded`, `opacity: 0.38`); (5) Enabled entering class details & student roster after class time via "View Details" button or tapping card; (6) Seamless navigation with `← Back to Timetable Cards` and Admin faculty filter; (7) Added unit tests (all 70 unit tests passing); verified production build. |
 | **v1.6.2** | 2026-10-29 08:52 | Antigravity AI | `src/modules/attendance/index.js`, `src/modules/reports/attendance-report.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Late Attendance Yellow Button Area, Short 'L' & Admin Late Minutes Visibility: (1) Updated student right-side attendance toggle button area to show vibrant yellow (`#F59E0B` background with amber shadow) via `.att-2way-switch.sw-late` when status is Late Present; (2) Shortened late switch label to 'L' (Present = 'P', Absent = 'A', Late = 'L'); (3) Enabled 3-state cycling: Absent $\to$ Present $\to$ Late Present $\to$ Absent with instant reactive card visual updates; (4) Added dynamic calculation and persistence of minutes late after class start time (`activeCls.start_time`); (5) Displayed late minutes to Administration on the compact student card (`⏱️ {late_minutes} min late (Class: {start_time})`) and via `{late_minutes}m late` yellow badge; (6) Added student attendance breakdown in Attendance Report day inspection modal showing late minutes for Admin and quick "Edit Attendance" action; (7) Added automated test asserting yellow button area, short 'L', and admin late minutes visibility (all 69 unit tests passing); verified production build. |
 | **v1.6.1** | 2026-10-29 08:42 | Antigravity AI | `src/modules/reports/attendance-report.js`, `src/modules/reports/index.js`, `src/modules/attendance/index.js`, `src/lib/permissions.js`, `src/lib/db.js`, `src/components/sidebar.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Dedicated Attendance Report Window & Missed Attendance Governance: (1) Created dedicated Attendance Report module (`#attendance_report` and sidebar item under Student & Academic) with full access for Teachers, Mentors, and Admins; (2) Implemented cascading hierarchy: Admin can select any Teacher $\to$ assigned Sections $\to$ assigned Classes; Teachers are strictly locked to their own account with no option to view others; (3) Added compact visual calendar matching Academic Calendar card (`media_1793240742835_afd14a06.png`); (4) Timetable unworking days for the selected class rendered as FADED; (5) Academic holidays rendered in Light Yellow; (6) Hostel leaves rendered as FADED RED TEXT ONLY (no circle/round); (7) Missed attendance rendered as RED COLOUR ROUND; (8) Added Admin "Allow Missed Attendance" (`db.unlockAttendanceWindow`) and "Close / Lock" (`db.lockAttendanceWindow`) controls; (9) Enforced strict attendance timing between start and end time for everyone (including Admins taking class); (10) Enforced that teachers taking missed attendance can only select Admin-unlocked missed dates and CANNOT edit already taken attendance (Admin permission only); (11) Added 5 comprehensive automated tests (68/68 tests passing) and verified clean production build. |
 | **v1.6.0** | 2026-10-28 17:10 | Antigravity AI | `src/modules/calendar/index.js`, `src/lib/db.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Consolidated Multi-Day Leave/Event Cards in Holidays & Events: (1) Added `groupCalendarEvents` helper in `src/modules/calendar/index.js` to group contiguous dates sharing the same title & type into a single consolidated card (e.g. `03.Oct.2026 – 05.Oct.2026 • Hostel Leave (3 Days)`); (2) Updated agenda header badge count to display consolidated distinct events count; (3) Upgraded `db.removeCalendarHoliday` in `src/lib/db.js` and delete button handlers so deleting a multi-day card deletes all constituent dates in a single atomic action; (4) Added unit test verifying multi-day card consolidation (63/63 tests passing). |

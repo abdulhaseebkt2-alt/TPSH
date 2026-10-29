@@ -3415,6 +3415,58 @@ body.tps-wheel-open {
   gap: 0.35rem;
 }
 
+/* Attendance Timetable Cards Navigation & Faded Button State */
+.btn-card-take-att.is-faded,
+.btn-take-attendance.is-faded {
+  opacity: 0.38 !important;
+  filter: grayscale(40%) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+.att-timetable-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #F1F5F9;
+  padding: 0.35rem;
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.att-timetable-tab-btn {
+  flex: 1;
+  min-width: fit-content;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.att-timetable-tab-btn.is-active {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.att-card-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 /* ============================================================
    CLASS ATTENDANCE ROSTER: BIG CLASS DESCRIPTION CARD
    ============================================================ */

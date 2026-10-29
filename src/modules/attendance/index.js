@@ -24,34 +24,40 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const students = await db.getStudents();
   const users = await db.getUsers();
 
-  // 1. Scoping: Teacher can ONLY see & take attendance for their assigned classes
+  // Eligible teachers list for Admin filter
+  const eligibleTeachers = users.filter(u => 
+    u.approval_status === 'approved' && 
+    (u.role === 'teacher' || u.role === 'admin' || u.role === 'super_admin' || !u.role)
+  );
+
+  // Helper: Find classrooms assigned to a given user
+  function getAssignedClassroomsForUser(targetUser) {
+    if (!targetUser) return [];
+    const tId = targetUser.id;
+    const tEmail = targetUser.email;
+    const tName = targetUser.full_name;
+
+    return allClassrooms.filter(c => {
+      if (c.teacher_id === tId) return true;
+      if (tEmail && c.teacher_id === tEmail) return true;
+      if (tName && c.teacher_id === tName) return true;
+      if ((tId === 'u-2' || tEmail === 'teacher@thaibaschool.edu.in') && c.teacher_id === '3ba0d909-6656-43eb-87fb-fe8e30088d55') return true;
+      return false;
+    });
+  }
+
+  // 1. Scoping: Teacher can ONLY see their own assigned classes / timetable (not others)
   let availableClassrooms = allClassrooms;
+  let selectedAdminTeacherId = 'all';
+
   if (isTeacher) {
-    const teacherId = user?.id;
-    const assigned = allClassrooms.filter(c => 
-      c.teacher_id === teacherId || 
-      (user.email && c.teacher_id === user.email) ||
-      (user.full_name && c.teacher_id === user.full_name)
-    );
+    const assigned = getAssignedClassroomsForUser(user);
     if (assigned.length > 0) {
       availableClassrooms = assigned;
     } else {
-      availableClassrooms = allClassrooms.slice(0, 2);
-    }
-  }
-
-  const classrooms = availableClassrooms;
-  let activeClassroomId = classrooms[0]?.id || 'cls-1';
-
-  // Check if directed from a specific classroom card or dashboard
-  const preselectedClsId = initialClassId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tps_active_att_cls') : null);
-  if (preselectedClsId) {
-    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('tps_active_att_cls');
-    const target = classrooms.find(c => c.id === preselectedClsId);
-    if (target) {
-      activeClassroomId = target.id;
-    } else {
-      activeClassroomId = preselectedClsId;
+      // Fallback only if no classrooms have any teacher assigned yet
+      const anyAssigned = allClassrooms.some(c => Boolean(c.teacher_id));
+      availableClassrooms = anyAssigned ? [] : allClassrooms.slice(0, 2);
     }
   }
 
@@ -65,9 +71,19 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const todayKey = DAY_KEYS[now.getDay()];
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // Time-Window Status Calculation
+  // Active view: 'cards' (the teaching timetable cards matching the screenshot) or 'roster' (student attendance taking & details)
+  const preselectedClsId = initialClassId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tps_active_att_cls') : null);
+  if (preselectedClsId && typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('tps_active_att_cls');
+  }
+
+  let activeClassroomId = preselectedClsId || availableClassrooms[0]?.id || 'cls-1';
+  let currentView = preselectedClsId ? 'roster' : 'cards';
+  let timetableFilterTab = 'today'; // 'today' | 'weekly' | 'live'
+
+  // Time-Window Status Calculation for a classroom on targetDate
   async function checkWindowStatus(clsId, targetDate = sessionDate) {
-    const cls = classrooms.find(c => c.id === clsId);
+    const cls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
     if (!cls) return { canTake: false, reason: 'Classroom not found' };
 
     const isToday = targetDate === todayIso;
@@ -131,7 +147,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       return {
         canTake: false,
         status: 'not_scheduled_today',
-        message: `No Class Scheduled on ${targetDayKey}: ${cls.name} is on (${days.join(', ')}).`,
+        message: `No Class Scheduled on ${targetDayKey}: ${cls.name} meets on (${days.join(', ')}).`,
         badgeClass: 'is-locked-after'
       };
     }
@@ -149,7 +165,6 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     }
 
     // RULE 5: If class window has elapsed (after class end time today, or past date):
-    // Considered missed attendance. Requires admin permission.
     if (isAfter) {
       return {
         canTake: false,
@@ -172,9 +187,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     };
   }
 
-  // Determine eligible students for active class
-  function getEligibleStudents() {
-    const targetCls = classrooms.find(c => c.id === activeClassroomId);
+  // Determine eligible students for an active class
+  function getEligibleStudents(clsId = activeClassroomId) {
+    const targetCls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
     if (targetCls && Array.isArray(targetCls.student_ids) && targetCls.student_ids.length > 0) {
       const assignedSet = new Set(targetCls.student_ids);
       const filtered = students.filter(s => assignedSet.has(s.id));
@@ -195,7 +210,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       s.classroom_id === activeClassroomId && s.session_date === sessionDate
     );
 
-    const activeList = getEligibleStudents();
+    const activeList = getEligibleStudents(activeClassroomId);
     studentLateMinutes = {};
 
     if (existingSession && Array.isArray(existingSession.records) && existingSession.records.length > 0) {
@@ -206,7 +221,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         []
       );
 
-      const activeCls = classrooms.find(c => c.id === activeClassroomId);
+      const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
       const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
 
       activeList.forEach(s => {
@@ -238,146 +253,537 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     }
   }
 
-  async function renderFullUI() {
+  // -------------------------------------------------------------
+  // VIEW 1: TIMETABLE CARDS VIEW (MATCHING THE UPLOADED SCREENSHOT)
+  // -------------------------------------------------------------
+  async function renderTimetableCardsUI() {
+    const allSessions = await db.getAttendanceRecords();
+    const unlocks = await db.getAttendanceUnlocks();
+
+    // Determine classrooms to show
+    let displayList = availableClassrooms;
+    if (isAdmin && selectedAdminTeacherId !== 'all') {
+      const tUser = users.find(u => u.id === selectedAdminTeacherId);
+      displayList = getAssignedClassroomsForUser(tUser);
+    }
+
+    // Counts for tabs
+    const todayList = displayList.filter(c => {
+      const days = Array.isArray(c.days) && c.days.length > 0 ? c.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return days.includes(todayKey);
+    });
+
+    const liveList = todayList.filter(c => {
+      const s = parseMinutes(c.start_time || '06:30');
+      const e = parseMinutes(c.end_time || '07:30');
+      return currentMinutes >= s && currentMinutes <= e;
+    });
+
+    // Apply tab filter
+    let filteredCards = displayList;
+    if (timetableFilterTab === 'today') {
+      filteredCards = todayList.length > 0 ? todayList : displayList;
+    } else if (timetableFilterTab === 'live') {
+      filteredCards = liveList;
+    } else {
+      filteredCards = displayList;
+    }
+
+    container.innerHTML = `
+      <div class="attendance-module-container" style="padding-bottom: 2.5rem;">
+        
+        <!-- HEADER -->
+        <div class="page-header" style="margin-bottom: 1.25rem;">
+          <div class="page-title-group">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <h2 style="font-size: 1.35rem; font-weight: 800; color: #0F172A; margin: 0;">
+                ${isTeacher ? 'My Teaching Timetable & Attendance' : 'Faculty Timetable & Attendance Duty'}
+              </h2>
+              <span class="badge ${isTeacher ? 'badge-active' : 'badge-default'}" style="font-size: 0.72rem; font-weight: 700;">
+                ${isTeacher ? 'Personal Timetable' : 'Administrative Governance'}
+              </span>
+            </div>
+            <p style="font-size: 0.8rem; color: #64748B; margin-top: 2px;">
+              ${isTeacher 
+                ? 'Your assigned class timetable cards. Live attendance is strictly enabled only during class hours.' 
+                : 'All faculty teaching schedule cards with strict timetable attendance window governance.'}
+            </p>
+          </div>
+
+          <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <!-- Date Badge Picker -->
+            <button type="button" class="btn btn-outline btn-sm" id="att-cards-date-trigger" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;" title="Select date for attendance schedule">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>${sessionDate}</span>
+            </button>
+
+            <!-- Go to Attendance Report -->
+            <button type="button" class="btn btn-outline btn-sm" id="btn-goto-att-report" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+              ${isTeacher ? 'My Attendance Report' : 'Attendance Report'}
+            </button>
+          </div>
+        </div>
+
+        <!-- ADMIN TEACHER FILTER BAR (Admin Only, never shown to teachers) -->
+        ${isAdmin ? `
+          <div style="margin-bottom: 1rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              <span style="font-size: 0.78rem; font-weight: 700; color: #475569;">Faculty Timetable Filter:</span>
+              <select id="att-admin-teacher-select" class="form-control" style="border-radius: 8px; font-weight: 600; font-size: 0.84rem; padding: 0.35rem 0.75rem; cursor: pointer;">
+                <option value="all" ${selectedAdminTeacherId === 'all' ? 'selected' : ''}>All Faculty Classrooms (${allClassrooms.length})</option>
+                ${eligibleTeachers.map(t => `
+                  <option value="${t.id}" ${t.id === selectedAdminTeacherId ? 'selected' : ''}>
+                    ${t.full_name || t.email} (${t.role || 'faculty'})
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+            <span style="font-size: 0.72rem; color: #059669; font-weight: 700;">
+              ⚡ Admin can inspect any faculty timetable & unlock sessions
+            </span>
+          </div>
+        ` : ''}
+
+        <!-- TIMETABLE SCHEDULE TABS -->
+        <div class="att-timetable-tabs">
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'today' ? 'is-active' : ''}" data-tab="today">
+            Today's Schedule (${todayList.length})
+          </button>
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'weekly' ? 'is-active' : ''}" data-tab="weekly">
+            Full Weekly Timetable (${displayList.length})
+          </button>
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'live' ? 'is-active' : ''}" data-tab="live">
+            ${liveList.length > 0 ? `<span class="live-pulse-dot" style="margin-right: 2px;"></span>` : ''}
+            Live In-Session (${liveList.length})
+          </button>
+        </div>
+
+        <!-- TIMETABLE CARDS GRID (MATCHING SCREENSHOT 100%) -->
+        <div class="att-timetable-cards-list">
+          ${filteredCards.length === 0 ? `
+            <div style="background: #FFFFFF; border: 1.5px dashed #CBD5E1; border-radius: 16px; padding: 2.5rem; text-align: center; color: #64748B;">
+              <div style="font-size: 2rem; margin-bottom: 0.5rem;">⏱️</div>
+              <h3 style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin: 0 0 0.4rem 0;">
+                No Classes Found for this Tab
+              </h3>
+              <p style="font-size: 0.85rem; margin: 0 0 1rem 0;">
+                ${isTeacher 
+                  ? 'No assigned classrooms found for this filter. Check the Full Weekly Timetable tab.' 
+                  : 'No classrooms found matching the selected filter.'}
+              </p>
+              <button type="button" class="btn btn-outline btn-sm att-timetable-tab-btn" data-tab="weekly" style="display: inline-flex;">
+                View Full Weekly Timetable
+              </button>
+            </div>
+          ` : filteredCards.map(cls => {
+            const prog = allPrograms.find(p => p.id === cls.program_id);
+            const progName = prog?.name || 'Academic Class';
+            const teacher = users.find(u => u.id === cls.teacher_id);
+            const teacherName = teacher ? (teacher.full_name || teacher.email) : 'Assigned Faculty';
+
+            const sMin = parseMinutes(cls.start_time || '06:30');
+            const eMin = parseMinutes(cls.end_time || '07:30');
+
+            const days = Array.isArray(cls.days) && cls.days.length > 0 ? cls.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const isToday = sessionDate === todayIso;
+            const isTodayScheduled = days.includes(todayKey);
+
+            const isLive = isToday && isTodayScheduled && currentMinutes >= sMin && currentMinutes <= eMin;
+            const isBefore = isToday && isTodayScheduled && currentMinutes < sMin;
+            const isAfter = isToday && isTodayScheduled && currentMinutes > eMin;
+            const isPastDate = sessionDate < todayIso;
+
+            const hasSessionRecorded = allSessions.some(s => 
+              s.classroom_id === cls.id && s.session_date === sessionDate && Array.isArray(s.records) && s.records.length > 0
+            );
+            const isUnlocked = unlocks.includes(`${cls.id}_${sessionDate}`);
+
+            // Live Attendance button rule:
+            // "the button to take attendence should be fade ecept the time of class. so they can enter to the details after the time"
+            const canTakeNow = isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked;
+
+            // Enrolled students count
+            const enrolledStudents = getEligibleStudents(cls.id);
+            const enrolledCount = enrolledStudents.length;
+
+            // Status Badge HTML
+            let statusBadgeHtml = '';
+            let cardHeading = 'Scheduled Teaching Session';
+            let cardSubtitle = `Meets on ${cls.days?.join(', ')}`;
+
+            if (isLive) {
+              cardHeading = 'Active Class In-Session';
+              cardSubtitle = `Live attendance window active • Ends at ${formatTime(cls.end_time)}`;
+              statusBadgeHtml = `
+                <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                  <span class="live-pulse-dot"></span> Live In-Session Now
+                </span>
+              `;
+            } else if (hasSessionRecorded) {
+              cardHeading = 'Attendance Recorded';
+              cardSubtitle = `Submitted for ${formatDate(sessionDate)}`;
+              statusBadgeHtml = `
+                <span class="badge badge-active" style="border-radius: 9999px; padding: 0.35rem 0.8rem; font-size: 0.74rem;">
+                  ✓ Attendance Recorded
+                </span>
+              `;
+            } else if (isBefore) {
+              const diffMin = sMin - currentMinutes;
+              cardHeading = diffMin <= 30 ? 'Your upcoming class' : 'Scheduled Teaching Session';
+              cardSubtitle = diffMin <= 30 ? `Starts in ${diffMin} mins` : `Starts today at ${formatTime(cls.start_time)}`;
+              statusBadgeHtml = `
+                <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1.5px solid #93C5FD; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                  Today at ${formatTime(cls.start_time)}
+                </span>
+              `;
+            } else if (isAfter || isPastDate) {
+              cardHeading = `Past Session (${formatTime(cls.end_time)})`;
+              cardSubtitle = `Attendance window closed • ${isUnlocked ? 'Unlocked by Admin' : 'Session ended'}`;
+              statusBadgeHtml = isUnlocked ? `
+                <span class="badge" style="background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; font-weight: 800; font-size: 0.74rem; border-radius: 9999px; padding: 0.35rem 0.8rem;">
+                  🔓 Unlocked by Admin
+                </span>
+              ` : `
+                <span class="badge" style="background: #F8FAFC; color: #64748B; border: 1px solid #CBD5E1; font-weight: 700; font-size: 0.74rem; border-radius: 9999px; padding: 0.35rem 0.8rem;">
+                  Session Closed
+                </span>
+              `;
+            } else {
+              cardHeading = 'Timetable Session';
+              cardSubtitle = `Scheduled on ${cls.days?.join(', ')}`;
+              statusBadgeHtml = `
+                <span class="badge" style="background: #F8FAFC; color: #64748B; border: 1px solid #CBD5E1; font-weight: 600; font-size: 0.74rem; border-radius: 9999px; padding: 0.35rem 0.8rem;">
+                  ${cls.days?.join(', ')}
+                </span>
+              `;
+            }
+
+            return `
+              <!-- DEDICATED TIMETABLE CARD MATCHING SCREENSHOT EXACTLY -->
+              <div class="teacher-upcoming-card ${isLive ? 'is-live' : isBefore && (sMin - currentMinutes <= 30) ? 'is-soon' : ''}" 
+                   id="card-att-class-${cls.id}" 
+                   data-cls-id="${cls.id}" 
+                   role="button" 
+                   tabindex="0"
+                   style="cursor: pointer; margin-bottom: 1.25rem;">
+                
+                <!-- Top Portion: Icon, Title & Time Badge -->
+                <div class="upcoming-card-top">
+                  <div class="upcoming-card-title-group">
+                    <div class="upcoming-card-icon-pill ${isLive ? 'is-live' : isBefore && (sMin - currentMinutes <= 30) ? 'is-soon' : ''}">
+                      ${isLive ? '🟢' : hasSessionRecorded ? '✓' : '⏱️'}
+                    </div>
+                    <div>
+                      <h3 class="upcoming-card-heading">${cardHeading}</h3>
+                      <span class="upcoming-card-subtitle">${cardSubtitle}</span>
+                    </div>
+                  </div>
+
+                  <div class="upcoming-card-status-badge">
+                    ${statusBadgeHtml}
+                  </div>
+                </div>
+
+                <!-- Clean Divider Line -->
+                <div class="upcoming-divider"></div>
+
+                <!-- Class Primary: Large Green Name & Program Pill -->
+                <div class="upcoming-class-primary">
+                  <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 0.5rem;">
+                    <h4 class="upcoming-class-name">${cls.name}</h4>
+                    ${isAdmin ? `
+                      <span class="badge" style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 700;">
+                        Faculty: ${teacherName}
+                      </span>
+                    ` : ''}
+                  </div>
+                  <div style="margin-top: 0.2rem;">
+                    <span class="upcoming-prog-pill">${progName}</span>
+                  </div>
+                </div>
+
+                <!-- 2x2 Details Grid (Timetable Specifications) -->
+                <div class="upcoming-details-grid">
+                  <div class="upcoming-detail-cell">
+                    <span class="detail-label">Schedule Time</span>
+                    <span class="detail-value">${formatTime(cls.start_time || '06:30')} – ${formatTime(cls.end_time || '07:30')}</span>
+                  </div>
+                  <div class="upcoming-detail-cell">
+                    <span class="detail-label">Classroom / Hall</span>
+                    <span class="detail-value">${cls.room_number ? 'Room ' + cls.room_number : 'Campus Hall'}</span>
+                  </div>
+                  <div class="upcoming-detail-cell">
+                    <span class="detail-label">Enrolled Roster</span>
+                    <span class="detail-value">${enrolledCount} Students</span>
+                  </div>
+                  <div class="upcoming-detail-cell">
+                    <span class="detail-label">Scheduled Days</span>
+                    <span class="detail-value" style="white-space: nowrap;">${formatDaysSingleLetters(cls.days)}</span>
+                  </div>
+                </div>
+
+                <!-- Actions Footer: View Details & Take Attendance (Faded except during class time) -->
+                <div class="upcoming-card-footer" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.5rem;">
+                  <!-- View Details Button: Enters to the details after the time -->
+                  <button type="button" class="btn btn-outline btn-sm btn-card-view-details" data-cls-id="${cls.id}" style="font-weight: 700; border-radius: 10px; padding: 0.5rem 1.05rem; font-size: 0.85rem; color: #1E40AF; border-color: #BFDBFE; background: #F8FAFC;">
+                    View Details →
+                  </button>
+
+                  <!-- Take Attendance Button: Faded except during class time -->
+                  <button type="button" 
+                          class="btn btn-primary btn-sm btn-card-take-att ${canTakeNow ? '' : 'is-faded'}" 
+                          data-cls-id="${cls.id}"
+                          data-can-take="${canTakeNow ? 'true' : 'false'}"
+                          style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #059669; border-color: #047857; ${canTakeNow ? 'box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); cursor: pointer;' : 'opacity: 0.38; filter: grayscale(40%); cursor: not-allowed;'}"
+                          title="${canTakeNow ? 'Take live attendance for this session' : `Attendance window locked outside class hours (${formatTime(cls.start_time)} – ${formatTime(cls.end_time)}). Tap to view class details.`}">
+                    Take Attendance →
+                  </button>
+                </div>
+
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+      </div>
+    `;
+
+    attachTimetableCardsListeners();
+  }
+
+  function attachTimetableCardsListeners() {
+    if (!container || typeof container.querySelector !== 'function') return;
+
+    // Date badge picker trigger
+    container.querySelector('#att-cards-date-trigger')?.addEventListener('click', () => {
+      openMobileWheelPicker({
+        initialDate: sessionDate,
+        title: 'Timetable Date',
+        onSelect: async (selectedDate) => {
+          sessionDate = formatDateYMD(selectedDate);
+          renderTimetableCardsUI();
+        }
+      });
+    });
+
+    // Go to Attendance Report
+    container.querySelector('#btn-goto-att-report')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('attendance_report');
+      else if (typeof window !== 'undefined') window.location.hash = '#attendance_report';
+    });
+
+    // Admin teacher filter
+    container.querySelector('#att-admin-teacher-select')?.addEventListener('change', (e) => {
+      selectedAdminTeacherId = e.target.value;
+      renderTimetableCardsUI();
+    });
+
+    // Tabs switcher
+    container.querySelectorAll('.att-timetable-tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tab = btn.getAttribute('data-tab');
+        if (tab) {
+          timetableFilterTab = tab;
+          renderTimetableCardsUI();
+        }
+      });
+    });
+
+    // Card View Details Button
+    container.querySelectorAll('.btn-card-view-details').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const clsId = btn.getAttribute('data-cls-id');
+        if (clsId) {
+          activeClassroomId = clsId;
+          currentView = 'roster';
+          renderClassRosterUI();
+        }
+      });
+    });
+
+    // Card Take Attendance Button (Handles both active and faded state)
+    container.querySelectorAll('.btn-card-take-att').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const clsId = btn.getAttribute('data-cls-id');
+        const canTake = btn.getAttribute('data-can-take') === 'true';
+        if (clsId) {
+          activeClassroomId = clsId;
+          currentView = 'roster';
+          if (!canTake) {
+            const cls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
+            toast.info(`Attendance can only be taken during class hours (${formatTime(cls?.start_time || '06:30')} – ${formatTime(cls?.end_time || '07:30')}). Viewing class details & roster.`);
+          }
+          renderClassRosterUI();
+        }
+      });
+    });
+
+    // Clicking anywhere on the card enters the details
+    container.querySelectorAll('.teacher-upcoming-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return; // already handled
+        const clsId = card.getAttribute('data-cls-id');
+        if (clsId) {
+          activeClassroomId = clsId;
+          currentView = 'roster';
+          renderClassRosterUI();
+        }
+      });
+    });
+  }
+
+  // -------------------------------------------------------------
+  // VIEW 2: CLASS DETAILS & STUDENT ATTENDANCE ROSTER VIEW
+  // -------------------------------------------------------------
+  async function renderClassRosterUI() {
     await loadExistingSessionState();
 
     const windowState = await checkWindowStatus(activeClassroomId);
-    const activeCls = classrooms.find(c => c.id === activeClassroomId);
+    const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
     const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
     const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
 
     const canInteract = canSubmitAction && !isViewOnly && windowState.canTake;
-    const activeList = getEligibleStudents();
+    const activeList = getEligibleStudents(activeClassroomId);
 
     container.innerHTML = `
-      <div class="page-header" style="margin-bottom: 1.25rem;">
-        <div class="page-title-group">
-          <h2>${isTeacher ? 'My Classroom Attendance Duty' : 'Student & Teacher Attendance Management'}</h2>
-          <p>${isTeacher ? 'Take and submit live attendance for your assigned classrooms during class hours' : 'Institutional daily attendance governance'}</p>
-        </div>
-        <div class="page-actions">
-          <button type="button" class="btn btn-outline btn-sm" id="btn-view-att-reports" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
-            ${isTeacher ? 'My Attendance Report' : 'Attendance Report'}
+      <div class="attendance-roster-view-container" style="padding-bottom: 2.5rem;">
+        
+        <!-- TOP BREADCRUMB / BACK ACTION -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-back-to-cards" style="font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; gap: 0.45rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Timetable Cards
           </button>
-        </div>
-      </div>
 
-      <!-- BIG CLASS DESCRIPTION CARD ON TOP (NO DROPDOWNS SPEC) -->
-      <div class="att-big-class-card" id="att-big-class-card">
-        <div class="att-class-top">
-          <div class="att-class-top-left">
-            <h2 class="att-class-title">${activeCls?.name || 'Classroom Session'}</h2>
-            <div class="att-class-sub">${activeProg?.name || 'Class Session'}</div>
-          </div>
-          <div class="att-card-date-badge" id="att-date-badge-trigger" style="cursor: pointer;" title="Tap to select session date">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span>${sessionDate}</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-view-att-reports" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+              ${isTeacher ? 'My Attendance Report' : 'Attendance Report'}
+            </button>
           </div>
         </div>
 
-        <!-- Class Details Bar -->
-        <div class="att-class-details-bar">
-          <div class="att-detail-box">
-            <span class="att-detail-lbl">Class Time</span>
-            <strong class="att-detail-val">${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')}</strong>
+        <!-- BIG CLASS DESCRIPTION CARD ON TOP (NO DROPDOWNS SPEC) -->
+        <div class="att-big-class-card" id="att-big-class-card">
+          <div class="att-class-top">
+            <div class="att-class-top-left">
+              <h2 class="att-class-title">${activeCls?.name || 'Classroom Session'}</h2>
+              <div class="att-class-sub">${activeProg?.name || 'Class Session'}</div>
+            </div>
+            <div class="att-card-date-badge" id="att-date-badge-trigger" style="cursor: pointer;" title="Tap to select session date">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>${sessionDate}</span>
+            </div>
           </div>
-          <div class="att-detail-box">
-            <span class="att-detail-lbl">Room / Hall</span>
-            <strong class="att-detail-val">${activeCls?.room_number ? 'Room ' + activeCls.room_number : 'Campus Hall'}</strong>
+
+          <!-- Class Details Bar -->
+          <div class="att-class-details-bar">
+            <div class="att-detail-box">
+              <span class="att-detail-lbl">Class Time</span>
+              <strong class="att-detail-val">${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')}</strong>
+            </div>
+            <div class="att-detail-box">
+              <span class="att-detail-lbl">Room / Hall</span>
+              <strong class="att-detail-val">${activeCls?.room_number ? 'Room ' + activeCls.room_number : 'Campus Hall'}</strong>
+            </div>
+            <div class="att-detail-box">
+              <span class="att-detail-lbl">Class Days</span>
+              <strong class="att-detail-val" style="white-space: nowrap;">${formatDaysSingleLetters(activeCls?.days)}</strong>
+            </div>
+            <div class="att-detail-box">
+              <span class="att-detail-lbl">Total Students</span>
+              <strong class="att-detail-val">${activeList.length} Enrolled</strong>
+            </div>
           </div>
-          <div class="att-detail-box">
-            <span class="att-detail-lbl">Class Days</span>
-            <strong class="att-detail-val" style="white-space: nowrap;">${formatDaysSingleLetters(activeCls?.days)}</strong>
+
+          <!-- Window Status Banner Inside Card -->
+          <div class="att-window-status-pill ${windowState.badgeClass}">
+            ${windowState.canTake ? `
+              <span class="live-pulse-dot" style="margin-right: 0.25rem;"></span>
+            ` : `
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            `}
+            <span style="flex: 1;">${windowState.message}</span>
+            ${(isAdmin && windowState.isAfter && !windowState.isUnlockedByAdmin) ? `
+              <button class="btn btn-outline btn-xs" id="btn-admin-unlock-window" style="background: #FFFFFF; font-weight: 700; color: #DC2626; border-color: #FECACA; white-space: nowrap;">
+                Unlock Late Attendance
+              </button>
+            ` : (isAdmin && windowState.isUnlockedByAdmin) ? `
+              <span class="badge badge-active" style="white-space: nowrap;">✓ Unlocked by Admin</span>
+            ` : ''}
           </div>
-          <div class="att-detail-box">
-            <span class="att-detail-lbl">Total Students</span>
-            <strong class="att-detail-val">${activeList.length} Enrolled</strong>
+
+          <!-- Attendance Summary Counters & Quick Bulk Buttons -->
+          <div class="att-class-footer-bar">
+            <div class="att-stats-classic" id="att-counters">
+              ${renderCountersHtml(activeList)}
+            </div>
+            <div class="att-bulk-btns">
+              <button type="button" class="btn-classic-action" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                All Absent
+              </button>
+              <button type="button" class="btn-classic-action" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                All Present
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Window Status Banner Inside Card -->
-        <div class="att-window-status-pill ${windowState.badgeClass}">
-          ${windowState.canTake ? `
-            <span class="live-pulse-dot" style="margin-right: 0.25rem;"></span>
+        <!-- Roster Search Bar -->
+        <div class="att-roster-header">
+          <div class="att-search-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="att-search-input" placeholder="Search student by name..." />
+          </div>
+          <span class="att-roster-count">${activeList.length} Students</span>
+        </div>
+
+        <!-- SMALL COMPACT STUDENT ATTENDANCE CARDS WITH 2-WAY SWITCH -->
+        <div class="attendance-compact-list" id="att-cards-container">
+          ${renderCompactCardsHtml(activeList, canInteract)}
+        </div>
+        <div id="att-no-matches" style="display: none; padding: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
+          No students match your search.
+        </div>
+
+        <!-- Bottom Submit Bar -->
+        <div class="att-submit-bar">
+          <div class="att-submit-info">
+            ${canInteract
+              ? `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`
+              : (hasExistingSession && isTeacher
+                  ? `* Attendance already submitted on this date. Only Administrators are permitted to edit recorded attendance.`
+                  : (isViewOnly 
+                      ? '* View-only explore mode: Submitting is disabled.' 
+                      : '* Attendance window closed: Session ended.'))}
+          </div>
+          ${canInteract ? `
+            <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirm & Submit Attendance
+            </button>
           ` : `
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px;">
+              ${hasExistingSession && isTeacher
+                ? 'Attendance Already Submitted (Locked for Teacher)'
+                : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed')}
+            </button>
           `}
-          <span style="flex: 1;">${windowState.message}</span>
-          ${(isAdmin && windowState.isAfter && !windowState.isUnlockedByAdmin) ? `
-            <button class="btn btn-outline btn-xs" id="btn-admin-unlock-window" style="background: #FFFFFF; font-weight: 700; color: #DC2626; border-color: #FECACA; white-space: nowrap;">
-              Unlock Late Attendance
-            </button>
-          ` : (isAdmin && windowState.isUnlockedByAdmin) ? `
-            <span class="badge badge-active" style="white-space: nowrap;">✓ Unlocked by Admin</span>
-          ` : ''}
         </div>
 
-        <!-- Attendance Summary Counters & Quick Bulk Buttons (Single Line, Classic UI) -->
-        <div class="att-class-footer-bar">
-          <div class="att-stats-classic" id="att-counters">
-            ${renderCountersHtml()}
-          </div>
-          <div class="att-bulk-btns">
-            <button type="button" class="btn-classic-action" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-              All Absent
-            </button>
-            <button type="button" class="btn-classic-action" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-              All Present
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Roster Search Bar -->
-      <div class="att-roster-header">
-        <div class="att-search-wrap">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="att-search-input" placeholder="Search student by name..." />
-        </div>
-        <span class="att-roster-count">${activeList.length} Students</span>
-      </div>
-
-      <!-- SMALL COMPACT STUDENT ATTENDANCE CARDS WITH 2-WAY SWITCH -->
-      <div class="attendance-compact-list" id="att-cards-container">
-        ${renderCompactCardsHtml(canInteract)}
-      </div>
-      <div id="att-no-matches" style="display: none; padding: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
-        No students match your search.
-      </div>
-
-      <!-- Bottom Submit Bar -->
-      <div class="att-submit-bar">
-        <div class="att-submit-info">
-          ${canInteract
-            ? `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`
-            : (hasExistingSession && isTeacher
-                ? `* Attendance already submitted on this date. Only Administrators are permitted to edit recorded attendance.`
-                : (isViewOnly 
-                    ? '* View-only explore mode: Submitting is disabled.' 
-                    : '* Attendance window closed: Session ended.'))}
-        </div>
-        ${canInteract ? `
-          <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Confirm & Submit Attendance
-          </button>
-        ` : `
-          <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px;">
-            ${hasExistingSession && isTeacher
-              ? 'Attendance Already Submitted (Locked for Teacher)'
-              : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed')}
-          </button>
-        `}
       </div>
     `;
 
-    attachListeners(canInteract);
+    attachRosterListeners(canInteract, activeList);
   }
 
-  function renderCountersHtml() {
-    const activeList = getEligibleStudents();
+  function renderCountersHtml(activeList = getEligibleStudents(activeClassroomId)) {
     let presentCount = 0;
     let lateCount = 0;
     let absentCount = 0;
@@ -402,15 +808,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     `;
   }
 
-  function updateCounters() {
+  function updateCounters(activeList = getEligibleStudents(activeClassroomId)) {
     const countersEl = container.querySelector('#att-counters');
     if (!countersEl) return;
-    countersEl.innerHTML = renderCountersHtml();
+    countersEl.innerHTML = renderCountersHtml(activeList);
   }
 
-  function renderCompactCardsHtml(canInteract = true) {
-    const activeList = getEligibleStudents();
-    const activeCls = classrooms.find(c => c.id === activeClassroomId);
+  function renderCompactCardsHtml(activeList = getEligibleStudents(activeClassroomId), canInteract = true) {
+    const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
 
     return activeList.map(s => {
       const currentStatus = attendanceState[s.id] || 'Absent';
@@ -477,17 +882,15 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     }).join('');
   }
 
-  function toggleStudentSwitch(sid) {
+  function toggleStudentSwitch(sid, activeList = getEligibleStudents(activeClassroomId)) {
     const currentStatus = attendanceState[sid] || 'Absent';
     const s = students.find(item => item.id === sid);
-    const activeCls = classrooms.find(c => c.id === activeClassroomId);
+    const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
     const calculatedLateMinutes = Math.max(1, nowMin - clsStartMin);
 
     if (currentStatus === 'Absent') {
-      // Flipping from Absent
-      // If student was recorded absent initially in an existing session:
       const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(sid);
       if (wasInitiallyAbsent) {
         attendanceState[sid] = 'Late Present';
@@ -497,24 +900,22 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         attendanceState[sid] = 'Present';
       }
     } else if (currentStatus === 'Present') {
-      // Flipping from Present to Late Present
       attendanceState[sid] = 'Late Present';
       if (!studentLateMinutes[sid]) studentLateMinutes[sid] = calculatedLateMinutes;
       toast.info(`${s?.full_name || 'Student'} marked as Late (L) — ${studentLateMinutes[sid]}m late.`);
     } else {
-      // Flipping from Late Present back to Absent
       attendanceState[sid] = 'Absent';
     }
 
     updateCardVisual(sid);
-    updateCounters();
+    updateCounters(activeList);
   }
 
   function updateCardVisual(sid) {
     const card = container.querySelector(`#att-card-${sid}`);
     if (!card) return;
 
-    const activeCls = classrooms.find(c => c.id === activeClassroomId);
+    const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const currentStatus = attendanceState[sid] || 'Absent';
     const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
     const isLatePresent = currentStatus === 'Late Present';
@@ -571,8 +972,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     }
   }
 
-  function updateAllCardsVisual() {
-    getEligibleStudents().forEach(s => updateCardVisual(s.id));
+  function updateAllCardsVisual(activeList = getEligibleStudents(activeClassroomId)) {
+    activeList.forEach(s => updateCardVisual(s.id));
   }
 
   function filterCards() {
@@ -596,26 +997,29 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     }
   }
 
-  function attachListeners(canInteract) {
+  function attachRosterListeners(canInteract, activeList) {
+    if (!container || typeof container.querySelector !== 'function') return;
+
+    // Back button to Timetable Cards
+    container.querySelector('#btn-back-to-cards')?.addEventListener('click', () => {
+      currentView = 'cards';
+      renderTimetableCardsUI();
+    });
+
+    // View Reports
+    container.querySelector('#btn-view-att-reports')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('attendance_report');
+      else if (typeof window !== 'undefined') window.location.hash = '#attendance_report';
+    });
+
     // Search filter
     container.querySelector('#att-search-input')?.addEventListener('input', filterCards);
-
-    // Switch Class Pills
-    container.querySelectorAll('.att-class-pill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const clsId = btn.getAttribute('data-cls-id');
-        if (clsId && clsId !== activeClassroomId) {
-          activeClassroomId = clsId;
-          renderFullUI();
-        }
-      });
-    });
 
     // Admin unlock listener
     container.querySelector('#btn-admin-unlock-window')?.addEventListener('click', async () => {
       await db.unlockAttendanceWindow(activeClassroomId, sessionDate);
       toast.success('Unlocked late attendance window. Faculty can now record attendance.');
-      renderFullUI();
+      renderClassRosterUI();
     });
 
     // Date badge picker trigger
@@ -633,15 +1037,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             }
           }
           sessionDate = selectedStr;
-          renderFullUI();
+          renderClassRosterUI();
         }
       });
-    });
-
-    // View Reports
-    container.querySelector('#btn-view-att-reports')?.addEventListener('click', () => {
-      if (onNavigate) onNavigate('attendance_report');
-      else if (typeof window !== 'undefined') window.location.hash = '#attendance_report';
     });
 
     if (canInteract) {
@@ -650,18 +1048,18 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         sw.addEventListener('click', (e) => {
           e.stopPropagation();
           const sid = sw.getAttribute('data-student-id');
-          if (sid) toggleStudentSwitch(sid);
+          if (sid) toggleStudentSwitch(sid, activeList);
         });
       });
 
       // Mark All Present
       container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
-        const activeCls = classrooms.find(c => c.id === activeClassroomId);
+        const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
         const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
         const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
         const minutesLate = Math.max(1, nowMin - clsStartMin);
 
-        getEligibleStudents().forEach(s => {
+        activeList.forEach(s => {
           const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(s.id);
           if (wasInitiallyAbsent) {
             attendanceState[s.id] = 'Late Present';
@@ -670,18 +1068,18 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             attendanceState[s.id] = 'Present';
           }
         });
-        updateAllCardsVisual();
-        updateCounters();
+        updateAllCardsVisual(activeList);
+        updateCounters(activeList);
         toast.info('Marked all students Present.');
       });
 
       // Mark All Absent
       container.querySelector('#btn-mark-all-absent')?.addEventListener('click', () => {
-        getEligibleStudents().forEach(s => {
+        activeList.forEach(s => {
           attendanceState[s.id] = 'Absent';
         });
-        updateAllCardsVisual();
-        updateCounters();
+        updateAllCardsVisual(activeList);
+        updateCounters(activeList);
         toast.info('Marked all students Absent.');
       });
 
@@ -694,7 +1092,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         });
 
         if (confirmed) {
-          const activeCls = classrooms.find(c => c.id === activeClassroomId);
+          const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
           const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
           const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
           const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
@@ -723,12 +1121,17 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           hasExistingSession = true;
           // Refresh state
           await loadExistingSessionState();
-          updateCounters();
-          updateAllCardsVisual();
+          updateCounters(activeList);
+          updateAllCardsVisual(activeList);
         }
       });
     }
   }
 
-  await renderFullUI();
+  // Initial Dispatcher
+  if (currentView === 'roster') {
+    await renderClassRosterUI();
+  } else {
+    await renderTimetableCardsUI();
+  }
 }

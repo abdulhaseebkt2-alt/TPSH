@@ -1268,7 +1268,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       querySelectorAll: () => []
     };
 
-    await renderAttendanceModule(container, { onNavigate: () => {} });
+    await renderAttendanceModule(container, { onNavigate: () => {}, initialClassId: 'cls-1' });
 
     // Big Class Description Card on Top
     expect(container.innerHTML).toContain('att-big-class-card');
@@ -2180,5 +2180,70 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(teacherHtml).toContain('sw-late');
     expect(teacherHtml).toContain('>L</span>');
     expect(teacherHtml).toContain('25m late');
+  });
+
+  it('Attendance Management Window: displays Timetable Cards matching design spec, strictly scoped to teacher own classes, with Take Attendance faded outside class hours and details accessible after time', async () => {
+    // 1. Teacher view: strictly scoped to own timetable
+    updateCurrentUserProfile({
+      id: 'u-2',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const teacherContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(teacherContainer, { onNavigate: () => {} });
+
+    const teacherHtml = teacherContainer.innerHTML;
+
+    // A. Displays cards matching design spec
+    expect(teacherHtml).toContain('teacher-upcoming-card');
+    expect(teacherHtml).toContain('upcoming-card-top');
+    expect(teacherHtml).toContain('upcoming-divider');
+    expect(teacherHtml).toContain('upcoming-class-primary');
+    expect(teacherHtml).toContain('upcoming-details-grid');
+    expect(teacherHtml).toContain('Schedule Time');
+    expect(teacherHtml).toContain('Classroom / Hall');
+    expect(teacherHtml).toContain('Enrolled Roster');
+    expect(teacherHtml).toContain('Scheduled Days');
+
+    // B. Actions: View Details and Take Attendance
+    expect(teacherHtml).toContain('btn-card-view-details');
+    expect(teacherHtml).toContain('btn-card-take-att');
+
+    // C. The Take Attendance button is faded outside of class hours
+    expect(teacherHtml).toContain('is-faded');
+
+    // D. Scoping: Teacher sees only their own assigned timetable classes, no other faculty
+    expect(teacherHtml).toContain('Personal Timetable');
+    expect(teacherHtml).not.toContain('id="att-admin-teacher-select"'); // No teacher switcher for teacher
+
+    // 2. Admin view: can see administrative governance and teacher filter
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(adminContainer, { onNavigate: () => {} });
+
+    const adminHtml = adminContainer.innerHTML;
+    expect(adminHtml).toContain('Administrative Governance');
+    expect(adminHtml).toContain('id="att-admin-teacher-select"');
   });
 });
