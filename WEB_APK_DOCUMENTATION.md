@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.6.0`  
-> **Last Updated:** 2026-10-28T17:10:00+05:30  
+> **Current Version:** `v1.6.1`  
+> **Last Updated:** 2026-10-29T08:42:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -406,15 +406,24 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 63 automated assertions covering:
-- **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention.
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 68 automated assertions covering:
+- **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention, dedicated `attendance_report` permissions for teachers, mentors, and admins.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
 - **Wheel Pickers**: 12-hour wheel time parser, PhonePe drum wheel date parser, mobile detection flags, exact set-date preservation on reopen without 01 Jan preset reset.
-- **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion.
+- **Attendance**: Hero card navigation, big class card layout, 2-way switch absent defaults, late present conversion, strict start/end time window lock for everyone (including admins taking class), admin override/unlock, and teacher lock preventing unauthorized edits to already submitted attendance records.
 - **Sections & Classrooms**: Responsive Mobile Section Selector Card and desktop nav bar rendering.
 - **Dedicated Academic Calendar (Institutional)**: Sidebar navigation `#calendar`, pure institutional schedule focus, working days vs holidays, 4 summary metrics cards, visual monthly 7-column calendar grid with desktop badges & mobile minimal status dots, tap-to-inspect date schedule modal, add holiday/multi-day modal with equal 50/50 date boxes fitting card, consolidated single-card display for multi-day leaves/events, and bridge link to attendance reports.
 - **Attendance Reports with Visual Student Calendar**: Screenshot 1 student monthly register with section filtering, minimal Screenshot 3 toolbar (`Search student...`, `Section`, `Class`, `Student`), frozen sticky columns, faded holidays & hostel leaves, Screenshot 2 class-wise submission audit, and dedicated `📅 Calendar` view mode with Active Student Hero card and Daily Attendance Inspection popup modal.
+- **Dedicated Attendance Report Window (`#attendance_report`)**:
+  - Dynamic cascading hierarchy: Admin selects Teacher $\to$ assigned Sections $\to$ assigned Classes; Teacher is strictly locked to their own teaching duty and cannot see or select other faculty reports.
+  - Compact Event Calendar Card matching Academic Calendar (`media_1793240742835_afd14a06.png`).
+  - Class timetable unworking days (e.g. Thu–Sat for classes meeting Sun–Wed) rendered as FADED.
+  - Academic calendar holidays rendered in Light Yellow shade.
+  - Hostel leaves rendered as FADED RED TEXT ONLY (no circle/round).
+  - Missed attendance / untaken faculty duty rendered as RED COLOUR ROUND.
+  - Admin "Allow Missed Attendance" (`db.unlockAttendanceWindow`) and "Close / Lock" (`db.lockAttendanceWindow`) controls.
+  - Strict attendance window governance: mandatory class time window for all roles; teachers taking missed attendance can only select Admin-unlocked missed dates and cannot tamper with already taken attendance.
 - **Cloud Sync**: Cross-device unified database integrity.
 
 ---
@@ -422,10 +431,10 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 ## 9. Developer Guidelines & Constraints
 
 1. **Maintain Light-Theme Saas Aesthetics**: Avoid dark backgrounds or jarring high-saturation blocks; use clean slate whites with high text contrast.
-2. **Strict Domain Separation**: Academic Calendar (`#calendar`) is exclusively for the institutional calendar, working days schedule, and official holidays. Student attendance data, student search, student dropdowns, and student attendance calendars are housed strictly inside Attendance Reports (`#reports`).
+2. **Strict Domain Separation**: Academic Calendar (`#calendar`) is exclusively for the institutional calendar, working days schedule, and official holidays. Student attendance data, student search, student dropdowns, and student attendance calendars are housed strictly inside Attendance Reports (`#reports` and `#attendance_report`).
 3. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 4. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-5. **Preserve Unit Tests**: Never commit changes that cause any of the 63 unit tests to fail.
+5. **Preserve Unit Tests**: Never commit changes that cause any of the 68 unit tests to fail.
 
 ---
 
@@ -433,6 +442,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.6.1** | 2026-10-29 08:42 | Antigravity AI | `src/modules/reports/attendance-report.js`, `src/modules/reports/index.js`, `src/modules/attendance/index.js`, `src/lib/permissions.js`, `src/lib/db.js`, `src/components/sidebar.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Dedicated Attendance Report Window & Missed Attendance Governance: (1) Created dedicated Attendance Report module (`#attendance_report` and sidebar item under Student & Academic) with full access for Teachers, Mentors, and Admins; (2) Implemented cascading hierarchy: Admin can select any Teacher $\to$ assigned Sections $\to$ assigned Classes; Teachers are strictly locked to their own account with no option to view others; (3) Added compact visual calendar matching Academic Calendar card (`media_1793240742835_afd14a06.png`); (4) Timetable unworking days for the selected class rendered as FADED; (5) Academic holidays rendered in Light Yellow; (6) Hostel leaves rendered as FADED RED TEXT ONLY (no circle/round); (7) Missed attendance rendered as RED COLOUR ROUND; (8) Added Admin "Allow Missed Attendance" (`db.unlockAttendanceWindow`) and "Close / Lock" (`db.lockAttendanceWindow`) controls; (9) Enforced strict attendance timing between start and end time for everyone (including Admins taking class); (10) Enforced that teachers taking missed attendance can only select Admin-unlocked missed dates and CANNOT edit already taken attendance (Admin permission only); (11) Added 5 comprehensive automated tests (68/68 tests passing) and verified clean production build. |
 | **v1.6.0** | 2026-10-28 17:10 | Antigravity AI | `src/modules/calendar/index.js`, `src/lib/db.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Consolidated Multi-Day Leave/Event Cards in Holidays & Events: (1) Added `groupCalendarEvents` helper in `src/modules/calendar/index.js` to group contiguous dates sharing the same title & type into a single consolidated card (e.g. `03.Oct.2026 – 05.Oct.2026 • Hostel Leave (3 Days)`); (2) Updated agenda header badge count to display consolidated distinct events count; (3) Upgraded `db.removeCalendarHoliday` in `src/lib/db.js` and delete button handlers so deleting a multi-day card deletes all constituent dates in a single atomic action; (4) Added unit test verifying multi-day card consolidation (63/63 tests passing). |
 | **v1.5.9** | 2026-10-28 17:00 | Antigravity AI | `src/components/date-picker.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Fixed Mobile Wheel Date Picker Resetting to 01 Jan: (1) Resolved root cause in `setupWheelColumn` where initial `renderItems()` executed `updateVisuals(true)` with `scrollTop = 0` before layout settled, which triggered `onIndexChanged(0)` and overwrote active date to `01 Jan`; (2) Introduced `isReady` and `isProgrammatic` state gating so initial programmatic scroll and layout positioning never fires `onIndexChanged` or resets active indices; (3) Added `getCurrentIdx()` source-of-truth getters so closing/done retains user-selected dates; (4) Updated fallback logic to default to current date (`new Date()`) for institutional calendar and general date inputs while preserving 10 Jun 2010 default for student DoB fields; (5) Added unit test asserting set date preservation across opens without 01 Jan reset (all 62 tests passing). |
 | **v1.5.8** | 2026-10-28 16:18 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Equal 50/50 Division of Multi-Day Range Date Boxes: (1) Replaced rigid grid tracks in "Add Institutional Holiday or Event" modal with `.cal-modal-date-range-grid` utilizing `repeat(2, minmax(0, 1fr))` with `min-width: 0` on children to divide date boxes into exact equal halves; (2) Added `flex: 1 1 0%`, `width: 100%`, and `box-sizing: border-box` to `.tps-date-input-wrapper` and `.tps-date-input-field` so the right "End Date" box and its green calendar picker icon fit neatly inside the card/modal boundaries without clipping or overflowing; (3) Added responsive modal padding for viewports $\le 640\text{px}$ ensuring modal contents breathe comfortably on all mobile screens; (4) Added automated test asserting 50/50 date box division (61/61 tests passing). |

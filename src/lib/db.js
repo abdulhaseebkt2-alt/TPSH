@@ -1360,10 +1360,24 @@ class DatabaseService {
     return true;
   }
 
+  async lockAttendanceWindow(classroomId, date = new Date().toISOString().split('T')[0]) {
+    let unlocks = this.get('tps_attendance_unlocks') || [];
+    const key = `${classroomId}_${date}`;
+    unlocks = unlocks.filter(k => k !== key);
+    this.set('tps_attendance_unlocks', unlocks);
+    this.logAudit('LOCK_ATTENDANCE_WINDOW', 'classrooms', classroomId, `Admin closed/locked late attendance window for ${date}`);
+    return true;
+  }
+
   async isAttendanceWindowUnlocked(classroomId, date = new Date().toISOString().split('T')[0]) {
     await this.pullCloudKeys(['tps_attendance_unlocks']);
     const unlocks = this.get('tps_attendance_unlocks') || [];
     return unlocks.includes(`${classroomId}_${date}`);
+  }
+
+  async getAttendanceUnlocks() {
+    await this.pullCloudKeys(['tps_attendance_unlocks']);
+    return this.get('tps_attendance_unlocks') || [];
   }
 
   async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at }) {

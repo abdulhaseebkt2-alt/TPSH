@@ -3,7 +3,7 @@ import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
-import { formatTime, normalizeClassPattern, formatDaysSingleLetters } from '../../lib/utils.js';
+import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters } from '../../lib/utils.js';
 import { openMobileWheelPicker, formatDateYMD } from '../../components/date-picker.js';
 
 function parseMinutes(timeStr) {
@@ -12,7 +12,7 @@ function parseMinutes(timeStr) {
   return (h || 0) * 60 + (m || 0);
 }
 
-export async function renderAttendanceModule(container, { onNavigate }) {
+export async function renderAttendanceModule(container, { onNavigate, initialClassId, initialDate } = {}) {
   const user = getCurrentUser();
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.is_super_admin || user?.role === 'admin' || user?.role === 'super_admin';
@@ -44,88 +44,126 @@ export async function renderAttendanceModule(container, { onNavigate }) {
   let activeClassroomId = classrooms[0]?.id || 'cls-1';
 
   // Check if directed from a specific classroom card or dashboard
-  const preselectedClsId = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tps_active_att_cls') : null;
+  const preselectedClsId = initialClassId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('tps_active_att_cls') : null);
   if (preselectedClsId) {
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('tps_active_att_cls');
     const target = classrooms.find(c => c.id === preselectedClsId);
     if (target) {
       activeClassroomId = target.id;
+    } else {
+      activeClassroomId = preselectedClsId;
     }
   }
 
   // Today's Date & Time Check
   const now = new Date();
-  const sessionDate = now.toISOString().split('T')[0];
+  const todayIso = now.toISOString().split('T')[0];
+  let sessionDate = initialDate || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tps_active_att_date')) || todayIso;
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('tps_active_att_date');
+
   const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayKey = DAY_KEYS[now.getDay()];
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   // Time-Window Status Calculation
-  async function checkWindowStatus(clsId) {
+  async function checkWindowStatus(clsId, targetDate = sessionDate) {
     const cls = classrooms.find(c => c.id === clsId);
     if (!cls) return { canTake: false, reason: 'Classroom not found' };
 
+    const isToday = targetDate === todayIso;
+    const isPast = targetDate < todayIso;
+
     const days = Array.isArray(cls.days) && cls.days.length > 0 ? cls.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const isTodayScheduled = days.includes(todayKey);
+    const targetDateObj = new Date(targetDate + 'T00:00:00');
+    const targetDayKey = DAY_KEYS[targetDateObj.getDay()];
+    const isTargetScheduled = days.includes(targetDayKey);
+
     const startMin = parseMinutes(cls.start_time || '06:30');
     const endMin = parseMinutes(cls.end_time || '07:30');
 
-    const isInWindow = currentMinutes >= startMin && currentMinutes <= endMin;
-    const isBefore = currentMinutes < startMin;
-    const isAfter = currentMinutes > endMin;
+    const isInWindow = isToday && currentMinutes >= startMin && currentMinutes <= endMin;
+    const isBefore = isToday && currentMinutes < startMin;
+    const isAfter = (isToday && currentMinutes > endMin) || isPast;
 
-    const isUnlockedByAdmin = await db.isAttendanceWindowUnlocked(cls.id, sessionDate);
+    const isUnlockedByAdmin = await db.isAttendanceWindowUnlocked(cls.id, targetDate);
 
-    // Admins always have access. Teachers have access if in window or unlocked by admin.
-    if (isAdmin) {
-      return {
-        canTake: true,
-        status: 'admin_override',
-        message: 'Admin Oversight Mode: Full access to record or edit attendance at any time.',
-        badgeClass: 'is-live',
-        isAfter,
-        isUnlockedByAdmin
-      };
+    // Check if attendance already exists for this date
+    const allSessions = await db.getAttendanceRecords();
+    const existingSession = allSessions.find(s => s.classroom_id === cls.id && s.session_date === targetDate);
+    const hasExisting = Boolean(existingSession && Array.isArray(existingSession.records) && existingSession.records.length > 0);
+
+    // RULE 1: If attendance is already taken:
+    // Teachers CANNOT edit taken attendance (Admin permission only).
+    // Admin CAN edit taken attendance.
+    if (hasExisting) {
+      if (isTeacher) {
+        return {
+          canTake: false,
+          status: 'taken_locked_for_teacher',
+          message: `Attendance already submitted on ${formatDate(targetDate)}. Only Administrators are permitted to edit recorded attendance.`,
+          badgeClass: 'is-locked-after',
+          isTaken: true
+        };
+      } else if (isAdmin) {
+        return {
+          canTake: true,
+          status: 'admin_edit_taken',
+          message: `Admin Override Mode: Editing previously recorded attendance for ${formatDate(targetDate)}.`,
+          badgeClass: 'is-live',
+          isTaken: true
+        };
+      }
     }
 
+    // RULE 2: If unlocked by Admin (e.g. for missed attendance):
     if (isUnlockedByAdmin) {
       return {
         canTake: true,
         status: 'admin_unlocked',
-        message: 'Admin Exception Granted: Late attendance window unlocked by administration.',
-        badgeClass: 'is-live'
+        message: `Admin Exception Granted: Missed/Late attendance unlocked for ${formatDate(targetDate)}.`,
+        badgeClass: 'is-live',
+        isUnlockedByAdmin: true
       };
     }
 
-    if (!isTodayScheduled) {
+    // RULE 3: Day is not scheduled in timetable
+    if (!isTargetScheduled) {
       return {
         canTake: false,
         status: 'not_scheduled_today',
-        message: `No Class Scheduled Today: ${cls.name} is on (${days.join(', ')}). Today is ${todayKey}.`,
+        message: `No Class Scheduled on ${targetDayKey}: ${cls.name} is on (${days.join(', ')}).`,
         badgeClass: 'is-locked-after'
       };
     }
 
+    // RULE 4: If today and before class start time:
+    // Mandatory for all classes (including when admins have class):
     if (isBefore) {
       const diff = startMin - currentMinutes;
       return {
         canTake: false,
         status: 'locked_before',
-        message: `Attendance Locked: Class starts in ${diff} minutes at ${formatTime(cls.start_time)}. Opens during class time.`,
+        message: `Attendance Locked: Class starts in ${diff} minutes at ${formatTime(cls.start_time)}. Attendance opens only during class hours.`,
         badgeClass: 'is-locked-before'
       };
     }
 
+    // RULE 5: If class window has elapsed (after class end time today, or past date):
+    // Considered missed attendance. Requires admin permission.
     if (isAfter) {
       return {
         canTake: false,
         status: 'locked_after',
-        message: `Attendance Window Closed: Session ended at ${formatTime(cls.end_time)}. Requires Admin unlock to edit.`,
+        message: isToday
+          ? `Attendance Window Closed: Session ended at ${formatTime(cls.end_time)}. Attendance missed. Requires Admin permission to unlock.`
+          : `Attendance Window Closed: Past date ${formatDate(targetDate)} was missed. Requires Admin permission to unlock.`,
         badgeClass: 'is-locked-after',
-        isAfter: true
+        isAfter: true,
+        isUnlockedByAdmin: false
       };
     }
 
+    // RULE 6: Currently live between start and end time!
     return {
       canTake: true,
       status: 'live_open',
@@ -201,6 +239,12 @@ export async function renderAttendanceModule(container, { onNavigate }) {
         <div class="page-title-group">
           <h2>${isTeacher ? 'My Classroom Attendance Duty' : 'Student & Teacher Attendance Management'}</h2>
           <p>${isTeacher ? 'Take and submit live attendance for your assigned classrooms during class hours' : 'Institutional daily attendance governance'}</p>
+        </div>
+        <div class="page-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-view-att-reports" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+            ${isTeacher ? 'My Attendance Report' : 'Attendance Report'}
+          </button>
         </div>
       </div>
 
@@ -292,9 +336,11 @@ export async function renderAttendanceModule(container, { onNavigate }) {
         <div class="att-submit-info">
           ${canInteract
             ? `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`
-            : (isViewOnly 
-                ? '* View-only explore mode: Submitting is disabled.' 
-                : '* Attendance window closed: Session ended.')}
+            : (hasExistingSession && isTeacher
+                ? `* Attendance already submitted on this date. Only Administrators are permitted to edit recorded attendance.`
+                : (isViewOnly 
+                    ? '* View-only explore mode: Submitting is disabled.' 
+                    : '* Attendance window closed: Session ended.'))}
         </div>
         ${canInteract ? `
           <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
@@ -303,7 +349,9 @@ export async function renderAttendanceModule(container, { onNavigate }) {
           </button>
         ` : `
           <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px;">
-            ${windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed'}
+            ${hasExistingSession && isTeacher
+              ? 'Attendance Already Submitted (Locked for Teacher)'
+              : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed')}
           </button>
         `}
       </div>
@@ -520,15 +568,26 @@ export async function renderAttendanceModule(container, { onNavigate }) {
       openMobileWheelPicker({
         initialDate: sessionDate,
         title: 'Attendance Date',
-        onSelect: (selectedDate) => {
-          sessionDate = formatDateYMD(selectedDate);
+        onSelect: async (selectedDate) => {
+          const selectedStr = formatDateYMD(selectedDate);
+          if (isTeacher && selectedStr !== todayIso) {
+            const isUnlocked = await db.isAttendanceWindowUnlocked(activeClassroomId, selectedStr);
+            if (!isUnlocked) {
+              toast.warning(`Date ${selectedStr} is locked. Teachers can only select Admin-unlocked missed attendance dates.`);
+              return;
+            }
+          }
+          sessionDate = selectedStr;
           renderFullUI();
         }
       });
     });
 
     // View Reports
-    container.querySelector('#btn-view-att-reports')?.addEventListener('click', () => onNavigate('reports'));
+    container.querySelector('#btn-view-att-reports')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('attendance_report');
+      else if (typeof window !== 'undefined') window.location.hash = '#attendance_report';
+    });
 
     if (canInteract) {
       // Toggle switches

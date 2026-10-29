@@ -14,6 +14,7 @@ export const MODULE_DEFINITIONS = [
   { key: 'timetable', label: 'Teacher Timetable', icon: 'calendar-clock', roles: ['super_admin', 'admin', 'teacher'] },
   { key: 'calendar', label: 'Academic Calendar', icon: 'calendar', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'attendance', label: 'Attendance Management', icon: 'check-square', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'attendance_report', label: 'Attendance Report', icon: 'clipboard-check', roles: ['super_admin', 'admin', 'mentor', 'teacher'] },
   { key: 'leaves', label: 'Hostel Leave Register', icon: 'plane-takeoff', roles: ['super_admin', 'admin', 'mentor', 'parent', 'student', 'hostel_leader'] },
   { key: 'fines', label: 'Late Fine Management', icon: 'receipt', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
   { key: 'discipline', label: 'Discipline & Black Marks', icon: 'alert-triangle', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
@@ -23,7 +24,7 @@ export const MODULE_DEFINITIONS = [
   { key: 'fees', label: 'Fees & Payments', icon: 'credit-card', roles: ['super_admin', 'admin', 'parent'] },
   { key: 'notices', label: 'Notices & WhatsApp', icon: 'bell', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'maintenance', label: 'Hostel Maintenance', icon: 'wrench', roles: ['super_admin', 'admin', 'mentor', 'hostel_leader'] },
-  { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor'] },
+  { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor', 'teacher'] },
   { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
 ];
@@ -40,6 +41,7 @@ export const DEFAULT_RBAC_MATRIX = {
     timetable: 'full',
     calendar: 'full',
     attendance: 'full',
+    attendance_report: 'full',
     leaves: 'full',
     fines: 'full',
     discipline: 'full',
@@ -57,6 +59,7 @@ export const DEFAULT_RBAC_MATRIX = {
     students: 'view',
     calendar: 'view',
     attendance: 'full',
+    attendance_report: 'view',
     leaves: 'full',
     fines: 'view',
     discipline: 'full',
@@ -71,6 +74,8 @@ export const DEFAULT_RBAC_MATRIX = {
     timetable: 'view',
     calendar: 'view',
     attendance: 'full',
+    attendance_report: 'full',
+    reports: 'view',
     exams: 'view',
     marks: 'full',
     notices: 'view'

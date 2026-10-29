@@ -4,6 +4,7 @@ import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { isViewOnlyModule } from '../../lib/permissions.js';
 import { openModal } from '../../lib/dialog.js';
+import { renderAttendanceReportModule } from './attendance-report.js';
 
 // Canonical sample students from Institutional Screenshot 1 for authentic presentation
 const CANONICAL_SAMPLE_STUDENTS = [
@@ -35,7 +36,7 @@ const CANONICAL_SAMPLE_STUDENTS = [
   { full_name: 'Rohan Sarkar', admission_number: 'TPS2026026', school_class: 'Class 1' }
 ];
 
-export async function renderReportsModule(container, { onNavigate }) {
+export async function renderReportsModule(container, { onNavigate, initialTab } = {}) {
   const user = getCurrentUser();
   const isViewOnly = isViewOnlyModule(user, 'reports');
 
@@ -70,7 +71,7 @@ export async function renderReportsModule(container, { onNavigate }) {
   }
 
   // Active state
-  let activeReportTab = 'student_attendance'; // 'student_attendance' | 'class_submission_audit' | 'academic_calendar' | 'teacher_duty' | 'hostel_leave' | 'fines_collected' | 'discipline_summary'
+  let activeReportTab = initialTab || 'student_attendance'; // 'student_attendance' | 'class_submission_audit' | 'academic_calendar' | 'teacher_duty' | 'hostel_leave' | 'fines_collected' | 'discipline_summary'
   let activeDimension = 'class_wise'; // 'individual' | 'class_wise' | 'section_wise'
   let activeTimeframe = 'monthly'; // 'daily' | 'weekly' | 'monthly' | 'yearly'
 
@@ -112,6 +113,9 @@ export async function renderReportsModule(container, { onNavigate }) {
 
     <!-- Primary Entity & Topic Navigation Tabs -->
     <div style="display: flex; gap: 0.65rem; overflow-x: auto; margin-bottom: 1.25rem; padding-bottom: 0.35rem;" id="reports-tab-bar">
+      <button class="btn btn-outline" data-tab="attendance_report" style="border-radius: var(--radius-full); white-space: nowrap; font-weight: 700;">
+        📅 Class Attendance Report
+      </button>
       <button class="btn btn-primary" data-tab="student_attendance" style="border-radius: var(--radius-full); white-space: nowrap;">
         👨‍🎓 Student Attendance
       </button>
@@ -157,7 +161,9 @@ export async function renderReportsModule(container, { onNavigate }) {
     const reportBox = container.querySelector('#report-view-container');
     if (!reportBox) return;
 
-    if (activeReportTab === 'student_attendance') {
+    if (activeReportTab === 'attendance_report') {
+      renderAttendanceReportModule(reportBox, { onNavigate });
+    } else if (activeReportTab === 'student_attendance') {
       renderStudentAttendanceRegister(reportBox);
     } else if (activeReportTab === 'class_submission_audit') {
       renderClassSubmissionAudit(reportBox);

@@ -17,6 +17,7 @@ import { renderAttendanceModule } from '../src/modules/attendance/index.js';
 import { renderReportsModule } from '../src/modules/reports/index.js';
 import { renderCalendarModule } from '../src/modules/calendar/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
+import { renderAttendanceReportModule } from '../src/modules/reports/attendance-report.js';
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
@@ -1894,5 +1895,202 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     } finally {
       global.document = originalDocument;
     }
+  });
+
+  it('Attendance Report module access permissions: Teachers, Mentors, and Admins can access attendance_report', () => {
+    const teacherUser = {
+      id: 'd0000000-0000-0000-0000-000000000004',
+      email: 'teacher@thaibaschool.edu.in',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    };
+
+    const adminUser = {
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    };
+
+    const pendingUser = {
+      id: 'd0000000-0000-0000-0000-000000000007',
+      email: 'pending@thaibaschool.edu.in',
+      role: null,
+      approval_status: 'pending',
+      is_super_admin: false
+    };
+
+    // Module definition exists
+    const repDef = MODULE_DEFINITIONS.find(m => m.key === 'attendance_report');
+    expect(repDef).toBeDefined();
+    expect(repDef.roles).toContain('teacher');
+    expect(repDef.roles).toContain('admin');
+
+    // Access checks
+    expect(canAccessModule(teacherUser, 'attendance_report')).toBe(true);
+    expect(canAccessModule(adminUser, 'attendance_report')).toBe(true);
+    expect(canAccessModule(pendingUser, 'attendance_report')).toBe(false);
+  });
+
+  it('Cascading dropdowns in Attendance Report: Admin can select teacher to cascade sections and classes, while teacher view is strictly scoped to their own duty', async () => {
+    // 1. Admin View
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceReportModule(adminContainer, { onNavigate: () => {} });
+
+    expect(adminContainer.innerHTML).toContain('att-rep-teacher-select');
+    expect(adminContainer.innerHTML).toContain('att-rep-section-select');
+    expect(adminContainer.innerHTML).toContain('att-rep-class-select');
+    expect(adminContainer.innerHTML).toContain('Administrative Governance');
+
+    // 2. Teacher View
+    updateCurrentUserProfile({
+      id: 'u-2',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const teacherContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceReportModule(teacherContainer, { onNavigate: () => {} });
+
+    // Teacher cannot change teacher (no teacher select dropdown)
+    expect(teacherContainer.innerHTML).not.toContain('id="att-rep-teacher-select"');
+    expect(teacherContainer.innerHTML).toContain('My Account');
+    expect(teacherContainer.innerHTML).toContain('Personal Faculty Duty');
+    // But teacher can select their assigned sections and classes
+    expect(teacherContainer.innerHTML).toContain('att-rep-section-select');
+    expect(teacherContainer.innerHTML).toContain('att-rep-class-select');
+  });
+
+  it('Calendar UI in Attendance Report: renders unworking class days as faded, holidays as yellow, hostel leaves as fade red text only, and missed attendance as red color round', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceReportModule(container, { onNavigate: () => {} });
+
+    // Calendar grid elements
+    expect(container.innerHTML).toContain('cal-fluent-grid-card');
+    expect(container.innerHTML).toContain('cal-month-nav-bar');
+    expect(container.innerHTML).toContain('cal-month-grid');
+
+    // Visual indicators
+    expect(container.innerHTML).toContain('is-class-off-day');      // Timetable unworking day faded
+    expect(container.innerHTML).toContain('is-holiday-single');     // Academic calendar holiday
+    expect(container.innerHTML).toContain('is-missed-attendance');  // Red colour round for missed attendance
+
+    // Legend items
+    expect(container.innerHTML).toContain('Missed Attendance (Red Round)');
+    expect(container.innerHTML).toContain('Hostel Leave (Fade Red Text)');
+    expect(container.innerHTML).toContain('Holiday (Yellow)');
+    expect(container.innerHTML).toContain('Class Off Day (Faded)');
+  });
+
+  it('Admin can allow (unlock) and close (lock) missed attendance for assigned teachers', async () => {
+    const classId = 'cls-1';
+    const testDate = '2026-10-14';
+
+    // 1. Initial state: locked
+    expect(await db.isAttendanceWindowUnlocked(classId, testDate)).toBe(false);
+
+    // 2. Admin allows / unlocks missed attendance
+    await db.unlockAttendanceWindow(classId, testDate);
+    expect(await db.isAttendanceWindowUnlocked(classId, testDate)).toBe(true);
+
+    // 3. Admin closes / locks missed attendance
+    await db.lockAttendanceWindow(classId, testDate);
+    expect(await db.isAttendanceWindowUnlocked(classId, testDate)).toBe(false);
+  });
+
+  it('Attendance timing & teacher protection: prevents teachers from editing already taken attendance, while allowing admins to edit', async () => {
+    const classId = 'cls-1';
+    const submittedDate = '2026-10-15';
+
+    // Save existing session
+    await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: classId,
+      session_date: submittedDate,
+      teacher_id: 'u-2',
+      teacher_name: 'Rashid Sir',
+      records: [
+        { student_id: 'st-1', status: 'Present' },
+        { student_id: 'st-2', status: 'Absent' }
+      ]
+    });
+
+    // 1. Teacher view on submitted attendance
+    updateCurrentUserProfile({
+      id: 'u-2',
+      email: 'teacher@thaibaschool.edu.in',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const teacherContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(teacherContainer, { onNavigate: () => {}, initialClassId: classId, initialDate: submittedDate });
+
+    // Teacher cannot edit already submitted attendance
+    expect(teacherContainer.innerHTML).toContain('Attendance Already Submitted (Locked for Teacher)');
+    expect(teacherContainer.innerHTML).toContain('Only Administrators are permitted to edit recorded attendance');
+
+    // 2. Admin view on submitted attendance
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(adminContainer, { onNavigate: () => {}, initialClassId: classId, initialDate: submittedDate });
+
+    // Admin CAN edit already submitted attendance
+    expect(adminContainer.innerHTML).toContain('Confirm & Submit Attendance');
+    expect(adminContainer.innerHTML).toContain('Admin Override Mode');
   });
 });

@@ -6538,6 +6538,48 @@ body.tps-wheel-open {
   color: #9CA3AF;
 }
 
+/* ------------------------------------------------------------
+   ATTENDANCE REPORT INDICATORS
+   ------------------------------------------------------------ */
+/* 1. Missed Attendance ("Losen Attendance" / Teacher Leave): RED COLOUR ROUND */
+.cal-day-circle.is-missed-attendance {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.45) !important;
+}
+
+/* 2. Hostel Leave: FADED RED TEXT ONLY (NO ROUND / CIRCLE) */
+.cal-day-circle.is-hostel-leave-text {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #EF4444 !important;
+  opacity: 0.7 !important;
+  font-weight: 700 !important;
+}
+
+/* 3. Class Unworking Days (From Timetable): FADED */
+.cal-inst-day-cell.is-class-off-day {
+  opacity: 0.28 !important;
+  cursor: default !important;
+}
+
+.cal-day-circle.is-class-off {
+  color: #94A3B8 !important;
+  background: transparent !important;
+  font-weight: 500 !important;
+}
+
+/* 4. Taken Attendance: EMERALD */
+.cal-day-circle.is-attendance-taken {
+  background: #ECFDF5 !important;
+  color: #047857 !important;
+  border: 1.5px solid #10B981 !important;
+  font-weight: 700 !important;
+}
+
 /* 4-Corner Row Wrapping Curvature Protection */
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-middle .cal-cell-track,
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-hostel-leave-middle .cal-cell-track,
