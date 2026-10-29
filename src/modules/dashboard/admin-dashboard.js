@@ -4,13 +4,23 @@ import { formatCurrency, formatDate } from '../../lib/utils.js';
 
 export async function renderAdminDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
-  const students = await db.getStudents();
-  const classrooms = await db.getClassrooms();
-  const leaves = await db.getLeaves();
-  const discipline = await db.getDisciplineIncidents();
-  const exams = await db.getExams();
-  const users = await db.getUsers();
-  const auditLogs = await db.getAuditLogs();
+  const [
+    students,
+    classrooms,
+    leaves,
+    discipline,
+    exams,
+    users,
+    auditLogs
+  ] = await Promise.all([
+    db.getStudents(),
+    db.getClassrooms(),
+    db.getLeaves(),
+    db.getDisciplineIncidents(),
+    db.getExams(),
+    db.getUsers(),
+    db.getAuditLogs()
+  ]);
 
   const activeStudents = students.filter(s => s.status === 'Active');
   const boysCount = students.filter(s => s.gender === 'Male' || s.gender === 'Boys').length;

@@ -267,8 +267,61 @@ class App {
       return;
     }
 
-    // Render Full ERP Shell
+    // High performance in-place navigation if shell is already mounted
+    const sidebarEl = this.appEl.querySelector('#app-sidebar');
+    const contentEl = this.appEl.querySelector('#app-content');
+    if (sidebarEl && contentEl) {
+      this.renderModuleInPlace(profile, contentEl, sidebarEl);
+      return;
+    }
+
+    // Render Full ERP Shell on initial entry
     this.renderAuthenticatedShell(profile);
+  }
+
+  renderModuleInPlace(profile, contentEl, sidebarEl) {
+    if (!canAccessModule(profile, this.activeModule)) {
+      this.activeModule = 'dashboard';
+      window.location.hash = 'dashboard';
+    }
+
+    // Instantly close mobile drawer
+    this.closeSidebarMobile();
+
+    // Instantly update active class on sidebar items
+    const navItems = sidebarEl.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+      const mod = item.getAttribute('data-module');
+      item.classList.toggle('active', mod === this.activeModule);
+    });
+
+    // Provide instant feedback with sleek lightweight loader
+    contentEl.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 280px; color: #64748B;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: tpsSpin 0.75s linear infinite;">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+          <span style="font-size: 0.85rem; font-weight: 600; color: #64748B;">Loading view...</span>
+        </div>
+      </div>
+    `;
+
+    const routerFn = MODULE_ROUTERS[this.activeModule] || renderDashboard;
+    const renderPromise = routerFn(contentEl, {
+      onNavigate: (mod) => this.navigate(mod)
+    });
+
+    if (renderPromise && typeof renderPromise.then === 'function') {
+      renderPromise.then(() => {
+        enhanceAllUI(contentEl);
+      }).catch(err => {
+        console.error('Module render error:', err);
+        toast.error(`Error opening ${this.activeModule}: ${err.message || 'Unknown error'}`);
+      });
+    } else {
+      enhanceAllUI(contentEl);
+    }
   }
 
   renderLoginPortal() {

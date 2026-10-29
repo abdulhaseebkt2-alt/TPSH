@@ -18,18 +18,22 @@ export async function renderSectionsModule(container, { onNavigate }) {
   const user = getCurrentUser();
   const canManage = !user || user.is_super_admin || user.role === 'admin' || user.role === 'super_admin';
 
-  let programs = await db.getPrograms();
-  let sections = await db.getSections();
-  let classrooms = await db.getClassrooms();
-  let users = await db.getUsers();
+  let [programs, sections, classrooms, users] = await Promise.all([
+    db.getPrograms(),
+    db.getSections(),
+    db.getClassrooms(),
+    db.getUsers()
+  ]);
 
   let selectedProgramId = programs[0]?.id || '';
 
   async function refreshData() {
-    programs = await db.getPrograms();
-    sections = await db.getSections();
-    classrooms = await db.getClassrooms();
-    users = await db.getUsers();
+    [programs, sections, classrooms, users] = await Promise.all([
+      db.getPrograms(),
+      db.getSections(),
+      db.getClassrooms(),
+      db.getUsers()
+    ]);
 
     if (!programs.some(p => p.id === selectedProgramId)) {
       selectedProgramId = programs[0]?.id || '';

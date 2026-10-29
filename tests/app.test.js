@@ -2404,4 +2404,34 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       globalThis.localStorage = prevStorage;
     }
   });
+
+  it('In-memory DB caching speeds up repeated window opens and data fetching', async () => {
+    // 1. db.getStudents caching
+    db.invalidateCache('students');
+    const students1 = await db.getStudents();
+    const students2 = await db.getStudents();
+    // Subsequent call returns exact cached instance instantly (0ms)
+    expect(students1).toBe(students2);
+
+    // Invalidation clears cache
+    db.invalidateCache('students');
+    const students3 = await db.getStudents();
+    expect(students3).not.toBe(students1);
+    expect(students3).toEqual(students1);
+
+    // 2. db.getUsers caching
+    db.invalidateCache('users');
+    const users1 = await db.getUsers();
+    const users2 = await db.getUsers();
+    expect(users1).toBe(users2);
+
+    db.invalidateCache('users');
+    const users3 = await db.getUsers();
+    expect(users3).not.toBe(users1);
+    expect(users3).toEqual(users1);
+
+    // 3. Setting a key updates cloud keys timestamp map
+    db.set('tps_programs', [{ id: 'prog-test', name: 'Test Program' }]);
+    expect(db._pulledKeysTime.has('tps_programs')).toBe(true);
+  });
 });

@@ -11,8 +11,10 @@ export async function renderLeavesModule(container, { onNavigate }) {
   const canRecordReturn = canPerformAction(user, 'leaves', 'record_return');
   const isViewOnly = isViewOnlyModule(user, 'leaves');
 
-  const students = await db.getStudents();
-  const leaves = await db.getLeaves();
+  const [students, leaves] = await Promise.all([
+    db.getStudents(),
+    db.getLeaves()
+  ]);
 
   const isParent = user?.role === 'parent';
   const displayLeaves = isParent

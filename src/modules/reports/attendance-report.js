@@ -9,16 +9,28 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.is_super_admin || user?.role === 'admin' || user?.role === 'super_admin';
 
-  // 1. Fetch DB entities
-  const users = await db.getUsers();
-  const allClassrooms = await db.getClassrooms();
-  const allSections = await db.getSections();
-  const allPrograms = await db.getPrograms();
-  const calendar = await db.getAcademicCalendar();
-  const leaves = await db.getLeaves();
-  const attendanceSessions = await db.getAttendanceRecords();
-  const allStudents = await db.getStudents();
-  const teacherAssignments = await db.getTeacherAssignments();
+  // 1. Fetch DB entities in parallel for high-speed instant load
+  const [
+    users,
+    allClassrooms,
+    allSections,
+    allPrograms,
+    calendar,
+    leaves,
+    attendanceSessions,
+    allStudents,
+    teacherAssignments
+  ] = await Promise.all([
+    db.getUsers(),
+    db.getClassrooms(),
+    db.getSections(),
+    db.getPrograms(),
+    db.getAcademicCalendar(),
+    db.getLeaves(),
+    db.getAttendanceRecords(),
+    db.getStudents(),
+    db.getTeacherAssignments()
+  ]);
 
   // 2. Prepare eligible teachers list
   const eligibleTeachers = users.filter(u => 

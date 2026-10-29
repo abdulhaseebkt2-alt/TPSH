@@ -8,9 +8,11 @@ import { isViewOnlyModule } from '../../lib/permissions.js';
 export async function renderMarksModule(container, { onNavigate }) {
   const user = getCurrentUser();
   const isViewOnly = isViewOnlyModule(user, 'marks');
-  const exams = await db.getExams();
-  const examSubjects = await db.getExamSubjects();
-  const students = await db.getStudents();
+  const [exams, examSubjects, students] = await Promise.all([
+    db.getExams(),
+    db.getExamSubjects(),
+    db.getStudents()
+  ]);
   const activeExam = exams[0];
 
   const marks = await db.getMarks(activeExam?.id);

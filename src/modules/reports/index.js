@@ -40,17 +40,30 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
   const user = getCurrentUser();
   const isViewOnly = isViewOnlyModule(user, 'reports');
 
-  // Load database entities
-  let students = await db.getStudents();
-  let classrooms = await db.getClassrooms();
-  let programs = await db.getPrograms();
-  let sections = await db.getSections();
-  let users = await db.getUsers();
-  let attendanceSessions = await db.getAttendanceRecords();
-  let teacherAttendance = await db.getTeacherAttendanceRecords();
-  let leaves = await db.getLeaves();
-  let discipline = await db.getDisciplineIncidents();
-  let calendar = await db.getAcademicCalendar();
+  // Load database entities in parallel
+  let [
+    students,
+    classrooms,
+    programs,
+    sections,
+    users,
+    attendanceSessions,
+    teacherAttendance,
+    leaves,
+    discipline,
+    calendar
+  ] = await Promise.all([
+    db.getStudents(),
+    db.getClassrooms(),
+    db.getPrograms(),
+    db.getSections(),
+    db.getUsers(),
+    db.getAttendanceRecords(),
+    db.getTeacherAttendanceRecords(),
+    db.getLeaves(),
+    db.getDisciplineIncidents(),
+    db.getAcademicCalendar()
+  ]);
 
   // Mapping program to section IDs
   const progSecMap = {};

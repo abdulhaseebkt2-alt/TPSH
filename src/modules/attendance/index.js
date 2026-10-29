@@ -19,10 +19,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
 
-  const allPrograms = await db.getPrograms();
-  const allClassrooms = await db.getClassrooms();
-  const students = await db.getStudents();
-  const users = await db.getUsers();
+  const [allPrograms, allClassrooms, students, users] = await Promise.all([
+    db.getPrograms(),
+    db.getClassrooms(),
+    db.getStudents(),
+    db.getUsers()
+  ]);
 
   // Eligible teachers list for Admin filter
   const eligibleTeachers = users.filter(u => 

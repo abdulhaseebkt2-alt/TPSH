@@ -6,6 +6,11 @@
 @import './login.css';
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
+@keyframes tpsSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 :root {
   /* Institutional Palette (Light-Theme-First) */
   --bg-app: #F8FAFC;

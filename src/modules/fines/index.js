@@ -6,8 +6,10 @@ import { getCurrentUser } from '../../lib/auth.js';
 
 export async function renderFinesModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const students = await db.getStudents();
-  const leaves = await db.getLeaves();
+  const [students, leaves] = await Promise.all([
+    db.getStudents(),
+    db.getLeaves()
+  ]);
   const payments = db.get('tps_fine_payments');
 
   // Filter leaves that have fine > 0

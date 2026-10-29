@@ -24,10 +24,12 @@ function parseMinutes(timeStr) {
 
 export async function renderTimetableModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const classrooms = await db.getClassrooms();
-  const programs = await db.getPrograms();
-  const users = await db.getUsers();
-  const students = await db.getStudents();
+  const [classrooms, programs, users, students] = await Promise.all([
+    db.getClassrooms(),
+    db.getPrograms(),
+    db.getUsers(),
+    db.getStudents()
+  ]);
 
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.is_super_admin || user?.role === 'admin' || user?.role === 'super_admin';

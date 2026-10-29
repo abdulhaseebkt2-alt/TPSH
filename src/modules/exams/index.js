@@ -6,8 +6,10 @@ import { getCurrentUser } from '../../lib/auth.js';
 
 export async function renderExamsModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const exams = await db.getExams();
-  const examSubjects = await db.getExamSubjects();
+  const [exams, examSubjects] = await Promise.all([
+    db.getExams(),
+    db.getExamSubjects()
+  ]);
 
   container.innerHTML = `
     <div class="page-header">

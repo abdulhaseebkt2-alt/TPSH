@@ -235,7 +235,30 @@ export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
 class DatabaseService {
   constructor() {
     this.memoryStore = new Map();
+    this._pulledKeysTime = new Map();
+    this._studentsCache = null;
+    this._studentsCacheTime = 0;
+    this._studentsInFlightPromise = null;
+    this._usersCache = null;
+    this._usersCacheTime = 0;
+    this._usersInFlightPromise = null;
     this.initStore();
+  }
+
+  invalidateCache(type = 'all') {
+    if (type === 'all' || type === 'students') {
+      this._studentsCache = null;
+      this._studentsCacheTime = 0;
+      this._studentsInFlightPromise = null;
+    }
+    if (type === 'all' || type === 'users') {
+      this._usersCache = null;
+      this._usersCacheTime = 0;
+      this._usersInFlightPromise = null;
+    }
+    if (type === 'all' || type === 'cloud_keys') {
+      this._pulledKeysTime.clear();
+    }
   }
 
   getStorageItem(key) {
@@ -374,6 +397,15 @@ class DatabaseService {
 
   set(key, val) {
     this.setStorageItem(key, JSON.stringify(val));
+    this._pulledKeysTime.set(key, Date.now());
+    if (key === 'tps_students') {
+      this._studentsCache = null;
+      this._studentsCacheTime = 0;
+    }
+    if (key === 'tps_users') {
+      this._usersCache = null;
+      this._usersCacheTime = 0;
+    }
     if (supabase && !isTestEnv) {
       supabase.from('app_settings').upsert({
         key,
@@ -383,14 +415,27 @@ class DatabaseService {
     }
   }
 
-  async pullCloudKeys(keys = ['tps_programs', 'tps_sections', 'tps_classrooms', 'tps_classroom_assignments', 'tps_teacher_assignments']) {
+  async pullCloudKeys(keys = ['tps_programs', 'tps_sections', 'tps_classrooms', 'tps_classroom_assignments', 'tps_teacher_assignments'], force = false) {
     if (!supabase || isTestEnv) return;
+    const now = Date.now();
+    const TTL = 25000;
+    if (!force) {
+      const needed = keys.filter(k => (now - (this._pulledKeysTime.get(k) || 0)) > TTL);
+      if (needed.length === 0) return;
+      keys = needed;
+    }
     try {
       const { data, error } = await supabase.from('app_settings').select('key, value').in('key', keys);
       if (!error && Array.isArray(data)) {
         for (const row of data) {
           if (row.key && row.value !== undefined && row.value !== null) {
             this.setStorageItem(row.key, JSON.stringify(row.value));
+            this._pulledKeysTime.set(row.key, Date.now());
+          }
+        }
+        for (const k of keys) {
+          if (!this._pulledKeysTime.has(k)) {
+            this._pulledKeysTime.set(k, Date.now());
           }
         }
       }
@@ -415,94 +460,113 @@ class DatabaseService {
   }
 
   // --- STUDENTS ---
-  async getStudents() {
-    let supabaseStudents = null;
-    if (supabase) {
+  async getStudents(force = false) {
+    const now = Date.now();
+    const TTL = 25000;
+    if (!force && this._studentsCache && (now - this._studentsCacheTime < TTL)) {
+      return this._studentsCache;
+    }
+    if (!force && this._studentsInFlightPromise) {
+      return this._studentsInFlightPromise;
+    }
+
+    this._studentsInFlightPromise = (async () => {
       try {
-        const { data, error } = await supabase
-          .from('students')
-          .select('*')
-          .order('admission_number');
-        if (!error && Array.isArray(data)) {
-          supabaseStudents = data.filter(s => !isDummyStudent(s));
-        } else if (error) {
-          console.warn('Supabase getStudents query error:', error);
+        let supabaseStudents = null;
+        if (supabase) {
+          try {
+            const { data, error } = await supabase
+              .from('students')
+              .select('*')
+              .order('admission_number');
+            if (!error && Array.isArray(data)) {
+              supabaseStudents = data.filter(s => !isDummyStudent(s));
+            } else if (error) {
+              console.warn('Supabase getStudents query error:', error);
+            }
+          } catch (err) {
+            console.warn('Supabase getStudents connection fallback:', err);
+          }
         }
-      } catch (err) {
-        console.warn('Supabase getStudents connection fallback:', err);
-      }
-    }
 
-    const localRaw = this.getStorageItem('tps_students');
-    let localStudents = localRaw ? JSON.parse(localRaw) : [];
-    if (Array.isArray(localStudents)) {
-      localStudents = localStudents.filter(s => !isDummyStudent(s));
-    }
-
-    // Safely reconcile Cloud and Local records
-    let mergedStudents = [];
-    if (supabaseStudents && supabaseStudents.length > 0) {
-      mergedStudents = supabaseStudents;
-      // Preserve any genuinely locally added student (created offline, never synced to Supabase)
-      if (localStudents.length > 0) {
-        const dbAdmSet = new Set(supabaseStudents.map(s => s.admission_number));
-        const missingFromDb = localStudents.filter(s => 
-          s.admission_number && 
-          !dbAdmSet.has(s.admission_number) && 
-          !isDummyStudent(s) &&
-          (typeof s.id === 'string' && s.id.startsWith('s-'))
-        );
-        if (missingFromDb.length > 0) {
-          mergedStudents = [...supabaseStudents, ...missingFromDb];
-          // Asynchronously sync missing records to Supabase in background
-          this.importStudents(missingFromDb).catch(err => console.warn('Background sync error:', err));
+        const localRaw = this.getStorageItem('tps_students');
+        let localStudents = localRaw ? JSON.parse(localRaw) : [];
+        if (Array.isArray(localStudents)) {
+          localStudents = localStudents.filter(s => !isDummyStudent(s));
         }
+
+        // Safely reconcile Cloud and Local records
+        let mergedStudents = [];
+        if (supabaseStudents && supabaseStudents.length > 0) {
+          mergedStudents = supabaseStudents;
+          // Preserve any genuinely locally added student (created offline, never synced to Supabase)
+          if (localStudents.length > 0) {
+            const dbAdmSet = new Set(supabaseStudents.map(s => s.admission_number));
+            const missingFromDb = localStudents.filter(s => 
+              s.admission_number && 
+              !dbAdmSet.has(s.admission_number) && 
+              !isDummyStudent(s) &&
+              (typeof s.id === 'string' && s.id.startsWith('s-'))
+            );
+            if (missingFromDb.length > 0) {
+              mergedStudents = [...supabaseStudents, ...missingFromDb];
+              // Asynchronously sync missing records to Supabase in background
+              this.importStudents(missingFromDb).catch(err => console.warn('Background sync error:', err));
+            }
+          }
+        } else if (localStudents.length > 0) {
+          // Supabase is empty or offline: prioritize local students and trigger cloud sync
+          mergedStudents = localStudents;
+          if (supabase) {
+            this.syncAllToSupabase().catch(err => console.warn('Auto-sync to Supabase error:', err));
+          }
+        } else {
+          mergedStudents = [];
+        }
+
+        // Filter once more for complete guarantee
+        mergedStudents = mergedStudents.filter(s => !isDummyStudent(s));
+
+        // Cache latest in localStorage for offline availability
+        this.setStorageItem('tps_students', JSON.stringify(mergedStudents));
+
+        // Pull any offline IDB photos
+        const idbPhotos = await getAllPhotosFromIDB();
+
+        let hasLocalPhotoSync = false;
+        const finalStudents = mergedStudents.map(s => {
+          let photo = s.photo_url;
+          const localIdbPhoto = idbPhotos[s.id] || (s.admission_number && idbPhotos[s.admission_number]);
+          if (!photo && localIdbPhoto) {
+            photo = localIdbPhoto;
+            s.photo_url = photo;
+            hasLocalPhotoSync = true;
+          }
+          return {
+            ...s,
+            photo_url: photo || '',
+            school_class: normalizeClassPattern(s.school_class)
+          };
+        });
+
+        if (hasLocalPhotoSync) {
+          this.setStorageItem('tps_students', JSON.stringify(finalStudents));
+        }
+
+        // Trigger photo cloud sync and optimization in background if not already running
+        if (!this._optimizingPhotos) {
+          this.optimizeStoredPhotos();
+        }
+
+        this._studentsCache = finalStudents;
+        this._studentsCacheTime = Date.now();
+        return finalStudents;
+      } finally {
+        this._studentsInFlightPromise = null;
       }
-    } else if (localStudents.length > 0) {
-      // Supabase is empty or offline: prioritize local students and trigger cloud sync
-      mergedStudents = localStudents;
-      if (supabase) {
-        this.syncAllToSupabase().catch(err => console.warn('Auto-sync to Supabase error:', err));
-      }
-    } else {
-      mergedStudents = [];
-    }
+    })();
 
-    // Filter once more for complete guarantee
-    mergedStudents = mergedStudents.filter(s => !isDummyStudent(s));
-
-    // Cache latest in localStorage for offline availability
-    this.setStorageItem('tps_students', JSON.stringify(mergedStudents));
-
-    // Pull any offline IDB photos
-    const idbPhotos = await getAllPhotosFromIDB();
-
-    let hasLocalPhotoSync = false;
-    const finalStudents = mergedStudents.map(s => {
-      let photo = s.photo_url;
-      const localIdbPhoto = idbPhotos[s.id] || (s.admission_number && idbPhotos[s.admission_number]);
-      if (!photo && localIdbPhoto) {
-        photo = localIdbPhoto;
-        s.photo_url = photo;
-        hasLocalPhotoSync = true;
-      }
-      return {
-        ...s,
-        photo_url: photo || '',
-        school_class: normalizeClassPattern(s.school_class)
-      };
-    });
-
-    if (hasLocalPhotoSync) {
-      this.setStorageItem('tps_students', JSON.stringify(finalStudents));
-    }
-
-    // Trigger photo cloud sync and optimization in background if not already running
-    if (!this._optimizingPhotos) {
-      this.optimizeStoredPhotos();
-    }
-
-    return finalStudents;
+    return this._studentsInFlightPromise;
   }
 
   async importStudents(studentsToImport) {
@@ -1865,25 +1929,47 @@ class DatabaseService {
   }
 
   // --- USER APPROVALS & PERMISSIONS ---
-  async getUsers() {
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.rpc('get_manageable_users');
-        if (!error && Array.isArray(data) && data.length > 0) {
-          // Merge with any local demo users that don't collide
-          const localUsers = this.get('tps_users') || [];
-          const remoteEmails = new Set(data.map(u => (u.email || '').toLowerCase()));
-          const combined = [
-            ...data,
-            ...localUsers.filter(lu => !remoteEmails.has((lu.email || '').toLowerCase()) && lu.id !== 'u-pending')
-          ];
-          return combined;
-        }
-      } catch (err) {
-        console.warn('Supabase get_manageable_users fallback:', err);
-      }
+  async getUsers(force = false) {
+    const now = Date.now();
+    const TTL = 25000;
+    if (!force && this._usersCache && (now - this._usersCacheTime < TTL)) {
+      return this._usersCache;
     }
-    return this.get('tps_users');
+    if (!force && this._usersInFlightPromise) {
+      return this._usersInFlightPromise;
+    }
+
+    this._usersInFlightPromise = (async () => {
+      try {
+        if (supabase) {
+          try {
+            const { data, error } = await supabase.rpc('get_manageable_users');
+            if (!error && Array.isArray(data) && data.length > 0) {
+              // Merge with any local demo users that don't collide
+              const localUsers = this.get('tps_users') || [];
+              const remoteEmails = new Set(data.map(u => (u.email || '').toLowerCase()));
+              const combined = [
+                ...data,
+                ...localUsers.filter(lu => !remoteEmails.has((lu.email || '').toLowerCase()) && lu.id !== 'u-pending')
+              ];
+              this._usersCache = combined;
+              this._usersCacheTime = Date.now();
+              return combined;
+            }
+          } catch (err) {
+            console.warn('Supabase get_manageable_users fallback:', err);
+          }
+        }
+        const res = this.get('tps_users');
+        this._usersCache = res;
+        this._usersCacheTime = Date.now();
+        return res;
+      } finally {
+        this._usersInFlightPromise = null;
+      }
+    })();
+
+    return this._usersInFlightPromise;
   }
 
   async updateUserApproval(user_id, { approval_status, role }) {

@@ -4,11 +4,19 @@ import { formatTime, formatDaysSingleLetters } from '../../lib/utils.js';
 
 export async function renderTeacherDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
-  const classrooms = await db.getClassrooms();
-  const programs = await db.getPrograms();
-  const exams = await db.getExams();
-  const examSubjects = await db.getExamSubjects();
-  const students = await db.getStudents();
+  const [
+    classrooms,
+    programs,
+    exams,
+    examSubjects,
+    students
+  ] = await Promise.all([
+    db.getClassrooms(),
+    db.getPrograms(),
+    db.getExams(),
+    db.getExamSubjects(),
+    db.getStudents()
+  ]);
 
   // Determine teacher name & assigned classrooms
   const teacherName = user?.full_name || 'Rashid Sir';

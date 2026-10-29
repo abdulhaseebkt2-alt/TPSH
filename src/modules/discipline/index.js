@@ -6,8 +6,10 @@ import { getCurrentUser } from '../../lib/auth.js';
 
 export async function renderDisciplineModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const students = await db.getStudents();
-  const incidents = await db.getDisciplineIncidents();
+  const [students, incidents] = await Promise.all([
+    db.getStudents(),
+    db.getDisciplineIncidents()
+  ]);
 
   const isParent = user?.role === 'parent';
   const displayIncidents = isParent
