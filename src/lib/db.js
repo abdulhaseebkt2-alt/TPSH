@@ -1548,12 +1548,43 @@ class DatabaseService {
     return true;
   }
 
+  async unlockAttendanceWindows(classroomId, dates = []) {
+    if (!Array.isArray(dates) || dates.length === 0) return true;
+    let unlocks = this.get('tps_attendance_unlocks') || [];
+    let added = 0;
+    dates.forEach(d => {
+      const key = `${classroomId}_${d}`;
+      if (!unlocks.includes(key)) {
+        unlocks.push(key);
+        added++;
+      }
+    });
+    if (added > 0) {
+      this.set('tps_attendance_unlocks', unlocks);
+      this.logAudit('UNLOCK_ATTENDANCE_WINDOWS_BULK', 'classrooms', classroomId, `Admin bulk unlocked ${added} missed attendance sessions`);
+    }
+    return true;
+  }
+
   async lockAttendanceWindow(classroomId, date = new Date().toISOString().split('T')[0]) {
     let unlocks = this.get('tps_attendance_unlocks') || [];
     const key = `${classroomId}_${date}`;
     unlocks = unlocks.filter(k => k !== key);
     this.set('tps_attendance_unlocks', unlocks);
     this.logAudit('LOCK_ATTENDANCE_WINDOW', 'classrooms', classroomId, `Admin closed/locked late attendance window for ${date}`);
+    return true;
+  }
+
+  async lockAttendanceWindows(classroomId, dates = []) {
+    if (!Array.isArray(dates) || dates.length === 0) return true;
+    let unlocks = this.get('tps_attendance_unlocks') || [];
+    const keysToRemove = new Set(dates.map(d => `${classroomId}_${d}`));
+    const initialLen = unlocks.length;
+    unlocks = unlocks.filter(k => !keysToRemove.has(k));
+    if (unlocks.length !== initialLen) {
+      this.set('tps_attendance_unlocks', unlocks);
+      this.logAudit('LOCK_ATTENDANCE_WINDOWS_BULK', 'classrooms', classroomId, `Admin bulk locked ${initialLen - unlocks.length} attendance sessions`);
+    }
     return true;
   }
 

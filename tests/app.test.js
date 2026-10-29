@@ -2016,9 +2016,16 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('Hostel Leave (Fade Red Text)');
     expect(container.innerHTML).toContain('Holiday (Yellow)');
     expect(container.innerHTML).toContain('Class Off Day (Faded)');
+
+    // Bulk Month Missed Attendance button on top of calendar
+    expect(container.innerHTML).toContain('btn-bulk-unlock-month');
+    expect(container.innerHTML).toContain('Allow Month Missed Attendance');
+
+    // Redundant bottom register table is removed
+    expect(container.innerHTML).not.toContain('Missed Attendance Register');
   });
 
-  it('Admin can allow (unlock) and close (lock) missed attendance for assigned teachers', async () => {
+  it('Admin can allow (unlock) and close (lock) missed attendance for assigned teachers in single and bulk operations', async () => {
     const classId = 'cls-1';
     const testDate = '2026-10-14';
 
@@ -2032,6 +2039,17 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     // 3. Admin closes / locks missed attendance
     await db.lockAttendanceWindow(classId, testDate);
     expect(await db.isAttendanceWindowUnlocked(classId, testDate)).toBe(false);
+
+    // 4. Bulk month operations
+    const bulkDates = ['2026-10-06', '2026-10-07', '2026-10-08'];
+    await db.unlockAttendanceWindows(classId, bulkDates);
+    for (const d of bulkDates) {
+      expect(await db.isAttendanceWindowUnlocked(classId, d)).toBe(true);
+    }
+    await db.lockAttendanceWindows(classId, bulkDates);
+    for (const d of bulkDates) {
+      expect(await db.isAttendanceWindowUnlocked(classId, d)).toBe(false);
+    }
   });
 
   it('Attendance timing & teacher protection: prevents teachers from editing already taken attendance, while allowing admins to edit', async () => {

@@ -239,6 +239,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     const takenSessions = currentMonthDays.filter(d => d.hasAttendanceSession).length;
     const missedSessions = currentMonthDays.filter(d => d.isMissedAttendance).length;
     const unlockedSessions = currentMonthDays.filter(d => d.isMissedAttendance && unlocks.includes(`${activeClass?.id}_${d.dateStr}`)).length;
+    const allMonthMissedUnlocked = missedSessions > 0 && unlockedSessions === missedSessions;
 
     container.innerHTML = `
       <div class="attendance-report-container" style="padding-bottom: 2.5rem;">
@@ -396,15 +397,49 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               </div>
             </div>
 
-            ${missedSessions > 0 ? `
-              <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1.5px solid #FECACA; font-weight: 800; font-size: 0.74rem;">
-                ● ${missedSessions} Missed Attendance Recorded
-              </span>
-            ` : `
-              <span class="badge badge-active" style="font-size: 0.72rem;">
-                ✓ 100% Up to date
-              </span>
-            `}
+            <div>
+              ${isAdmin ? `
+                ${missedSessions > 0 ? (
+                  !allMonthMissedUnlocked ? `
+                    <button 
+                      type="button" 
+                      class="btn btn-sm" 
+                      id="btn-bulk-unlock-month" 
+                      style="background: #059669; color: #FFFFFF; font-weight: 700; font-size: 0.78rem; padding: 0.45rem 0.95rem; border-radius: 9px; border: none; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; box-shadow: 0 1px 3px rgba(5,150,105,0.25);"
+                      title="Allow teacher to submit missed attendance for all ${missedSessions} missed sessions in ${MONTH_NAMES[currentMonth - 1]}"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                      Allow Month Missed Attendance (${missedSessions})
+                    </button>
+                  ` : `
+                    <button 
+                      type="button" 
+                      class="btn btn-sm" 
+                      id="btn-bulk-lock-month" 
+                      style="background: #FEF2F2; color: #DC2626; border: 1.5px solid #FECACA; font-weight: 700; font-size: 0.78rem; padding: 0.45rem 0.95rem; border-radius: 9px; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;"
+                      title="Close/Lock all unlocked missed attendance sessions in ${MONTH_NAMES[currentMonth - 1]}"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Close / Lock Month Missed (${missedSessions})
+                    </button>
+                  `
+                ) : `
+                  <span style="font-size: 0.74rem; color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; background: #ECFDF5; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid #A7F3D0;">
+                    ✓ No Missed Attendance
+                  </span>
+                `}
+              ` : `
+                ${missedSessions > 0 && unlockedSessions > 0 ? `
+                  <span style="font-size: 0.74rem; color: #047857; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; background: #FEF3C7; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid #FDE68A;">
+                    🔓 ${unlockedSessions} Missed Session(s) Unlocked by Admin
+                  </span>
+                ` : `
+                  <span style="font-size: 0.74rem; color: #64748B; font-weight: 600;">
+                    Tap dates to view / submit duty
+                  </span>
+                `}
+              `}
+            </div>
           </div>
 
           <!-- MONTH & YEAR NAVIGATION BAR -->
@@ -550,121 +585,10 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
         </div>
 
-        <!-- MISSED ATTENDANCE UNLOCK MANAGEMENT TABLE -->
-        ${renderMissedAttendancePanel(gridDays.filter(d => d.isCurrentMonth && d.isMissedAttendance), activeClass, activeTeacher, unlocks)}
-
       </div>
     `;
 
     attachListeners();
-  }
-
-  function renderMissedAttendancePanel(missedDays, activeClass, activeTeacher, unlocks) {
-    if (!missedDays || missedDays.length === 0) {
-      return `
-        <div class="card-panel" style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 1.25rem; text-align: center;">
-          <div style="font-weight: 800; font-size: 0.92rem; color: #047857; margin-bottom: 0.2rem;">
-            ✓ No Missed Attendance in ${MONTH_NAMES[currentMonth - 1]} ${currentYear}
-          </div>
-          <p style="font-size: 0.78rem; color: #64748B; margin: 0;">
-            All scheduled class sessions for ${activeClass?.name || 'this class'} were recorded within their active time window.
-          </p>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="card-panel" style="background: #FFFFFF; border: 1px solid #FECACA; border-radius: 14px; padding: 1rem 1.15rem; box-shadow: 0 1px 4px rgba(239, 68, 68, 0.06);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <div style="width: 28px; height: 28px; border-radius: 50%; background: #FEF2F2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem;">
-              !
-            </div>
-            <div>
-              <h4 style="font-weight: 800; font-size: 0.92rem; color: #991B1B; margin: 0;">
-                Missed Attendance Register (${missedDays.length} Sessions)
-              </h4>
-              <span style="font-size: 0.72rem; color: #64748B;">
-                ${isAdmin 
-                  ? 'Administration may grant or revoke permission allowing the assigned teacher to submit missed attendance.' 
-                  : 'Teacher can only select and submit missed attendance for dates unlocked by Administration.'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
-            <thead>
-              <tr style="border-bottom: 1.5px solid #F1F5F9; color: #64748B; font-weight: 700; text-transform: uppercase; font-size: 0.68rem;">
-                <th style="padding: 0.5rem 0.6rem;">Date</th>
-                <th style="padding: 0.5rem 0.6rem;">Day</th>
-                <th style="padding: 0.5rem 0.6rem;">Scheduled Timing</th>
-                <th style="padding: 0.5rem 0.6rem;">Assigned Faculty</th>
-                <th style="padding: 0.5rem 0.6rem;">Status</th>
-                <th style="padding: 0.5rem 0.6rem; text-align: right;">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${missedDays.map(m => {
-                const isUnlocked = unlocks.includes(`${activeClass?.id}_${m.dateStr}`);
-                return `
-                  <tr style="border-bottom: 1px solid #F8FAFC;">
-                    <td style="padding: 0.6rem; font-weight: 800; color: #0F172A;">
-                      <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444;"></span>
-                        ${formatDate(m.dateStr)}
-                      </span>
-                    </td>
-                    <td style="padding: 0.6rem; color: #475569; font-weight: 600;">${m.dayKey}</td>
-                    <td style="padding: 0.6rem; color: #475569;">
-                      ${formatTime(activeClass?.start_time || '06:00')} – ${formatTime(activeClass?.end_time || '07:00')}
-                    </td>
-                    <td style="padding: 0.6rem; font-weight: 700; color: #0F172A;">
-                      ${activeTeacher?.full_name || 'Assigned Faculty'}
-                    </td>
-                    <td style="padding: 0.6rem;">
-                      ${isUnlocked ? `
-                        <span class="badge badge-active" style="background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; font-weight: 700; font-size: 0.7rem;">
-                          🔓 Admin Unlocked
-                        </span>
-                      ` : `
-                        <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 700; font-size: 0.7rem;">
-                          🔒 Locked (Past Window)
-                        </span>
-                      `}
-                    </td>
-                    <td style="padding: 0.6rem; text-align: right;">
-                      ${isAdmin ? `
-                        ${isUnlocked ? `
-                          <button type="button" class="btn btn-outline btn-xs btn-toggle-lock" data-date="${m.dateStr}" data-action="lock" style="font-weight: 700; color: #DC2626; border-color: #FECACA;">
-                            Close / Lock
-                          </button>
-                        ` : `
-                          <button type="button" class="btn btn-primary btn-xs btn-toggle-lock" data-date="${m.dateStr}" data-action="unlock" style="font-weight: 700; background: #059669; border-color: #047857;">
-                            Allow Missed Attendance
-                          </button>
-                        `}
-                      ` : `
-                        ${isUnlocked ? `
-                          <button type="button" class="btn btn-primary btn-xs btn-teacher-take-missed" data-date="${m.dateStr}" style="font-weight: 700; background: #059669; border-color: #047857;">
-                            Take Missed Attendance
-                          </button>
-                        ` : `
-                          <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 600;">
-                            Requires Admin Permission
-                          </span>
-                        `}
-                      `}
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
   }
 
   // Interactive Date Inspector Popup
@@ -1019,41 +943,31 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       else if (typeof window !== 'undefined') window.location.hash = '#calendar';
     });
 
-    // 7. Table Toggle Lock / Unlock (Admin)
-    container.querySelectorAll('.btn-toggle-lock').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const dateStr = btn.getAttribute('data-date');
-        const action = btn.getAttribute('data-action');
-        const assignedClasses = getAssignedClassesForTeacherAndSection(selectedTeacherId, selectedSectionId);
-        const activeClass = assignedClasses.find(c => c.id === selectedClassroomId) || assignedClasses[0];
+    // 7. Bulk Month Missed Attendance (Admin)
+    container.querySelector('#btn-bulk-unlock-month')?.addEventListener('click', async () => {
+      const assignedClasses = getAssignedClassesForTeacherAndSection(selectedTeacherId, selectedSectionId);
+      const activeClass = assignedClasses.find(c => c.id === selectedClassroomId) || assignedClasses[0];
+      const gridDays = getCalendarGridDays(currentYear, currentMonth, activeClass);
+      const missedDates = gridDays.filter(d => d.isCurrentMonth && d.isMissedAttendance).map(d => d.dateStr);
 
-        if (action === 'unlock') {
-          await db.unlockAttendanceWindow(activeClass?.id, dateStr);
-          toast.success(`Permission granted for ${dateStr}. Assigned faculty can now submit missed attendance.`);
-        } else {
-          await db.lockAttendanceWindow(activeClass?.id, dateStr);
-          toast.info(`Late attendance window closed for ${dateStr}.`);
-        }
+      if (missedDates.length > 0) {
+        await db.unlockAttendanceWindows(activeClass?.id, missedDates);
+        toast.success(`Permission granted for all ${missedDates.length} missed sessions in ${MONTH_NAMES[currentMonth - 1]}.`);
         renderFullUI();
-      });
+      }
     });
 
-    // 8. Table Take Missed Attendance (Teacher)
-    container.querySelectorAll('.btn-teacher-take-missed').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const dateStr = btn.getAttribute('data-date');
-        const assignedClasses = getAssignedClassesForTeacherAndSection(selectedTeacherId, selectedSectionId);
-        const activeClass = assignedClasses.find(c => c.id === selectedClassroomId) || assignedClasses[0];
+    container.querySelector('#btn-bulk-lock-month')?.addEventListener('click', async () => {
+      const assignedClasses = getAssignedClassesForTeacherAndSection(selectedTeacherId, selectedSectionId);
+      const activeClass = assignedClasses.find(c => c.id === selectedClassroomId) || assignedClasses[0];
+      const gridDays = getCalendarGridDays(currentYear, currentMonth, activeClass);
+      const missedDates = gridDays.filter(d => d.isCurrentMonth && d.isMissedAttendance).map(d => d.dateStr);
 
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.setItem('tps_active_att_cls', activeClass?.id);
-          sessionStorage.setItem('tps_active_att_date', dateStr);
-        }
-        if (onNavigate) onNavigate('attendance');
-        else if (typeof window !== 'undefined') window.location.hash = '#attendance';
-      });
+      if (missedDates.length > 0) {
+        await db.lockAttendanceWindows(activeClass?.id, missedDates);
+        toast.info(`Closed / locked all ${missedDates.length} missed sessions in ${MONTH_NAMES[currentMonth - 1]}.`);
+        renderFullUI();
+      }
     });
   }
 
