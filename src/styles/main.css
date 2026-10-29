@@ -6961,3 +6961,848 @@ body.tps-wheel-open {
   right: 0.65rem !important;
 }
 
+/* ============================================================
+   MOBILE DASHBOARD UI — MODERN FINTECH / EDUTECH ERGONOMICS
+   (Inspired by User Reference Designs & Institutional Palette)
+   ============================================================ */
+
+.dash-mobile-view {
+  display: none;
+}
+.dash-desktop-view {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .dash-desktop-view {
+    display: none !important;
+  }
+
+  .dash-mobile-view {
+    display: block !important;
+    width: 100%;
+    box-sizing: border-box;
+    padding-bottom: 5.5rem;
+  }
+
+  /* 1. Mobile Identity & Greeting Bar */
+  .m-dash-header {
+    margin-bottom: 1.15rem;
+  }
+
+  .m-dash-user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .m-dash-avatar-col {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .m-dash-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #0F172A;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    border: 2px solid #FFFFFF;
+    flex-shrink: 0;
+  }
+
+  .m-dash-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .m-dash-status-dot {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #10B981;
+    border: 2px solid #FFFFFF;
+  }
+
+  .m-dash-greeting-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .m-dash-greeting-time {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #64748B;
+    line-height: 1.1;
+  }
+
+  .m-dash-user-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.02em;
+    margin: 2px 0 0 0;
+    line-height: 1.2;
+  }
+
+  .m-dash-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .m-dash-icon-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    color: #0F172A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    transition: all 0.2s ease;
+  }
+
+  .m-dash-icon-btn:active {
+    transform: scale(0.92);
+  }
+
+  .m-dash-badge-pulse {
+    position: absolute;
+    top: 9px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #EF4444;
+    border: 1.5px solid #FFFFFF;
+  }
+
+  /* 2. Executive Dark Contrast Hero Card */
+  .m-hero-card {
+    background: linear-gradient(145deg, #0F172A 0%, #064E3B 100%);
+    border-radius: 22px;
+    padding: 1.35rem 1.25rem;
+    color: #FFFFFF;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 12px 28px -6px rgba(6, 78, 59, 0.45);
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .m-hero-card::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0) 70%);
+    pointer-events: none;
+  }
+
+  .m-hero-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .m-hero-brand-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #E2E8F0;
+    text-transform: uppercase;
+  }
+
+  .m-hero-live-indicator {
+    color: #34D399;
+    font-size: 0.75rem;
+  }
+
+  .m-hero-eye-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: #CBD5E1;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .m-hero-eye-btn:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .m-hero-metric-body {
+    margin-bottom: 1.25rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .m-hero-metric-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #94A3B8;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .m-hero-metric-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .m-hero-big-number {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .m-hero-unit {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #A7F3D0;
+  }
+
+  .m-hero-trend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #6EE7B7;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 9999px;
+  }
+
+  .m-hero-trend-sep {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .m-hero-footer-stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(10px);
+    border-radius: 14px;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    z-index: 1;
+  }
+
+  .m-hero-f-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .m-hero-f-label {
+    font-size: 0.65rem;
+    color: #94A3B8;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .m-hero-f-val {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #FFFFFF;
+  }
+
+  .m-hero-f-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  /* 3. Section Titles & Tags */
+  .m-section-block {
+    margin-bottom: 1.5rem;
+  }
+
+  .m-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    padding: 0 2px;
+  }
+
+  .m-section-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .m-section-tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #64748B;
+    background: #F1F5F9;
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
+
+  .m-section-link {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #059669;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .m-section-link:active {
+    opacity: 0.7;
+  }
+
+  /* 4. Quick Actions 2x2 Bento Grid */
+  .m-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .m-action-tile {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 18px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 104px;
+    box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .m-action-tile:active {
+    transform: scale(0.96);
+    background: #F8FAFC;
+    border-color: #CBD5E1;
+  }
+
+  .m-action-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .m-action-icon-wrap.mint {
+    background: #ECFDF5;
+    color: #059669;
+    border: 1px solid #A7F3D0;
+  }
+
+  .m-action-icon-wrap.blue {
+    background: #EFF6FF;
+    color: #2563EB;
+    border: 1px solid #BFDBFE;
+  }
+
+  .m-action-icon-wrap.amber {
+    background: #FFFBEB;
+    color: #D97706;
+    border: 1px solid #FDE68A;
+  }
+
+  .m-action-icon-wrap.purple {
+    background: #FAF5FF;
+    color: #7C3AED;
+    border: 1px solid #E9D5FF;
+  }
+
+  .m-action-meta {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .m-action-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.2;
+  }
+
+  .m-action-desc {
+    font-size: 0.72rem;
+    color: #64748B;
+    margin-top: 2px;
+  }
+
+  /* 5. Donut Arc Presence Gauge Card */
+  .m-gauge-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 20px;
+    padding: 1.25rem;
+    box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06);
+  }
+
+  .m-gauge-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .m-gauge-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0F172A;
+    margin: 0;
+  }
+
+  .m-gauge-sub {
+    font-size: 0.72rem;
+    color: #64748B;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .m-gauge-badge {
+    background: #ECFDF5;
+    color: #047857;
+    border: 1px solid #A7F3D0;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 9999px;
+  }
+
+  .m-gauge-visual-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 240px;
+    margin: 0.5rem auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .m-gauge-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .m-gauge-center-content {
+    position: absolute;
+    bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .m-gauge-center-val {
+    font-size: 1.85rem;
+    font-weight: 900;
+    color: #0F172A;
+    line-height: 1;
+  }
+
+  .m-gauge-center-lbl {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #64748B;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .m-gauge-legend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid #F1F5F9;
+  }
+
+  .m-gauge-leg-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+  }
+
+  .m-leg-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .m-leg-dot.emerald { background: #059669; }
+  .m-leg-dot.blue { background: #0284C7; }
+  .m-leg-dot.red { background: #EF4444; }
+
+  .m-leg-name {
+    color: #64748B;
+    font-weight: 500;
+  }
+
+  .m-leg-count {
+    color: #0F172A;
+    font-weight: 800;
+  }
+
+  /* 6. Enrolled Residents Carousel */
+  .m-residents-scroll {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    overflow-x: auto;
+    padding: 4px 2px 8px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .m-residents-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .m-res-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.2s ease;
+  }
+
+  .m-res-item:active {
+    transform: scale(0.92);
+  }
+
+  .m-res-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #F1F5F9;
+    border: 2px solid #E2E8F0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0F172A;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+  }
+
+  .m-res-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .m-res-avatar.add {
+    background: #ECFDF5;
+    border: 2px dashed #059669;
+    color: #059669;
+  }
+
+  .m-res-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #0F172A;
+    max-width: 58px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+  }
+
+  .m-res-class {
+    font-size: 0.62rem;
+    color: #64748B;
+    background: #F1F5F9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+
+  /* 7. Gate Pass Mobile Activity Feed */
+  .m-activity-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .m-activity-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .m-activity-card:active {
+    transform: scale(0.97);
+    background: #F8FAFC;
+  }
+
+  .m-act-icon-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .m-act-icon-wrap.green {
+    background: #ECFDF5;
+    color: #059669;
+    border: 1px solid #A7F3D0;
+  }
+
+  .m-act-icon-wrap.amber {
+    background: #FFFBEB;
+    color: #D97706;
+    border: 1px solid #FDE68A;
+  }
+
+  .m-act-icon-wrap.red {
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FECACA;
+  }
+
+  .m-act-meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .m-act-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+
+  .m-act-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0F172A;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .m-act-status {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .m-act-status.away {
+    background: #FFFBEB;
+    color: #D97706;
+    border: 1px solid #FDE68A;
+  }
+
+  .m-act-status.overdue {
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FECACA;
+  }
+
+  .m-act-details {
+    font-size: 0.72rem;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .m-act-details code {
+    font-family: inherit;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  /* 8. Disciplinary Highlight Card */
+  .m-discipline-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 0.95rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .m-discipline-card:active {
+    transform: scale(0.97);
+    background: #F8FAFC;
+  }
+
+  .m-disc-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .m-disc-badge-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .m-disc-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #0F172A;
+    margin: 0;
+  }
+
+  .m-disc-desc {
+    font-size: 0.72rem;
+    color: #64748B;
+    margin: 2px 0 0 0;
+  }
+
+  .m-disc-pill {
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FECACA;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 9999px;
+  }
+
+  /* 9. Floating Bottom Navigation Bar */
+  .m-floating-bottom-nav {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-width: 380px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 9999px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    box-shadow: 0 10px 30px -4px rgba(15, 23, 42, 0.16);
+    z-index: 1000;
+  }
+
+  .m-nav-pill-btn {
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    color: #64748B;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .m-nav-pill-btn.active {
+    background: #ECFDF5;
+    color: #059669;
+    font-weight: 800;
+  }
+
+  .m-nav-pill-btn.active svg {
+    color: #059669;
+    stroke: #059669;
+  }
+
+  .m-nav-pill-btn:active {
+    transform: scale(0.92);
+  }
+}
+
+

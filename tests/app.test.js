@@ -2434,4 +2434,78 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     db.set('tps_programs', [{ id: 'prog-test', name: 'Test Program' }]);
     expect(db._pulledKeysTime.has('tps_programs')).toBe(true);
   });
+
+  it('Renders new executive mobile dashboard with dark hero card, 2x2 bento grid, donut gauge, residents carousel and floating nav', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'abdulhaseebkt2@gmail.com',
+      full_name: 'Haseeb Mubarak',
+      role: 'super_admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const listeners = {};
+    const elements = {};
+
+    function makeMockElement(tag, className = '', id = '') {
+      return {
+        tag,
+        className,
+        id,
+        textContent: '',
+        innerHTML: '',
+        getAttribute: (attr) => (attr === 'data-route' ? 'admissions' : attr === 'data-nav' ? 'dashboard' : null),
+        addEventListener: (event, handler) => {
+          listeners[`${id || className || tag}:${event}`] = handler;
+        }
+      };
+    }
+
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (!elements[sel]) elements[sel] = makeMockElement('div', sel.replace('.', ''), sel.replace('#', ''));
+        return elements[sel];
+      },
+      querySelectorAll: (sel) => [makeMockElement('div', sel.replace('.', ''))]
+    };
+
+    await renderAdminDashboard(container, { onNavigate: () => {} });
+
+    // 1. Verify responsive dual views exist
+    expect(container.innerHTML).toContain('dash-mobile-view');
+    expect(container.innerHTML).toContain('dash-desktop-view');
+
+    // 2. Verify dark executive hero card & eye toggle
+    expect(container.innerHTML).toContain('m-hero-card');
+    expect(container.innerHTML).toContain('m-hero-eye-toggle');
+    expect(container.innerHTML).toContain('THAIBASCHOOL CAMPUS');
+    expect(container.innerHTML).toContain('TOTAL RESIDENTS ENROLLED');
+
+    // 3. Verify 2x2 Bento quick actions
+    expect(container.innerHTML).toContain('m-actions-grid');
+    expect(container.innerHTML).toContain('data-route="admissions"');
+    expect(container.innerHTML).toContain('data-route="attendance"');
+    expect(container.innerHTML).toContain('data-route="leaves"');
+    expect(container.innerHTML).toContain('data-route="timetable"');
+
+    // 4. Verify presence donut arc gauge
+    expect(container.innerHTML).toContain('m-gauge-card');
+    expect(container.innerHTML).toContain('Hostel Presence Radar');
+    expect(container.innerHTML).toContain('m-gauge-svg');
+
+    // 5. Verify residents carousel & activity feed
+    expect(container.innerHTML).toContain('m-residents-scroll');
+    expect(container.innerHTML).toContain('m-dash-add-student-btn');
+    expect(container.innerHTML).toContain('m-activity-feed');
+
+    // 6. Verify floating bottom nav
+    expect(container.innerHTML).toContain('m-floating-bottom-nav');
+    expect(container.innerHTML).toContain('data-nav="dashboard"');
+    expect(container.innerHTML).toContain('data-nav="timetable"');
+    expect(container.innerHTML).toContain('data-nav="attendance"');
+    expect(container.innerHTML).toContain('data-nav="attendance_report"');
+    expect(container.innerHTML).toContain('data-nav="settings"');
+  });
 });
