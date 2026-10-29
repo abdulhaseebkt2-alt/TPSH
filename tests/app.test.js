@@ -1300,6 +1300,64 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(navigatedRoute).toBe('attendance');
   });
 
+  it('Teacher Dashboard Mobile UI: renders 2 cards in a line (square type grid) with all 6 metric cards and floating mobile navigation bar', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000004',
+      email: 'teacher@thaibaschool.edu.in',
+      full_name: 'Rashid Sir',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    let navigatedRoute = null;
+    const pillListeners = {};
+    const container = {
+      innerHTML: '',
+      querySelector: () => ({ addEventListener: () => {} }),
+      querySelectorAll: (sel) => {
+        if (sel === '.m-nav-pill-btn[data-nav]') {
+          return [
+            {
+              getAttribute: (k) => k === 'data-nav' ? 'attendance' : null,
+              addEventListener: (evt, fn) => { pillListeners['attendance'] = fn; }
+            },
+            {
+              getAttribute: (k) => k === 'data-nav' ? 'timetable' : null,
+              addEventListener: (evt, fn) => { pillListeners['timetable'] = fn; }
+            }
+          ];
+        }
+        return [];
+      }
+    };
+
+    await renderTeacherDashboard(container, {
+      onNavigate: (route) => { navigatedRoute = route; }
+    });
+
+    // 1. Grid stats container and 6 balanced metric cards
+    expect(container.innerHTML).toContain('class="grid-stats"');
+    expect(container.innerHTML).toContain("Today's Sessions");
+    expect(container.innerHTML).toContain('Weekly Load');
+    expect(container.innerHTML).toContain('My Classrooms');
+    expect(container.innerHTML).toContain('Students Taught');
+    expect(container.innerHTML).toContain('Exam Grading');
+    expect(container.innerHTML).toContain('Attendance');
+    expect(container.innerHTML).toContain('98.5%');
+
+    // 2. Mobile floating bottom navigation bar
+    expect(container.innerHTML).toContain('m-floating-bottom-nav');
+    expect(container.innerHTML).toContain('data-nav="timetable"');
+    expect(container.innerHTML).toContain('data-nav="attendance"');
+    expect(container.innerHTML).toContain('data-nav="marks"');
+    expect(container.innerHTML).toContain('data-nav="reports"');
+
+    // 3. Navigation interaction via mobile bottom nav pill
+    pillListeners['attendance']?.();
+    expect(navigatedRoute).toBe('attendance');
+  });
+
   it('Attendance module renders big class description card on top with no dropdowns and compact student cards with 2-way switches', async () => {
     updateCurrentUserProfile({
       id: 'd0000000-0000-0000-0000-000000000004',

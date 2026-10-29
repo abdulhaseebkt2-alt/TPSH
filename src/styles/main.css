@@ -1769,7 +1769,8 @@ a {
     align-items: flex-start;
   }
   .grid-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
   }
   .form-grid {
     grid-template-columns: 1fr;
@@ -7802,6 +7803,126 @@ body.tps-wheel-open {
 
   .m-nav-pill-btn:active {
     transform: scale(0.92);
+  }
+
+  /* 10. Teacher Dashboard & Universal 2-Column Square Metric Cards on Mobile */
+  .teacher-dashboard-wrap {
+    padding-bottom: 5.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .teacher-dashboard-wrap .page-header {
+    margin-bottom: 1.25rem !important;
+  }
+
+  .teacher-dashboard-wrap .page-actions {
+    display: flex !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .teacher-dashboard-wrap .page-actions .btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    font-size: 0.8rem !important;
+    padding: 0.6rem 0.8rem !important;
+  }
+
+  /* 2 Cards in a line (Square Type) for Dashboard Metric Cards on Mobile */
+  .grid-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .stat-card {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 18px !important;
+    padding: 0.9rem !important;
+    box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    aspect-ratio: 1 / 1 !important;
+    min-height: 125px !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .stat-card:active {
+    transform: scale(0.96) !important;
+    background: #F8FAFC !important;
+    border-color: #CBD5E1 !important;
+  }
+
+  .stat-card .stat-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 0.35rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .stat-card .stat-title {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    color: #64748B !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    line-height: 1.25 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .stat-card .stat-icon-wrapper {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .stat-card .stat-icon-wrapper svg {
+    width: 17px !important;
+    height: 17px !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    line-height: 1 !important;
+    letter-spacing: -0.02em !important;
+    margin: 0.2rem 0 !important;
+  }
+
+  .stat-card .stat-footer {
+    margin-top: 0 !important;
+    font-size: 0.68rem !important;
+    color: #64748B !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .m-floating-bottom-nav {
+    display: none !important;
   }
 }
 
