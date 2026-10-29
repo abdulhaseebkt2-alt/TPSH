@@ -185,6 +185,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   // Attendance State and "Late Present" tracking
   let attendanceState = {};
+  let studentLateMinutes = {};
   let initialAbsentStudentIds = new Set();
   let hasExistingSession = false;
 
@@ -195,6 +196,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     );
 
     const activeList = getEligibleStudents();
+    studentLateMinutes = {};
 
     if (existingSession && Array.isArray(existingSession.records) && existingSession.records.length > 0) {
       hasExistingSession = true;
@@ -204,10 +206,24 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         []
       );
 
+      const activeCls = classrooms.find(c => c.id === activeClassroomId);
+      const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
+
       activeList.forEach(s => {
         const rec = existingSession.records.find(r => r.student_id === s.id);
         if (rec) {
           attendanceState[s.id] = rec.status;
+          if (rec.status === 'Late Present') {
+            if (rec.late_minutes != null) {
+              studentLateMinutes[s.id] = Number(rec.late_minutes);
+            } else if (existingSession.recorded_at) {
+              const recDate = new Date(existingSession.recorded_at);
+              const recMin = recDate.getHours() * 60 + recDate.getMinutes();
+              studentLateMinutes[s.id] = Math.max(1, recMin - clsStartMin);
+            } else {
+              studentLateMinutes[s.id] = 15;
+            }
+          }
         } else {
           attendanceState[s.id] = 'Absent';
         }
@@ -394,11 +410,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   function renderCompactCardsHtml(canInteract = true) {
     const activeList = getEligibleStudents();
+    const activeCls = classrooms.find(c => c.id === activeClassroomId);
 
     return activeList.map(s => {
       const currentStatus = attendanceState[s.id] || 'Absent';
       const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
       const isLatePresent = currentStatus === 'Late Present';
+      const lateMins = studentLateMinutes[s.id] || 15;
       const isGirl = s.gender === 'Female' || s.gender === 'Girls' || s.gender === 'Girl';
       const genderLabel = isGirl ? 'Girl' : 'Boy';
       const initials = (s.full_name || 'Student')
@@ -412,7 +430,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
 
       return `
-        <div class="attendance-compact-card ${isPresent ? 'is-present' : 'is-absent'}" 
+        <div class="attendance-compact-card ${isPresent ? 'is-present' : 'is-absent'} ${isLatePresent ? 'is-late' : ''}" 
              id="att-card-${s.id}" 
              data-student-id="${s.id}"
              data-student-name="${(s.full_name || '').toLowerCase()}">
@@ -427,16 +445,21 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             `}
           </div>
 
-          <!-- Middle: Name on top, Gender & Class below -->
+          <!-- Middle: Name on top, Gender & Class below + Admin visibility of minutes late -->
           <div class="att-compact-info">
             <span class="att-compact-name">${s.full_name}</span>
             <span class="att-compact-sub">${genderLabel} • ${normalizedCls}</span>
+            ${isLatePresent && isAdmin ? `
+              <div class="att-late-admin-note" id="att-late-note-${s.id}">
+                ⏱️ ${lateMins} min late (Class: ${formatTime(activeCls?.start_time || '06:30')})
+              </div>
+            ` : ''}
           </div>
 
-          <!-- Right: 2-Way Adjustable Switch (Green = Present, Red = Absent) -->
+          <!-- Right: 2-Way Adjustable Switch (Green = Present, Red = Absent, Yellow = Late) -->
           <div class="att-compact-action">
             ${isLatePresent ? `
-              <span class="att-late-badge">Late Present</span>
+              <span class="att-late-badge" id="att-late-badge-${s.id}" title="Late arrival by ${lateMins} min after class started">${lateMins}m late</span>
             ` : ''}
             <button type="button" 
                     class="att-2way-switch ${isPresent ? 'sw-present' : 'sw-absent'} ${isLatePresent ? 'sw-late' : ''}" 
@@ -444,8 +467,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                     role="switch" 
                     aria-checked="${isPresent ? 'true' : 'false'}"
                     ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}
-                    title="${isPresent ? (isLatePresent ? 'Late Present (tap to mark Absent)' : 'Present (tap to mark Absent)') : 'Absent (tap to mark Present)'}">
-              <span class="att-switch-label">${isLatePresent ? 'LATE' : isPresent ? 'P' : 'A'}</span>
+                    title="${isLatePresent ? 'Late Present (L) - tap to mark Absent' : isPresent ? 'Present (P) - tap to mark Late' : 'Absent (A) - tap to mark Present'}">
+              <span class="att-switch-label">${isLatePresent ? 'L' : isPresent ? 'P' : 'A'}</span>
               <span class="att-switch-thumb"></span>
             </button>
           </div>
@@ -457,19 +480,29 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   function toggleStudentSwitch(sid) {
     const currentStatus = attendanceState[sid] || 'Absent';
     const s = students.find(item => item.id === sid);
+    const activeCls = classrooms.find(c => c.id === activeClassroomId);
+    const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const calculatedLateMinutes = Math.max(1, nowMin - clsStartMin);
 
     if (currentStatus === 'Absent') {
-      // Flipping from Absent to Present
-      // If session was previously submitted or student was recorded absent initially:
+      // Flipping from Absent
+      // If student was recorded absent initially in an existing session:
       const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(sid);
       if (wasInitiallyAbsent) {
         attendanceState[sid] = 'Late Present';
-        toast.info(`${s?.full_name || 'Student'} marked as Late Present.`);
+        if (!studentLateMinutes[sid]) studentLateMinutes[sid] = calculatedLateMinutes;
+        toast.info(`${s?.full_name || 'Student'} marked as Late (L) — ${studentLateMinutes[sid]}m late.`);
       } else {
         attendanceState[sid] = 'Present';
       }
+    } else if (currentStatus === 'Present') {
+      // Flipping from Present to Late Present
+      attendanceState[sid] = 'Late Present';
+      if (!studentLateMinutes[sid]) studentLateMinutes[sid] = calculatedLateMinutes;
+      toast.info(`${s?.full_name || 'Student'} marked as Late (L) — ${studentLateMinutes[sid]}m late.`);
     } else {
-      // Flipping from Present / Late Present back to Absent
+      // Flipping from Late Present back to Absent
       attendanceState[sid] = 'Absent';
     }
 
@@ -481,23 +514,27 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const card = container.querySelector(`#att-card-${sid}`);
     if (!card) return;
 
+    const activeCls = classrooms.find(c => c.id === activeClassroomId);
     const currentStatus = attendanceState[sid] || 'Absent';
     const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
     const isLatePresent = currentStatus === 'Late Present';
+    const lateMins = studentLateMinutes[sid] || 15;
 
     card.classList.toggle('is-present', isPresent);
     card.classList.toggle('is-absent', !isPresent);
+    card.classList.toggle('is-late', isLatePresent);
 
     const sw = card.querySelector('.att-2way-switch');
     if (sw) {
-      sw.classList.toggle('sw-present', isPresent);
+      sw.classList.toggle('sw-present', isPresent && !isLatePresent);
       sw.classList.toggle('sw-absent', !isPresent);
       sw.classList.toggle('sw-late', isLatePresent);
       sw.setAttribute('aria-checked', isPresent ? 'true' : 'false');
       const lbl = sw.querySelector('.att-switch-label');
       if (lbl) {
-        lbl.textContent = isLatePresent ? 'LATE' : isPresent ? 'P' : 'A';
+        lbl.textContent = isLatePresent ? 'L' : isPresent ? 'P' : 'A';
       }
+      sw.setAttribute('title', isLatePresent ? 'Late Present (L) - tap to mark Absent' : isPresent ? 'Present (P) - tap to mark Late' : 'Absent (A) - tap to mark Present');
     }
 
     const actionWrap = card.querySelector('.att-compact-action');
@@ -507,11 +544,29 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         if (!lateBadge) {
           lateBadge = document.createElement('span');
           lateBadge.className = 'att-late-badge';
-          lateBadge.textContent = 'Late Present';
+          lateBadge.id = `att-late-badge-${sid}`;
           actionWrap.insertBefore(lateBadge, sw);
         }
+        lateBadge.textContent = `${lateMins}m late`;
+        lateBadge.setAttribute('title', `Late arrival by ${lateMins} min after class started`);
       } else {
         lateBadge?.remove();
+      }
+    }
+
+    const infoWrap = card.querySelector('.att-compact-info');
+    if (infoWrap && isAdmin) {
+      let adminNote = infoWrap.querySelector('.att-late-admin-note');
+      if (isLatePresent) {
+        if (!adminNote) {
+          adminNote = document.createElement('div');
+          adminNote.className = 'att-late-admin-note';
+          adminNote.id = `att-late-note-${sid}`;
+          infoWrap.appendChild(adminNote);
+        }
+        adminNote.innerHTML = `⏱️ ${lateMins} min late (Class: ${formatTime(activeCls?.start_time || '06:30')})`;
+      } else {
+        adminNote?.remove();
       }
     }
   }
@@ -601,9 +656,19 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
       // Mark All Present
       container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
+        const activeCls = classrooms.find(c => c.id === activeClassroomId);
+        const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const minutesLate = Math.max(1, nowMin - clsStartMin);
+
         getEligibleStudents().forEach(s => {
           const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(s.id);
-          attendanceState[s.id] = wasInitiallyAbsent ? 'Late Present' : 'Present';
+          if (wasInitiallyAbsent) {
+            attendanceState[s.id] = 'Late Present';
+            if (!studentLateMinutes[s.id]) studentLateMinutes[s.id] = minutesLate;
+          } else {
+            attendanceState[s.id] = 'Present';
+          }
         });
         updateAllCardsVisual();
         updateCounters();
@@ -635,7 +700,11 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
 
           const records = Object.entries(attendanceState).map(([sid, status]) => {
-            return { student_id: sid, status };
+            return { 
+              student_id: sid, 
+              status,
+              late_minutes: status === 'Late Present' ? (studentLateMinutes[sid] || 15) : null
+            };
           });
 
           const recordedAtIso = new Date().toISOString();

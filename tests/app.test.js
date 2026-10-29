@@ -2093,4 +2093,92 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(adminContainer.innerHTML).toContain('Confirm & Submit Attendance');
     expect(adminContainer.innerHTML).toContain('Admin Override Mode');
   });
+
+  it('Late Attendance UI: right-side button area shows yellow (sw-late), label is short "L", and Admin can see how many minutes late student arrived after class started', async () => {
+    const classId = 'cls-1';
+    const lateSessionDate = '2026-10-16';
+    const studentsInDb = await db.getStudents();
+    const testStudent = studentsInDb[0];
+
+    // Seed existing session with a Late Present student having 25 late minutes
+    await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: classId,
+      session_date: lateSessionDate,
+      teacher_id: 'u-2',
+      teacher_name: 'Rashid Sir',
+      records: [
+        { student_id: testStudent.id, status: 'Late Present', late_minutes: 25 }
+      ]
+    });
+
+    // 1. Admin logs in
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const adminContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(adminContainer, { 
+      onNavigate: () => {}, 
+      initialClassId: classId, 
+      initialDate: lateSessionDate 
+    });
+
+    const html = adminContainer.innerHTML;
+
+    // A. Switch area has yellow class 'sw-late'
+    expect(html).toContain('sw-late');
+
+    // B. Switch label is short 'L' (not 'LATE')
+    expect(html).toContain('>L</span>');
+    expect(html).not.toContain('>LATE</span>');
+
+    // C. Student card has is-late class and late badge with minutes
+    expect(html).toContain('attendance-compact-card');
+    expect(html).toContain('is-late');
+    expect(html).toContain('att-late-badge');
+    expect(html).toContain('25m late');
+
+    // D. Admin visibility of minutes late after class started
+    expect(html).toContain('att-late-admin-note');
+    expect(html).toContain('25 min late');
+    expect(html).toContain('Class:');
+
+    // 2. Teacher logs in to view same session (unlocked)
+    await db.unlockAttendanceWindow(classId, lateSessionDate);
+    updateCurrentUserProfile({
+      id: 'u-2',
+      email: 'teacher@thaibaschool.edu.in',
+      role: 'teacher',
+      approval_status: 'approved',
+      is_super_admin: false
+    });
+
+    const teacherContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(teacherContainer, { 
+      onNavigate: () => {}, 
+      initialClassId: classId, 
+      initialDate: lateSessionDate 
+    });
+
+    const teacherHtml = teacherContainer.innerHTML;
+    // Teacher sees yellow button and short 'L', but administrative detailed note is admin-specific
+    expect(teacherHtml).toContain('sw-late');
+    expect(teacherHtml).toContain('>L</span>');
+    expect(teacherHtml).toContain('25m late');
+  });
 });

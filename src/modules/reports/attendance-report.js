@@ -17,6 +17,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
   const calendar = await db.getAcademicCalendar();
   const leaves = await db.getLeaves();
   const attendanceSessions = await db.getAttendanceRecords();
+  const allStudents = await db.getStudents();
 
   // 2. Prepare eligible teachers list
   const eligibleTeachers = users.filter(u => 
@@ -760,6 +761,61 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
             </p>
           </div>
 
+          <!-- Attendance Session Details & Student Breakdown if Taken -->
+          ${hasAttendanceSession && session && Array.isArray(session.records) ? `
+            <div style="border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.85rem 1rem; background: #FFFFFF;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <span style="font-size: 0.72rem; font-weight: 800; color: #047857; text-transform: uppercase;">
+                    Student Attendance Breakdown
+                  </span>
+                  <div style="font-size: 0.76rem; color: #64748B;">
+                    ${session.records.filter(r => r.status === 'Present').length} Present • 
+                    ${session.records.filter(r => r.status === 'Late Present').length} Late • 
+                    ${session.records.filter(r => r.status === 'Absent').length} Absent
+                  </div>
+                </div>
+                ${isAdmin ? `
+                  <button type="button" class="btn btn-outline btn-xs" id="btn-modal-admin-edit-att" style="font-weight: 700; color: #2563EB; border-color: #BFDBFE;">
+                    ✏️ Edit Attendance (Admin)
+                  </button>
+                ` : ''}
+              </div>
+
+              <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.45rem;">
+                ${session.records.map(r => {
+                  const st = allStudents.find(s => s.id === r.student_id);
+                  const isLate = r.status === 'Late Present';
+                  const isPres = r.status === 'Present';
+                  const lateMin = r.late_minutes || 15;
+                  return `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 8px; background: ${isLate ? '#FFFDF5' : (isPres ? '#F0FDF4' : '#FEF2F2')}; border: 1px solid ${isLate ? '#FDE68A' : (isPres ? '#BBF7D0' : '#FECACA')}; font-size: 0.78rem;">
+                      <div>
+                        <strong style="color: #0F172A;">${st?.full_name || 'Student'}</strong>
+                        ${isLate && isAdmin ? `
+                          <div style="font-size: 0.7rem; color: #D97706; font-weight: 700; margin-top: 1px;">
+                            ⏱️ ${lateMin} min late (Class: ${formatTime(activeClass?.start_time || '06:30')})
+                          </div>
+                        ` : ''}
+                      </div>
+                      <div>
+                        ${isLate ? `
+                          <span class="att-late-badge" style="font-size: 0.7rem;">
+                            L • ${lateMin}m late
+                          </span>
+                        ` : isPres ? `
+                          <span class="badge badge-active" style="font-size: 0.7rem;">P • Present</span>
+                        ` : `
+                          <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-size: 0.7rem;">A • Absent</span>
+                        `}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
           <!-- Missed Attendance Admin / Teacher Governance Bar -->
           ${isMissed ? `
             <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px; padding: 0.85rem 1rem;">
@@ -829,6 +885,19 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
         });
 
         modalBody.querySelector('.btn-modal-take-missed')?.addEventListener('click', () => {
+          close();
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('tps_active_att_cls', activeClass?.id);
+            sessionStorage.setItem('tps_active_att_date', dateStr);
+          }
+          if (onNavigate) {
+            onNavigate('attendance');
+          } else if (typeof window !== 'undefined') {
+            window.location.hash = '#attendance';
+          }
+        });
+
+        modalBody.querySelector('#btn-modal-admin-edit-att')?.addEventListener('click', () => {
           close();
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem('tps_active_att_cls', activeClass?.id);

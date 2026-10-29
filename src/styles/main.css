@@ -3865,14 +3865,52 @@ body.tps-wheel-open {
   color: #FFFFFF;
 }
 
-/* Late Present: Green with amber thumb */
+/* Late Present: YELLOW BUTTON AREA (User directive: "thu button (students rigt side, in attendence window)aria should show as yellow, and late should sow as short as L") */
 .att-2way-switch.sw-late {
-  background-color: #059669;
+  background-color: #F59E0B !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
 }
 
 .att-2way-switch.sw-late .att-switch-thumb {
   transform: translateX(29px);
-  background-color: #FEF08A;
+  background-color: #FFFFFF !important;
+}
+
+.att-2way-switch.sw-late .att-switch-label {
+  left: 8px;
+  right: auto;
+  color: #FFFFFF !important;
+  font-weight: 900;
+  font-size: 0.75rem;
+}
+
+.attendance-compact-card.is-late {
+  border-color: #FDE68A !important;
+  background: #FFFDF5;
+}
+
+.att-late-badge {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.att-late-admin-note {
+  font-size: 0.72rem;
+  color: #D97706;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
 }
 
 .att-switch-thumb {
