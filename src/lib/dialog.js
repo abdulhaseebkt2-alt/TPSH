@@ -2,6 +2,7 @@
 import { initAllWheelTimePickers } from './wheelTimePicker.js';
 
 export function confirmDialog({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', isDanger = false }) {
+  if (typeof document === 'undefined') return Promise.resolve(true);
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay open';

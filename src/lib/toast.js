@@ -3,6 +3,7 @@
 let container = null;
 
 function ensureContainer() {
+  if (typeof document === 'undefined') return null;
   if (!container) {
     container = document.createElement('div');
     container.className = 'toast-container';
@@ -12,7 +13,9 @@ function ensureContainer() {
 }
 
 export function showToast(message, type = 'info', duration = 3500) {
+  if (typeof document === 'undefined') return;
   const c = ensureContainer();
+  if (!c) return;
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   

@@ -2371,6 +2371,60 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(adminHtml).toContain('id="att-admin-teacher-select"');
   });
 
+  it('After submitting attendance, the attendance window which contains students list closes and returns to Timetable Cards', async () => {
+    const classId = 'cls-1';
+    const sessionDate = '2026-10-29';
+
+    // Unlock window for this date
+    await db.unlockAttendanceWindow(classId, sessionDate);
+
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const listeners = {};
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        return {
+          addEventListener: (evt, fn) => {
+            listeners[sel] = fn;
+          }
+        };
+      },
+      querySelectorAll: () => []
+    };
+
+    // Initial render directly into roster view for cls-1
+    await renderAttendanceModule(container, {
+      onNavigate: () => {},
+      initialClassId: classId,
+      initialDate: sessionDate
+    });
+
+    // 1. Initially student roster window is open (contains students list)
+    expect(container.innerHTML).toContain('att-cards-container');
+    expect(container.innerHTML).toContain('attendance-compact-card');
+    expect(container.innerHTML).toContain('id="btn-submit-attendance"');
+
+    // 2. Click Submit Attendance button
+    expect(typeof listeners['#btn-submit-attendance']).toBe('function');
+    await listeners['#btn-submit-attendance']();
+
+    // 3. Verification: The student roster window containing students list has CLOSED
+    expect(container.innerHTML).not.toContain('id="att-cards-container"');
+    expect(container.innerHTML).not.toContain('attendance-compact-card');
+
+    // 4. Returned to Timetable Cards view where this class is marked "Attendance Recorded"
+    expect(container.innerHTML).toContain('teacher-upcoming-card');
+    expect(container.innerHTML).toContain('Attendance Recorded');
+    expect(container.innerHTML).toContain('btn-card-view-details');
+  });
+
   it('Faculty Tenure & Attendance Duties: missed attendance is only shown from assigned date, and ends when removed by admin', async () => {
     const classId = 'cls-1';
     const classrooms = await db.getClassrooms();

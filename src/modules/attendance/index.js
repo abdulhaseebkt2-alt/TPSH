@@ -1027,6 +1027,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     // Back button to Timetable Cards
     container.querySelector('#btn-back-to-cards')?.addEventListener('click', () => {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('tps_active_att_cls');
+        sessionStorage.removeItem('tps_active_att_date');
+      }
       currentView = 'cards';
       renderTimetableCardsUI();
     });
@@ -1144,10 +1148,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
           toast.success(`Attendance submitted! Exact time (${formatTime(new Date().toTimeString().slice(0, 5))}) stored and faculty duty marked Present.`);
           hasExistingSession = true;
-          // Refresh state
-          await loadExistingSessionState();
-          updateCounters(activeList);
-          updateAllCardsVisual(activeList);
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('tps_active_att_cls');
+            sessionStorage.removeItem('tps_active_att_date');
+          }
+          // Close students list window and return to timetable cards view
+          currentView = 'cards';
+          await renderTimetableCardsUI();
         }
       });
     }
