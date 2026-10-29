@@ -6670,6 +6670,18 @@ body.tps-wheel-open {
   font-weight: 700 !important;
 }
 
+/* 5. Faculty Not Assigned Period (Before Assignment or After Admin Removal): NEUTRAL & SOFT */
+.cal-inst-day-cell.is-not-assigned-day {
+  opacity: 0.55 !important;
+}
+.cal-day-circle.is-not-assigned {
+  color: #94A3B8 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+}
+
 /* 4-Corner Row Wrapping Curvature Protection */
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-middle .cal-cell-track,
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-hostel-leave-middle .cal-cell-track,

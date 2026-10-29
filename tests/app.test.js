@@ -2246,4 +2246,46 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(adminHtml).toContain('Administrative Governance');
     expect(adminHtml).toContain('id="att-admin-teacher-select"');
   });
+
+  it('Faculty Tenure & Attendance Duties: missed attendance is only shown from assigned date, and ends when removed by admin', async () => {
+    const classId = 'cls-1';
+    const classrooms = await db.getClassrooms();
+    const cls = classrooms.find(c => c.id === classId);
+    expect(cls).toBeDefined();
+
+    const teacherId = '3ba0d909-6656-43eb-87fb-fe8e30088d55';
+    const assignments = await db.getTeacherAssignments();
+
+    // 1. Historical dates before assignment date (2026-10-01) must NOT be assigned to this teacher
+    const septDate = '2026-09-15';
+    const isAssignedSept = db.isTeacherAssignedOnDate(teacherId, cls, septDate, assignments);
+    expect(isAssignedSept).toBe(false);
+
+    // 2. Active date during assignment (2026-10-15) must be assigned
+    const octDate = '2026-10-15';
+    const isAssignedOct = db.isTeacherAssignedOnDate(teacherId, cls, octDate, assignments);
+    expect(isAssignedOct).toBe(true);
+
+    // 3. Admin removes teacher from classroom on 2026-10-20
+    const removalDate = '2026-10-20';
+    await db.removeTeacherFromClassroom(classId, removalDate);
+
+    const updatedAssignments = await db.getTeacherAssignments();
+    const updatedClassrooms = await db.getClassrooms();
+    const updatedCls = updatedClassrooms.find(c => c.id === classId);
+
+    // Date before or on removal date (2026-10-15) remains historically valid
+    expect(db.isTeacherAssignedOnDate(teacherId, updatedCls, '2026-10-15', updatedAssignments)).toBe(true);
+
+    // Date AFTER removal date (2026-10-25) must NOT be assigned and duties must END
+    expect(db.isTeacherAssignedOnDate(teacherId, updatedCls, '2026-10-25', updatedAssignments)).toBe(false);
+
+    // 4. Restore assignment for subsequent test isolation
+    await db.assignTeacherToClassroom(classId, teacherId, '2026-10-01');
+    const restoredClassrooms = await db.getClassrooms();
+    const restoredCls = restoredClassrooms.find(c => c.id === classId);
+    expect(restoredCls.teacher_id).toBe(teacherId);
+    expect(restoredCls.teacher_assigned_date).toBe('2026-10-01');
+    expect(restoredCls.teacher_removed_date).toBeNull();
+  });
 });

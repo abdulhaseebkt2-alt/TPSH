@@ -51,15 +51,46 @@ const INITIAL_SECTIONS = [
 ];
 
 const INITIAL_CLASSROOMS = [
-  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Htl BB', start_time: '09:39', end_time: '22:07', room_number: '105', capacity: 30, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-9999', section_id: 'sec-hc4', program_id: 'prog-2', name: '9999', start_time: '19:30', end_time: '21:00', room_number: '101', capacity: 35, gender_eligibility: 'Mixed', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
-  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] }
+  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Htl BB', start_time: '09:39', end_time: '22:07', room_number: '105', capacity: 30, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-9999', section_id: 'sec-hc4', program_id: 'prog-2', name: '9999', start_time: '19:30', end_time: '21:00', room_number: '101', capacity: 35, gender_eligibility: 'Mixed', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null }
+];
+
+export const INITIAL_TEACHER_ASSIGNMENTS = [
+  {
+    id: 'asg-1',
+    classroom_id: 'cls-1',
+    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
+    assigned_date: '2026-10-01',
+    removed_date: null
+  },
+  {
+    id: 'asg-2',
+    classroom_id: 'cls-2',
+    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
+    assigned_date: '2026-10-01',
+    removed_date: null
+  },
+  {
+    id: 'asg-4',
+    classroom_id: 'cls-4',
+    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
+    assigned_date: '2026-10-01',
+    removed_date: null
+  },
+  {
+    id: 'asg-7',
+    classroom_id: 'cls-7',
+    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
+    assigned_date: '2026-10-01',
+    removed_date: null
+  }
 ];
 
 const INITIAL_CLASSES = [
@@ -285,6 +316,9 @@ class DatabaseService {
     if (!this.getStorageItem('tps_classrooms')) {
       this.setStorageItem('tps_classrooms', JSON.stringify(INITIAL_CLASSROOMS));
     }
+    if (!this.getStorageItem('tps_teacher_assignments')) {
+      this.setStorageItem('tps_teacher_assignments', JSON.stringify(INITIAL_TEACHER_ASSIGNMENTS));
+    }
     if (!this.getStorageItem('tps_leaves')) {
       this.setStorageItem('tps_leaves', JSON.stringify(INITIAL_LEAVES));
     }
@@ -349,7 +383,7 @@ class DatabaseService {
     }
   }
 
-  async pullCloudKeys(keys = ['tps_programs', 'tps_sections', 'tps_classrooms', 'tps_classroom_assignments']) {
+  async pullCloudKeys(keys = ['tps_programs', 'tps_sections', 'tps_classrooms', 'tps_classroom_assignments', 'tps_teacher_assignments']) {
     if (!supabase || isTestEnv) return;
     try {
       const { data, error } = await supabase.from('app_settings').select('key, value').in('key', keys);
@@ -1076,6 +1110,15 @@ class DatabaseService {
         c.name = c.name.replace(/–\s*category\s*/gi, 'Hall ').replace(/category\s*/gi, 'Class ').trim();
         modified = true;
       }
+      // Ensure faculty assignment tenure tracking is initialized
+      if (c.teacher_id && !c.teacher_assigned_date) {
+        c.teacher_assigned_date = '2026-10-01';
+        modified = true;
+      }
+      if (c.teacher_removed_date === undefined) {
+        c.teacher_removed_date = null;
+        modified = true;
+      }
     });
 
     // Auto-bridge any section that was created into a classroom
@@ -1191,7 +1234,7 @@ class DatabaseService {
     return true;
   }
 
-  async addClassroom({ program_id, section_id, name, start_time, end_time, room_number, capacity, gender_eligibility, teacher_id, days }) {
+  async addClassroom({ program_id, section_id, name, start_time, end_time, room_number, capacity, gender_eligibility, teacher_id, days, teacher_assigned_date, teacher_removed_date }) {
     const classrooms = this.get('tps_classrooms') || [];
     let sections = this.get('tps_sections') || [];
 
@@ -1211,6 +1254,7 @@ class DatabaseService {
       targetSecId = sec.id;
     }
 
+    const todayIso = new Date().toISOString().slice(0, 10);
     const newCls = {
       id: 'cls-' + Date.now(),
       program_id: program_id || (sections.find(s => s.id === targetSecId)?.program_id) || '',
@@ -1222,10 +1266,24 @@ class DatabaseService {
       capacity: capacity ? Number(capacity) : null,
       gender_eligibility: gender_eligibility || 'Mixed',
       teacher_id: teacher_id || '',
+      teacher_assigned_date: teacher_id ? (teacher_assigned_date || todayIso) : null,
+      teacher_removed_date: teacher_removed_date || null,
       days: Array.isArray(days) && days.length > 0 ? days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     };
     classrooms.push(newCls);
     this.set('tps_classrooms', classrooms);
+
+    if (newCls.teacher_id) {
+      let assignments = this.get('tps_teacher_assignments') || [];
+      assignments.push({
+        id: 't-asg-' + Date.now(),
+        classroom_id: newCls.id,
+        teacher_id: newCls.teacher_id,
+        assigned_date: newCls.teacher_assigned_date,
+        removed_date: newCls.teacher_removed_date || null
+      });
+      this.set('tps_teacher_assignments', assignments);
+    }
 
     if (supabase) {
       try {
@@ -1250,9 +1308,67 @@ class DatabaseService {
     const idx = classrooms.findIndex(c => c.id === classroomId);
     if (idx === -1) return null;
 
+    const oldCls = classrooms[idx];
+    const oldTeacherId = oldCls.teacher_id || '';
+    const todayIso = new Date().toISOString().slice(0, 10);
+
     const sanitized = { ...updates };
     if (sanitized.capacity !== undefined) {
       sanitized.capacity = sanitized.capacity ? Number(sanitized.capacity) : null;
+    }
+
+    // Faculty tenure lifecycle tracking:
+    // If teacher assignment changed or removal was explicitly recorded
+    if (sanitized.teacher_id !== undefined && sanitized.teacher_id !== oldTeacherId) {
+      let assignments = this.get('tps_teacher_assignments') || [];
+      const newTeacherId = sanitized.teacher_id;
+
+      // 1. If classroom had an old teacher, close their assignment tenure on removal date
+      if (oldTeacherId) {
+        const removalDate = sanitized.teacher_removed_date || todayIso;
+        const openIdx = assignments.findIndex(a => a.classroom_id === classroomId && a.teacher_id === oldTeacherId && !a.removed_date);
+        if (openIdx >= 0) {
+          assignments[openIdx].removed_date = removalDate;
+        } else {
+          assignments.push({
+            id: 't-asg-' + Date.now() + '-old',
+            classroom_id: classroomId,
+            teacher_id: oldTeacherId,
+            assigned_date: oldCls.teacher_assigned_date || '2026-10-01',
+            removed_date: removalDate
+          });
+        }
+      }
+
+      // 2. If new teacher assigned
+      if (newTeacherId) {
+        sanitized.teacher_assigned_date = sanitized.teacher_assigned_date || todayIso;
+        sanitized.teacher_removed_date = null;
+        assignments.push({
+          id: 't-asg-' + Date.now(),
+          classroom_id: classroomId,
+          teacher_id: newTeacherId,
+          assigned_date: sanitized.teacher_assigned_date,
+          removed_date: null
+        });
+      } else {
+        // Teacher unassigned / removed by admin
+        sanitized.teacher_assigned_date = null;
+        sanitized.teacher_removed_date = sanitized.teacher_removed_date || todayIso;
+      }
+
+      this.set('tps_teacher_assignments', assignments);
+    } else if (sanitized.teacher_removed_date && sanitized.teacher_removed_date !== oldCls.teacher_removed_date) {
+      // Explicit removal date updated
+      let assignments = this.get('tps_teacher_assignments') || [];
+      const currentTeacher = sanitized.teacher_id || oldTeacherId;
+      if (currentTeacher) {
+        const openIdx = assignments.findIndex(a => a.classroom_id === classroomId && a.teacher_id === currentTeacher && !a.removed_date);
+        if (openIdx >= 0) {
+          assignments[openIdx].removed_date = sanitized.teacher_removed_date;
+          this.set('tps_teacher_assignments', assignments);
+        }
+      }
     }
 
     classrooms[idx] = { ...classrooms[idx], ...sanitized };
@@ -1298,6 +1414,78 @@ class DatabaseService {
 
     this.logAudit('DELETE_CLASSROOM', 'classrooms', classroomId, `Deleted classroom ${cls.name}`);
     return true;
+  }
+
+  // --- FACULTY ASSIGNMENT & TENURE MANAGEMENT ---
+  async getTeacherAssignments() {
+    await this.pullCloudKeys(['tps_teacher_assignments']);
+    let assignments = this.get('tps_teacher_assignments');
+    if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+      assignments = [...INITIAL_TEACHER_ASSIGNMENTS];
+      this.set('tps_teacher_assignments', assignments);
+    }
+    return assignments;
+  }
+
+  isTeacherAssignedOnDate(teacherId, classroom, dateStr, allAssignments = null) {
+    if (!teacherId || !classroom || !dateStr) return false;
+
+    const assignments = allAssignments || this.get('tps_teacher_assignments') || INITIAL_TEACHER_ASSIGNMENTS;
+
+    const isMatch = (t1, t2) => {
+      if (!t1 || !t2) return false;
+      if (t1 === t2) return true;
+      // Handle known seeded alias between initial test teacher u-2 and uuid
+      const isTester1 = t1 === 'u-2' || t1 === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || t1 === 'teacher@thaibaschool.edu.in';
+      const isTester2 = t2 === 'u-2' || t2 === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || t2 === 'teacher@thaibaschool.edu.in';
+      return isTester1 && isTester2;
+    };
+
+    // Check historical assignment log entries for this classroom and teacher
+    const classTeacherAssignments = (assignments || []).filter(a => 
+      a.classroom_id === classroom.id && (isMatch(a.teacher_id, teacherId) || (isMatch(classroom.teacher_id, teacherId) && !a.teacher_id))
+    );
+
+    if (classTeacherAssignments.length > 0) {
+      return classTeacherAssignments.some(a => {
+        const start = a.assigned_date || '2026-10-01';
+        const end = a.removed_date || null;
+        if (dateStr < start) return false;
+        if (end && dateStr > end) return false;
+        return true;
+      });
+    }
+
+    // Direct classroom property fallback
+    if (isMatch(classroom.teacher_id, teacherId)) {
+      const start = classroom.teacher_assigned_date || '2026-10-01';
+      const end = classroom.teacher_removed_date || null;
+      if (dateStr < start) return false;
+      if (end && dateStr > end) return false;
+      return true;
+    }
+
+    return false;
+  }
+
+  async assignTeacherToClassroom(classroomId, teacherId, assignedDate = null) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const dateOfAssignment = assignedDate || todayIso;
+    return this.updateClassroom(classroomId, {
+      teacher_id: teacherId,
+      teacher_assigned_date: dateOfAssignment,
+      teacher_removed_date: null
+    });
+  }
+
+  async removeTeacherFromClassroom(classroomId, removalDate = null) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const dateOfRemoval = removalDate || todayIso;
+    return this.updateClassroom(classroomId, {
+      teacher_id: '',
+      teacher_assigned_date: null,
+      teacher_removed_date: dateOfRemoval
+    });
   }
 
   // --- CLASSROOM STUDENT ASSIGNMENTS ---

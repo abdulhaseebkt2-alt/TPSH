@@ -86,6 +86,29 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const cls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
     if (!cls) return { canTake: false, reason: 'Classroom not found' };
 
+    // RULE 0: Faculty tenure check (cannot record attendance before assignment or after removal)
+    const teacherAssignments = await db.getTeacherAssignments();
+    const isAssigned = db.isTeacherAssignedOnDate(user?.id, cls, targetDate, teacherAssignments);
+    if (isTeacher && !isAssigned) {
+      const assignedStart = cls.teacher_assigned_date || '2026-10-01';
+      const removedEnd = cls.teacher_removed_date || null;
+      if (targetDate < assignedStart) {
+        return {
+          canTake: false,
+          status: 'not_assigned_yet',
+          message: `Classroom assignment started on ${formatDate(assignedStart)}. You cannot record attendance for dates prior to assignment.`,
+          badgeClass: 'is-locked-after'
+        };
+      } else if (removedEnd && targetDate > removedEnd) {
+        return {
+          canTake: false,
+          status: 'tenure_ended',
+          message: `Your assignment to ${cls.name} ended on ${formatDate(removedEnd)}. Attendance duties have concluded.`,
+          badgeClass: 'is-locked-after'
+        };
+      }
+    }
+
     const isToday = targetDate === todayIso;
     const isPast = targetDate < todayIso;
 

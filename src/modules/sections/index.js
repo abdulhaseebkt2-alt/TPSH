@@ -589,6 +589,13 @@ export async function renderSectionsModule(container, { onNavigate }) {
             ${teachers.map(t => `<option value="${t.id}">${t.full_name || t.email} (${t.role === 'teacher' ? 'Teacher' : (t.role || 'Staff')})</option>`).join('')}
           </select>
         </div>
+        <div class="form-group" style="margin-bottom: 0.9rem;">
+          <label class="form-label" style="font-size: 0.75rem;">Teacher Assignment Start Date</label>
+          <input type="date" id="cls-assigned-date" class="form-control" style="font-size: 0.8rem;" value="${new Date().toISOString().slice(0, 10)}" />
+          <div style="font-size: 0.7rem; color: #64748B; margin-top: 0.25rem;">
+            Attendance obligations and missed attendance start from this date.
+          </div>
+        </div>
         <div class="form-group" style="margin-bottom: 1rem;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem;">
             <label class="form-label" style="margin-bottom: 0;">Class Days of Week</label>
@@ -673,6 +680,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
           const progId = modalBody.querySelector('#cls-prog-select').value;
           const name = modalBody.querySelector('#cls-name-input').value.trim();
           const teacher_id = modalBody.querySelector('#cls-teacher-select')?.value || '';
+          const teacher_assigned_date = modalBody.querySelector('#cls-assigned-date')?.value || new Date().toISOString().slice(0, 10);
           const days = Array.from(modalBody.querySelectorAll('.cls-day-round-btn.active')).map(b => b.getAttribute('data-day'));
           const start_time = modalBody.querySelector('#cls-start-input').value || '06:30';
           const end_time = modalBody.querySelector('#cls-end-input').value || '07:30';
@@ -694,6 +702,7 @@ export async function renderSectionsModule(container, { onNavigate }) {
             capacity: capacity ? Number(capacity) : null,
             gender_eligibility,
             teacher_id,
+            teacher_assigned_date,
             days
           });
 
@@ -729,11 +738,36 @@ export async function renderSectionsModule(container, { onNavigate }) {
           <input type="text" id="edit-cls-name-input" class="form-control" value="${cls.name}" required />
         </div>
         <div class="form-group" style="margin-bottom: 0.9rem;">
-          <label class="form-label">Assign Teacher (Optional)</label>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+            <label class="form-label" style="margin-bottom: 0;">Assign Teacher (Optional)</label>
+            ${cls.teacher_id ? `
+              <button type="button" class="btn btn-xs btn-outline" id="btn-quick-remove-teacher" style="color: #EF4444; border-color: #FECACA; font-size: 0.72rem; padding: 0.15rem 0.5rem;">
+                ✕ Remove Teacher from Class
+              </button>
+            ` : ''}
+          </div>
           <select id="edit-cls-teacher-select" class="form-control">
             <option value="">-- No Teacher Assigned --</option>
             ${teachers.map(t => `<option value="${t.id}" ${cls.teacher_id === t.id ? 'selected' : ''}>${t.full_name || t.email} (${t.role === 'teacher' ? 'Teacher' : (t.role || 'Staff')})</option>`).join('')}
           </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0.9rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.65rem 0.8rem;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: #1E293B; margin-bottom: 0.35rem;">
+            Faculty Duty Tenure & Attendance Window
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.2rem;">Assignment Start Date</label>
+              <input type="date" id="edit-cls-assigned-date" class="form-control" style="font-size: 0.78rem;" value="${cls.teacher_assigned_date || '2026-10-01'}" />
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.2rem;">Removal / End Date</label>
+              <input type="date" id="edit-cls-removed-date" class="form-control" style="font-size: 0.78rem;" value="${cls.teacher_removed_date || ''}" placeholder="Active" />
+            </div>
+          </div>
+          <div style="font-size: 0.7rem; color: #64748B; margin-top: 0.35rem;">
+            Attendance duties are tracked only between assignment start and removal dates. If removed, duties end immediately on the removal date.
+          </div>
         </div>
         <div class="form-group" style="margin-bottom: 1rem;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem;">
@@ -814,11 +848,23 @@ export async function renderSectionsModule(container, { onNavigate }) {
           modalBody.querySelectorAll('.cls-day-round-btn').forEach(b => b.classList.remove('active'));
         });
 
+        // Quick remove teacher button
+        modalBody.querySelector('#btn-quick-remove-teacher')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          const select = modalBody.querySelector('#edit-cls-teacher-select');
+          if (select) select.value = '';
+          const remInput = modalBody.querySelector('#edit-cls-removed-date');
+          if (remInput) remInput.value = new Date().toISOString().slice(0, 10);
+          toast.info('Teacher marked for removal on today\'s date. Save changes to confirm.');
+        });
+
         modalBody.querySelector('#btn-cancel-modal')?.addEventListener('click', close);
         modalBody.querySelector('#btn-save-edit-classroom')?.addEventListener('click', async () => {
           const progId = modalBody.querySelector('#edit-cls-prog-select').value;
           const name = modalBody.querySelector('#edit-cls-name-input').value.trim();
           const teacher_id = modalBody.querySelector('#edit-cls-teacher-select')?.value || '';
+          const teacher_assigned_date = modalBody.querySelector('#edit-cls-assigned-date')?.value || (teacher_id ? '2026-10-01' : null);
+          const teacher_removed_date = modalBody.querySelector('#edit-cls-removed-date')?.value || (teacher_id ? null : new Date().toISOString().slice(0, 10));
           const days = Array.from(modalBody.querySelectorAll('.cls-day-round-btn.active')).map(b => b.getAttribute('data-day'));
           const start_time = modalBody.querySelector('#edit-cls-start-input').value || '06:30';
           const end_time = modalBody.querySelector('#edit-cls-end-input').value || '07:30';
@@ -840,6 +886,8 @@ export async function renderSectionsModule(container, { onNavigate }) {
             capacity: capacity ? Number(capacity) : null,
             gender_eligibility,
             teacher_id,
+            teacher_assigned_date,
+            teacher_removed_date,
             days
           });
 
