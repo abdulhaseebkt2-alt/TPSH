@@ -3347,6 +3347,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up
       await db.deleteStudent(leaveStudent.id);
       await db.deleteStudent(activeStudent.id);
+      const remainingSessions = (await db.getAttendanceRecords()).filter(s => !(s.classroom_id === 'cls-1' && s.session_date === todayIso));
+      db.set('tps_attendance', remainingSessions);
     });
   });
 
@@ -3665,6 +3667,83 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up test leaves
       await db.deleteFacultyLeave(l1.id);
       await db.deleteFacultyLeave(l2.id);
+    });
+
+    it('2306 - Faculty on Leave: Incapable of taking attendance and suppressed dashboard alerts during leave period', async () => {
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // 1. Create an approved faculty leave for teacher u-2 (Rashid Sir) covering today
+      const todayLeave = await db.applyFacultyLeave({
+        faculty_id: 'u-2',
+        faculty_name: 'Rashid Sir',
+        faculty_email: 'teacher@thaibaschool.edu.in',
+        is_multiple_days: false,
+        start_date: todayStr,
+        end_date: todayStr,
+        departure_time: '08:00',
+        return_time: '17:00',
+        leave_type: 'Official Duty Leave',
+        reason: 'State Education Board Evaluation Duty',
+        status: 'Approved',
+        applied_by: { id: 'u-1', name: 'Super Admin', role: 'super_admin' }
+      });
+
+      // 2. Set current user to Teacher (Rashid Sir)
+      updateCurrentUserProfile({
+        id: 'u-2',
+        email: 'teacher@thaibaschool.edu.in',
+        full_name: 'Rashid Sir',
+        role: 'teacher',
+        approval_status: 'approved',
+        is_super_admin: false
+      });
+
+      // 3. Test Teacher Dashboard when on leave:
+      const dashContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderTeacherDashboard(dashContainer, { onNavigate: () => {} });
+
+      // Verification: Pending attendance count is 0 and officially waived
+      expect(dashContainer.innerHTML).toContain('✓ Attendance officially waived (On Leave)');
+      expect(dashContainer.innerHTML).not.toContain('Sessions pending submission');
+
+      // Verification: Upcoming class card does NOT show alarm / attendance notification
+      expect(dashContainer.innerHTML).toContain('Faculty Leave Active');
+      expect(dashContainer.innerHTML).toContain('State Education Board Evaluation Duty');
+      expect(dashContainer.innerHTML).toContain('Attendance Taking Disabled (On Leave)');
+      expect(dashContainer.innerHTML).not.toContain('Take Attendance →');
+
+      // 4. Test Attendance Module when on leave:
+      const attContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAttendanceModule(attContainer, { onNavigate: () => {} });
+
+      // Verification: Timetable cards display waiver badge and locked button
+      expect(attContainer.innerHTML).toContain('✓ On Approved Leave (Waived)');
+      expect(attContainer.innerHTML).toContain('🔒 Attendance Waived (On Leave)');
+      expect(attContainer.innerHTML).not.toContain('Take Attendance →');
+
+      // 5. Test Attendance Roster View when on leave:
+      const rosterContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAttendanceModule(rosterContainer, { onNavigate: () => {}, initialClassId: 'cls-1' });
+
+      // Verification: Submit button is locked with waiver notice
+      expect(rosterContainer.innerHTML).toContain('🔒 Attendance Waived (Faculty On Approved Leave)');
+      expect(rosterContainer.innerHTML).toContain('Attendance duty is waived by Administration');
+      expect(rosterContainer.innerHTML).not.toContain('Confirm & Submit Attendance');
+
+      // Clean up test leave
+      await db.deleteFacultyLeave(todayLeave.id);
     });
   });
 

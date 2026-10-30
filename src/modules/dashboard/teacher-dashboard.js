@@ -1,6 +1,7 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatTime, formatDaysSingleLetters } from '../../lib/utils.js';
+import { formatTime, formatDate, formatDaysSingleLetters } from '../../lib/utils.js';
+import { toast } from '../../lib/toast.js';
 
 export async function renderTeacherDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -10,14 +11,16 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     exams,
     examSubjects,
     students,
-    attendanceRecords
+    attendanceRecords,
+    facultyLeaves
   ] = await Promise.all([
     db.getClassrooms(),
     db.getPrograms(),
     db.getExams(),
     db.getExamSubjects(),
     db.getStudents(),
-    db.getAttendanceRecords()
+    db.getAttendanceRecords(),
+    db.getFacultyLeaves()
   ]);
 
   // Determine teacher name & assigned classrooms
@@ -85,9 +88,13 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     weeklySlotCount += days.length;
   });
 
-  // Calculate pending attendance for today's scheduled classes
+  // Check if this teacher is currently on authorized faculty leave today
   const todayDateStr = now.toISOString().split('T')[0];
-  const pendingAttendanceCount = todayClasses.filter(c => 
+  const activeFacultyLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
+
+  // Calculate pending attendance for today's scheduled classes
+  // If the teacher is on approved leave today, pending attendance is 0 (duties officially waived, no alert notification)
+  const pendingAttendanceCount = activeFacultyLeaveToday ? 0 : todayClasses.filter(c => 
     !attendanceRecords.some(r => r.classroom_id === c.id && r.session_date === todayDateStr)
   ).length;
 
@@ -111,82 +118,144 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       </div>
     </div>
 
-    <!-- Dedicated "Your upcoming class" Card (Portion Design Spec) -->
-    <div class="teacher-upcoming-card ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}" 
-         id="card-teacher-upcoming-class" 
-         data-cls-id="${displayClass?.id || ''}" 
-         role="button" 
-         tabindex="0"
-         title="Tap to take attendance for ${displayClass?.name || 'Class'}">
-      
-      <!-- Top Portion (Prominent Heading, Icon & Time Badge) -->
-      <div class="upcoming-card-top">
-        <div class="upcoming-card-title-group">
-          <div class="upcoming-card-icon-pill ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}">
-            ${isNowActive ? '🟢' : isSoon ? '🔔' : '⏱️'}
+    <!-- Dedicated "Your upcoming class" Card (Portion Design Spec: Replaced by Authorized Leave Notice when on Leave) -->
+    ${activeFacultyLeaveToday ? `
+      <div class="teacher-upcoming-card is-leave" 
+           id="card-teacher-upcoming-class" 
+           data-on-leave="true"
+           role="button" 
+           tabindex="0"
+           title="You are currently on authorized faculty leave. Attendance duties are officially waived."
+           style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-left: 5px solid #059669; box-shadow: 0 4px 16px rgba(5, 150, 105, 0.08); cursor: pointer;">
+        
+        <!-- Top Portion: Leave Heading, Icon & Waived Status Badge -->
+        <div class="upcoming-card-top">
+          <div class="upcoming-card-title-group">
+            <div class="upcoming-card-icon-pill" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; font-size: 1.25rem;">
+              ✈️
+            </div>
+            <div>
+              <h3 class="upcoming-card-heading" style="color: #065F46;">Faculty Leave Active</h3>
+              <span class="upcoming-card-subtitle" style="color: #047857;">You are on authorized leave today • All attendance duties waived</span>
+            </div>
           </div>
-          <div>
-            <h3 class="upcoming-card-heading">Your upcoming class</h3>
-            <span class="upcoming-card-subtitle">${isNowActive ? 'Class in session now' : isSoon ? `Starts in ${sMin - currentMinutes} mins` : 'Scheduled teaching session'}</span>
+
+          <div class="upcoming-card-status-badge">
+            <span class="badge" style="background: #DCFCE7; color: #15803D; border: 1.5px solid #86EFAC; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+              ✓ Approved Leave
+            </span>
           </div>
         </div>
 
-        <div class="upcoming-card-status-badge">
-          ${isNowActive ? `
-            <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.35rem;">
-              <span class="live-pulse-dot"></span> Live In-Session Now
-            </span>
-          ` : isSoon ? `
-            <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1.5px solid #FCD34D; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-              Starts in ${sMin - currentMinutes} min
-            </span>
-          ` : isLater ? `
-            <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1.5px solid #93C5FD; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-              Today at ${formatTime(displayClass?.start_time)}
-            </span>
-          ` : `
-            <span class="badge" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-              Scheduled Class
-            </span>
-          `}
+        <!-- Clean Divider Line -->
+        <div class="upcoming-divider" style="background: #BBF7D0;"></div>
+
+        <!-- Primary Leave Information -->
+        <div class="upcoming-class-primary">
+          <h4 class="upcoming-class-name" style="color: #0F172A;">${activeFacultyLeaveToday.leave_type || 'Authorized Absence'}</h4>
+          <span class="upcoming-prog-pill" style="background: #DCFCE7; color: #15803D; border: 1px solid #86EFAC;">Duty Waived by Administration</span>
+        </div>
+
+        <div class="upcoming-details-grid">
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Leave Duration</span>
+            <span class="detail-value">${activeFacultyLeaveToday.is_multiple_days ? `${formatDate(activeFacultyLeaveToday.start_date)} to ${formatDate(activeFacultyLeaveToday.end_date)}` : formatDate(activeFacultyLeaveToday.start_date)}</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Permitted Timings</span>
+            <span class="detail-value">${formatTime(activeFacultyLeaveToday.departure_time || '08:00')} – ${formatTime(activeFacultyLeaveToday.return_time || '16:30')}</span>
+          </div>
+          <div class="upcoming-detail-cell" style="grid-column: span 2;">
+            <span class="detail-label">Approved Reason</span>
+            <span class="detail-value" style="font-weight: 500; font-style: italic;">"${activeFacultyLeaveToday.reason || 'Official duty leave'}"</span>
+          </div>
+        </div>
+
+        <!-- Bottom Action: Attendance Disabled -->
+        <div class="upcoming-card-footer" style="display: flex; justify-content: flex-end; align-items: center;">
+          <span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; padding: 0.45rem 1rem; border-radius: 8px; font-weight: 700; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Attendance Taking Disabled (On Leave)
+          </span>
         </div>
       </div>
+    ` : `
+      <div class="teacher-upcoming-card ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}" 
+           id="card-teacher-upcoming-class" 
+           data-cls-id="${displayClass?.id || ''}" 
+           role="button" 
+           tabindex="0"
+           title="Tap to take attendance for ${displayClass?.name || 'Class'}">
+        
+        <!-- Top Portion (Prominent Heading, Icon & Time Badge) -->
+        <div class="upcoming-card-top">
+          <div class="upcoming-card-title-group">
+            <div class="upcoming-card-icon-pill ${isNowActive ? 'is-live' : isSoon ? 'is-soon' : 'is-default'}">
+              ${isNowActive ? '🟢' : isSoon ? '🔔' : '⏱️'}
+            </div>
+            <div>
+              <h3 class="upcoming-card-heading">Your upcoming class</h3>
+              <span class="upcoming-card-subtitle">${isNowActive ? 'Class in session now' : isSoon ? `Starts in ${sMin - currentMinutes} mins` : 'Scheduled teaching session'}</span>
+            </div>
+          </div>
 
-      <!-- Clean Divider Line After "Today at ... PM" Portion -->
-      <div class="upcoming-divider"></div>
+          <div class="upcoming-card-status-badge">
+            ${isNowActive ? `
+              <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span class="live-pulse-dot"></span> Live In-Session Now
+              </span>
+            ` : isSoon ? `
+              <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1.5px solid #FCD34D; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                Starts in ${sMin - currentMinutes} min
+              </span>
+            ` : isLater ? `
+              <span class="badge" style="background: #EFF6FF; color: #1E40AF; border: 1.5px solid #93C5FD; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                Today at ${formatTime(displayClass?.start_time)}
+              </span>
+            ` : `
+              <span class="badge" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                Scheduled Class
+              </span>
+            `}
+          </div>
+        </div>
 
-      <!-- Class Details Directly Inside Card (No Separate Inner Card) -->
-      <div class="upcoming-class-primary">
-        <h4 class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</h4>
-        <span class="upcoming-prog-pill">${targetProgName}</span>
+        <!-- Clean Divider Line After "Today at ... PM" Portion -->
+        <div class="upcoming-divider"></div>
+
+        <!-- Class Details Directly Inside Card (No Separate Inner Card) -->
+        <div class="upcoming-class-primary">
+          <h4 class="upcoming-class-name">${displayClass?.name || 'Classroom Session'}</h4>
+          <span class="upcoming-prog-pill">${targetProgName}</span>
+        </div>
+
+        <div class="upcoming-details-grid">
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Schedule Time</span>
+            <span class="detail-value">${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Classroom / Hall</span>
+            <span class="detail-value">${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Enrolled Roster</span>
+            <span class="detail-value">${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
+          </div>
+          <div class="upcoming-detail-cell">
+            <span class="detail-label">Scheduled Days</span>
+            <span class="detail-value" style="white-space: nowrap;">${formatDaysSingleLetters(displayClass?.days)}</span>
+          </div>
+        </div>
+
+        <!-- Bottom Right Short Action Button -->
+        <div class="upcoming-card-footer">
+          <span class="btn btn-primary btn-sm upcoming-attend-btn">
+            Take Attendance →
+          </span>
+        </div>
       </div>
-
-      <div class="upcoming-details-grid">
-        <div class="upcoming-detail-cell">
-          <span class="detail-label">Schedule Time</span>
-          <span class="detail-value">${formatTime(displayClass?.start_time || '06:30')} – ${formatTime(displayClass?.end_time || '07:30')}</span>
-        </div>
-        <div class="upcoming-detail-cell">
-          <span class="detail-label">Classroom / Hall</span>
-          <span class="detail-value">${displayClass?.room_number ? 'Room ' + displayClass.room_number : 'Campus Hall'}</span>
-        </div>
-        <div class="upcoming-detail-cell">
-          <span class="detail-label">Enrolled Roster</span>
-          <span class="detail-value">${displayClass?.student_ids?.length || totalStudentsTaught} Students</span>
-        </div>
-        <div class="upcoming-detail-cell">
-          <span class="detail-label">Scheduled Days</span>
-          <span class="detail-value" style="white-space: nowrap;">${formatDaysSingleLetters(displayClass?.days)}</span>
-        </div>
-      </div>
-
-      <!-- Bottom Right Short Action Button -->
-      <div class="upcoming-card-footer">
-        <span class="btn btn-primary btn-sm upcoming-attend-btn">
-          Take Attendance →
-        </span>
-      </div>
-    </div>
+    `}
 
     <!-- SECTION 1: Student & Academic -->
     <div class="dash-section-header">
@@ -243,16 +312,24 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <div class="stat-card" data-route="attendance" style="cursor: pointer;">
+      <div class="stat-card" data-route="${activeFacultyLeaveToday ? 'faculty_leaves' : 'attendance'}" style="cursor: pointer;">
         <div class="stat-header">
           <span class="stat-title">Pending Attendance</span>
           <div class="stat-icon-wrapper" style="background: ${pendingAttendanceCount > 0 ? '#FEF2F2' : '#ECFDF5'}; color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'};">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            ${activeFacultyLeaveToday ? `
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            ` : `
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            `}
           </div>
         </div>
         <div class="stat-value" style="color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'}; font-weight: 800;">${pendingAttendanceCount}</div>
         <div class="stat-footer">
-          <span style="color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'}; font-weight: 600;">${pendingAttendanceCount > 0 ? 'Sessions pending submission' : 'All sessions marked'}</span>
+          <span style="color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'}; font-weight: 600;">
+            ${activeFacultyLeaveToday 
+              ? '✓ Attendance officially waived (On Leave)' 
+              : (pendingAttendanceCount > 0 ? 'Sessions pending submission' : 'All sessions marked')}
+          </span>
         </div>
       </div>
 
@@ -401,6 +478,10 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
 
   container.querySelectorAll('.btn-dash-goto-att').forEach(b => {
     b.addEventListener('click', () => {
+      if (activeFacultyLeaveToday) {
+        toast.info(`You are currently on authorized faculty leave (${activeFacultyLeaveToday.leave_type || 'Leave'}). Attendance taking is locked and waived.`);
+        return;
+      }
       const clsId = b.getAttribute('data-cls-id');
       if (clsId && typeof sessionStorage !== 'undefined') {
         sessionStorage.setItem('tps_active_att_cls', clsId);
@@ -409,9 +490,13 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     });
   });
 
-  // Tap on "Your upcoming class" card navigates directly to attendance for that class
+  // Tap on "Your upcoming class" card navigates directly to attendance for that class (unless on approved leave)
   const upcomingCard = container.querySelector('#card-teacher-upcoming-class');
   upcomingCard?.addEventListener('click', () => {
+    if (activeFacultyLeaveToday) {
+      toast.info(`You are currently on authorized faculty leave (${activeFacultyLeaveToday.leave_type || 'Leave'}). Attendance taking is locked and waived.`);
+      return;
+    }
     if (displayClass?.id && typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem('tps_active_att_cls', displayClass.id);
     }

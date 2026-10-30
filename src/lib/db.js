@@ -1661,10 +1661,24 @@ class DatabaseService {
     return false;
   }
 
-  isFacultyOnApprovedLeave(teacherIdOrEmailOrName, dateStr, allFacultyLeaves = null) {
+  isFacultyOnApprovedLeave(teacherIdOrEmailOrName, dateStr, allFacultyLeaves = null, timeStr = null) {
     if (!teacherIdOrEmailOrName || !dateStr) return null;
     const leaves = allFacultyLeaves || this.get('tps_faculty_leaves') || INITIAL_FACULTY_LEAVES;
     if (!Array.isArray(leaves)) return null;
+
+    let targetId = '';
+    let targetEmail = '';
+    let targetName = '';
+
+    if (typeof teacherIdOrEmailOrName === 'object' && teacherIdOrEmailOrName !== null) {
+      targetId = String(teacherIdOrEmailOrName.id || '').trim();
+      targetEmail = String(teacherIdOrEmailOrName.email || '').trim().toLowerCase();
+      targetName = String(teacherIdOrEmailOrName.full_name || teacherIdOrEmailOrName.name || '').trim().toLowerCase();
+    } else {
+      targetId = String(teacherIdOrEmailOrName || '').trim();
+      targetEmail = targetId.toLowerCase();
+      targetName = targetId.toLowerCase();
+    }
 
     const isMatch = (t1, t2) => {
       if (!t1 || !t2) return false;
@@ -1672,6 +1686,7 @@ class DatabaseService {
       const s1 = String(t1).trim().toLowerCase();
       const s2 = String(t2).trim().toLowerCase();
       if (s1 === s2) return true;
+      if (s1.includes(s2) || s2.includes(s1)) return true;
       const isTester1 = s1 === 'u-2' || s1 === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || s1 === 'teacher@thaibaschool.edu.in' || s1.includes('rashid');
       const isTester2 = s2 === 'u-2' || s2 === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || s2 === 'teacher@thaibaschool.edu.in' || s2.includes('rashid');
       return isTester1 && isTester2;
@@ -1679,13 +1694,26 @@ class DatabaseService {
 
     return leaves.find(l => {
       if (l.status !== 'Approved') return false;
-      const matchesFaculty = isMatch(l.faculty_id, teacherIdOrEmailOrName) ||
-                             isMatch(l.faculty_email, teacherIdOrEmailOrName) ||
-                             isMatch(l.faculty_name, teacherIdOrEmailOrName);
+      const matchesFaculty = isMatch(l.faculty_id, targetId) ||
+                             isMatch(l.faculty_email, targetEmail) ||
+                             isMatch(l.faculty_name, targetName) ||
+                             (targetId && isMatch(l.faculty_id, targetId)) ||
+                             (targetEmail && isMatch(l.faculty_email, targetEmail)) ||
+                             (targetName && isMatch(l.faculty_name, targetName));
       if (!matchesFaculty) return false;
       const start = l.start_date;
       const end = l.end_date || l.start_date;
-      return dateStr >= start && dateStr <= end;
+      const inDateRange = dateStr >= start && dateStr <= end;
+      if (!inDateRange) return false;
+
+      // Optional time-window check for single-day leaves if timeStr is supplied
+      if (timeStr && start === end && l.departure_time && l.return_time) {
+        if (timeStr < l.departure_time || timeStr > l.return_time) {
+          return false;
+        }
+      }
+
+      return true;
     }) || null;
   }
 

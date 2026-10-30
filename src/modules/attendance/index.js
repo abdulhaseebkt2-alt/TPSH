@@ -173,6 +173,20 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       }
     }
 
+    // RULE 1-B: Faculty on Approved Leave Check (when no existing attendance recorded)
+    // If the faculty member is currently on authorized leave on targetDate, attendance taking is locked & waived
+    const facultyLeaveOnDate = db.isFacultyOnApprovedLeave(user, targetDate, facultyLeaves);
+    if (!isAdmin && facultyLeaveOnDate) {
+      return {
+        canTake: false,
+        status: 'faculty_on_leave',
+        message: `Attendance Locked: You are on authorized faculty leave on ${formatDate(targetDate)} (${facultyLeaveOnDate.leave_type || 'Leave'}). Attendance duties are waived by Administration.`,
+        badgeClass: 'is-locked-leave',
+        isFacultyOnLeave: true,
+        leaveData: facultyLeaveOnDate
+      };
+    }
+
     // RULE 2: If unlocked by Admin (e.g. for missed attendance):
     if (isUnlockedByAdmin) {
       return {
@@ -511,9 +525,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             );
             const isUnlocked = unlocks.includes(`${cls.id}_${sessionDate}`);
 
+            // Faculty leave check for this class session
+            const facultyLeaveForCls = db.isFacultyOnApprovedLeave(user, sessionDate, facultyLeaves) ||
+                                       (isAdmin ? db.isFacultyOnApprovedLeave(cls.teacher_id, sessionDate, facultyLeaves) : null);
+            const isFacultyOnLeaveForCard = !isAdmin && Boolean(facultyLeaveForCls);
+
             // Live Attendance button rule:
-            // "the button to take attendence should be fade ecept the time of class. so they can enter to the details after the time"
-            const canTakeNow = isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked;
+            // "if any faculty at leave the could not abelee to take attendence at the time of leave"
+            const canTakeNow = !isFacultyOnLeaveForCard && (isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked);
 
             // Enrolled students count
             const enrolledStudents = getEligibleStudents(cls.id);
@@ -524,7 +543,15 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             let cardHeading = 'Scheduled Teaching Session';
             let cardSubtitle = `Meets on ${cls.days?.join(', ')}`;
 
-            if (isLive) {
+            if (isFacultyOnLeaveForCard) {
+              cardHeading = 'Faculty Leave Active';
+              cardSubtitle = `Authorized ${facultyLeaveForCls.leave_type || 'Duty Leave'} • Attendance officially waived`;
+              statusBadgeHtml = `
+                <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                  ✓ On Approved Leave (Waived)
+                </span>
+              `;
+            } else if (isLive) {
               cardHeading = 'Active Class In-Session';
               cardSubtitle = `Live attendance window active • Ends at ${formatTime(cls.end_time)}`;
               statusBadgeHtml = `
@@ -642,15 +669,28 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                     View Details →
                   </button>
 
-                  <!-- Take Attendance Button: Faded except during class time -->
-                  <button type="button" 
-                          class="btn btn-primary btn-sm btn-card-take-att ${canTakeNow ? '' : 'is-faded'}" 
-                          data-cls-id="${cls.id}"
-                          data-can-take="${canTakeNow ? 'true' : 'false'}"
-                          style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #059669; border-color: #047857; ${canTakeNow ? 'box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); cursor: pointer;' : 'opacity: 0.38; filter: grayscale(40%); cursor: not-allowed;'}"
-                          title="${canTakeNow ? 'Take live attendance for this session' : `Attendance window locked outside class hours (${formatTime(cls.start_time)} – ${formatTime(cls.end_time)}). Tap to view class details.`}">
-                    Take Attendance →
-                  </button>
+                  <!-- Take Attendance Button: Disabled/locked if on leave, or faded except during class time -->
+                  ${isFacultyOnLeaveForCard ? `
+                    <button type="button" 
+                            class="btn btn-outline btn-sm btn-card-take-att is-on-leave" 
+                            data-cls-id="${cls.id}"
+                            data-can-take="false"
+                            data-on-leave="true"
+                            disabled
+                            style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #F1F5F9; color: #64748B; border-color: #CBD5E1; opacity: 0.7; cursor: not-allowed;"
+                            title="You are currently on authorized faculty leave. Attendance taking is disabled.">
+                      🔒 Attendance Waived (On Leave)
+                    </button>
+                  ` : `
+                    <button type="button" 
+                            class="btn btn-primary btn-sm btn-card-take-att ${canTakeNow ? '' : 'is-faded'}" 
+                            data-cls-id="${cls.id}"
+                            data-can-take="${canTakeNow ? 'true' : 'false'}"
+                            style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #059669; border-color: #047857; ${canTakeNow ? 'box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); cursor: pointer;' : 'opacity: 0.38; filter: grayscale(40%); cursor: not-allowed;'}"
+                            title="${canTakeNow ? 'Take live attendance for this session' : `Attendance window locked outside class hours (${formatTime(cls.start_time)} – ${formatTime(cls.end_time)}). Tap to view class details.`}">
+                      Take Attendance →
+                    </button>
+                  `}
                 </div>
 
               </div>
@@ -716,10 +756,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       });
     });
 
-    // Card Take Attendance Button (Handles both active and faded state)
+    // Card Take Attendance Button (Handles active, faded, and on-leave states)
     container.querySelectorAll('.btn-card-take-att').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (btn.getAttribute('data-on-leave') === 'true') {
+          toast.warning('Attendance taking is locked because you are currently on authorized faculty leave.');
+          return;
+        }
         const clsId = btn.getAttribute('data-cls-id');
         const canTake = btn.getAttribute('data-can-take') === 'true';
         if (clsId) {
@@ -760,15 +804,17 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
     const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
 
-    const canInteract = canSubmitAction && !isViewOnly && windowState.canTake;
+    // Faculty approved leave check for this class session
+    const assignedTeacherId = activeCls?.teacher_id || (user.role === 'teacher' ? user.id : '');
+    const facultyLeaveRecord = db.isFacultyOnApprovedLeave(user, sessionDate, facultyLeaves) || 
+                               db.isFacultyOnApprovedLeave(assignedTeacherId, sessionDate, facultyLeaves);
+    const isCurrentUserOnLeave = !isAdmin && Boolean(db.isFacultyOnApprovedLeave(user, sessionDate, facultyLeaves));
+
+    const canInteract = canSubmitAction && !isViewOnly && windowState.canTake && !isCurrentUserOnLeave;
     const activeList = getEligibleStudents(activeClassroomId);
     const onLeaveList = activeList.filter(s => isStudentOnLeave(s, sessionDate));
     const onLeaveCount = onLeaveList.length;
     const inClassCount = activeList.length - onLeaveCount;
-
-    // Faculty approved leave check for this class session
-    const assignedTeacherId = activeCls?.teacher_id || (user.role === 'teacher' ? user.id : '');
-    const facultyLeaveRecord = db.isFacultyOnApprovedLeave(assignedTeacherId, sessionDate, facultyLeaves);
 
     container.innerHTML = `
       <div class="attendance-roster-view-container" style="padding-bottom: 2.5rem;">
@@ -911,9 +957,11 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               ? `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`
               : (hasExistingSession && isTeacher
                   ? `* Attendance already submitted on this date. Only Administrators are permitted to edit recorded attendance.`
-                  : (isViewOnly 
-                      ? '* View-only explore mode: Submitting is disabled.' 
-                      : '* Attendance window closed: Session ended.'))}
+                  : (isCurrentUserOnLeave
+                      ? `* You are currently on authorized faculty leave (${facultyLeaveRecord?.leave_type || 'Leave'}). Attendance duty is waived by Administration.`
+                      : (isViewOnly 
+                          ? '* View-only explore mode: Submitting is disabled.' 
+                          : '* Attendance window closed: Session ended.')))}
           </div>
           ${canInteract ? `
             <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
@@ -921,10 +969,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               Confirm & Submit Attendance
             </button>
           ` : `
-            <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px;">
+            <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px; background: #F1F5F9; color: #64748B;">
               ${hasExistingSession && isTeacher
                 ? 'Attendance Already Submitted (Locked for Teacher)'
-                : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed')}
+                : (isCurrentUserOnLeave
+                    ? '🔒 Attendance Waived (Faculty On Approved Leave)'
+                    : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed'))}
             </button>
           `}
         </div>
@@ -1070,6 +1120,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   }
 
   function toggleStudentSwitch(sid, activeList = getEligibleStudents(activeClassroomId)) {
+    const isCurrentUserOnLeave = !isAdmin && Boolean(db.isFacultyOnApprovedLeave(user, sessionDate, facultyLeaves));
+    if (isCurrentUserOnLeave) {
+      toast.warning('Attendance taking is disabled because you are currently on authorized faculty leave.');
+      return;
+    }
+
     const s = students.find(item => item.id === sid);
     if (isStudentOnLeave(s, sessionDate)) {
       toast.warning(`${s?.full_name || 'This student'} is on approved hostel leave. Teachers cannot record attendance.`);
@@ -1339,6 +1395,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
       // Submit attendance
       container.querySelector('#btn-submit-attendance')?.addEventListener('click', async () => {
+        const isCurrentUserOnLeave = !isAdmin && Boolean(db.isFacultyOnApprovedLeave(user, sessionDate, facultyLeaves));
+        if (isCurrentUserOnLeave) {
+          toast.error('Cannot submit attendance: You are on authorized faculty leave.');
+          return;
+        }
+
         const confirmed = await confirmDialog({
           title: 'Confirm Live Attendance Submission',
           message: 'Submit attendance for this class session? This will record student presence, timestamp the exact time, and record your faculty duty attendance.',

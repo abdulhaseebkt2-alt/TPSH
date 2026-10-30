@@ -23,11 +23,12 @@ function parseMinutes(timeStr) {
 
 export async function renderTimetableModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const [classrooms, programs, users, students] = await Promise.all([
+  const [classrooms, programs, users, students, facultyLeaves] = await Promise.all([
     db.getClassrooms(),
     db.getPrograms(),
     db.getUsers(),
-    db.getStudents()
+    db.getStudents(),
+    db.getFacultyLeaves()
   ]);
 
   const isTeacher = user?.role === 'teacher';
@@ -220,8 +221,17 @@ export async function renderTimetableModule(container, { onNavigate }) {
               const isUpcoming = isScheduledToday && currentMinutes < sMin;
               const isClosed = isScheduledToday && currentMinutes > eMin;
 
+              const todayDateStr = now.toISOString().split('T')[0];
+              const isFacultyOnLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
+
               let statusBadgeHtml = '';
-              if (isLive) {
+              if (isFacultyOnLeaveToday && isScheduledToday && !isAdmin) {
+                statusBadgeHtml = `
+                  <span class="upcoming-badge" style="border: 1.5px solid #A7F3D0; color: #065F46; background: #ECFDF5; border-radius: 9999px; padding: 0.32rem 0.95rem; font-size: 0.8rem; font-weight: 700; white-space: nowrap;">
+                    ✓ Duty Waived (On Leave)
+                  </span>
+                `;
+              } else if (isLive) {
                 statusBadgeHtml = `
                   <span class="upcoming-badge" style="display: inline-flex; align-items: center; gap: 0.35rem; border: 1.5px solid #34D399; color: #065F46; background: #D1FAE5; border-radius: 9999px; padding: 0.32rem 0.95rem; font-size: 0.8rem; font-weight: 700; white-space: nowrap;">
                     <span class="live-pulse-dot"></span> Live In-Session
@@ -331,9 +341,16 @@ export async function renderTimetableModule(container, { onNavigate }) {
     `;
 
     // Clicking anywhere on the timetable card enters attendance for that class
+    const todayDateStr = now.toISOString().split('T')[0];
+    const isFacultyOnLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
+
     container.querySelectorAll('.teacher-upcoming-card').forEach(card => {
       card.addEventListener('click', (e) => {
         if (e.target.closest('button')) return;
+        if (isFacultyOnLeaveToday && !isAdmin) {
+          toast.info(`You are currently on authorized faculty leave (${isFacultyOnLeaveToday.leave_type || 'Leave'}). Attendance duties are officially waived.`);
+          return;
+        }
         const clsId = card.getAttribute('data-cls-id');
         if (clsId) {
           sessionStorage.setItem('tps_active_att_cls', clsId);
