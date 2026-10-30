@@ -2711,9 +2711,13 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('Hostel Presence Radar');
     expect(container.innerHTML).toContain('m-gauge-svg');
 
-    // 5. Verify residents carousel & activity feed
+    // 5. Verify students on leave carousel (no enrollment button, only active leaves) & activity feed
     expect(container.innerHTML).toContain('m-residents-scroll');
-    expect(container.innerHTML).toContain('m-dash-add-student-btn');
+    expect(container.innerHTML).toContain('Students on Leave');
+    expect(container.innerHTML).toContain('m-leave-item');
+    expect(container.innerHTML).toContain('m-see-all-leave-residents-btn');
+    expect(container.innerHTML).not.toContain('m-dash-add-student-btn');
+    expect(container.innerHTML).not.toContain('Enrolled Residents');
     expect(container.innerHTML).toContain('m-activity-feed');
 
     // 6. Verify floating bottom nav

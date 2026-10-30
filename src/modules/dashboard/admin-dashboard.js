@@ -62,6 +62,53 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     }
   ];
 
+  // Compile list of students currently on leave for mobile quick status carousel
+  const activeLeavesMap = new Map();
+  (leaves.length > 0 ? leaves : displayLeaves).forEach(l => {
+    if (l.status === 'Away' || l.status === 'Overdue' || (l.status && l.status !== 'Returned')) {
+      if (l.student_id) activeLeavesMap.set(l.student_id, l);
+      if (l.student_name) activeLeavesMap.set(l.student_name.toLowerCase(), l);
+    }
+  });
+
+  const studentsOnLeaveList = [];
+
+  // 1. Students marked 'On Approved Leave' in database
+  students.filter(s => s.status === 'On Approved Leave').forEach(s => {
+    const matchedLeave = activeLeavesMap.get(s.id) || activeLeavesMap.get((s.full_name || '').toLowerCase());
+    const isOverdue = matchedLeave?.status === 'Overdue' || (matchedLeave?.expected_return_date && new Date(matchedLeave.expected_return_date) < new Date());
+    studentsOnLeaveList.push({
+      id: s.id,
+      full_name: s.full_name,
+      school_class: s.school_class || 'STD',
+      photo_url: s.photo_url || null,
+      status: isOverdue ? 'Overdue' : 'On Leave',
+      expected_return_date: matchedLeave?.expected_return_date || null
+    });
+  });
+
+  // 2. Any active gate pass / leave records that might have Active student status or simulated data
+  (leaves.length > 0 ? leaves : displayLeaves).forEach(l => {
+    if (l.status === 'Away' || l.status === 'Overdue') {
+      const alreadyInList = studentsOnLeaveList.some(item => 
+        (l.student_id && item.id === l.student_id) || 
+        (l.student_name && item.full_name.toLowerCase() === l.student_name.toLowerCase())
+      );
+      if (!alreadyInList) {
+        const studentObj = students.find(s => s.id === l.student_id || (s.full_name && l.student_name && s.full_name.toLowerCase() === l.student_name.toLowerCase()));
+        const isOverdue = l.status === 'Overdue' || (l.expected_return_date && new Date(l.expected_return_date) < new Date());
+        studentsOnLeaveList.push({
+          id: l.student_id || studentObj?.id || 'leave-' + (l.leave_register_number || Math.random()),
+          full_name: l.student_name || studentObj?.full_name || 'Resident',
+          school_class: studentObj?.school_class || 'STD',
+          photo_url: studentObj?.photo_url || null,
+          status: isOverdue ? 'Overdue' : 'On Leave',
+          expected_return_date: l.expected_return_date || null
+        });
+      }
+    }
+  });
+
   const displayName = user?.full_name || 'Haseeb Mubarak';
   const avatarLetter = (displayName || 'A')[0].toUpperCase();
   const presentOnCampusCount = Math.max(0, activeStudents.length - studentsOnLeave);
@@ -251,33 +298,36 @@ export async function renderAdminDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- 5. Quick Student Access / Residents Facepile (References 1 & 4) -->
+      <!-- 5. Students Currently on Leave Carousel -->
       <div class="m-section-block">
         <div class="m-section-header">
-          <h3 class="m-section-title">Enrolled Residents</h3>
-          <a href="javascript:void(0)" class="m-section-link" id="m-see-all-students-btn">Directory →</a>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 class="m-section-title">Students on Leave</h3>
+            <span class="m-leave-count-pill">${studentsOnLeaveList.length}</span>
+          </div>
+          <a href="javascript:void(0)" class="m-section-link" id="m-see-all-leave-residents-btn">Leave Register →</a>
         </div>
 
         <div class="m-residents-scroll">
-          <div class="m-res-item add-btn" id="m-dash-add-student-btn">
-            <div class="m-res-avatar add">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+          ${studentsOnLeaveList.length === 0 ? `
+            <div style="padding: 12px 16px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; color: #166534; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; gap: 8px; width: 100%;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span>All residents currently on campus. Zero active leaves.</span>
             </div>
-            <span class="m-res-name">New</span>
-          </div>
-
-          ${students.slice(0, 10).map(s => {
+          ` : studentsOnLeaveList.map(s => {
             const photo = s.photo_url;
             const firstName = (s.full_name || 'Student').split(' ')[0];
+            const isOverdue = s.status === 'Overdue';
             return `
-              <div class="m-res-item" data-route="students" data-student-id="${s.id}">
-                <div class="m-res-avatar">
-                  ${photo ? `<img src="${photo}" alt="${s.full_name}" />` : `<span>${(firstName[0] || 'S').toUpperCase()}</span>`}
+              <div class="m-res-item m-leave-item" data-route="leaves" data-student-id="${s.id}" title="${s.full_name} (${s.status})">
+                <div class="m-res-avatar-wrap">
+                  <div class="m-res-avatar ${isOverdue ? 'overdue' : 'on-leave'}">
+                    ${photo ? `<img src="${photo}" alt="${s.full_name}" />` : `<span>${(firstName[0] || 'S').toUpperCase()}</span>`}
+                  </div>
+                  <span class="m-res-badge-dot ${isOverdue ? 'dot-red' : 'dot-blue'}"></span>
                 </div>
                 <span class="m-res-name">${firstName}</span>
-                <span class="m-res-class">${s.school_class || 'STD'}</span>
+                <span class="m-res-status-pill ${isOverdue ? 'status-overdue' : 'status-leave'}">${isOverdue ? 'Overdue' : 'On Leave'}</span>
               </div>
             `;
           }).join('')}
@@ -674,13 +724,13 @@ export async function renderAdminDashboard(container, { onNavigate }) {
 
   container.querySelectorAll('.m-res-item[data-route]').forEach(item => {
     item.addEventListener('click', () => {
-      onNavigate('students');
+      const r = item.getAttribute('data-route') || 'leaves';
+      onNavigate(r);
     });
   });
 
   container.querySelector('.m-discipline-card[data-route]')?.addEventListener('click', () => onNavigate('discipline'));
-  container.querySelector('#m-dash-add-student-btn')?.addEventListener('click', () => onNavigate('admissions'));
-  container.querySelector('#m-see-all-students-btn')?.addEventListener('click', () => onNavigate('students'));
+  container.querySelector('#m-see-all-leave-residents-btn')?.addEventListener('click', () => onNavigate('leaves'));
   container.querySelector('#m-see-all-leaves-btn')?.addEventListener('click', () => onNavigate('leaves'));
   container.querySelector('#m-dash-bell-btn')?.addEventListener('click', () => onNavigate('notices'));
 

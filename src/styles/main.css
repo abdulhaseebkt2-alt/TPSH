@@ -7566,6 +7566,12 @@ body.tps-wheel-open {
     transform: scale(0.92);
   }
 
+  .m-res-avatar-wrap {
+    position: relative;
+    width: 52px;
+    height: 52px;
+  }
+
   .m-res-avatar {
     width: 52px;
     height: 52px;
@@ -7588,6 +7594,47 @@ body.tps-wheel-open {
     object-fit: cover;
   }
 
+  .m-res-avatar.on-leave {
+    border: 2px solid #2563EB;
+    background: #EFF6FF;
+    color: #1D4ED8;
+  }
+
+  .m-res-avatar.overdue {
+    border: 2px solid #DC2626;
+    background: #FEF2F2;
+    color: #B91C1C;
+  }
+
+  .m-res-badge-dot {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #FFFFFF;
+    box-sizing: border-box;
+  }
+
+  .m-res-badge-dot.dot-blue {
+    background: #2563EB;
+  }
+
+  .m-res-badge-dot.dot-red {
+    background: #DC2626;
+  }
+
+  .m-leave-count-pill {
+    background: #EFF6FF;
+    color: #2563EB;
+    border: 1px solid #BFDBFE;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+  }
+
   .m-res-avatar.add {
     background: #ECFDF5;
     border: 2px dashed #059669;
@@ -7598,11 +7645,33 @@ body.tps-wheel-open {
     font-size: 0.72rem;
     font-weight: 600;
     color: #0F172A;
-    max-width: 58px;
+    max-width: 60px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: center;
+  }
+
+  .m-res-status-pill {
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    line-height: 1.2;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+  }
+
+  .m-res-status-pill.status-leave {
+    background: #EFF6FF;
+    color: #2563EB;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+  }
+
+  .m-res-status-pill.status-overdue {
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid rgba(220, 38, 38, 0.25);
   }
 
   .m-res-class {
