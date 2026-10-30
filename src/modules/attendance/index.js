@@ -19,12 +19,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
 
-  const [allPrograms, allClassrooms, students, users, leaves] = await Promise.all([
+  const [allPrograms, allClassrooms, students, users, leaves, facultyLeaves] = await Promise.all([
     db.getPrograms(),
     db.getClassrooms(),
     db.getStudents(),
     db.getUsers(),
-    db.getLeaves()
+    db.getLeaves(),
+    db.getFacultyLeaves()
   ]);
 
   // Eligible teachers list for Admin filter
@@ -745,6 +746,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const onLeaveCount = onLeaveList.length;
     const inClassCount = activeList.length - onLeaveCount;
 
+    // Faculty approved leave check for this class session
+    const assignedTeacherId = activeCls?.teacher_id || (user.role === 'teacher' ? user.id : '');
+    const facultyLeaveRecord = db.isFacultyOnApprovedLeave(assignedTeacherId, sessionDate, facultyLeaves);
+
     container.innerHTML = `
       <div class="attendance-roster-view-container" style="padding-bottom: 2.5rem;">
         
@@ -762,6 +767,23 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             </button>
           </div>
         </div>
+
+        ${facultyLeaveRecord ? `
+          <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: 12px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              <div style="width: 32px; height: 32px; border-radius: 8px; background: #D1FAE5; color: #059669; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <div>
+                <strong style="color: #065F46; font-size: 0.88rem; display: block;">Authorized Faculty Leave</strong>
+                <span style="font-size: 0.78rem; color: #047857;">${facultyLeaveRecord.faculty_name} has authorized ${facultyLeaveRecord.leave_type} (${formatTime(facultyLeaveRecord.departure_time || '08:00')} – ${formatTime(facultyLeaveRecord.return_time || '16:30')}). Attendance is officially waived by Administration.</span>
+              </div>
+            </div>
+            <span class="badge" style="background: #D1FAE5; color: #065F46; border: 1px solid #6EE7B7; font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 9999px;">
+              ✓ Approved Waiver
+            </span>
+          </div>
+        ` : ''}
 
         <!-- BIG CLASS DESCRIPTION CARD ON TOP (NO DROPDOWNS SPEC) -->
         <div class="att-big-class-card" id="att-big-class-card">

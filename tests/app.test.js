@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
-import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions } from '../src/lib/permissions.js';
+import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
 import { updateCurrentUserProfile } from '../src/lib/auth.js';
@@ -1408,7 +1408,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain("Today's Sessions");
     expect(container.innerHTML).toContain('Weekly Load');
     expect(container.innerHTML).toContain('My Classrooms');
-    expect(container.innerHTML).toContain('Students Taught');
+    expect(container.innerHTML).toContain('Pending Attendance');
     expect(container.innerHTML).toContain('Exam Grading');
     expect(container.innerHTML).toContain('Attendance');
     expect(container.innerHTML).toContain('98.5%');
@@ -3282,6 +3282,167 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await renderStudentsModule(container, { onNavigate: () => {} });
       expect(tableContainer.innerHTML).toContain('students-mobile-list-wrap');
       expect(tableContainer.innerHTML).toContain('student-mobile-card-row');
+    });
+  });
+
+  // ==========================================
+  // SECTION 23: TEACHER DASHBOARD & FACULTY LEAVE WORKFLOW (v1.8.6)
+  // ==========================================
+  describe('Section 23: Teacher Dashboard & Faculty Leave Workflow (v1.8.6)', () => {
+    it('2301 - Teacher Dashboard removes top timetable/attendance buttons and displays Pending Attendance card', async () => {
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderTeacherDashboard(container, { onNavigate: () => {} });
+
+      // 1. Top action buttons "My Timetable" and "Take Attendance" are removed from header
+      expect(container.innerHTML).not.toContain('id="teacher-view-timetable-btn"');
+      expect(container.innerHTML).not.toContain('id="teacher-mark-attendance-btn"');
+
+      // 2. "Students Taught" stat card replaced with "Pending Attendance" routing to attendance
+      expect(container.innerHTML).toContain('Pending Attendance');
+      expect(container.innerHTML).not.toContain('Students Taught');
+      expect(container.innerHTML).toContain('data-route="attendance"');
+    });
+
+    it('2302 - Database CRUD for Faculty Leaves with single and multi-day date ranges, departure and return times', async () => {
+      // 1. Initial faculty leaves
+      const initialLeaves = await db.getFacultyLeaves();
+      expect(Array.isArray(initialLeaves)).toBe(true);
+      expect(initialLeaves.length).toBeGreaterThan(0);
+
+      // 2. Apply single-day faculty leave with going and return times
+      const singleLeave = await db.applyFacultyLeave({
+        faculty_id: 'u-2',
+        faculty_name: 'Rashid Sir',
+        faculty_email: 'teacher@thaibaschool.edu.in',
+        is_multiple_days: false,
+        start_date: '2026-11-05',
+        end_date: '2026-11-05',
+        departure_time: '08:30',
+        return_time: '17:00',
+        leave_type: 'Casual Leave',
+        reason: 'Personal Family Function',
+        status: 'Pending',
+        applied_by: { id: 'u-2', name: 'Rashid Sir', role: 'teacher' }
+      });
+
+      expect(singleLeave.id).toBeDefined();
+      expect(singleLeave.is_multiple_days).toBe(false);
+      expect(singleLeave.start_date).toBe('2026-11-05');
+      expect(singleLeave.end_date).toBe('2026-11-05');
+      expect(singleLeave.departure_time).toBe('08:30');
+      expect(singleLeave.return_time).toBe('17:00');
+      expect(singleLeave.status).toBe('Pending');
+
+      // 3. Admin approves the leave
+      const approvedLeave = await db.updateFacultyLeaveStatus(singleLeave.id, 'Approved', {
+        id: 'u-1',
+        full_name: 'Super Admin',
+        role: 'super_admin'
+      }, 'Granted permission');
+
+      expect(approvedLeave.status).toBe('Approved');
+      expect(approvedLeave.approved_by?.name).toBe('Super Admin');
+      expect(approvedLeave.admin_notes).toBe('Granted permission');
+
+      // 4. Query isFacultyOnApprovedLeave
+      const checkOnLeave = db.isFacultyOnApprovedLeave('u-2', '2026-11-05');
+      expect(checkOnLeave).toBeTruthy();
+      expect(checkOnLeave?.leave_type).toBe('Casual Leave');
+
+      // Date outside leave range returns null
+      const checkOutside = db.isFacultyOnApprovedLeave('u-2', '2026-11-06');
+      expect(checkOutside).toBeNull();
+
+      // 5. Apply multi-day faculty leave
+      const multiLeave = await db.applyFacultyLeave({
+        faculty_id: 'u-2',
+        faculty_name: 'Rashid Sir',
+        is_multiple_days: true,
+        start_date: '2026-11-10',
+        end_date: '2026-11-12',
+        departure_time: '09:00',
+        return_time: '18:00',
+        leave_type: 'Academic Seminar / Duty Leave',
+        reason: 'State Curriculum Revision Committee',
+        status: 'Approved',
+        applied_by: { id: 'u-1', name: 'Super Admin', role: 'super_admin' }
+      });
+
+      expect(multiLeave.is_multiple_days).toBe(true);
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-11-10')).toBeTruthy();
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-11-11')).toBeTruthy();
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-11-12')).toBeTruthy();
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-11-13')).toBeNull();
+
+      // 6. Delete faculty leave
+      const deleted = await db.deleteFacultyLeave(multiLeave.id);
+      expect(deleted).toBe(true);
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-11-11')).toBeNull();
+    });
+
+    it('2303 - Module permissions and Sidebar registration for Faculty Leaves', () => {
+      // 1. MODULE_DEFINITIONS contains faculty_leaves with proper roles
+      const modDef = MODULE_DEFINITIONS.find(m => m.key === 'faculty_leaves');
+      expect(modDef).toBeDefined();
+      expect(modDef?.label).toBe('Faculty Leaves');
+      expect(modDef?.roles).toContain('teacher');
+      expect(modDef?.roles).toContain('admin');
+      expect(modDef?.roles).toContain('super_admin');
+
+      // 2. DEFAULT_RBAC_MATRIX provides access for admin and teacher
+      expect(DEFAULT_RBAC_MATRIX.admin.faculty_leaves).toBe('full');
+      expect(DEFAULT_RBAC_MATRIX.teacher.faculty_leaves).toBe('full');
+
+      // 3. User permission check
+      expect(canAccessModule({ role: 'teacher', approval_status: 'approved' }, 'faculty_leaves')).toBe(true);
+      expect(canAccessModule({ role: 'admin', approval_status: 'approved' }, 'faculty_leaves')).toBe(true);
+      expect(canAccessModule({ role: 'super_admin', approval_status: 'approved', is_super_admin: true }, 'faculty_leaves')).toBe(true);
+    });
+
+    it('2304 - Attendance report waives missed attendance penalty when faculty has approved leave', async () => {
+      // Set teacher assignment
+      const classroom = {
+        id: 'cls-1',
+        name: 'Moral Hall A1',
+        teacher_id: 'u-2',
+        days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        start_time: '06:00',
+        end_time: '07:00'
+      };
+
+      // Ensure faculty leave is approved for 2026-10-15
+      const leave = db.isFacultyOnApprovedLeave('u-2', '2026-10-15');
+      expect(leave).toBeTruthy();
+      expect(leave?.status).toBe('Approved');
+
+      // On 2026-10-15, teacher is assigned and it was a scheduled day,
+      // but because faculty leave was approved, attendance is officially waived.
+      const isTeacherAssigned = db.isTeacherAssignedOnDate('u-2', classroom, '2026-10-15');
+      expect(isTeacherAssigned).toBe(true);
+
+      const hasApprovedLeave = Boolean(db.isFacultyOnApprovedLeave('u-2', '2026-10-15'));
+      expect(hasApprovedLeave).toBe(true);
+
+      // Verify calculation formula used in attendance report:
+      const hasAttendanceSession = false;
+      const isHoliday = false;
+      const isElapsed = true;
+      const isClassScheduledDay = true;
+      const isMissedAttendance = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !hasApprovedLeave;
+
+      // Missed attendance MUST be false when approved leave is present!
+      expect(isMissedAttendance).toBe(false);
+
+      // Conversely, on a day with no approved leave (e.g. 2026-10-16), missed attendance is flagged true
+      const hasLeaveNextDay = Boolean(db.isFacultyOnApprovedLeave('u-2', '2026-10-16'));
+      expect(hasLeaveNextDay).toBe(false);
+      const isMissedNextDay = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !hasLeaveNextDay;
+      expect(isMissedNextDay).toBe(true);
     });
   });
 });

@@ -164,6 +164,28 @@ export const INITIAL_ACADEMIC_CALENDAR = {
   ]
 };
 
+export const INITIAL_FACULTY_LEAVES = [
+  {
+    id: 'fl-1',
+    faculty_id: 'u-2',
+    faculty_name: 'Rashid Sir',
+    faculty_email: 'teacher@thaibaschool.edu.in',
+    is_multiple_days: false,
+    start_date: '2026-10-15',
+    end_date: '2026-10-15',
+    departure_time: '08:30',
+    return_time: '16:30',
+    leave_type: 'Casual Leave',
+    reason: 'Attending University Educational Seminar & Curriculum Workshop',
+    status: 'Approved',
+    applied_by: { id: 'u-2', name: 'Rashid Sir', role: 'teacher' },
+    applied_at: '2026-10-14T10:00:00.000Z',
+    approved_by: { id: 'u-1', name: 'Abdul Haseeb', role: 'super_admin' },
+    approved_at: '2026-10-14T14:30:00.000Z',
+    admin_notes: 'Approved for institutional training representation.'
+  }
+];
+
 export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
   if (isTestEnv) {
     const cleanId = String(identifier || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -375,6 +397,9 @@ class DatabaseService {
     if (!this.getStorageItem('tps_academic_calendar')) {
       this.setStorageItem('tps_academic_calendar', JSON.stringify(INITIAL_ACADEMIC_CALENDAR));
     }
+    if (!this.getStorageItem('tps_faculty_leaves')) {
+      this.setStorageItem('tps_faculty_leaves', JSON.stringify(INITIAL_FACULTY_LEAVES));
+    }
     if (!this.getStorageItem('tps_users')) {
       this.setStorageItem('tps_users', JSON.stringify([
         { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true },
@@ -422,6 +447,7 @@ class DatabaseService {
     'tps_classroom_assignments',
     'tps_teacher_assignments',
     'tps_leaves',
+    'tps_faculty_leaves',
     'tps_hostel_rooms',
     'tps_hostel_beds',
     'tps_discipline',
@@ -1562,6 +1588,104 @@ class DatabaseService {
       teacher_assigned_date: null,
       teacher_removed_date: dateOfRemoval
     });
+  }
+
+  // --- FACULTY LEAVES & DUTY ABSENCE ---
+  async getFacultyLeaves() {
+    await this.pullCloudKeys(['tps_faculty_leaves']);
+    let leaves = this.get('tps_faculty_leaves');
+    if (!leaves || !Array.isArray(leaves) || leaves.length === 0) {
+      leaves = [...INITIAL_FACULTY_LEAVES];
+      this.set('tps_faculty_leaves', leaves);
+    }
+    return leaves;
+  }
+
+  async applyFacultyLeave(leaveData) {
+    const leaves = await this.getFacultyLeaves();
+    const nowIso = new Date().toISOString();
+    const newLeave = {
+      id: 'fl-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      faculty_id: leaveData.faculty_id || 'u-2',
+      faculty_name: leaveData.faculty_name || 'Faculty Member',
+      faculty_email: leaveData.faculty_email || '',
+      is_multiple_days: Boolean(leaveData.is_multiple_days),
+      start_date: leaveData.start_date,
+      end_date: leaveData.is_multiple_days ? (leaveData.end_date || leaveData.start_date) : leaveData.start_date,
+      departure_time: leaveData.departure_time || '08:00',
+      return_time: leaveData.return_time || '16:30',
+      leave_type: leaveData.leave_type || 'Casual Leave',
+      reason: leaveData.reason || '',
+      status: leaveData.status || 'Pending',
+      applied_by: leaveData.applied_by || { name: 'Staff' },
+      applied_at: nowIso,
+      approved_by: leaveData.approved_by || (leaveData.status === 'Approved' ? leaveData.applied_by : null),
+      approved_at: leaveData.status === 'Approved' ? nowIso : null,
+      admin_notes: leaveData.admin_notes || ''
+    };
+    leaves.unshift(newLeave);
+    this.set('tps_faculty_leaves', leaves);
+    this.logAudit('FACULTY_LEAVE_APPLIED', 'faculty_leaves', newLeave.id, `Applied leave for ${newLeave.faculty_name}: ${newLeave.leave_type}`, leaveData.applied_by?.name || 'staff');
+    return newLeave;
+  }
+
+  async updateFacultyLeaveStatus(leaveId, status, approverUser, adminNotes = '') {
+    const leaves = await this.getFacultyLeaves();
+    const target = leaves.find(l => l.id === leaveId);
+    if (!target) return null;
+    target.status = status;
+    target.approved_by = approverUser ? {
+      id: approverUser.id,
+      name: approverUser.full_name || approverUser.name || 'Admin',
+      role: approverUser.role || 'admin'
+    } : null;
+    target.approved_at = new Date().toISOString();
+    if (adminNotes) {
+      target.admin_notes = adminNotes;
+    }
+    this.set('tps_faculty_leaves', leaves);
+    this.logAudit('FACULTY_LEAVE_STATUS_UPDATED', 'faculty_leaves', leaveId, `Leave status updated to ${status} by ${target.approved_by?.name || 'admin'}`, approverUser?.name || 'admin');
+    return target;
+  }
+
+  async deleteFacultyLeave(leaveId) {
+    let leaves = await this.getFacultyLeaves();
+    const initialLen = leaves.length;
+    leaves = leaves.filter(l => l.id !== leaveId);
+    if (leaves.length !== initialLen) {
+      this.set('tps_faculty_leaves', leaves);
+      this.logAudit('FACULTY_LEAVE_DELETED', 'faculty_leaves', leaveId, 'Removed faculty leave record');
+      return true;
+    }
+    return false;
+  }
+
+  isFacultyOnApprovedLeave(teacherIdOrEmailOrName, dateStr, allFacultyLeaves = null) {
+    if (!teacherIdOrEmailOrName || !dateStr) return null;
+    const leaves = allFacultyLeaves || this.get('tps_faculty_leaves') || INITIAL_FACULTY_LEAVES;
+    if (!Array.isArray(leaves)) return null;
+
+    const isMatch = (t1, t2) => {
+      if (!t1 || !t2) return false;
+      if (t1 === t2) return true;
+      const s1 = String(t1).trim().toLowerCase();
+      const s2 = String(t2).trim().toLowerCase();
+      if (s1 === s2) return true;
+      const isTester1 = s1 === 'u-2' || s1 === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || s1 === 'teacher@thaibaschool.edu.in' || s1.includes('rashid');
+      const isTester2 = s2 === 'u-2' || s2 === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || s2 === 'teacher@thaibaschool.edu.in' || s2.includes('rashid');
+      return isTester1 && isTester2;
+    };
+
+    return leaves.find(l => {
+      if (l.status !== 'Approved') return false;
+      const matchesFaculty = isMatch(l.faculty_id, teacherIdOrEmailOrName) ||
+                             isMatch(l.faculty_email, teacherIdOrEmailOrName) ||
+                             isMatch(l.faculty_name, teacherIdOrEmailOrName);
+      if (!matchesFaculty) return false;
+      const start = l.start_date;
+      const end = l.end_date || l.start_date;
+      return dateStr >= start && dateStr <= end;
+    }) || null;
   }
 
   // --- CLASSROOM STUDENT ASSIGNMENTS ---

@@ -19,7 +19,8 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     leaves,
     attendanceSessions,
     allStudents,
-    teacherAssignments
+    teacherAssignments,
+    facultyLeaves
   ] = await Promise.all([
     db.getUsers(),
     db.getClassrooms(),
@@ -29,7 +30,8 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     db.getLeaves(),
     db.getAttendanceRecords(),
     db.getStudents(),
-    db.getTeacherAssignments()
+    db.getTeacherAssignments(),
+    db.getFacultyLeaves()
   ]);
 
   // Helper to match teacher IDs with seeded UUID aliases
@@ -213,14 +215,19 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       // and ends if an administrator removed them from the class.
       const isTeacherAssigned = db.isTeacherAssignedOnDate(selectedTeacherId, selectedClass, dateStr, teacherAssignments);
 
-      // 6. Missed attendance ("Losen Attendance" / Teacher Leave)
+      // 6. Faculty Approved Leave Check:
+      // If administration approved faculty leave, attendance is waived (no missed attendance penalty)
+      const facultyApprovedLeave = db.isFacultyOnApprovedLeave(selectedTeacherId, dateStr, facultyLeaves);
+      const isFacultyApprovedLeave = Boolean(facultyApprovedLeave);
+
+      // 7. Missed attendance ("Losen Attendance" / Teacher Leave)
       // Criteria: Teacher was assigned on this date, class was scheduled on this day,
-      // it was not an institutional holiday, and either date is in the past OR today after class time ended,
-      // but attendance was NOT recorded
+      // it was not an institutional holiday, teacher was NOT on approved leave,
+      // and either date is in the past OR today after class time ended, but attendance was NOT recorded
       const isPastDate = dateStr < todayStr;
       const isTodayAfter = dateStr === todayStr && currentMinutes > classEndMin;
       const isElapsed = isPastDate || isTodayAfter;
-      const isMissedAttendance = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession;
+      const isMissedAttendance = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !isFacultyApprovedLeave;
 
       grid.push({
         dayNumber: d,
@@ -231,6 +238,8 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
         isHoliday,
         holidayTitle: isHoliday ? (dayInfo.title || 'Official Holiday') : '',
         isHostelLeave,
+        isFacultyApprovedLeave,
+        facultyLeaveInfo: facultyApprovedLeave,
         hasAttendanceSession,
         isMissedAttendance,
         isTeacherAssigned,
@@ -559,8 +568,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               // RULE 2: Holiday from Academic Calendar -> Light Yellow
               const isHol = cell.isHoliday;
 
+              // RULE 2.5: Approved Faculty Leave -> Soft Emerald Dashed Badge (Attendance Waived)
+              const isFacultyLeave = cell.isFacultyApprovedLeave;
+
               // RULE 3: Hostel Leave -> FADED RED TEXT ONLY (No circle / round!)
-              const isHostelLeaveTextOnly = cell.isHostelLeave && !cell.isMissedAttendance;
+              const isHostelLeaveTextOnly = cell.isHostelLeave && !cell.isMissedAttendance && !isFacultyLeave;
 
               // RULE 4: Missed Attendance -> RED COLOUR ROUND
               const isMissedRound = cell.isMissedAttendance;
@@ -580,12 +592,14 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               if (cell.isToday) circleClasses += ' is-today';
               if (isClassOffDay) circleClasses += ' is-class-off';
               if (isMissedRound) circleClasses += ' is-missed-attendance';
+              else if (isFacultyLeave) circleClasses += ' is-faculty-leave';
               else if (isHostelLeaveTextOnly) circleClasses += ' is-hostel-leave-text';
               else if (isTaken) circleClasses += ' is-attendance-taken';
               else if (isNotAssigned) circleClasses += ' is-not-assigned';
 
               let tooltip = `${cell.dateStr}: `;
               if (isMissedRound) tooltip += `MISSED ATTENDANCE (${isUnlocked ? 'Unlocked by Admin' : 'Locked'}). Tap to manage.`;
+              else if (isFacultyLeave) tooltip += `Faculty on Authorized Leave (${cell.facultyLeaveInfo?.leave_type || 'Approved Leave'}). Attendance waived by Admin.`;
               else if (isTaken) tooltip += `Attendance Taken. Tap to inspect.`;
               else if (isHol) tooltip += `Academic Holiday (${cell.holidayTitle})`;
               else if (isHostelLeaveTextOnly) tooltip += `Hostel Leave active (fade red text)`;
@@ -626,6 +640,10 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #DC2626; font-weight: 700;">
                 <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444;"></span>
                 Missed Attendance (Red Round)
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #059669; font-weight: 700;">
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #ECFDF5; border: 1.5px dashed #059669;"></span>
+                Faculty Leave (Waived)
               </span>
               <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #047857; font-weight: 700;">
                 <span style="width: 10px; height: 10px; border-radius: 50%; background: #10B981;"></span>
@@ -684,7 +702,9 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     const isTodayAfter = dateStr === toYMD(now.getFullYear(), now.getMonth() + 1, now.getDate()) && 
       (now.getHours() * 60 + now.getMinutes()) > parseMinutes(activeClass?.end_time || '07:30');
     const isElapsed = isPastDate || isTodayAfter;
-    const isMissed = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession;
+    const facultyApprovedLeave = db.isFacultyOnApprovedLeave(selectedTeacherId, dateStr, facultyLeaves);
+    const isFacultyLeave = Boolean(facultyApprovedLeave);
+    const isMissed = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !isFacultyLeave;
 
     const isUnlocked = await db.isAttendanceWindowUnlocked(activeClass?.id, dateStr);
 
@@ -716,6 +736,10 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       statusTitle = `Official Academic Holiday (${dayInfo.title || 'Holiday'})`;
       statusDesc = 'Institutional holiday as per Academic Calendar. No academic duties.';
       statusBadge = '<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A;">🌴 Official Holiday</span>';
+    } else if (isFacultyLeave) {
+      statusTitle = `Faculty on Authorized Leave (${facultyApprovedLeave.leave_type || 'Approved Leave'})`;
+      statusDesc = `${activeTeacher?.full_name || 'Faculty'} was granted official leave (${facultyApprovedLeave.leave_type || 'Leave'}) by Administration. Reason: "${facultyApprovedLeave.reason || 'Approved Duty Leave'}". Timings: Going ${formatTime(facultyApprovedLeave.departure_time || '08:00')} • Return ${formatTime(facultyApprovedLeave.return_time || '16:30')}. Attendance duty is officially waived with no penalty.`;
+      statusBadge = '<span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; font-weight: 800;">✓ Approved Faculty Leave</span>';
     } else if (isMissed) {
       statusTitle = 'Missed Attendance (Teacher Duty Unrecorded)';
       statusDesc = `Class scheduled from ${formatTime(activeClass?.start_time)} to ${formatTime(activeClass?.end_time)}, but attendance was not submitted during the session window.`;

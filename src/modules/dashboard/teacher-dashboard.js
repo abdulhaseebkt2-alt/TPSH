@@ -9,13 +9,15 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     programs,
     exams,
     examSubjects,
-    students
+    students,
+    attendanceRecords
   ] = await Promise.all([
     db.getClassrooms(),
     db.getPrograms(),
     db.getExams(),
     db.getExamSubjects(),
-    db.getStudents()
+    db.getStudents(),
+    db.getAttendanceRecords()
   ]);
 
   // Determine teacher name & assigned classrooms
@@ -83,6 +85,12 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     weeklySlotCount += days.length;
   });
 
+  // Calculate pending attendance for today's scheduled classes
+  const todayDateStr = now.toISOString().split('T')[0];
+  const pendingAttendanceCount = todayClasses.filter(c => 
+    !attendanceRecords.some(r => r.classroom_id === c.id && r.session_date === todayDateStr)
+  ).length;
+
   const totalStudentsTaught = students.filter(s => s.status === 'Active').length;
   const activeExam = exams[0] || { title: 'Mid-Term Examination 2026' };
   const myExamSubjects = examSubjects.slice(0, 2);
@@ -100,16 +108,6 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
             <p style="font-size: 0.85rem; color: #64748B; margin-top: 0.15rem;">Faculty & Academic Dashboard • Attendance Windows, Classrooms & Marks Entry</p>
           </div>
         </div>
-      </div>
-      <div class="page-actions" style="display: flex; gap: 0.75rem; align-items: center;">
-        <button class="btn btn-outline" id="teacher-view-timetable-btn">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          My Timetable
-        </button>
-        <button class="btn btn-primary" id="teacher-mark-attendance-btn" style="background: #059669;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Take Attendance
-        </button>
       </div>
     </div>
 
@@ -245,16 +243,16 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <div class="stat-card" data-route="students" style="cursor: pointer;">
+      <div class="stat-card" data-route="attendance" style="cursor: pointer;">
         <div class="stat-header">
-          <span class="stat-title">Students Taught</span>
-          <div class="stat-icon-wrapper" style="background: #FFFBEB; color: #D97706;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="stat-title">Pending Attendance</span>
+          <div class="stat-icon-wrapper" style="background: ${pendingAttendanceCount > 0 ? '#FEF2F2' : '#ECFDF5'}; color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'};">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
         </div>
-        <div class="stat-value">${totalStudentsTaught}</div>
+        <div class="stat-value" style="color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'}; font-weight: 800;">${pendingAttendanceCount}</div>
         <div class="stat-footer">
-          <span>Enrolled across active batches</span>
+          <span style="color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'}; font-weight: 600;">${pendingAttendanceCount > 0 ? 'Sessions pending submission' : 'All sessions marked'}</span>
         </div>
       </div>
 
@@ -420,13 +418,6 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     onNavigate('attendance');
   });
 
-  container.querySelector('#teacher-view-timetable-btn')?.addEventListener('click', () => onNavigate('timetable'));
-  container.querySelector('#teacher-mark-attendance-btn')?.addEventListener('click', () => {
-    if (displayClass?.id && typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('tps_active_att_cls', displayClass.id);
-    }
-    onNavigate('attendance');
-  });
   container.querySelector('#btn-quick-window-attendance')?.addEventListener('click', () => onNavigate('attendance'));
   container.querySelector('#btn-open-marks-module')?.addEventListener('click', () => onNavigate('marks'));
   container.querySelector('#btn-view-faculty-notices')?.addEventListener('click', () => onNavigate('notices'));

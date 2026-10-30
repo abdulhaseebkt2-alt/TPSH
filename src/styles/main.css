@@ -7058,6 +7058,15 @@ body.tps-wheel-open {
   font-weight: 700 !important;
 }
 
+/* 5. Approved Faculty Leave (Administrative Attendance Waiver): Soft Emerald with Dashed Border */
+.cal-day-circle.is-faculty-leave {
+  background: #ECFDF5 !important;
+  color: #059669 !important;
+  border: 1.5px dashed #059669 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.2) !important;
+}
+
 /* 5. Faculty Not Assigned Period (Before Assignment or After Admin Removal): NEUTRAL & SOFT */
 .cal-inst-day-cell.is-not-assigned-day {
   opacity: 0.55 !important;
