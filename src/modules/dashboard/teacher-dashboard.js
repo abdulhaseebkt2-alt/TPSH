@@ -76,27 +76,6 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   const isSoon = Boolean(displayClass && currentMinutes >= (sMin - 20) && currentMinutes < sMin);
   const isLater = Boolean(displayClass && currentMinutes < sMin);
 
-  const todaySlots = todayClasses.length > 0 ? todayClasses.map((c, idx) => {
-    const prog = programs.find(p => p.id === c.program_id);
-    return {
-      id: `slot-${c.id}`,
-      session_title: `${c.name} (${prog?.name || 'Class'})`,
-      program: prog?.name || 'Academic Program',
-      room: c.room_number || 'Campus',
-      start_time: formatTime(c.start_time || '06:30'),
-      end_time: formatTime(c.end_time || '07:30')
-    };
-  }) : [
-    {
-      id: 'slot-default-1',
-      session_title: 'Moral Hall A1 (Hostel Moral Class)',
-      program: 'Hostel Moral Class',
-      room: '101',
-      start_time: '06:30 AM',
-      end_time: '07:30 AM'
-    }
-  ];
-
   // Calculate weekly slots
   let weeklySlotCount = 0;
   myClassrooms.forEach(c => {
@@ -118,7 +97,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
           </div>
           <div>
             <h2 style="font-size: 1.45rem; font-weight: 800; color: #0F172A; letter-spacing: -0.01em;">Welcome, ${teacherName}</h2>
-            <p style="font-size: 0.85rem; color: #64748B; margin-top: 0.15rem;">Faculty & Academic Dashboard • Teaching Schedule, Attendance Windows & Marks Entry</p>
+            <p style="font-size: 0.85rem; color: #64748B; margin-top: 0.15rem;">Faculty & Academic Dashboard • Attendance Windows, Classrooms & Marks Entry</p>
           </div>
         </div>
       </div>
@@ -219,7 +198,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
         <div>
           <h3 class="dash-section-title">Student & Academic</h3>
-          <span style="font-size: 0.76rem; color: #64748B;">Teaching schedule, attendance windows, classrooms & grade sheets</span>
+          <span style="font-size: 0.76rem; color: #64748B;">Classrooms, examination grade sheets & academic circulars</span>
         </div>
       </div>
       <span class="dash-section-badge">Faculty Load</span>
@@ -306,44 +285,9 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
       </div>
     </div>
 
-    <!-- Main 2-Column Content -->
+    <!-- Main 2-Column Academic & Examination Duties Grid -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
       
-      <!-- Today's Teaching Schedule -->
-      <div class="card-panel" style="margin-bottom: 0;">
-        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A;">Today's Teaching Schedule</h3>
-          <span class="badge badge-active">${todaySlots.length} Sessions Today</span>
-        </div>
-        <div class="card-panel-body" style="padding: 1rem;">
-          <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-            ${todaySlots.map((slot, idx) => `
-              <div style="border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; flex-shrink: 0;">
-                    0${idx + 1}
-                  </div>
-                  <div>
-                    <h4 style="font-size: 0.92rem; font-weight: 700; color: #0F172A; margin: 0;">${slot.session_title}</h4>
-                    <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.15rem;">
-                      <span>${slot.program}</span> • <span>Room ${slot.room || '101'}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                  <span style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: #059669; background: #ECFDF5; padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid #A7F3D0;">
-                    ${slot.start_time} - ${slot.end_time}
-                  </span>
-                  <button class="btn btn-outline btn-sm btn-mark-slot-attendance" data-slot="${slot.id}" style="font-size: 0.78rem; font-weight: 600;">
-                    Mark Attendance
-                  </button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-
       <!-- My Assigned Classes & Examination Subjects -->
       <div class="card-panel" style="margin-bottom: 0;">
         <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
@@ -383,48 +327,36 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-    </div>
-
-    <!-- SECTION 2: Hostel Operations -->
-    <div class="dash-section-header">
-      <div class="dash-section-title-wrap">
-        <div class="dash-section-icon">🏢</div>
-        <div>
-          <h3 class="dash-section-title">Hostel Operations</h3>
-          <span style="font-size: 0.76rem; color: #64748B;">Supervised evening study halls & hostel coaching coordination</span>
+      <!-- Teacher Guidelines & Academic Circulars -->
+      <div class="card-panel" style="margin-bottom: 0;">
+        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A;">Teacher Guidelines & Academic Circulars</h3>
+          <button class="btn btn-outline btn-sm" id="btn-view-faculty-notices">View All Notices</button>
         </div>
-      </div>
-      <span class="dash-section-badge">Residential Support</span>
-    </div>
-
-    <!-- Faculty Guidelines & Notices -->
-    <div class="card-panel">
-      <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A;">Teacher Guidelines & Academic Circulars</h3>
-        <button class="btn btn-outline btn-sm" id="btn-view-faculty-notices">View All Notices</button>
-      </div>
-      <div class="card-panel-body" style="padding: 1rem 1.25rem;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-              <span style="font-size: 16px;">📖</span>
-              <strong style="color: #0F172A; font-size: 0.88rem;">Morning Moral Class Protocol</strong>
+        <div class="card-panel-body" style="padding: 1rem 1.25rem;">
+          <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                <span style="font-size: 16px;">📖</span>
+                <strong style="color: #0F172A; font-size: 0.88rem;">Morning Moral Class Protocol</strong>
+              </div>
+              <p style="font-size: 0.8rem; color: #475569; line-height: 1.4;">
+                Ensure student presence is locked by 06:15 AM in Attendance Management. Any late arrivals must be flagged with a late marker in the register.
+              </p>
             </div>
-            <p style="font-size: 0.8rem; color: #475569; line-height: 1.4;">
-              Ensure student presence is locked by 06:15 AM. Any late arrivals must be flagged with a late marker in the register.
-            </p>
-          </div>
-          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-              <span style="font-size: 16px;">📝</span>
-              <strong style="color: #0F172A; font-size: 0.88rem;">Mid-Term Evaluation Window</strong>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                <span style="font-size: 16px;">📝</span>
+                <strong style="color: #0F172A; font-size: 0.88rem;">Mid-Term Evaluation Window</strong>
+              </div>
+              <p style="font-size: 0.8rem; color: #475569; line-height: 1.4;">
+                Subject mark entry for Moral Studies & Arabic closes on Friday. Verify scores before publishing results.
+              </p>
             </div>
-            <p style="font-size: 0.8rem; color: #475569; line-height: 1.4;">
-              Subject mark entry for Moral Studies & Arabic closes on Friday. Verify scores before publishing results.
-            </p>
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- Mobile Floating Bottom Pill Navigation Bar -->
@@ -498,10 +430,6 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   container.querySelector('#btn-quick-window-attendance')?.addEventListener('click', () => onNavigate('attendance'));
   container.querySelector('#btn-open-marks-module')?.addEventListener('click', () => onNavigate('marks'));
   container.querySelector('#btn-view-faculty-notices')?.addEventListener('click', () => onNavigate('notices'));
-
-  container.querySelectorAll('.btn-mark-slot-attendance').forEach(b => {
-    b.addEventListener('click', () => onNavigate('attendance'));
-  });
 
   container.querySelectorAll('.btn-grade-subject').forEach(b => {
     b.addEventListener('click', () => onNavigate('marks'));

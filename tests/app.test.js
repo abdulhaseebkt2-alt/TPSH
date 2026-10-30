@@ -940,7 +940,7 @@ describe('14. Multi-Role Categorized Dashboards & Sidebar Section Tests', () => 
     await renderDashboard(container, { onNavigate: () => {} });
 
     expect(container.innerHTML).toContain('Rashid Sir');
-    expect(container.innerHTML).toContain('Teaching Schedule');
+    expect(container.innerHTML).not.toContain("Today's Teaching Schedule");
     expect(container.innerHTML).toContain('Take Attendance');
     expect(container.innerHTML).toContain('Today\'s Sessions');
   });
