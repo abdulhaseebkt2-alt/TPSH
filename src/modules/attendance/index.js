@@ -485,7 +485,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         </div>
 
         <!-- TIMETABLE CARDS GRID (MATCHING SCREENSHOT 100%) -->
-        <div class="att-timetable-cards-list">
+        <div class="att-timetable-cards-list timetable-cards-grid">
           ${filteredCards.length === 0 ? `
             <div style="background: #FFFFFF; border: 1.5px dashed #CBD5E1; border-radius: 16px; padding: 2.5rem; text-align: center; color: #64748B;">
               <div style="font-size: 2rem; margin-bottom: 0.5rem;">⏱️</div>

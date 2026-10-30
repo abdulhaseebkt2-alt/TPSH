@@ -3340,6 +3340,20 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(mainCss).toContain('.hostel-modal-scroll-area {');
     });
 
+    it('Attendance Management Timetable Cards Layout: bounded compact card width and multi-column grid', async () => {
+      const fs = await import('fs');
+      const attJs = fs.readFileSync('src/modules/attendance/index.js', 'utf8');
+      const mainCss = fs.readFileSync('src/styles/main.css', 'utf8');
+
+      // Uses timetable-cards-grid on att-timetable-cards-list
+      expect(attJs).toContain('class="att-timetable-cards-list timetable-cards-grid"');
+
+      // CSS styles both timetable-cards-grid and att-timetable-cards-list with max-width: 440px
+      expect(mainCss).toContain('.att-timetable-cards-list');
+      expect(mainCss).toContain('repeat(auto-fill, minmax(330px, 440px))');
+      expect(mainCss).toContain('max-width: 440px;');
+    });
+
     it('Hostel Leave Pass Engine: creates LV-YYYY-XXX pass, calculates late returns, updates student status and creates fine records', async () => {
       const student = await db.addStudent({
         full_name: 'Leave Engine Test Student',
