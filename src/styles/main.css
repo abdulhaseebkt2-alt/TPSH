@@ -8546,6 +8546,43 @@ body.tps-wheel-open {
   }
 }
 
+/* Faculty Leaves Module: Distinct Colored Cards (Light Orange for Pending, Light Green for Approved) */
+.faculty-leave-card {
+  border-radius: 16px !important;
+  margin-bottom: 1rem !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.faculty-leave-card.is-pending {
+  background: #FFF7ED !important;
+  border: 1.5px solid #FED7AA !important;
+  border-left: 5px solid #EA580C !important;
+}
+
+.faculty-leave-card.is-approved {
+  background: #F0FDF4 !important;
+  border: 1.5px solid #BBF7D0 !important;
+  border-left: 5px solid #059669 !important;
+}
+
+.faculty-leave-card.is-rejected {
+  background: #FEF2F2 !important;
+  border: 1.5px solid #FECACA !important;
+  border-left: 5px solid #DC2626 !important;
+}
+
+@media (max-width: 640px) {
+  .faculty-leave-card {
+    padding: 1rem 1.15rem !important;
+    border-radius: 14px !important;
+    margin-bottom: 0.85rem !important;
+  }
+}
+
+
 
 
 

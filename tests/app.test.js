@@ -26,6 +26,7 @@ import { renderLeavesModule } from '../src/modules/leaves/index.js';
 import { renderHostelModule } from '../src/modules/hostel/index.js';
 import { renderDisciplineModule } from '../src/modules/discipline/index.js';
 import { renderFinesModule } from '../src/modules/fines/index.js';
+import { renderFacultyLeavesModule } from '../src/modules/faculty-leaves/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -3557,6 +3558,113 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(hasLeaveNextDay).toBe(false);
       const isMissedNextDay = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !hasLeaveNextDay;
       expect(isMissedNextDay).toBe(true);
+    });
+
+    it('2305 - Faculty Leaves: Strict non-admin data isolation and distinct status cards (Light Orange for Pending, Light Green for Approved)', async () => {
+      // Setup leaves
+      const l1 = await db.applyFacultyLeave({
+        faculty_id: 'u-2',
+        faculty_name: 'Rashid Sir',
+        faculty_email: 'teacher@thaibaschool.edu.in',
+        is_multiple_days: false,
+        start_date: '2026-11-20',
+        end_date: '2026-11-20',
+        departure_time: '08:00',
+        return_time: '16:00',
+        leave_type: 'Sick / Medical Leave',
+        reason: 'Consulting Doctor for Throat Infection',
+        status: 'Pending',
+        applied_by: { id: 'u-2', name: 'Rashid Sir', role: 'teacher' }
+      });
+
+      const l2 = await db.applyFacultyLeave({
+        faculty_id: 'u-99',
+        faculty_name: 'Fathima Teacher',
+        faculty_email: 'fathima@thaibaschool.edu.in',
+        is_multiple_days: false,
+        start_date: '2026-11-21',
+        end_date: '2026-11-21',
+        departure_time: '08:30',
+        return_time: '17:00',
+        leave_type: 'Casual Leave',
+        reason: 'Attending Family Wedding Ceremony',
+        status: 'Approved',
+        applied_by: { id: 'u-99', name: 'Fathima Teacher', role: 'teacher' }
+      });
+
+      // 1. Teacher View (u-2: Rashid Sir)
+      updateCurrentUserProfile({
+        id: 'u-2',
+        email: 'teacher@thaibaschool.edu.in',
+        full_name: 'Rashid Sir',
+        role: 'teacher',
+        approval_status: 'approved',
+        is_super_admin: false
+      });
+
+      const teacherContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderFacultyLeavesModule(teacherContainer, { onNavigate: () => {} });
+
+      // Teacher CANNOT see other faculty's leave data
+      expect(teacherContainer.innerHTML).toContain('Rashid Sir');
+      expect(teacherContainer.innerHTML).not.toContain('Fathima Teacher');
+      expect(teacherContainer.innerHTML).not.toContain('Attending Family Wedding Ceremony');
+      expect(teacherContainer.innerHTML).toContain('Consulting Doctor for Throat Infection');
+
+      // Teacher cannot see admin controls: no faculty selector dropdown, no approve button, no "My Leaves" tab
+      expect(teacherContainer.innerHTML).not.toContain('id="faculty-filter-select"');
+      expect(teacherContainer.innerHTML).not.toContain('btn-approve-leave');
+      expect(teacherContainer.innerHTML).not.toContain('btn-reject-leave');
+      expect(teacherContainer.innerHTML).not.toContain('data-tab="my"');
+
+      // Pending card has distinct light orange styling:
+      expect(teacherContainer.innerHTML).toContain('faculty-leave-card is-pending');
+      expect(teacherContainer.innerHTML).toContain('background: #FFF7ED');
+      expect(teacherContainer.innerHTML).toContain('border: 1.5px solid #FED7AA');
+      expect(teacherContainer.innerHTML).toContain('border-left: 5px solid #EA580C');
+      expect(teacherContainer.innerHTML).toContain('border-radius: 16px');
+      expect(teacherContainer.innerHTML).toContain('margin-bottom: 1rem');
+
+      // 2. Admin View (u-1: Abdul Haseeb)
+      updateCurrentUserProfile({
+        id: 'u-1',
+        email: 'abdulhaseebkt2@gmail.com',
+        full_name: 'Abdul Haseeb',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      });
+
+      const adminContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderFacultyLeavesModule(adminContainer, { onNavigate: () => {} });
+
+      // Admin CAN see all faculty leaves
+      expect(adminContainer.innerHTML).toContain('Rashid Sir');
+      expect(adminContainer.innerHTML).toContain('Fathima Teacher');
+      expect(adminContainer.innerHTML).toContain('id="faculty-filter-select"');
+      expect(adminContainer.innerHTML).toContain('btn-approve-leave');
+      expect(adminContainer.innerHTML).toContain('btn-reject-leave');
+      expect(adminContainer.innerHTML).toContain('data-tab="my"');
+
+      // Approved card has distinct light green styling:
+      expect(adminContainer.innerHTML).toContain('faculty-leave-card is-approved');
+      expect(adminContainer.innerHTML).toContain('background: #F0FDF4');
+      expect(adminContainer.innerHTML).toContain('border: 1.5px solid #BBF7D0');
+      expect(adminContainer.innerHTML).toContain('border-left: 5px solid #059669');
+
+      // Clean up test leaves
+      await db.deleteFacultyLeave(l1.id);
+      await db.deleteFacultyLeave(l2.id);
     });
   });
 

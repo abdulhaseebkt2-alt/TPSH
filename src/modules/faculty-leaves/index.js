@@ -6,7 +6,7 @@ import { formatDate, formatTime } from '../../lib/utils.js';
 
 export async function renderFacultyLeavesModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin' || Boolean(user?.is_super_admin);
   const isTeacher = user?.role === 'teacher';
 
   // Ensure latest data from storage/cloud
@@ -28,6 +28,26 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
+  function isLeaveMine(l) {
+    if (!user) return false;
+    const uid = String(user.id || '').trim();
+    const uemail = String(user.email || '').trim().toLowerCase();
+    const uname = String(user.full_name || user.name || '').trim().toLowerCase();
+
+    const fid = String(l.faculty_id || '').trim();
+    const femail = String(l.faculty_email || '').trim().toLowerCase();
+    const fname = String(l.faculty_name || '').trim().toLowerCase();
+
+    if (fid && uid && fid === uid) return true;
+    if (femail && uemail && femail === uemail) return true;
+    if (fname && uname && (fname === uname || fname.includes(uname) || uname.includes(fname))) return true;
+
+    if (l.applied_by?.id && uid && String(l.applied_by.id).trim() === uid) return true;
+    if (l.applied_by?.email && uemail && String(l.applied_by.email).trim().toLowerCase() === uemail) return true;
+
+    return false;
+  }
+
   function isLeaveActiveToday(leave) {
     if (leave.status !== 'Approved') return false;
     const start = leave.start_date;
@@ -37,18 +57,19 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
 
   function renderView() {
     // Current leaves list
-    const leaves = db.get('tps_faculty_leaves') || rawLeaves;
+    const allLeaves = db.get('tps_faculty_leaves') || rawLeaves;
+
+    // STRICT FACULTY SCOPING:
+    // Every faculty member can only access their own data.
+    // Only Administrators & Super Admins can see all faculty data across the school.
+    const leaves = isAdmin ? allLeaves : allLeaves.filter(isLeaveMine);
 
     // KPI Metrics
     const totalCount = leaves.length;
     const pendingCount = leaves.filter(l => l.status === 'Pending').length;
     const approvedCount = leaves.filter(l => l.status === 'Approved').length;
     const activeTodayCount = leaves.filter(l => isLeaveActiveToday(l)).length;
-    const myLeavesCount = leaves.filter(l => 
-      l.faculty_id === user?.id || 
-      (user?.email && l.faculty_email === user.email) ||
-      (l.faculty_name && user?.full_name && l.faculty_name.toLowerCase() === user.full_name.toLowerCase())
-    ).length;
+    const myLeavesCount = allLeaves.filter(isLeaveMine).length;
 
     // Filter leaves based on active tab, search, and faculty selector
     const filteredLeaves = leaves.filter(l => {
@@ -58,14 +79,11 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
       if (activeTab === 'rejected' && l.status !== 'Rejected') return false;
       if (activeTab === 'today' && !isLeaveActiveToday(l)) return false;
       if (activeTab === 'my') {
-        const isMine = l.faculty_id === user?.id || 
-                       (user?.email && l.faculty_email === user.email) ||
-                       (l.faculty_name && user?.full_name && l.faculty_name.toLowerCase() === user.full_name.toLowerCase());
-        if (!isMine) return false;
+        if (!isLeaveMine(l)) return false;
       }
 
-      // Faculty filter
-      if (selectedFacultyFilter !== 'all') {
+      // Faculty filter (Admin only)
+      if (isAdmin && selectedFacultyFilter !== 'all') {
         if (l.faculty_id !== selectedFacultyFilter && l.faculty_email !== selectedFacultyFilter) {
           return false;
         }
@@ -189,9 +207,11 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
               <button class="btn btn-xs ${activeTab === 'today' ? 'btn-primary' : 'btn-ghost'}" data-tab="today" style="font-weight: 700; border-radius: 6px;">
                 Active Today (${activeTodayCount})
               </button>
-              <button class="btn btn-xs ${activeTab === 'my' ? 'btn-primary' : 'btn-ghost'}" data-tab="my" style="font-weight: 700; border-radius: 6px;">
-                My Leaves (${myLeavesCount})
-              </button>
+              ${isAdmin ? `
+                <button class="btn btn-xs ${activeTab === 'my' ? 'btn-primary' : 'btn-ghost'}" data-tab="my" style="font-weight: 700; border-radius: 6px;">
+                  My Leaves (${myLeavesCount})
+                </button>
+              ` : ''}
             </div>
 
             <!-- Search and Faculty Filter Group -->
@@ -217,7 +237,7 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
         <!-- Leave Records Stream / Grid -->
         <div id="faculty-leaves-list" style="display: flex; flex-direction: column; gap: 1rem;">
           ${filteredLeaves.length === 0 ? `
-            <div class="card" style="text-align: center; padding: 3rem 1.5rem; background: #FAFAFA; border: 1.5px dashed #CBD5E1;">
+            <div class="card" style="text-align: center; padding: 3rem 1.5rem; background: #FAFAFA; border: 1.5px dashed #CBD5E1; border-radius: 16px;">
               <div style="width: 56px; height: 56px; border-radius: 50%; background: #F1F5F9; color: #94A3B8; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
               </div>
@@ -245,17 +265,31 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
             const isApproved = leave.status === 'Approved';
             const isRejected = leave.status === 'Rejected';
 
-            const statusBadgeBg = isApproved ? '#ECFDF5' : isPending ? '#FFFBEB' : '#FEF2F2';
-            const statusBadgeColor = isApproved ? '#059669' : isPending ? '#D97706' : '#DC2626';
-            const statusBadgeBorder = isApproved ? '#A7F3D0' : isPending ? '#FDE68A' : '#FECACA';
+            // Distinct status styles: Light orange for pending, Light green for approved
+            const cardClass = isPending ? 'is-pending' : isApproved ? 'is-approved' : 'is-rejected';
+            const cardBg = isPending ? '#FFF7ED' : isApproved ? '#F0FDF4' : '#FEF2F2';
+            const cardBorder = isPending ? '1.5px solid #FED7AA' : isApproved ? '1.5px solid #BBF7D0' : '1.5px solid #FECACA';
+            const cardBorderLeft = isPending ? '5px solid #EA580C' : isApproved ? '5px solid #059669' : '5px solid #DC2626';
+
+            const statusBadgeBg = isPending ? '#FFEDD5' : isApproved ? '#DCFCE7' : '#FEE2E2';
+            const statusBadgeColor = isPending ? '#C2410C' : isApproved ? '#15803D' : '#DC2626';
+            const statusBadgeBorder = isPending ? '#FDBA74' : isApproved ? '#86EFAC' : '#FECACA';
+
+            const avatarBg = '#FFFFFF';
+            const avatarBorder = isPending ? '1.5px solid #FDBA74' : isApproved ? '1.5px solid #86EFAC' : '1.5px solid #FCA5A5';
+            const avatarColor = isPending ? '#EA580C' : isApproved ? '#059669' : '#DC2626';
+
+            const reasonBoxBg = 'rgba(255, 255, 255, 0.85)';
+            const reasonBoxBorder = isPending ? '1px solid #FED7AA' : isApproved ? '1px solid #BBF7D0' : '1px solid #FECACA';
+            const dateIconStroke = isPending ? '#EA580C' : isApproved ? '#059669' : '#DC2626';
 
             return `
-              <div class="card faculty-leave-card" data-leave-id="${leave.id}" style="padding: 1.25rem 1.5rem; transition: transform 0.15s ease, box-shadow 0.15s ease; border-left: 4px solid ${statusBadgeColor};">
+              <div class="card faculty-leave-card ${cardClass}" data-leave-id="${leave.id}" style="background: ${cardBg}; border: ${cardBorder}; border-left: ${cardBorderLeft}; border-radius: 16px; margin-bottom: 1rem; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: transform 0.15s ease, box-shadow 0.15s ease;">
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem;">
                   
                   <!-- Left Info Column -->
                   <div style="display: flex; gap: 1rem; flex: 1; min-width: 280px;">
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background: #F8FAFC; border: 1.5px solid #E2E8F0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #1E293B; flex-shrink: 0;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: ${avatarBg}; border: ${avatarBorder}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: ${avatarColor}; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
                       ${leave.faculty_name ? leave.faculty_name.slice(0, 2).toUpperCase() : 'FC'}
                     </div>
 
@@ -263,7 +297,7 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
                       <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
                         <h4 style="font-size: 1.05rem; font-weight: 800; color: #0F172A; margin: 0;">${leave.faculty_name || 'Faculty Member'}</h4>
                         
-                        <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px;">
+                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); color: #475569; border: 1px solid rgba(0,0,0,0.08); font-weight: 700; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px;">
                           ${leave.leave_type || 'Casual Leave'}
                         </span>
 
@@ -281,7 +315,7 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
                       <!-- Dates & Timings Row -->
                       <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; font-size: 0.85rem; color: #475569; margin-bottom: 0.6rem;">
                         <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 700; color: #0F172A;">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${dateIconStroke}" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                           ${isSingle ? startDateStr : `${startDateStr} ➔ ${endDateStr} (${daysCount} Days)`}
                         </div>
 
@@ -294,18 +328,18 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
                       </div>
 
                       <!-- Reason Section -->
-                      <div style="background: #F8FAFC; border-radius: 8px; padding: 0.6rem 0.85rem; margin-bottom: 0.5rem; border: 1px solid #F1F5F9;">
+                      <div style="background: ${reasonBoxBg}; border-radius: 10px; padding: 0.65rem 0.9rem; margin-bottom: 0.5rem; border: ${reasonBoxBorder};">
                         <p style="margin: 0; font-size: 0.88rem; color: #334155; line-height: 1.45;">
                           ${leave.reason ? `"${leave.reason}"` : '<em style="color: #94A3B8;">No description provided.</em>'}
                         </p>
                       </div>
 
                       <!-- Audit Notes & Application Footer -->
-                      <div style="font-size: 0.76rem; color: #94A3B8; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+                      <div style="font-size: 0.76rem; color: #64748B; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
                         <span>Applied by ${leave.applied_by?.name || 'Staff'} on ${formatDate(leave.applied_at?.slice(0, 10))}</span>
                         ${leave.approved_by ? `
                           <span>•</span>
-                          <span style="color: ${statusBadgeColor}; font-weight: 600;">
+                          <span style="color: ${statusBadgeColor}; font-weight: 700;">
                             ${isApproved ? 'Approved' : 'Rejected'} by ${leave.approved_by?.name || 'Admin'} on ${formatDate(leave.approved_at?.slice(0, 10))}
                           </span>
                         ` : ''}
@@ -326,7 +360,7 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
                         Approve
                       </button>
                       
-                      <button class="btn btn-sm btn-outline btn-reject-leave" data-id="${leave.id}" style="color: #DC2626; border-color: #FECACA; padding: 0.35rem 0.85rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem;">
+                      <button class="btn btn-sm btn-outline btn-reject-leave" data-id="${leave.id}" style="color: #DC2626; border-color: #FECACA; padding: 0.35rem 0.85rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; background: #FFFFFF;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         Reject
                       </button>
