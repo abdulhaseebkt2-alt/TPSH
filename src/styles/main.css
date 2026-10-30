@@ -8466,5 +8466,46 @@ body.tps-wheel-open {
   }
 }
 
+/* Full-Width Hostel Filter Card & Floorplan Sides */
+.hostel-filter-card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.hostel-filter-card .tps-custom-select-trigger,
+.hostel-filter-card select#hostel-filter-select + .tps-custom-select-trigger {
+  width: 100% !important;
+  flex: 1 1 0% !important;
+  border-radius: 9999px !important;
+  border: 1.5px solid #059669 !important;
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.bedroom-sides-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 520px) {
+  .bedroom-sides-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .bedroom-side-card {
+    padding: 0.5rem !important;
+  }
+  .bed-item-card {
+    padding: 0.45rem 0.5rem !important;
+    min-height: 70px !important;
+  }
+}
+
+
 
 

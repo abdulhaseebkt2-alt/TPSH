@@ -4,6 +4,31 @@ import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
+function getStudentAge(dob) {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age > 0 ? age : null;
+}
+
+const silhouetteBoySvg = `
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+  </svg>
+`;
+
+const silhouetteGirlSvg = `
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+  </svg>
+`;
+
 export async function renderHostelModule(container, { onNavigate }) {
   const user = getCurrentUser();
   const mentorGender = getMentorGenderScope(user);
@@ -34,9 +59,7 @@ export async function renderHostelModule(container, { onNavigate }) {
     return true;
   });
 
-  let activeTab = 'rack'; // 'rack' or 'roster'
   let selectedHostelFilter = isGirlsMentor ? 'h-girls' : isBoysMentor ? 'h-boys' : 'all';
-  let rosterSearch = '';
 
   function renderView() {
     const allRooms = db.getHostelRooms();
@@ -125,34 +148,73 @@ export async function renderHostelModule(container, { onNavigate }) {
         }).join('')}
       </div>
 
-      <!-- Tab Switcher Bar -->
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-        <div style="display: flex; gap: 0.4rem;">
-          <button type="button" class="btn btn-sm ${activeTab === 'rack' ? 'btn-primary' : 'btn-ghost'}" id="tab-btn-rack" style="border-radius: 9999px; font-weight: 700; font-size: 0.82rem;">
-            Hostels & Bedroom Layouts Rack
-          </button>
-          <button type="button" class="btn btn-sm ${activeTab === 'roster' ? 'btn-primary' : 'btn-ghost'}" id="tab-btn-roster" style="border-radius: 9999px; font-weight: 700; font-size: 0.82rem;">
-            Resident Bed Allocation Roster (${students.length})
-          </button>
-        </div>
-
-        ${activeTab === 'rack' && !isGirlsMentor && !isBoysMentor ? `
-          <!-- Hostel Building Filter -->
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 0.78rem; font-weight: 600; color: #64748B;">Filter:</span>
-            <select id="hostel-filter-select" class="form-control" style="height: 34px; font-size: 0.8rem; width: 170px;">
-              <option value="all" ${selectedHostelFilter === 'all' ? 'selected' : ''}>All Hostels</option>
-              ${hostels.map(h => `<option value="${h.id}" ${selectedHostelFilter === h.id ? 'selected' : ''}>${h.name}</option>`).join('')}
+      <!-- Full-Width Hostel Filter Card (Admin / Multi-Campus view) -->
+      ${!isGirlsMentor && !isBoysMentor ? `
+        <div class="card-panel hostel-filter-card" style="margin-bottom: 1.25rem; padding: 0.85rem 1rem; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); width: 100%; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; width: 100%;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #334155; white-space: nowrap;">Filter:</span>
+            <select id="hostel-filter-select" class="form-control select-full-width" style="height: 42px; font-size: 0.88rem; font-weight: 600; width: 100%; flex: 1 1 0%; border-radius: 9999px; border: 1.5px solid #059669; padding-left: 1rem; padding-right: 2.2rem; color: #0F172A; box-sizing: border-box;" data-full-width="true">
+              <option value="all" ${selectedHostelFilter === 'all' ? 'selected' : ''}>All Hostels (${hostels.length} Campuses)</option>
+              ${hostels.map(h => `<option value="${h.id}" ${selectedHostelFilter === h.id ? 'selected' : ''}>${h.name} (${h.building})</option>`).join('')}
             </select>
           </div>
-        ` : ''}
-      </div>
+        </div>
+      ` : ''}
 
-      <!-- Dynamic Tab Content -->
-      ${activeTab === 'rack' ? renderRackView(filteredRooms, beds, students) : renderRosterView(students, rooms, beds)}
+      <!-- Bedrooms Floorplan Rack -->
+      ${renderRackView(filteredRooms, beds, students)}
     `;
 
     attachEventHandlers();
+  }
+
+  function renderBedCard(b, r) {
+    const student = students.find(s => s.id === b.current_student_id);
+    const isOccupied = b.status === 'occupied' && student;
+    const age = student ? getStudentAge(student.dob) : null;
+    const ageText = age ? `${age} Yrs` : '11 Yrs';
+
+    return `
+      <div class="hostel-bed-item" style="padding: 0.65rem 0.85rem; border-radius: 10px; border: 1.5px solid ${isOccupied ? '#93C5FD' : '#E2E8F0'}; background: ${isOccupied ? '#EFF6FF' : '#FFFFFF'}; display: flex; flex-direction: column; gap: 0.35rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02); transition: all 0.15s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.82rem; font-weight: 800; color: ${isOccupied ? '#1E40AF' : '#475569'};">
+            ${b.bed_number}
+          </span>
+          <span class="badge ${isOccupied ? 'badge-success' : 'badge-neutral'}" style="font-size: 0.68rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+            ${isOccupied ? 'Occupied' : 'Vacant'}
+          </span>
+        </div>
+
+        ${isOccupied ? `
+          <div style="margin: 2px 0;">
+            <div style="font-weight: 800; font-size: 0.9rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${student.full_name}">
+              ${student.full_name}
+            </div>
+            <div style="font-size: 0.74rem; font-weight: 600; color: #64748B; margin-top: 2px;">
+              ${student.school_class || 'Class'} • ${ageText}
+            </div>
+          </div>
+          ${canManageBeds ? `
+            <div style="margin-top: 4px;">
+              <button class="btn btn-xs btn-outline btn-change-bed" data-bed-id="${b.id}" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 6px; width: 100%; font-weight: 600; border-color: #CBD5E1; color: #334155; background: #FFFFFF;">
+                Change / Vacate Bed
+              </button>
+            </div>
+          ` : ''}
+        ` : `
+          <div style="font-size: 0.74rem; color: #94A3B8; font-style: italic; margin: 2px 0;">
+            Ready for assignment
+          </div>
+          ${canManageBeds ? `
+            <div style="margin-top: 4px;">
+              <button class="btn btn-xs btn-outline-success btn-assign-bed" data-bed-id="${b.id}" data-room-id="${r.id}" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 6px; width: 100%; color: #059669; border-color: #A7F3D0; font-weight: 700; background: #ECFDF5;">
+                + Assign Student
+              </button>
+            </div>
+          ` : ''}
+        `}
+      </div>
+    `;
   }
 
   function renderRackView(rooms, beds, students) {
@@ -165,105 +227,85 @@ export async function renderHostelModule(container, { onNavigate }) {
     }
 
     return `
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem;">
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
         ${rooms.map(r => {
           const hostel = hostels.find(h => h.id === r.hostel_id);
           const rBeds = beds.filter(b => b.room_id === r.id);
+          // Sort beds numerically by bed number
+          rBeds.sort((a, b) => {
+            const numA = parseInt((a.bed_number || '').replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt((b.bed_number || '').replace(/\D/g, ''), 10) || 0;
+            return numA - numB;
+          });
+
           const occupiedCount = rBeds.filter(b => b.status === 'occupied').length;
 
-          // Group beds by side / zone (e.g. Left Side, Window Side)
-          const zonesMap = {};
-          rBeds.forEach(b => {
-            const sideName = b.side || 'Left Side';
-            if (!zonesMap[sideName]) zonesMap[sideName] = [];
-            zonesMap[sideName].push(b);
+          // Split beds into Left Side and Right Side (Window Side)
+          const leftBeds = rBeds.filter(b => {
+            const side = (b.side || '').toLowerCase();
+            const bedNum = parseInt((b.bed_number || '').replace(/\D/g, ''), 10);
+            return side.includes('left') || (!side.includes('window') && !side.includes('right') && bedNum <= 5);
           });
-          const zoneNames = Object.keys(zonesMap);
+
+          const rightBeds = rBeds.filter(b => {
+            const side = (b.side || '').toLowerCase();
+            const bedNum = parseInt((b.bed_number || '').replace(/\D/g, ''), 10);
+            return side.includes('window') || side.includes('right') || (!side.includes('left') && bedNum > 5);
+          });
 
           return `
-            <div style="border: 1.5px solid ${occupiedCount === rBeds.length && rBeds.length > 0 ? '#FCA5A5' : '#E2E8F0'}; border-radius: 16px; background: #FFFFFF; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div class="card-panel room-rack-card" style="border: 1.5px solid ${occupiedCount === rBeds.length && rBeds.length > 0 ? '#FCA5A5' : '#E2E8F0'}; border-radius: 16px; background: #FFFFFF; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
               <!-- Room Header -->
-              <div style="padding: 0.85rem 1rem; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
+              <div style="padding: 0.85rem 1rem; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                 <div>
-                  <strong style="font-size: 1.05rem; color: #0F172A;">Room ${r.room_number}</strong>
-                  <div style="font-size: 0.75rem; color: #64748B;">${hostel ? hostel.name : ''} • ${r.floor}</div>
+                  <strong style="font-size: 1.1rem; color: #0F172A;">Room ${r.room_number}</strong>
+                  <div style="font-size: 0.76rem; color: #64748B;">${hostel ? hostel.name : ''} • ${r.floor} • Bed Occupancy: ${occupiedCount}/${rBeds.length}</div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <span class="badge ${occupiedCount === rBeds.length && rBeds.length > 0 ? 'badge-danger' : occupiedCount > 0 ? 'badge-warning' : 'badge-success'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge ${occupiedCount === rBeds.length && rBeds.length > 0 ? 'badge-danger' : occupiedCount > 0 ? 'badge-warning' : 'badge-success'}" style="font-size: 0.74rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
                     ${occupiedCount} / ${rBeds.length} Beds
                   </span>
                   ${canManageBeds ? `
-                    <button class="btn btn-xs btn-outline btn-delete-room" data-room-id="${r.id}" data-room-no="${r.room_number}" title="Delete Room" style="color: #DC2626; border-color: #FECACA; padding: 2px 6px;">
+                    <button class="btn btn-xs btn-outline btn-delete-room" data-room-id="${r.id}" data-room-no="${r.room_number}" title="Delete Room" style="color: #DC2626; border-color: #FECACA; padding: 2px 7px;">
                       ✕
                     </button>
                   ` : ''}
                 </div>
               </div>
 
-              <!-- Beds Grouped by Side / Zone -->
-              <div style="padding: 0.85rem; display: flex; flex-direction: column; gap: 0.85rem;">
-                ${zoneNames.map(zoneName => {
-                  const zBeds = zonesMap[zoneName] || [];
-                  const isWindow = zoneName.toLowerCase().includes('window');
-
-                  return `
-                    <div style="background: #F8FAFC; padding: 0.65rem 0.75rem; border-radius: 10px; border: 1px solid #E2E8F0;">
-                      <!-- Zone Header -->
-                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; padding-bottom: 3px; border-bottom: 1px dashed #CBD5E1;">
-                        <span style="font-size: 0.78rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 4px;">
-                          ${isWindow ? '🪟' : '🚪'} ${zoneName}
-                        </span>
-                        <span style="font-size: 0.7rem; color: #94A3B8; font-weight: 600;">
-                          ${zBeds.length} Beds
-                        </span>
-                      </div>
-
-                      <!-- Bed Slots Grid -->
-                      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.45rem;">
-                        ${zBeds.map(b => {
-                          const student = students.find(s => s.id === b.current_student_id);
-                          const isOccupied = b.status === 'occupied' && student;
-
-                          return `
-                            <div style="padding: 0.5rem; border-radius: 8px; border: 1.5px solid ${isOccupied ? '#93C5FD' : '#E2E8F0'}; background: ${isOccupied ? '#EFF6FF' : '#FFFFFF'}; display: flex; flex-direction: column; justify-content: space-between; min-height: 82px;">
-                              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
-                                <span style="font-size: 0.78rem; font-weight: 800; color: ${isOccupied ? '#1E40AF' : '#64748B'};">
-                                  ${b.bed_number}
-                                </span>
-                                <span class="badge ${isOccupied ? 'badge-success' : 'badge-neutral'}" style="font-size: 0.62rem; padding: 1px 4px;">
-                                  ${isOccupied ? 'Occupied' : 'Vacant'}
-                                </span>
-                              </div>
-
-                              ${isOccupied ? `
-                                <div style="margin: 2px 0;">
-                                  <div style="font-weight: 700; font-size: 0.78rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${student.full_name}">
-                                    ${student.full_name}
-                                  </div>
-                                  <div style="font-size: 0.68rem; color: #64748B;">Class ${student.school_class || '-'} • ${student.admission_number || ''}</div>
-                                </div>
-                                ${canManageBeds ? `
-                                  <button class="btn btn-xs btn-outline btn-change-bed" data-bed-id="${b.id}" style="margin-top: 4px; padding: 2px 6px; font-size: 0.68rem; border-radius: 4px; width: 100%;">
-                                    Change / Vacate
-                                  </button>
-                                ` : ''}
-                              ` : `
-                                <div style="font-size: 0.72rem; color: #94A3B8; font-style: italic; margin: 2px 0;">
-                                  Ready for assignment
-                                </div>
-                                ${canManageBeds ? `
-                                  <button class="btn btn-xs btn-outline-success btn-assign-bed" data-bed-id="${b.id}" data-room-id="${r.id}" style="margin-top: 4px; padding: 2px 6px; font-size: 0.68rem; border-radius: 4px; width: 100%; color: #059669; border-color: #A7F3D0; font-weight: 700;">
-                                    + Assign Student
-                                  </button>
-                                ` : ''}
-                              `}
-                            </div>
-                          `;
-                        }).join('')}
-                      </div>
+              <!-- 2-Column Side-by-Side Floorplan Layout -->
+              <div style="padding: 0.85rem;">
+                <div class="bedroom-sides-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+                  <!-- Left Side Card (One by one vertical stack) -->
+                  <div class="bedroom-side-card" style="background: #F8FAFC; padding: 0.85rem; border-radius: 12px; border: 1.5px solid #E2E8F0; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.45rem; border-bottom: 1.5px dashed #CBD5E1;">
+                      <span style="font-size: 0.84rem; font-weight: 800; color: #1E293B; display: flex; align-items: center; gap: 6px;">
+                        🚪 Left Side
+                      </span>
+                      <span style="font-size: 0.74rem; color: #64748B; font-weight: 700;">
+                        ${leftBeds.length} Beds
+                      </span>
                     </div>
-                  `;
-                }).join('')}
+                    <div style="display: flex; flex-direction: column; gap: 0.6rem; flex: 1;">
+                      ${leftBeds.map(b => renderBedCard(b, r)).join('')}
+                    </div>
+                  </div>
+
+                  <!-- Right Side (Window Side) Card (One by one vertical stack) -->
+                  <div class="bedroom-side-card" style="background: #F8FAFC; padding: 0.85rem; border-radius: 12px; border: 1.5px solid #E2E8F0; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.45rem; border-bottom: 1.5px dashed #CBD5E1;">
+                      <span style="font-size: 0.84rem; font-weight: 800; color: #1E293B; display: flex; align-items: center; gap: 6px;">
+                        🪟 Right Side (Window Side)
+                      </span>
+                      <span style="font-size: 0.74rem; color: #64748B; font-weight: 700;">
+                        ${rightBeds.length} Beds
+                      </span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.6rem; flex: 1;">
+                      ${rightBeds.map(b => renderBedCard(b, r)).join('')}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           `;
@@ -355,17 +397,6 @@ export async function renderHostelModule(container, { onNavigate }) {
   }
 
   function attachEventHandlers() {
-    // Tab switching
-    container.querySelector('#tab-btn-rack')?.addEventListener('click', () => {
-      activeTab = 'rack';
-      renderView();
-    });
-
-    container.querySelector('#tab-btn-roster')?.addEventListener('click', () => {
-      activeTab = 'roster';
-      renderView();
-    });
-
     container.querySelector('#hostel-filter-select')?.addEventListener('change', (e) => {
       selectedHostelFilter = e.target.value;
       renderView();
@@ -425,7 +456,7 @@ export async function renderHostelModule(container, { onNavigate }) {
   }
 
   // -------------------------------------------------------------
-  // MODAL: ASSIGN STUDENT TO BED
+  // MODAL: ASSIGN STUDENT TO BED (Matching Classroom Assignment UI)
   // -------------------------------------------------------------
   function openAssignBedModal(bedId, roomId) {
     const beds = db.getHostelBeds();
@@ -434,64 +465,261 @@ export async function renderHostelModule(container, { onNavigate }) {
     const targetRoom = rooms.find(r => r.id === (roomId || targetBed?.room_id));
     const hostel = hostels.find(h => h.id === targetRoom?.hostel_id);
 
-    // Filter unassigned students matching hostel gender
+    // Identify occupied student IDs (excluding this bed's current student if any)
+    const occupiedStudentIds = new Set(
+      beds.filter(b => b.status === 'occupied' && b.current_student_id && b.id !== bedId).map(b => b.current_student_id)
+    );
+
     const isBoysHostel = hostel?.gender === 'boys';
-    const occupiedStudentIds = new Set(beds.filter(b => b.status === 'occupied' && b.current_student_id).map(b => b.current_student_id));
-    
+    const targetSide = targetBed?.side || 'Left Side';
+
+    // Filter eligible unassigned students matching hostel gender
     const eligibleStudents = students.filter(s => {
       if (occupiedStudentIds.has(s.id)) return false;
-      if (isBoysHostel && (s.gender === 'female' || s.gender === 'girls' || s.gender === 'Girls')) return false;
-      if (!isBoysHostel && (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys')) return false;
+      const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
+      if (isBoysHostel && isGirl) return false;
+      if (!isBoysHostel && !isGirl) return false;
       return true;
     });
 
+    // Sort by admission number for natural sequence
+    eligibleStudents.sort((a, b) => {
+      const admA = a.admission_number || '';
+      const admB = b.admission_number || '';
+      return admA.localeCompare(admB, undefined, { numeric: true });
+    });
+
+    const uniqueClasses = Array.from(new Set(eligibleStudents.map(s => s.school_class).filter(Boolean))).sort();
+
+    // Initial selected student: current student if already assigned, or null
+    let selectedStudentId = targetBed?.current_student_id || null;
+    let searchQuery = '';
+
     openModal({
-      title: `Assign Student to Room ${targetRoom?.room_number || ''} • ${targetBed?.bed_number || ''}`,
-      size: 'md',
+      title: `Assign Student — Room ${targetRoom?.room_number || ''} • ${targetBed?.bed_number || ''}`,
+      size: 'lg',
+      modalClass: 'assign-students-modal',
       contentHtml: `
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem; font-size: 0.85rem; color: #475569;">
-            <div>Target Bed: <strong>${targetBed?.bed_number}</strong> (${targetBed?.side || 'Left Side'})</div>
-            <div>Dormitory: <strong>Room ${targetRoom?.room_number}</strong> • ${hostel?.name || 'Hostel'}</div>
+        <div class="assign-modal-wrapper">
+          <!-- Top Section (Fixed) -->
+          <div class="assign-modal-top">
+            <div class="assign-meta-bar">
+              <div class="assign-meta-left">
+                <span class="assign-section-tag">Room ${targetRoom?.room_number || ''}</span>
+                <span class="assign-gender-tag">${isBoysHostel ? 'Boys Hostel' : 'Girls Hostel'}</span>
+                <span class="badge badge-neutral" style="font-weight: 700; font-size: 0.76rem; border-radius: 9999px;">${targetBed?.bed_number} (${targetSide})</span>
+              </div>
+              <div class="assign-meta-right">
+                <span id="assign-counter-banner" class="assign-count-pill">
+                  <strong>${eligibleStudents.length}</strong> unassigned residents
+                </span>
+              </div>
+            </div>
+
+            <!-- Search and Dropdowns Wrapper (Single line on Desktop, Stacked on Mobile) -->
+            <div class="assign-filters-wrapper">
+              <div class="assign-search-box">
+                <svg class="assign-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="assign-search-input" class="form-control" placeholder="Search by student name, DOB, or admission no..." />
+              </div>
+
+              <!-- Two Dropdowns: Class & Gender -->
+              <div class="assign-dropdowns-row">
+                <select id="assign-class-select" class="form-control assign-select">
+                  <option value="all">All Classes</option>
+                  ${uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+                <select id="assign-gender-select" class="form-control assign-select">
+                  <option value="all">All Genders</option>
+                  <option value="Boys" ${isBoysHostel ? 'selected' : ''}>Boys</option>
+                  <option value="Girls" ${!isBoysHostel ? 'selected' : ''}>Girls</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Quick Action Row -->
+            <div class="assign-quick-row">
+              <span class="assign-visible-count" id="assign-visible-count">Showing ${eligibleStudents.length} students</span>
+              <div class="assign-quick-buttons">
+                <span style="font-size: 0.76rem; color: #64748B; font-weight: 600;">Tap any resident to select for ${targetBed?.bed_number || 'Bed'}</span>
+              </div>
+            </div>
           </div>
 
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label required">Select Unassigned Resident *</label>
-            <select id="modal-assign-student-select" class="form-control" style="height: 38px;">
-              ${eligibleStudents.length === 0 ? `
-                <option value="">No unassigned students available</option>
-              ` : eligibleStudents.map(s => `
-                <option value="${s.id}">${s.full_name} (${s.admission_number} • Class ${s.school_class || '-'})</option>
-              `).join('')}
-            </select>
+          <!-- Scrollable Spacious 1-Column Students List (Flex 1) -->
+          <div class="assign-students-list-container">
+            <div class="assign-students-list" id="assign-students-list"></div>
+            <div id="assign-empty-state" style="display: none; padding: 3rem 1rem; text-align: center; color: #94A3B8; font-size: 0.9rem;">
+              No unassigned students match your filter criteria.
+            </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
-            <button type="button" class="btn btn-outline" id="btn-cancel-assign">Cancel</button>
-            <button type="button" class="btn btn-primary" id="btn-confirm-assign" style="background: #059669; border-color: #059669; font-weight: 700;">
-              Confirm Assignment
-            </button>
+          <!-- Pinned Fixed Footer -->
+          <div class="assign-footer-bar">
+            <div class="assign-footer-info" style="display: flex; align-items: center; gap: 6px;">
+              <span style="color: #64748B; font-size: 0.8rem;">Selected:</span>
+              <strong id="assign-footer-selected-name" style="color: #0F172A; font-size: 0.88rem;">
+                ${selectedStudentId ? (eligibleStudents.find(s => s.id === selectedStudentId)?.full_name || '1 selected') : 'None (Tap a resident)'}
+              </strong>
+            </div>
+            <div class="assign-footer-btns">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-modal-cancel">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-assign" style="background: #059669; border-color: #059669; font-weight: 700;">
+                Assign to ${targetBed?.bed_number || 'Bed'}
+              </button>
+            </div>
           </div>
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
-        modalBody.querySelector('#btn-cancel-assign')?.addEventListener('click', close);
+        const listContainer = modalBody.querySelector('#assign-students-list');
+        const emptyState = modalBody.querySelector('#assign-empty-state');
+        const searchInput = modalBody.querySelector('#assign-search-input');
+        const classSelect = modalBody.querySelector('#assign-class-select');
+        const genderSelect = modalBody.querySelector('#assign-gender-select');
+        const visibleCountEl = modalBody.querySelector('#assign-visible-count');
+        const selectedNameEl = modalBody.querySelector('#assign-footer-selected-name');
+        const confirmBtn = modalBody.querySelector('#btn-confirm-assign');
+
+        function updateFooter() {
+          if (!selectedNameEl) return;
+          if (selectedStudentId) {
+            const st = eligibleStudents.find(s => s.id === selectedStudentId);
+            selectedNameEl.textContent = st ? st.full_name : '1 selected';
+            if (confirmBtn) {
+              confirmBtn.disabled = false;
+              confirmBtn.style.opacity = '1';
+            }
+          } else {
+            selectedNameEl.textContent = 'None (Tap a resident)';
+            if (confirmBtn) {
+              confirmBtn.disabled = true;
+              confirmBtn.style.opacity = '0.6';
+            }
+          }
+        }
+
+        function getFilteredStudents() {
+          const selectedClass = classSelect ? classSelect.value : 'all';
+          const selectedGender = genderSelect ? genderSelect.value : 'all';
+          const q = searchQuery.toLowerCase().trim();
+
+          return eligibleStudents.filter(s => {
+            const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
+            const genderKey = isGirl ? 'Girls' : 'Boys';
+
+            if (selectedClass !== 'all' && (s.school_class || '') !== selectedClass) return false;
+            if (selectedGender !== 'all' && genderKey !== selectedGender) return false;
+
+            if (q) {
+              const matchName = (s.full_name || '').toLowerCase().includes(q);
+              const matchAdm = (s.admission_number || '').replace(/-/g, '').toLowerCase().includes(q);
+              const matchDob = (s.dob || '').toLowerCase().includes(q);
+              const matchClass = (s.school_class || '').toLowerCase().includes(q);
+              if (!matchName && !matchAdm && !matchDob && !matchClass) return false;
+            }
+
+            return true;
+          });
+        }
+
+        function renderRows() {
+          const filtered = getFilteredStudents();
+          if (visibleCountEl) {
+            visibleCountEl.textContent = `Showing ${filtered.length} unassigned residents`;
+          }
+
+          if (filtered.length === 0) {
+            listContainer.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+          }
+
+          listContainer.style.display = 'flex';
+          emptyState.style.display = 'none';
+
+          listContainer.innerHTML = filtered.map(s => {
+            const isSelected = selectedStudentId === s.id;
+            const isGirl = ['female', 'girl', 'girls'].includes((s.gender || '').toLowerCase());
+            const genderLabel = isGirl ? 'Girl' : 'Boy';
+            const age = getStudentAge(s.dob);
+            const ageStr = age ? ` (${age} Yrs)` : '';
+
+            return `
+              <div class="assign-student-row ${isSelected ? 'is-assigned' : ''}" data-sid="${s.id}" style="cursor: pointer;">
+                <!-- Single select radio tick button -->
+                <div class="student-assign-tick ${isSelected ? 'checked' : ''}" role="radio" aria-checked="${isSelected}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+
+                <!-- Avatar: Student Photo or Silhouette -->
+                <div class="assign-student-avatar">
+                  ${s.photo_url ? `
+                    <img src="${s.photo_url}" alt="${s.full_name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                    <div class="avatar-silhouette ${isGirl ? 'girl' : 'boy'}" style="display: none;">
+                      ${isGirl ? silhouetteGirlSvg : silhouetteBoySvg}
+                    </div>
+                  ` : `
+                    <div class="avatar-silhouette ${isGirl ? 'girl' : 'boy'}">
+                      ${isGirl ? silhouetteGirlSvg : silhouetteBoySvg}
+                    </div>
+                  `}
+                </div>
+
+                <!-- Student Data -->
+                <div class="assign-student-details">
+                  <div class="assign-student-name" title="${s.full_name}">${s.full_name}</div>
+                  <div class="assign-student-meta">
+                    <span>${genderLabel}</span>
+                    <span class="meta-dot">•</span><span>${s.school_class || 'Class'}</span>
+                    <span class="meta-dot">•</span><span>DOB: ${s.dob || '—'}${ageStr}</span>
+                    <span class="meta-dot">•</span><code style="font-weight: 700; color: #475569;">${s.admission_number || '-'}</code>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          listContainer.querySelectorAll('.assign-student-row').forEach(row => {
+            row.addEventListener('click', () => {
+              const sid = row.getAttribute('data-sid');
+              selectedStudentId = sid;
+              updateFooter();
+              renderRows();
+            });
+          });
+        }
+
+        searchInput?.addEventListener('input', (e) => {
+          searchQuery = e.target.value;
+          renderRows();
+        });
+
+        classSelect?.addEventListener('change', renderRows);
+        genderSelect?.addEventListener('change', renderRows);
+
+        modalBody.querySelector('#btn-modal-cancel')?.addEventListener('click', close);
+
         modalBody.querySelector('#btn-confirm-assign')?.addEventListener('click', async () => {
-          const studentId = modalBody.querySelector('#modal-assign-student-select')?.value;
-          if (!studentId) {
-            toast.error('Please select a student.');
+          if (!selectedStudentId) {
+            toast.error('Please tap a student to assign to this bed.');
             return;
           }
 
           try {
-            await db.assignStudentToBed(bedId, studentId);
-            toast.success(`Bed assigned successfully.`);
+            await db.assignStudentToBed(bedId, selectedStudentId);
+            toast.success(`Student assigned to ${targetBed?.bed_number || 'bed'}.`);
             close();
             renderView();
           } catch (err) {
             toast.error(err.message || 'Error assigning bed');
           }
         });
+
+        renderRows();
+        updateFooter();
       }
     });
   }
@@ -505,6 +733,8 @@ export async function renderHostelModule(container, { onNavigate }) {
     const bed = beds.find(b => b.id === bedId);
     const room = rooms.find(r => r.id === bed?.room_id);
     const student = students.find(s => s.id === bed?.current_student_id);
+    const age = student ? getStudentAge(student.dob) : null;
+    const ageText = age ? `${age} Yrs` : '11 Yrs';
 
     // List of other unassigned students
     const occupiedStudentIds = new Set(beds.filter(b => b.status === 'occupied' && b.current_student_id).map(b => b.current_student_id));
@@ -518,39 +748,53 @@ export async function renderHostelModule(container, { onNavigate }) {
           <!-- Currently Assigned Student Card -->
           <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 12px; padding: 0.85rem 1rem;">
             <div style="font-size: 0.72rem; font-weight: 700; color: #1D4ED8; text-transform: uppercase;">Currently Assigned Resident</div>
-            <div style="font-size: 1.05rem; font-weight: 800; color: #0F172A; margin-top: 2px;">
+            <div style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin-top: 3px;">
               ${student ? student.full_name : 'Unknown Resident'}
             </div>
-            <div style="font-size: 0.78rem; color: #475569; margin-top: 1px;">
-              Admission No: <strong>${student?.admission_number || '-'}</strong> • Class: <strong>${student?.school_class || '-'}</strong>
+            <div style="font-size: 0.82rem; font-weight: 600; color: #475569; margin-top: 2px;">
+              ${student ? `${student.school_class || 'Class'} • ${ageText}` : 'Resident details unavailable'}
             </div>
           </div>
 
-          <!-- Reassignment Section -->
-          <div style="border-top: 1px dashed #CBD5E1; padding-top: 0.75rem;">
-            <label class="form-label" style="font-weight: 700; font-size: 0.82rem;">Reassign Bed to Another Student</label>
-            <select id="modal-reassign-select" class="form-control" style="height: 38px;">
-              <option value="">-- Choose student to reassign --</option>
-              ${availableStudents.map(s => `
-                <option value="${s.id}">${s.full_name} (${s.admission_number} • Class ${s.school_class || '-'})</option>
-              `).join('')}
-            </select>
+          <!-- Reassign Choice Prompt -->
+          <div style="border-top: 1px dashed #CBD5E1; padding-top: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem;">
+            <button type="button" class="btn btn-outline" id="btn-open-student-selector" style="font-weight: 700; color: #059669; border-color: #A7F3D0; background: #ECFDF5; height: 42px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+              Choose New Resident (Open Selector) →
+            </button>
+
+            <!-- Quick Direct Dropdown -->
+            <div style="margin-top: 0.25rem;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.78rem; color: #64748B;">Or quick reassign from dropdown:</label>
+              <select id="modal-reassign-select" class="form-control" style="height: 38px;">
+                <option value="">-- Choose student to reassign --</option>
+                ${availableStudents.map(s => `
+                  <option value="${s.id}">${s.full_name} (${s.school_class || '-'})</option>
+                `).join('')}
+              </select>
+            </div>
           </div>
 
           <!-- Actions -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; gap: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; gap: 0.5rem; flex-wrap: wrap;">
             <button type="button" class="btn btn-outline" id="btn-vacate-bed" style="color: #DC2626; border-color: #FECACA; font-weight: 700;">
               Vacate Bed (Free Space)
             </button>
             <div style="display: flex; gap: 0.4rem;">
               <button type="button" class="btn btn-outline" id="btn-cancel-change">Cancel</button>
-              <button type="button" class="btn btn-primary" id="btn-confirm-reassign" style="font-weight: 700;">Save Reassignment</button>
+              <button type="button" class="btn btn-primary" id="btn-confirm-reassign" style="font-weight: 700; background: #059669; border-color: #059669;">Save Quick Reassignment</button>
             </div>
           </div>
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
         modalBody.querySelector('#btn-cancel-change')?.addEventListener('click', close);
+
+        // Open full classroom-style student selector
+        modalBody.querySelector('#btn-open-student-selector')?.addEventListener('click', () => {
+          close();
+          openAssignBedModal(bedId, room?.id);
+        });
 
         // Vacate Bed
         modalBody.querySelector('#btn-vacate-bed')?.addEventListener('click', async () => {

@@ -3057,6 +3057,55 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(typeof db.assignStudentToBed).toBe('function');
       expect(typeof db.vacateBed).toBe('function');
     });
+
+    it('Hostel Module Layout Redesign: removes tab switcher bar, provides full-width filter card, side-by-side bedroom floorplan, and compact bed metadata (Class • Age)', async () => {
+      // Create student with known DoB and Class
+      const s1 = await db.addStudent({
+        full_name: 'MD Aamir',
+        gender: 'Boys',
+        dob: '2016-05-15',
+        school_class: 'STD-I'
+      });
+
+      const beds = db.getHostelBeds();
+      const testBed = beds.find(b => b.status === 'available');
+      if (testBed) {
+        await db.assignStudentToBed(testBed.id, s1.id);
+      }
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderHostelModule(container, { onNavigate: () => {} });
+
+      // 1. Tab switcher bar removed
+      expect(container.innerHTML).not.toContain('id="tab-btn-rack"');
+      expect(container.innerHTML).not.toContain('id="tab-btn-roster"');
+
+      // 2. Full-width hostel filter card
+      expect(container.innerHTML).toContain('hostel-filter-card');
+      expect(container.innerHTML).toContain('select-full-width');
+      expect(container.innerHTML).toContain('data-full-width="true"');
+
+      // 3. Side-by-Side bedroom floorplan layout
+      expect(container.innerHTML).toContain('bedroom-sides-grid');
+      expect(container.innerHTML).toContain('bedroom-side-card');
+      expect(container.innerHTML).toContain('Left Side');
+      expect(container.innerHTML).toContain('Right Side (Window Side)');
+
+      // 4. Compact Bed metadata: Name and Class • Age (no admission number clutter)
+      expect(container.innerHTML).toContain('MD Aamir');
+      expect(container.innerHTML).toMatch(/STD-I\s*•\s*\d+\s*Yrs/);
+
+      // Clean up
+      if (testBed) {
+        await db.vacateBed(testBed.id);
+      }
+      await db.deleteStudent(s1.id);
+    });
   });
 
   describe('21. Student on Approved Leave Attendance Governance (Faded/On-Leave Display & Incapable Switch)', () => {
