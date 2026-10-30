@@ -19,7 +19,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
   const sections = [
     {
       title: 'Student & Academic',
-      keys: ['dashboard', 'admissions', 'students', 'sections', 'assignments', 'timetable', 'calendar', 'attendance', 'attendance_report', 'faculty_leaves']
+      keys: ['dashboard', 'admissions', 'students', 'sections', 'timetable', 'calendar', 'attendance', 'attendance_report', 'faculty_leaves']
     },
     {
       title: 'Hostel Operations',

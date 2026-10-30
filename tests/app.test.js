@@ -1024,6 +1024,10 @@ describe('14. Multi-Role Categorized Dashboards & Sidebar Section Tests', () => 
     expect(academicIndex).toBeGreaterThan(-1);
     expect(dashboardIndex).toBeGreaterThan(academicIndex);
     expect(admissionsIndex).toBeGreaterThan(dashboardIndex);
+
+    // Verify Student Assignments is removed from sidebar
+    expect(container.innerHTML).not.toContain('data-module="assignments"');
+    expect(container.innerHTML).not.toContain('Student Assignments');
   });
 
   it('Renders dedicated Teacher Dashboard for teacher role with teaching load and attendance shortcut', async () => {
