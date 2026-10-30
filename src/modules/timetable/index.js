@@ -1,6 +1,5 @@
 import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
-import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { formatTime, formatDaysSingleLetters } from '../../lib/utils.js';
 
@@ -122,22 +121,31 @@ export async function renderTimetableModule(container, { onNavigate }) {
           <h2>${isTeacher ? 'My Teaching Timetable' : 'Faculty Timetable & Schedule Governance'}</h2>
           <p>${isTeacher ? `Personal weekly teaching schedule and class timetable for ${user?.full_name || 'Faculty'}` : 'Institutional visual timetable builder with double-booking prevention and attendance window rules'}</p>
         </div>
-        <div class="page-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-          ${isAdmin ? `
-            <div style="display: flex; align-items: center; gap: 0.45rem;">
-              <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary);">Faculty:</span>
-              <select id="timetable-faculty-filter" class="form-control" style="width: 220px; height: 36px; font-size: 0.82rem;">
-                <option value="all">All Faculty (${classrooms.length} classes)</option>
-                ${eligibleTeachers.map(t => `<option value="${t.id}" ${selectedFacultyFilter === t.id ? 'selected' : ''}>${t.full_name || t.email}</option>`).join('')}
-              </select>
-            </div>
-            <button class="btn btn-primary btn-sm" id="btn-add-slot">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Add Timetable Slot
-            </button>
-          ` : ''}
-        </div>
       </div>
+
+      <!-- ADMIN FACULTY SELECTOR (FULL ROW ALTERNATIVE DESIGN) -->
+      ${isAdmin ? `
+        <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem; flex-wrap: wrap; gap: 0.4rem;">
+            <label for="timetable-faculty-filter" style="font-size: 0.74rem; font-weight: 800; color: #334155; display: inline-flex; align-items: center; gap: 0.45rem; text-transform: uppercase; letter-spacing: 0.04em; margin: 0; cursor: pointer;">
+              <div style="width: 26px; height: 26px; border-radius: 8px; background: #ECFDF5; border: 1px solid #A7F3D0; display: inline-flex; align-items: center; justify-content: center; color: #059669;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </div>
+              Filter Timetable by Faculty
+            </label>
+            <span style="font-size: 0.7rem; font-weight: 700; color: #059669; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 10px; border-radius: 9999px;">
+              ${displayClassrooms.length} Active / ${classrooms.length} Total Classes
+            </span>
+          </div>
+          <select id="timetable-faculty-filter" class="form-control" style="width: 100%; height: 42px; border-radius: 10px; font-weight: 700; font-size: 0.88rem; cursor: pointer; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: #0F172A; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);">
+            <option value="all">All Faculty (${classrooms.length} classes)</option>
+            ${eligibleTeachers.map(t => {
+              const count = classrooms.filter(c => c.teacher_id === t.id).length;
+              return `<option value="${t.id}" ${selectedFacultyFilter === t.id ? 'selected' : ''}>${t.full_name || t.email} (${count} ${count === 1 ? 'class' : 'classes'})</option>`;
+            }).join('')}
+          </select>
+        </div>
+      ` : ''}
 
       ${isTeacher ? `
         <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
@@ -339,74 +347,6 @@ export async function renderTimetableModule(container, { onNavigate }) {
     container.querySelector('#timetable-faculty-filter')?.addEventListener('change', (e) => {
       selectedFacultyFilter = e.target.value;
       renderUI();
-    });
-
-    // Add timetable slot (Admins only)
-    container.querySelector('#btn-add-slot')?.addEventListener('click', () => {
-      openModal({
-        title: 'Schedule Timetable Slot',
-        contentHtml: `
-          <div class="form-grid" style="margin-bottom: 1rem;">
-            <div class="form-group">
-              <label class="form-label required">Day of Week</label>
-              <select id="slot-day" class="form-control">
-                ${DAY_ORDER.map(d => `<option value="${d}">${d}</option>`).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label required">Section / Program</label>
-              <select id="slot-program" class="form-control">
-                ${programs.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          <div class="form-grid" style="margin-bottom: 1rem;">
-            <div class="form-group">
-              <label class="form-label required">Start Time</label>
-              <input type="time" id="slot-start" class="form-control" value="06:30" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label required">End Time</label>
-              <input type="time" id="slot-end" class="form-control" value="07:30" required />
-            </div>
-          </div>
-          <div class="form-grid" style="margin-bottom: 1.5rem;">
-            <div class="form-group">
-              <label class="form-label required">Classroom</label>
-              <select id="slot-cls" class="form-control">
-                ${classrooms.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label required">Assigned Faculty</label>
-              <select id="slot-teacher" class="form-control">
-                ${eligibleTeachers.map(t => `<option value="${t.id}">${t.full_name || t.email}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-            <button class="btn btn-primary" id="btn-save-slot">Save & Update Classroom Schedule</button>
-          </div>
-        `,
-        onMount: ({ container: modalBody, close }) => {
-          modalBody.querySelector('#btn-save-slot').addEventListener('click', async () => {
-            const clsId = modalBody.querySelector('#slot-cls').value;
-            const teacherId = modalBody.querySelector('#slot-teacher').value;
-            const start = modalBody.querySelector('#slot-start').value;
-            const end = modalBody.querySelector('#slot-end').value;
-
-            await db.updateClassroom(clsId, {
-              teacher_id: teacherId,
-              start_time: start,
-              end_time: end
-            });
-
-            toast.success('Classroom timetable schedule updated.');
-            close();
-            renderTimetableModule(container, { onNavigate });
-          });
-        }
-      });
     });
   }
 

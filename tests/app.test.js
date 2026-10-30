@@ -1049,6 +1049,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     // Admin needs name of faculty among them
     expect(adminContainer.innerHTML).toContain('Assigned Faculty');
     expect(adminContainer.innerHTML).toContain('Rashid Sir');
+    // Full width altered design faculty filter card, no Add Timetable Slot button
+    expect(adminContainer.innerHTML).toContain('Filter Timetable by Faculty');
+    expect(adminContainer.innerHTML).toContain('timetable-faculty-filter');
+    expect(adminContainer.innerHTML).not.toContain('btn-add-slot');
+    expect(adminContainer.innerHTML).not.toContain('Add Timetable Slot');
   });
 
   it('Teacher Timetable displays cards for all assigned classes with strict faculty isolation', async () => {
