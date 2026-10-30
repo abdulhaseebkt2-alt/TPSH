@@ -3234,4 +3234,54 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(activeStudent.id);
     });
   });
+
+  describe('22. Mobile UI Compatibility & Responsive Edit Modal Tests', () => {
+    it('Edit Student Modal structure enforces zero horizontal scroll and mobile-responsive styling classes', async () => {
+      const fs = await import('fs');
+      const cssContent = fs.readFileSync('src/styles/main.css', 'utf-8');
+      const studentsJs = fs.readFileSync('src/modules/students/index.js', 'utf-8');
+
+      // 1. Verify CSS enforces overflow-x hidden on modal body and zero horizontal scroll
+      expect(cssContent).toContain('.modal-body {');
+      expect(cssContent).toContain('overflow-x: hidden !important;');
+      expect(cssContent).toContain('.student-edit-form-wrap');
+      expect(cssContent).toContain('.student-edit-banner');
+      expect(cssContent).toContain('.student-edit-photo-box');
+      expect(cssContent).toContain('.student-edit-info-col');
+      expect(cssContent).toContain('.student-edit-actions-row');
+
+      // 2. Form control must be 100% full width and border-box constrained to prevent mobile overflow
+      expect(cssContent).toContain('.form-control,');
+      expect(cssContent).toContain('width: 100% !important;');
+      expect(cssContent).toContain('box-sizing: border-box !important;');
+
+      // 3. In students module, neither showProfileModal nor showEditStudentModal have rigid min-width causing mobile overflow
+      expect(studentsJs).not.toContain('min-width: 240px');
+      expect(studentsJs).not.toContain('min-width: 260px');
+
+      // 4. In students module, edit modal uses responsive CSS classes instead of fixed overflow styles
+      expect(studentsJs).toContain('class="student-edit-form-wrap"');
+      expect(studentsJs).toContain('class="student-edit-banner"');
+      expect(studentsJs).toContain('class="student-edit-photo-box"');
+      expect(studentsJs).toContain('class="student-edit-actions-row"');
+      expect(studentsJs).toContain('class="student-edit-hostel-box"');
+
+      // 5. Test rendering students module in mobile list mode
+      const tableContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      const topBar = { querySelector: () => null };
+      const container = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#students-table-container') return tableContainer;
+          if (sel === '#card-top-bar') return topBar;
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+
+      await renderStudentsModule(container, { onNavigate: () => {} });
+      expect(tableContainer.innerHTML).toContain('students-mobile-list-wrap');
+      expect(tableContainer.innerHTML).toContain('student-mobile-card-row');
+    });
+  });
 });

@@ -498,32 +498,32 @@ export async function renderStudentsModule(container, { onNavigate }) {
       title: `Student Profile — ${student.full_name}`,
       size: 'lg',
       contentHtml: `
-        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.5rem;">
-          <div style="width: 90px; height: 90px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; border: 2px solid ${isGirl ? '#FBCFE8' : '#BFDBFE'}; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 32px; font-weight: 800; flex-shrink: 0;">
+        <div class="student-profile-header-wrap" style="display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.25rem; width: 100%; box-sizing: border-box; min-width: 0;">
+          <div style="width: 80px; height: 80px; border-radius: 50%; background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'}; border: 2px solid ${isGirl ? '#FBCFE8' : '#BFDBFE'}; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 28px; font-weight: 800; flex-shrink: 0;">
             ${student.photo_url ? `
               <img src="${student.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${student.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
               <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
               </div>
             ` : `
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21.6h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
             `}
           </div>
-          <div style="flex: 1; min-width: 260px;">
-            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
-              <h3 style="font-size: 1.3rem; font-weight: 800; color: #065F46; margin: 0;">${student.full_name}</h3>
+          <div style="flex: 1; min-width: 0; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+              <h3 style="font-size: 1.25rem; font-weight: 800; color: #065F46; margin: 0; word-break: break-word;">${student.full_name}</h3>
               <span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.65rem; font-size: 0.72rem; font-weight: 600;">${student.status || 'active'}</span>
               <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #1E293B; font-weight: 700;">${student.admission_number}</span>
             </div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; word-break: break-word;">
               <div>Gender: <strong>${student.gender}</strong> • DOB: <strong>${formatDate(student.dob)}</strong> • Class: <strong>${normalizeClassPattern(student.school_class)}</strong></div>
               <div>Hostel: <strong>${student.hostel_unit || (student.hostel_status === 'day_scholar' ? 'Day Scholar' : 'Hostel Resident')}</strong> • Room: <strong>${student.hostel_room || 'Not assigned'}</strong> • Bed: <strong>${student.hostel_bed || 'Not assigned'}</strong></div>
             </div>
           </div>
         </div>
 
-        <div class="form-grid" style="margin-bottom: 1.5rem;">
-          <div>
+        <div class="form-grid" style="margin-bottom: 1.25rem;">
+          <div style="min-width: 0; word-break: break-word;">
             <h4 style="font-size: 0.825rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Parent & Guardian</h4>
             <div style="font-size: 0.85rem; line-height: 1.6;">
               <div>Primary Contact: <strong>${student.father_name}</strong> (${student.father_phone})</div>
@@ -532,7 +532,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
             </div>
           </div>
 
-          <div>
+          <div style="min-width: 0; word-break: break-word;">
             <h4 style="font-size: 0.825rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Native Address</h4>
             <div style="font-size: 0.85rem; line-height: 1.6;">
               <div>Village / Town: <strong>${student.village || '—'}</strong>, Dist: <strong>${student.district || 'Malappuram'}</strong></div>
@@ -542,15 +542,15 @@ export async function renderStudentsModule(container, { onNavigate }) {
         </div>
 
         ${(canEditStudents || canDeleteStudents) && !isViewOnly ? `
-          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap; width: 100%; box-sizing: border-box;">
             ${canEditStudents ? `
-              <button class="btn btn-outline" id="modal-btn-edit-student" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+              <button class="btn btn-outline" id="modal-btn-edit-student" style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.85rem; flex: 1; min-width: 130px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit Student Record
               </button>
             ` : ''}
             ${canDeleteStudents ? `
-              <button class="btn btn-outline" id="modal-btn-delete-student" style="color: #DC2626; border-color: #FECACA; display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+              <button class="btn btn-outline" id="modal-btn-delete-student" style="color: #DC2626; border-color: #FECACA; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.85rem; flex: 1; min-width: 130px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 Delete Student
               </button>
@@ -591,45 +591,45 @@ export async function renderStudentsModule(container, { onNavigate }) {
       title: `Edit Student Record — ${student.full_name}`,
       size: 'lg',
       contentHtml: `
-        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <div class="student-edit-form-wrap">
           <!-- Photo Upload & Student Identity Card Header -->
-          <div style="display: flex; gap: 1.5rem; align-items: center; padding: 1rem 1.25rem; background: var(--bg-surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); flex-wrap: wrap;">
+          <div class="student-edit-banner">
             <!-- Passport Photo Card -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
-              <div id="edit-photo-preview-box" style="width: 110px; height: 130px; border: 2px dashed var(--border-medium); border-radius: var(--radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; background: #FFFFFF; overflow: hidden; position: relative; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+            <div class="student-edit-photo-col">
+              <div id="edit-photo-preview-box" class="student-edit-photo-box">
                 ${student.photo_url ? `
-                  <img id="edit-photo-img" src="${student.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${student.full_name}" />
-                  <div id="edit-photo-placeholder" style="display: none; flex-direction: column; align-items: center; justify-content: center;">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem;">Upload Photo</span>
+                  <img id="edit-photo-img" src="${student.photo_url}" class="student-edit-photo-img" alt="${student.full_name}" />
+                  <div id="edit-photo-placeholder" style="display: none;" class="student-edit-photo-placeholder">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    <span>Upload Photo</span>
                   </div>
                 ` : `
-                  <div id="edit-photo-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem;">Upload Photo</span>
+                  <div id="edit-photo-placeholder" class="student-edit-photo-placeholder">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    <span>Upload Photo</span>
                   </div>
-                  <img id="edit-photo-img" style="display: none; width: 100%; height: 100%; object-fit: cover;" />
+                  <img id="edit-photo-img" style="display: none;" class="student-edit-photo-img" />
                 `}
-                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.75); color: #FFFFFF; font-size: 0.65rem; font-weight: 700; text-align: center; padding: 2px 0;">Click to Browse</div>
+                <div class="student-edit-browse-tag">Click to Browse</div>
               </div>
               <input type="file" id="edit-student-photo-input" accept="image/*" style="display: none;" />
             </div>
 
             <!-- Identity Banner -->
-            <div style="flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                <span style="font-size: 1.15rem; font-weight: 800; color: var(--brand-navy);">${student.full_name}</span>
+            <div class="student-edit-info-col">
+              <div class="student-edit-name-row">
+                <span class="student-edit-name-text">${student.full_name}</span>
                 <span class="badge" style="background: rgba(15, 81, 50, 0.1); color: #0F5132; border: 1px solid rgba(15, 81, 50, 0.2); font-weight: 700;">${student.admission_number}</span>
               </div>
-              <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5;">
-                Upload or update student passport photograph. The photo will automatically sync to ID cards, attendance sheets, gate registers, and profile modals.
+              <div class="student-edit-subtext">
+                Upload or update student passport photograph. The photo will automatically sync to ID cards, attendance sheets, and profile views.
               </div>
-              <div style="display: flex; gap: 0.4rem; font-size: 0.72rem; color: var(--text-muted); align-items: center; margin-top: 0.2rem;">
+              <div class="student-edit-specs-row">
                 <span>JPG, PNG or WebP</span>
                 <span>•</span>
                 <span>Max size: 2MB</span>
                 <span>•</span>
-                <span>Aspect ratio: 3:4 recommended</span>
+                <span>Aspect: 3:4</span>
               </div>
             </div>
           </div>
@@ -666,8 +666,8 @@ export async function renderStudentsModule(container, { onNavigate }) {
             </div>
             <div class="form-group">
               <label class="form-label">Hostel & Bed Allocation</label>
-              <div style="padding: 0.65rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.85rem; color: #334155;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div class="student-edit-hostel-box">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.35rem;">
                   <span>${student.hostel_unit || 'Thaiba Hostel'}: <strong>${student.hostel_room ? `${student.hostel_room} • ${student.hostel_bed}` : '<span style="color: #94A3B8;">No Bed Assigned</span>'}</strong></span>
                 </div>
                 <div style="font-size: 0.74rem; color: #64748B; margin-top: 3px;">
@@ -694,7 +694,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+          <div class="student-edit-actions-row">
             <button class="btn btn-outline" id="btn-cancel-edit">Cancel</button>
             <button class="btn btn-primary" id="btn-save-edit">Save Changes</button>
           </div>
