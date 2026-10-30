@@ -1021,7 +1021,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(teacherContainer.innerHTML).toContain('Classroom / Hall');
     expect(teacherContainer.innerHTML).toContain('Enrolled Roster');
     expect(teacherContainer.innerHTML).toContain('Scheduled Days');
-    expect(teacherContainer.innerHTML).toContain('Take Attendance →');
+    // Attendance button is omitted from timetable cards because attendance has its own dedicated window
+    expect(teacherContainer.innerHTML).not.toContain('Take Attendance →');
     // Removed redundant contents to resize height
     expect(teacherContainer.innerHTML).not.toContain('Your upcoming class');
     expect(teacherContainer.innerHTML).not.toContain('Scheduled teaching session');
@@ -1081,8 +1082,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(teacherDiv.innerHTML).toContain('Advanced Robotics Hall');
       // Must NOT show cards for other faculty's classrooms
       expect(teacherDiv.innerHTML).not.toContain('Other Faculty Room');
-      // Must have the take attendance buttons
-      expect(teacherDiv.innerHTML).toContain('Take Attendance →');
+      // No attendance button in timetable cards (managed in attendance window)
+      expect(teacherDiv.innerHTML).not.toContain('Take Attendance →');
     } finally {
       db.set('tps_classrooms', originalCls);
     }

@@ -256,7 +256,7 @@ export async function renderTimetableModule(container, { onNavigate }) {
                      tabindex="0"
                      style="cursor: pointer;">
                   
-                  <!-- Top Row: Class Name, Program Badge & Quick Action -->
+                  <!-- Top Row: Class Name & Program Badge (Pure Info without redundant Attendance button) -->
                   <div class="upcoming-class-primary" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin: 0;">
                     <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
                       <h4 class="upcoming-class-name" style="font-size: 1.25rem; font-weight: 800; color: #065F46; margin: 0; letter-spacing: -0.01em;">
@@ -265,23 +265,17 @@ export async function renderTimetableModule(container, { onNavigate }) {
                       <span class="upcoming-prog-pill" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.18rem 0.65rem; font-size: 0.72rem; font-weight: 700; display: inline-block;">
                         ${progName}
                       </span>
-                      ${isLive ? `
-                        <span style="display: inline-flex; align-items: center; gap: 0.3rem; background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800;">
-                          <span class="live-pulse-dot" style="width: 6px; height: 6px;"></span> LIVE
-                        </span>
-                      ` : isSoon ? `
-                        <span style="display: inline-flex; align-items: center; gap: 0.3rem; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800;">
-                          Starts in ${sMin - currentMinutes}m
-                        </span>
-                      ` : ''}
                     </div>
 
-                    <button type="button" 
-                            class="btn btn-primary btn-sm btn-open-attendance" 
-                            data-cls-id="${cls.id}"
-                            style="font-weight: 800; border-radius: 8px; padding: 0.35rem 0.85rem; font-size: 0.78rem; background: #059669; border-color: #047857; color: #FFFFFF; display: inline-flex; align-items: center; gap: 0.3rem; box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2); cursor: pointer; border: none; white-space: nowrap;">
-                      Take Attendance →
-                    </button>
+                    ${isLive ? `
+                      <span style="display: inline-flex; align-items: center; gap: 0.3rem; background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800;">
+                        <span class="live-pulse-dot" style="width: 6px; height: 6px;"></span> LIVE
+                      </span>
+                    ` : isSoon ? `
+                      <span style="display: inline-flex; align-items: center; gap: 0.3rem; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800;">
+                        Starts in ${sMin - currentMinutes}m
+                      </span>
+                    ` : ''}
                   </div>
 
                   <!-- Thin Subtle Divider Line -->
@@ -327,18 +321,6 @@ export async function renderTimetableModule(container, { onNavigate }) {
         `}
       </div>
     `;
-
-    // Attach listeners for Take Attendance buttons
-    container.querySelectorAll('.btn-open-attendance').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const clsId = btn.getAttribute('data-cls-id');
-        if (clsId) {
-          sessionStorage.setItem('tps_active_att_cls', clsId);
-        }
-        onNavigate('attendance');
-      });
-    });
 
     // Clicking anywhere on the timetable card enters attendance for that class
     container.querySelectorAll('.teacher-upcoming-card').forEach(card => {
