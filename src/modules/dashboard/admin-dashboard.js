@@ -11,7 +11,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     discipline,
     exams,
     users,
-    auditLogs
+    auditLogs,
+    facultyLeaves
   ] = await Promise.all([
     db.getStudents(),
     db.getClassrooms(),
@@ -19,8 +20,33 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     db.getDisciplineIncidents(),
     db.getExams(),
     db.getUsers(),
-    db.getAuditLogs()
+    db.getAuditLogs(),
+    db.getFacultyLeaves()
   ]);
+
+  // Check pending faculty leave requests for hero card brand pill
+  const pendingFacultyLeaves = (facultyLeaves || []).filter(l => (l.status || '').toLowerCase() === 'pending');
+  const uniqueFacultyMap = new Map();
+  pendingFacultyLeaves.forEach(l => {
+    const key = l.faculty_id || l.faculty_name || l.faculty_email;
+    if (key && !uniqueFacultyMap.has(key)) {
+      uniqueFacultyMap.set(key, l);
+    }
+  });
+  const pendingFacultyCount = uniqueFacultyMap.size;
+  const pendingFacultyList = Array.from(uniqueFacultyMap.values());
+
+  let heroPillText = 'THAIBASCHOOL CAMPUS';
+  let isLeaveRequestPill = false;
+
+  if (pendingFacultyCount === 1) {
+    const applicantName = pendingFacultyList[0].faculty_name || '1 Faculty';
+    heroPillText = `${applicantName} requested leave`;
+    isLeaveRequestPill = true;
+  } else if (pendingFacultyCount > 1) {
+    heroPillText = `${pendingFacultyCount} faculty requested leave`;
+    isLeaveRequestPill = true;
+  }
 
   const activeStudents = students.filter(s => s.status === 'Active');
   const boysCount = students.filter(s => s.gender === 'Male' || s.gender === 'Boys').length;
@@ -149,9 +175,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
       <!-- 2. Dark Contrast Executive Hero Card (References 1, 3, 4) -->
       <div class="m-hero-card">
         <div class="m-hero-top-row">
-          <div class="m-hero-brand-pill">
+          <div class="m-hero-brand-pill ${isLeaveRequestPill ? 'has-leave-request' : ''}" id="m-hero-brand-pill" title="${isLeaveRequestPill ? 'Click to review faculty leave applications' : 'Thaiba Public School Campus'}" style="cursor: ${isLeaveRequestPill ? 'pointer' : 'default'};">
             <span class="m-hero-live-indicator">●</span>
-            <span>THAIBASCHOOL CAMPUS</span>
+            <span class="m-hero-brand-text">${heroPillText}</span>
           </div>
           <button class="m-hero-eye-btn" id="m-hero-eye-toggle" title="Toggle metrics display" aria-label="Toggle metrics display">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -439,6 +465,19 @@ export async function renderAdminDashboard(container, { onNavigate }) {
         </div>
       </div>
 
+      ${isLeaveRequestPill ? `
+        <div class="dash-faculty-leave-banner" id="dash-desktop-leave-alert" style="margin-bottom: 1.25rem; padding: 0.85rem 1.25rem; border-radius: 12px; background: #FFFBEB; border: 1.5px solid #FDE68A; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.9);"></span>
+            <strong style="color: #92400E; font-size: 0.92rem;">${heroPillText}</strong>
+            <span style="font-size: 0.8rem; color: #B45309;">• Pending review and administrative authorization</span>
+          </div>
+          <button class="btn btn-xs btn-outline" style="border-color: #F59E0B; color: #B45309; font-weight: 700; background: #FFFFFF;">
+            Review Applications →
+          </button>
+        </div>
+      ` : ''}
+
       <!-- SECTION 1: Student & Academic -->
       <div class="dash-section-header">
         <div class="dash-section-title-wrap">
@@ -705,6 +744,25 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     eyeBtn.innerHTML = isMetricsHidden
       ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
       : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  });
+
+  // Interactive Hero Brand Pill: click to view faculty leaves when request active
+  container.querySelector('#m-hero-brand-pill')?.addEventListener('click', () => {
+    if (isLeaveRequestPill) {
+      if (typeof onNavigate === 'function') {
+        onNavigate('faculty_leaves');
+      } else {
+        window.location.hash = '#faculty_leaves';
+      }
+    }
+  });
+
+  container.querySelector('#dash-desktop-leave-alert')?.addEventListener('click', () => {
+    if (typeof onNavigate === 'function') {
+      onNavigate('faculty_leaves');
+    } else {
+      window.location.hash = '#faculty_leaves';
+    }
   });
 
   // Attach navigation handlers for mobile bento grid & activity feed

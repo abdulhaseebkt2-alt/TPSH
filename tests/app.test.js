@@ -2790,6 +2790,69 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('data-nav="settings"');
   });
 
+  it('Admin Dashboard Hero Pill: displays faculty leave requests in place of THAIBASCHOOL CAMPUS with single-faculty name and multi-faculty plural count', async () => {
+    // 1. Initial state: 0 pending requests -> THAIBASCHOOL CAMPUS
+    const container = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    await renderAdminDashboard(container, { onNavigate: () => {} });
+    expect(container.innerHTML).toContain('THAIBASCHOOL CAMPUS');
+    expect(container.innerHTML).not.toContain('has-leave-request');
+
+    // 2. 1 Pending Request -> Show faculty name with requested leave
+    const l1 = await db.applyFacultyLeave({
+      faculty_id: 'u-2',
+      faculty_name: 'Rashid Sir',
+      faculty_email: 'teacher@thaibaschool.edu.in',
+      is_multiple_days: false,
+      start_date: '2026-11-01',
+      end_date: '2026-11-01',
+      departure_time: '09:00',
+      return_time: '17:00',
+      leave_type: 'Casual Leave',
+      reason: 'Urgent Family Duty'
+    });
+
+    const container1 = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    await renderAdminDashboard(container1, { onNavigate: () => {} });
+    expect(container1.innerHTML).toContain('Rashid Sir requested leave');
+    expect(container1.innerHTML).toContain('has-leave-request');
+
+    // 3. Greater than 1 (2 Pending Requests) -> Show "2 faculty requested leave"
+    const l2 = await db.applyFacultyLeave({
+      faculty_id: 'u-3',
+      faculty_name: 'Usthad Usman',
+      faculty_email: 'mentor@thaibaschool.edu.in',
+      is_multiple_days: false,
+      start_date: '2026-11-02',
+      end_date: '2026-11-02',
+      departure_time: '08:00',
+      return_time: '18:00',
+      leave_type: 'Medical Leave',
+      reason: 'Hospital checkup'
+    });
+
+    const container2 = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    await renderAdminDashboard(container2, { onNavigate: () => {} });
+    expect(container2.innerHTML).toContain('2 faculty requested leave');
+    expect(container2.innerHTML).toContain('has-leave-request');
+    expect(container2.innerHTML).toContain('dash-desktop-leave-alert');
+
+    // Clean up
+    await db.deleteFacultyLeave(l1.id);
+    await db.deleteFacultyLeave(l2.id);
+  });
+
   it('Full-Width Select Enhancer: enhances full-width selects with 100% trigger width up to the right edge of the card', () => {
     const createdElements = [];
     const mockDocument = {
