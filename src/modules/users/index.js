@@ -217,6 +217,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
   }
 
   const users = await db.getUsers();
+  const allStudents = await db.getStudents();
   const pendingUsers = users.filter(u => u.approval_status === 'pending');
   const activeUsers = users.filter(u => u.approval_status === 'approved');
   const suspendedUsers = users.filter(u => u.approval_status === 'suspended');
@@ -327,29 +328,37 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               </tr>
             </thead>
             <tbody>
-              ${pendingUsers.map(u => `
+              ${pendingUsers.map(u => {
+                const isParentReq = u.role === 'parent';
+                return `
                 <tr>
                   <td>
                     <strong>${u.full_name || 'Pending User'}</strong>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">${u.phone_number || 'No phone recorded'}</div>
+                    ${isParentReq ? `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 0.65rem; margin-left: 0.35rem; font-weight: 700;">PARENT APPLICANT</span>` : ''}
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">${u.phone_number || u.phone || 'No phone recorded'}</div>
                   </td>
                   <td>${u.email}</td>
                   <td><span class="badge badge-leave">Pending Approval</span></td>
                   <td>
                     <div style="display: flex; gap: 0.5rem;">
-                      <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}">Approve & Assign Role</button>
+                      <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}">
+                        ${isParentReq ? 'Approve & Assign Children' : 'Approve & Assign Role'}
+                      </button>
                       <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Reject</button>
                     </div>
                   </td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </div>
 
         <!-- Mobile Responsive Cards View -->
         <div class="mobile-user-cards">
-          ${pendingUsers.map(u => `
+          ${pendingUsers.map(u => {
+            const isParentReq = u.role === 'parent';
+            return `
             <div class="user-card-item">
               <div class="user-card-header">
                 <div class="user-card-avatar-col">
@@ -360,6 +369,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 <div class="user-card-info-col">
                   <div class="user-card-name-row">
                     <span class="user-card-name">${u.full_name || 'Pending Applicant'}</span>
+                    ${isParentReq ? `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 0.62rem; font-weight: 700; padding: 0.15rem 0.4rem;">PARENT</span>` : ''}
                   </div>
                   <div class="user-card-meta-row">
                     <span class="badge badge-leave" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; font-weight: 700;">
@@ -374,10 +384,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   <span class="user-card-email-text">${u.email}</span>
                 </div>
-                ${u.phone_number ? `
+                ${u.phone_number || u.phone ? `
                   <div class="user-card-contact-item" style="color: var(--text-muted);">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    <span>${u.phone_number}</span>
+                    <span>${u.phone_number || u.phone}</span>
                   </div>
                 ` : `
                   <div class="user-card-contact-item" style="color: var(--text-muted); font-size: 0.72rem;">
@@ -387,9 +397,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               </div>
 
               <div class="user-card-actions" style="grid-template-columns: 1fr 1fr;">
-                <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}" style="font-weight: 700;">
+                <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}" style="font-weight: 700;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  Approve & Role
+                  ${isParentReq ? 'Approve & Assign' : 'Approve & Role'}
                 </button>
                 <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -397,7 +407,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 </button>
               </div>
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       `;
 
@@ -579,6 +590,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               ${activeUsers.map(u => {
                 const userCustom = getUserCustomPermissions(u.id);
                 const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
+                const childIds = u.assigned_student_ids || u.student_ids || u.child_ids || [];
+                const assignedChildren = Array.isArray(childIds) ? allStudents.filter(s => childIds.includes(s.id)) : [];
                 return `
                 <tr>
                   <td>
@@ -590,7 +603,13 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                         <strong>${u.full_name || 'User'}</strong>
                         ${u.is_super_admin ? `<span class="badge" style="background: #0F172A; color: #FFFFFF; font-size: 0.65rem; margin-left: 0.35rem;">SUPER ADMIN</span>` : ''}
                         ${hasCustom ? `<span class="badge" style="background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; margin-left: 0.35rem; font-weight: 700;">CUSTOM PERMS</span>` : ''}
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${u.phone_number || 'No phone recorded'}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${u.phone_number || u.phone || 'No phone recorded'}</div>
+                        ${u.role === 'parent' ? `
+                          <div style="margin-top: 3px; font-size: 0.73rem; color: ${assignedChildren.length > 0 ? '#059669' : '#D97706'}; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            <span>👨‍👧‍👦</span>
+                            <span>${assignedChildren.length > 0 ? `${assignedChildren.length} Children: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
+                          </div>
+                        ` : ''}
                       </div>
                     </div>
                   </td>
@@ -605,6 +624,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
                       ${!u.is_super_admin ? `
                         <button class="btn btn-sm btn-outline btn-change-role" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}">Role</button>
+                        ${u.role === 'parent' ? `
+                          <button class="btn btn-sm btn-outline btn-assign-children" data-id="${u.id}" data-email="${u.email}" style="color: #059669; border-color: #A7F3D0; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Assign or edit linked students for this parent">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            Assign Children
+                          </button>
+                        ` : ''}
                         <button class="btn btn-sm ${hasCustom ? 'btn-primary' : 'btn-outline'} btn-custom-perm" data-id="${u.id}" style="${hasCustom ? 'box-shadow: 0 1px 4px rgba(16,185,129,0.3);' : 'color: #059669; border-color: #A7F3D0;'}" title="Customize specific window access for ${u.full_name || u.email}">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
                           Permissions
@@ -628,6 +653,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           ${activeUsers.map(u => {
             const userCustom = getUserCustomPermissions(u.id);
             const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
+            const childIds = u.assigned_student_ids || u.student_ids || u.child_ids || [];
+            const assignedChildren = Array.isArray(childIds) ? allStudents.filter(s => childIds.includes(s.id)) : [];
             return `
             <div class="user-card-item">
               <div class="user-card-header">
@@ -659,16 +686,21 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   <span class="user-card-email-text">${u.email}</span>
                 </div>
-                ${u.phone_number ? `
+                ${u.phone_number || u.phone ? `
                   <div class="user-card-contact-item" style="color: var(--text-muted);">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    <span>${u.phone_number}</span>
+                    <span>${u.phone_number || u.phone}</span>
                   </div>
                 ` : `
                   <div class="user-card-contact-item" style="color: var(--text-muted); font-size: 0.72rem;">
                     <span>No phone recorded</span>
                   </div>
                 `}
+                ${u.role === 'parent' ? `
+                  <div class="user-card-contact-item" style="color: ${assignedChildren.length > 0 ? '#059669' : '#D97706'}; font-weight: 600; font-size: 0.74rem;">
+                    <span>👨‍👧‍👦 ${assignedChildren.length > 0 ? `${assignedChildren.length} Children: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
+                  </div>
+                ` : ''}
               </div>
 
               <div class="user-card-actions ${u.is_super_admin ? 'user-card-actions-single' : ''}">
@@ -677,6 +709,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
                     Role
                   </button>
+                  ${u.role === 'parent' ? `
+                    <button class="btn btn-sm btn-outline btn-assign-children" data-id="${u.id}" data-email="${u.email}" style="color: #059669; border-color: #A7F3D0; font-weight: 700;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      Children
+                    </button>
+                  ` : ''}
                   <button class="btn btn-sm ${hasCustom ? 'btn-primary' : 'btn-outline'} btn-custom-perm" data-id="${u.id}" style="${hasCustom ? 'box-shadow: 0 1px 4px rgba(16,185,129,0.3);' : 'color: #059669; border-color: #A7F3D0; font-weight: 600;'}" title="Customize specific window access for ${u.full_name || u.email}">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
                     Permissions
@@ -719,6 +757,14 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           const email = btn.getAttribute('data-email');
           const currentRole = btn.getAttribute('data-role');
           showApprovalModal(id, email, currentRole);
+        });
+      });
+
+      tabContent.querySelectorAll('.btn-assign-children').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const email = btn.getAttribute('data-email');
+          showApprovalModal(id, email, 'parent');
         });
       });
 
@@ -1355,53 +1401,335 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     });
   }
 
-  function showApprovalModal(userId, email, currentRole = 'teacher') {
+  async function showApprovalModal(userId, email, currentRole = 'teacher') {
+    const allUsers = (db.get('tps_users') || []);
+    const targetUser = allUsers.find(u => u.id === userId) || {};
+    const allStudents = await db.getStudents();
+
+    // Determine existing assigned children
+    let currentAssigned = [];
+    if (Array.isArray(targetUser.assigned_student_ids) && targetUser.assigned_student_ids.length > 0) {
+      currentAssigned = [...targetUser.assigned_student_ids];
+    } else if (Array.isArray(targetUser.student_ids) && targetUser.student_ids.length > 0) {
+      currentAssigned = [...targetUser.student_ids];
+    } else if (Array.isArray(targetUser.child_ids) && targetUser.child_ids.length > 0) {
+      currentAssigned = [...targetUser.child_ids];
+    } else if (currentRole === 'parent' || targetUser.role === 'parent') {
+      // Intelligent auto-match based on parent mobile number or full name
+      const phone = (targetUser.phone_number || targetUser.phone || '').replace(/[^0-9]/g, '');
+      if (phone) {
+        allStudents.forEach(s => {
+          const fPhone = (s.father_phone || '').replace(/[^0-9]/g, '');
+          const mPhone = (s.mother_phone || '').replace(/[^0-9]/g, '');
+          const wPhone = (s.whatsapp_number || '').replace(/[^0-9]/g, '');
+          if (phone === fPhone || phone === mPhone || phone === wPhone) {
+            currentAssigned.push(s.id);
+          }
+        });
+      }
+      if (currentAssigned.length === 0 && targetUser.full_name) {
+        const pName = targetUser.full_name.toLowerCase().trim();
+        allStudents.forEach(s => {
+          if (s.father_name && s.father_name.toLowerCase().trim() === pName) {
+            currentAssigned.push(s.id);
+          }
+        });
+      }
+    }
+
+    const effectiveRole = currentRole || targetUser.role || 'parent';
+
     openModal({
-      title: 'Assign Role & Grant Permissions',
+      title: targetUser.approval_status === 'pending' ? 'Approve Account & Assign Role' : 'Institutional Role & Child Assignment',
       contentHtml: `
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label">User Email</label>
-          <input type="text" class="form-control" value="${email}" disabled style="background: var(--bg-surface-subtle);" />
+        <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div class="user-avatar" style="width: 38px; height: 38px; font-size: 14px; font-weight: 700; border-radius: 8px;">
+              ${targetUser.avatar_url ? `<img src="${targetUser.avatar_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="" />` : (targetUser.full_name || email || 'U')[0].toUpperCase()}
+            </div>
+            <div>
+              <strong style="font-size: 0.92rem; color: var(--text-primary);">${targetUser.full_name || 'User Account'}</strong>
+              <div style="font-size: 0.76rem; color: var(--text-muted);">${email}</div>
+            </div>
+          </div>
+          ${targetUser.phone_number || targetUser.phone ? `
+            <div style="font-size: 0.76rem; color: var(--text-secondary); text-align: right;">
+              <div>📞 ${targetUser.phone_number || targetUser.phone}</div>
+            </div>
+          ` : ''}
         </div>
-        <div class="form-group" style="margin-bottom: 1.25rem;">
-          <label class="form-label required">Assign Institutional Role</label>
-          <select id="modal-role-select" class="form-control">
-            <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Admin (Academic / Records Administrator)</option>
-            <option value="boys_mentor" ${currentRole === 'boys_mentor' ? 'selected' : ''}>Boys Hostel Mentor (Boys Hostel Data, Leaves & Class)</option>
-            <option value="girls_mentor" ${currentRole === 'girls_mentor' ? 'selected' : ''}>Girls Hostel Mentor (Girls Hostel Data, Leaves & Class)</option>
-            <option value="mentor" ${currentRole === 'mentor' ? 'selected' : ''}>General Hostel Mentor / Warden (Hostel & Leave Register)</option>
-            <option value="teacher" ${currentRole === 'teacher' ? 'selected' : ''}>Teacher (Class Attendance & Examination Marks)</option>
-            <option value="hostel_leader" ${currentRole === 'hostel_leader' ? 'selected' : ''}>Hostel Leader (Student Assistant)</option>
-            <option value="parent" ${currentRole === 'parent' ? 'selected' : ''}>Parent (Linked Student View Only)</option>
-            <option value="student" ${currentRole === 'student' ? 'selected' : ''}>Student (Self Records View Only)</option>
+
+        <div class="form-group" style="margin-bottom: 1.15rem;">
+          <label class="form-label required" style="font-weight: 700;">Assign Institutional Role</label>
+          <select id="modal-role-select" class="form-control" style="font-weight: 600;">
+            <option value="parent" ${effectiveRole === 'parent' ? 'selected' : ''}>👨‍👧‍👦 Parent (Linked Children / Student Monitoring Portal)</option>
+            <option value="teacher" ${effectiveRole === 'teacher' ? 'selected' : ''}>Teacher (Class Attendance & Examination Marks)</option>
+            <option value="boys_mentor" ${effectiveRole === 'boys_mentor' ? 'selected' : ''}>Boys Hostel Mentor (Boys Hostel Data, Leaves & Class)</option>
+            <option value="girls_mentor" ${effectiveRole === 'girls_mentor' ? 'selected' : ''}>Girls Hostel Mentor (Girls Hostel Data, Leaves & Class)</option>
+            <option value="mentor" ${effectiveRole === 'mentor' ? 'selected' : ''}>General Hostel Mentor / Warden (Hostel & Leave Register)</option>
+            <option value="admin" ${effectiveRole === 'admin' ? 'selected' : ''}>Admin (Academic / Records Administrator)</option>
+            <option value="hostel_leader" ${effectiveRole === 'hostel_leader' ? 'selected' : ''}>Hostel Leader (Student Assistant)</option>
+            <option value="student" ${effectiveRole === 'student' ? 'selected' : ''}>Student (Self Records View Only)</option>
           </select>
-          <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.35rem;">
+          <small style="color: var(--text-muted); font-size: 0.74rem; margin-top: 0.3rem; display: block;">
             * Windows accessible to this role can be customized in the Assign Windows (RBAC) tab.
           </small>
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
-          <label class="form-label">Scope / Class Assignment</label>
-          <input type="text" id="modal-scope-input" class="form-control" placeholder="e.g. Hostel Moral Class, Study Lab 1, Boys Block A" />
+
+        <!-- Scope / Class Assignment for non-parent roles -->
+        <div id="modal-scope-group" class="form-group" style="margin-bottom: 1.25rem; ${effectiveRole === 'parent' ? 'display: none;' : ''}">
+          <label class="form-label" style="font-weight: 700;">Scope / Class Assignment</label>
+          <input type="text" id="modal-scope-input" class="form-control" placeholder="e.g. Hostel Moral Class, Study Lab 1, Boys Block A" value="${targetUser.scope || ''}" />
         </div>
+
+        <!-- Parent Multi-Child Assignment Section -->
+        <div id="modal-parent-children-section" style="${effectiveRole === 'parent' ? '' : 'display: none;'} margin-bottom: 1.25rem;">
+          <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 0.85rem 1rem;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+              <div>
+                <div style="font-weight: 800; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                  <span>👨‍👧‍👦</span>
+                  <span>Step 2: Assign Children / Students (Multi-Selection)</span>
+                </div>
+                <p style="font-size: 0.78rem; color: #64748B; margin: 0.2rem 0 0 0;">
+                  Check all students belonging to this parent. You can select 1, 2, or 3+ children enrolled in the hostel.
+                </p>
+              </div>
+              <span id="parent-selected-count-badge" class="badge" style="background: ${currentAssigned.length > 0 ? '#ECFDF5' : '#F1F5F9'}; color: ${currentAssigned.length > 0 ? '#065F46' : '#64748B'}; border: 1px solid ${currentAssigned.length > 0 ? '#A7F3D0' : '#CBD5E1'}; font-weight: 700; font-size: 0.78rem; padding: 4px 10px; border-radius: 9999px;">
+                ${currentAssigned.length} Selected
+              </span>
+            </div>
+
+            <!-- Search & Filters -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.65rem; flex-wrap: wrap;">
+              <div style="position: relative; flex: 1; min-width: 170px;">
+                <input type="text" id="modal-parent-student-search" class="form-control" placeholder="Search student name, admission no, class..." style="height: 35px; font-size: 0.82rem; padding-left: 28px;" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" style="position: absolute; left: 9px; top: 10px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style="display: flex; gap: 0.25rem; align-items: center;">
+                <button type="button" class="btn btn-sm filter-gender-btn active" data-gender="all" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; background: #0F172A; color: #FFFFFF; font-weight: 700; border: none; border-radius: 6px;">All</button>
+                <button type="button" class="btn btn-sm btn-outline filter-gender-btn" data-gender="boys" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">Boys</button>
+                <button type="button" class="btn btn-sm btn-outline filter-gender-btn" data-gender="girls" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">Girls</button>
+                <button type="button" class="btn btn-sm btn-outline filter-gender-btn" data-gender="selected" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">Selected</button>
+              </div>
+            </div>
+
+            <!-- Scrollable Student Roster Checklist -->
+            <div id="modal-parent-student-list" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 2px;">
+              ${allStudents.length === 0 ? `
+                <div style="text-align: center; padding: 1.5rem; color: #64748B; font-size: 0.85rem;">No students found in hostel register.</div>
+              ` : allStudents.map(s => {
+                const isChecked = currentAssigned.includes(s.id);
+                return `
+                  <label class="parent-student-card" data-student-id="${s.id}" data-name="${(s.full_name || '').toLowerCase()}" data-admission="${(s.admission_number || '').toLowerCase()}" data-class="${(s.school_class || '').toLowerCase()}" data-gender="${s.gender === 'Girls' || s.gender === 'Female' ? 'girls' : 'boys'}" style="display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1.5px solid ${isChecked ? '#10B981' : '#E2E8F0'}; background: ${isChecked ? '#F0FDF4' : '#FFFFFF'}; cursor: pointer; transition: all 0.15s ease;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0;">
+                      <input type="checkbox" class="chk-assign-student" value="${s.id}" ${isChecked ? 'checked' : ''} style="width: 17px; height: 17px; accent-color: #059669; cursor: pointer; flex-shrink: 0;" />
+                      <div class="user-avatar" style="width: 32px; height: 32px; font-size: 12px; font-weight: 700; border-radius: 6px; flex-shrink: 0;">
+                        ${s.photo_url ? `<img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" alt="" />` : (s.full_name || 'S')[0].toUpperCase()}
+                      </div>
+                      <div style="min-width: 0;">
+                        <div class="parent-student-card-name" style="font-weight: 700; font-size: 0.84rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          ${s.full_name}
+                        </div>
+                        <div style="font-size: 0.72rem; color: #64748B; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                          <span>${s.admission_number}</span>
+                          <span>•</span>
+                          <span>${s.school_class || 'Class'} ${s.school_section ? `(${s.school_section})` : ''}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">
+                      <span class="badge ${s.gender === 'Girls' || s.gender === 'Female' ? 'badge-girls' : 'badge-boys'}" style="font-size: 0.66rem; padding: 2px 7px; border-radius: 9999px;">
+                        ${s.gender || 'Boys'}
+                      </span>
+                      ${s.hostel_room ? `
+                        <span style="font-size: 0.66rem; color: #475569; background: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 6px; border-radius: 4px;">
+                          ${s.hostel_room}
+                        </span>
+                      ` : ''}
+                    </div>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Quick selection footer -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed #CBD5E1;">
+              <span id="parent-selected-summary-names" style="font-size: 0.74rem; color: #059669; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">
+                ${currentAssigned.length > 0 ? allStudents.filter(s => currentAssigned.includes(s.id)).map(s => s.full_name).join(', ') : 'No students selected yet'}
+              </span>
+              <button type="button" id="btn-clear-assigned-children" class="btn btn-sm btn-outline" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: #DC2626; border-color: #FECACA;">
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-          <button class="btn btn-primary" id="btn-confirm-approve">Save & Authorize Access</button>
+          <button class="btn btn-primary" id="btn-confirm-approve" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Save & Authorize Access
+          </button>
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
+        const roleSelect = modalBody.querySelector('#modal-role-select');
+        const parentSection = modalBody.querySelector('#modal-parent-children-section');
+        const scopeGroup = modalBody.querySelector('#modal-scope-group');
+
+        roleSelect.addEventListener('change', () => {
+          if (roleSelect.value === 'parent') {
+            parentSection.style.display = 'block';
+            scopeGroup.style.display = 'none';
+          } else {
+            parentSection.style.display = 'none';
+            scopeGroup.style.display = 'block';
+          }
+        });
+
+        function updateSelectionDisplay() {
+          const checkedBoxes = Array.from(modalBody.querySelectorAll('.chk-assign-student:checked'));
+          const count = checkedBoxes.length;
+          const badge = modalBody.querySelector('#parent-selected-count-badge');
+          const namesSpan = modalBody.querySelector('#parent-selected-summary-names');
+          if (badge) {
+            badge.textContent = `${count} Selected`;
+            badge.style.background = count > 0 ? '#ECFDF5' : '#F1F5F9';
+            badge.style.color = count > 0 ? '#065F46' : '#64748B';
+            badge.style.borderColor = count > 0 ? '#A7F3D0' : '#CBD5E1';
+          }
+          if (namesSpan) {
+            if (count === 0) {
+              namesSpan.textContent = 'No students selected yet';
+              namesSpan.style.color = '#94A3B8';
+            } else {
+              const names = checkedBoxes.map(cb => {
+                const card = cb.closest('.parent-student-card');
+                return card ? card.querySelector('.parent-student-card-name')?.textContent.trim() : '';
+              }).filter(Boolean);
+              namesSpan.textContent = names.join(', ');
+              namesSpan.style.color = '#059669';
+            }
+          }
+        }
+
+        modalBody.querySelectorAll('.chk-assign-student').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const card = cb.closest('.parent-student-card');
+            if (card) {
+              card.style.borderColor = cb.checked ? '#10B981' : '#E2E8F0';
+              card.style.background = cb.checked ? '#F0FDF4' : '#FFFFFF';
+            }
+            updateSelectionDisplay();
+          });
+        });
+
+        let activeGenderFilter = 'all';
+        const searchInput = modalBody.querySelector('#modal-parent-student-search');
+
+        function filterStudentCards() {
+          const q = (searchInput?.value || '').toLowerCase().trim();
+          modalBody.querySelectorAll('.parent-student-card').forEach(card => {
+            const name = card.getAttribute('data-name') || '';
+            const adm = card.getAttribute('data-admission') || '';
+            const cls = card.getAttribute('data-class') || '';
+            const gender = card.getAttribute('data-gender') || '';
+            const isChecked = card.querySelector('.chk-assign-student')?.checked;
+
+            const matchesQuery = !q || name.includes(q) || adm.includes(q) || cls.includes(q);
+            let matchesGender = true;
+            if (activeGenderFilter === 'boys') matchesGender = (gender === 'boys');
+            else if (activeGenderFilter === 'girls') matchesGender = (gender === 'girls');
+            else if (activeGenderFilter === 'selected') matchesGender = Boolean(isChecked);
+
+            card.style.display = matchesQuery && matchesGender ? 'flex' : 'none';
+          });
+        }
+
+        searchInput?.addEventListener('input', filterStudentCards);
+
+        modalBody.querySelectorAll('.filter-gender-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            modalBody.querySelectorAll('.filter-gender-btn').forEach(b => {
+              b.classList.remove('active');
+              b.style.background = '';
+              b.style.color = '';
+              b.style.fontWeight = '';
+              b.style.border = '';
+              b.classList.add('btn-outline');
+            });
+            btn.classList.add('active');
+            btn.classList.remove('btn-outline');
+            btn.style.background = '#0F172A';
+            btn.style.color = '#FFFFFF';
+            btn.style.fontWeight = '700';
+            btn.style.border = 'none';
+            activeGenderFilter = btn.getAttribute('data-gender');
+            filterStudentCards();
+          });
+        });
+
+        modalBody.querySelector('#btn-clear-assigned-children')?.addEventListener('click', () => {
+          modalBody.querySelectorAll('.chk-assign-student').forEach(cb => {
+            cb.checked = false;
+            const card = cb.closest('.parent-student-card');
+            if (card) {
+              card.style.borderColor = '#E2E8F0';
+              card.style.background = '#FFFFFF';
+            }
+          });
+          updateSelectionDisplay();
+          if (activeGenderFilter === 'selected') filterStudentCards();
+        });
+
         modalBody.querySelector('#btn-confirm-approve').addEventListener('click', async () => {
           const role = modalBody.querySelector('#modal-role-select').value;
+          const scope = modalBody.querySelector('#modal-scope-input')?.value.trim() || '';
           const payload = { approval_status: 'approved', role };
-          if (role === 'boys_mentor') {
+
+          if (role === 'parent') {
+            const selectedStudentIds = Array.from(modalBody.querySelectorAll('.chk-assign-student:checked')).map(cb => cb.value);
+            if (selectedStudentIds.length === 0) {
+              const confirmed = await confirmDialog({
+                title: 'No Children Selected',
+                message: 'No students were selected for this parent account. The parent dashboard will display an empty state until children are assigned. Proceed anyway?',
+                confirmText: 'Authorize Without Children'
+              });
+              if (!confirmed) return;
+            }
+            payload.assigned_student_ids = selectedStudentIds;
+            payload.student_ids = selectedStudentIds;
+            payload.child_ids = selectedStudentIds;
+          } else if (role === 'boys_mentor') {
             payload.gender = 'Boys';
             payload.mentor_type = 'boys';
             payload.hostel_unit = 'Thaiba Boys Hostel Block A';
+            if (scope) payload.scope = scope;
           } else if (role === 'girls_mentor') {
             payload.gender = 'Girls';
             payload.mentor_type = 'girls';
             payload.hostel_unit = 'Thaiba Girls Hostel Campus';
+            if (scope) payload.scope = scope;
+          } else {
+            if (scope) payload.scope = scope;
           }
+
           await db.updateUserApproval(userId, payload);
-          toast.success(`Account approved with role: ${role.toUpperCase()}`);
+
+          // If the approved user is currently simulated or authenticated in this session, keep profile updated
+          const sessionUser = getCurrentUser();
+          if (sessionUser && (sessionUser.id === userId || sessionUser.email === email)) {
+            Object.assign(sessionUser, payload);
+            try {
+              localStorage.setItem('tps_dev_profile', JSON.stringify(sessionUser));
+            } catch {}
+          }
+
+          toast.success(
+            role === 'parent'
+              ? `Parent account authorized with ${payload.assigned_student_ids?.length || 0} child(ren) assigned.`
+              : `Account approved with role: ${role.toUpperCase()}`
+          );
           close();
           renderUsersModule(container, { onNavigate });
         });

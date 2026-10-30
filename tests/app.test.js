@@ -27,6 +27,7 @@ import { renderHostelModule } from '../src/modules/hostel/index.js';
 import { renderDisciplineModule } from '../src/modules/discipline/index.js';
 import { renderFinesModule } from '../src/modules/fines/index.js';
 import { renderFacultyLeavesModule } from '../src/modules/faculty-leaves/index.js';
+import { renderUsersModule } from '../src/modules/users/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -4751,6 +4752,120 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', currentLeaves.filter(l => l.id !== batchLeave.id));
       await db.updateStudent(s1.id, { status: 'Active' });
       await db.updateStudent(s2.id, { status: 'Active' });
+    });
+  });
+
+  describe('Parent User Approval & Multi-Student Assignment Architecture (v1.9.17)', () => {
+    it('Allows approving or editing parent users with multiple student assignments and displays child selector tabs on Parent Dashboard', async () => {
+      let allStudents = await db.getStudents();
+      if (allStudents.length < 2) {
+        await db.addStudent({
+          full_name: 'MD Aamir',
+          school_class: 'STD-I',
+          admission_number: 'TPS-2026-001',
+          gender: 'Boys',
+          hostel_unit: 'Thaiba Boys Hostel Block A',
+          hostel_room: 'Room 101',
+          hostel_bed: 'Bed 1'
+        });
+        await db.addStudent({
+          full_name: 'Zayan Khan',
+          school_class: 'STD-III',
+          admission_number: 'TPS-2026-002',
+          gender: 'Boys',
+          hostel_unit: 'Thaiba Boys Hostel Block A',
+          hostel_room: 'Room 102',
+          hostel_bed: 'Bed 2'
+        });
+        allStudents = await db.getStudents();
+      }
+      expect(allStudents.length).toBeGreaterThanOrEqual(2);
+      const student1 = allStudents[0];
+      const student2 = allStudents[1];
+
+      // 1. Create a pending parent user
+      const testParentUserId = 'u-test-parent-' + Date.now();
+      const initialUsers = db.get('tps_users') || [];
+      const testParentUser = {
+        id: testParentUserId,
+        email: 'testparent@thaibaschool.edu.in',
+        full_name: 'Test Parent Brother',
+        phone_number: '9847099999',
+        role: 'parent',
+        approval_status: 'pending'
+      };
+      db.set('tps_users', [...initialUsers, testParentUser]);
+
+      // 2. Approve parent user with multiple assigned children (2 siblings)
+      const approvedResult = await db.updateUserApproval(testParentUserId, {
+        approval_status: 'approved',
+        role: 'parent',
+        assigned_student_ids: [student1.id, student2.id],
+        student_ids: [student1.id, student2.id],
+        child_ids: [student1.id, student2.id]
+      });
+
+      expect(approvedResult).toBeTruthy();
+      expect(approvedResult.approval_status).toBe('approved');
+      expect(approvedResult.role).toBe('parent');
+      expect(approvedResult.assigned_student_ids).toEqual([student1.id, student2.id]);
+
+      // Verify persisted in database
+      const usersAfterApproval = await db.getUsers();
+      const savedParent = usersAfterApproval.find(u => u.id === testParentUserId);
+      expect(savedParent).toBeTruthy();
+      expect(savedParent.assigned_student_ids).toContain(student1.id);
+      expect(savedParent.assigned_student_ids).toContain(student2.id);
+      expect(savedParent).toBeTruthy();
+      expect(savedParent.assigned_student_ids).toContain(student1.id);
+      expect(savedParent.assigned_student_ids).toContain(student2.id);
+
+      // 3. Render Parent Dashboard for this parent user with multiple assigned children
+      updateCurrentUserProfile(savedParent);
+
+      const parentContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderParentDashboard(parentContainer, { onNavigate: () => {} });
+
+      // Verify multi-child selector tabs are rendered
+      expect(parentContainer.innerHTML).toContain('Your Enrolled Children:');
+      expect(parentContainer.innerHTML).toContain(student1.full_name);
+      expect(parentContainer.innerHTML).toContain(student2.full_name);
+      expect(parentContainer.innerHTML).toContain('child-tab-btn');
+
+      // 4. Verify Active Accounts list displays assigned children count & names and "Assign Children" button
+      updateCurrentUserProfile({
+        id: 'd0000000-0000-0000-0000-000000000001',
+        email: 'abdulhaseebkt2@gmail.com',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      });
+
+      const tabContentMock = {
+        innerHTML: '',
+        querySelectorAll: () => []
+      };
+      const usersContainer = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#users-tab-content') return tabContentMock;
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+
+      await renderUsersModule(usersContainer, { initialTab: 'active' });
+      expect(tabContentMock.innerHTML).toContain('btn-assign-children');
+      expect(tabContentMock.innerHTML).toContain('Assign Children');
+      expect(tabContentMock.innerHTML).toContain('2 Children:');
+
+      // 5. Clean up test parent user and profile
+      db.set('tps_users', initialUsers);
     });
   });
 });

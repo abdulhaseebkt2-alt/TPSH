@@ -431,6 +431,7 @@ class DatabaseService {
     if (key === 'tps_users') {
       this._usersCache = null;
       this._usersCacheTime = 0;
+      this._usersInFlightPromise = null;
     }
     if (supabase && !isTestEnv) {
       supabase.from('app_settings').upsert({
@@ -2701,7 +2702,8 @@ class DatabaseService {
       return this._usersInFlightPromise;
     }
 
-    this._usersInFlightPromise = (async () => {
+    let p = null;
+    p = (async () => {
       try {
         if (supabase) {
           try {
@@ -2731,10 +2733,18 @@ class DatabaseService {
       }
     })();
 
-    return this._usersInFlightPromise;
+    this._usersInFlightPromise = p;
+    Promise.resolve(p).then(() => {
+      if (this._usersInFlightPromise === p) {
+        this._usersInFlightPromise = null;
+      }
+    });
+
+    return p;
   }
 
-  async updateUserApproval(user_id, { approval_status, role }) {
+  async updateUserApproval(user_id, updates = {}) {
+    const { approval_status, role, ...extra } = updates;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id);
     if (supabase && isUuid) {
       try {
@@ -2743,29 +2753,40 @@ class DatabaseService {
           new_approval_status: approval_status,
           new_role: role || null
         });
+        if (extra && Object.keys(extra).length > 0) {
+          try {
+            await supabase.from('profiles').update(extra).eq('id', user_id);
+          } catch (e) {
+            console.warn('Supabase profile extra fields update:', e);
+          }
+        }
         if (!error && data) {
           // Also sync locally
-          const users = this.get('tps_users');
+          const users = this.get('tps_users') || [];
           const idx = users.findIndex(u => u.id === user_id);
           if (idx >= 0) {
-            users[idx].approval_status = approval_status;
-            if (role) users[idx].role = role;
+            users[idx] = { ...users[idx], ...updates };
             this.set('tps_users', users);
           }
+          this._usersCache = null;
+          this._usersCacheTime = 0;
+          this._usersInFlightPromise = null;
           this.logAudit('USER_APPROVAL_UPDATE', 'profiles', user_id, `Approval: ${approval_status}, Role: ${role || 'none'}`);
-          return data;
+          return { ...data, ...extra };
         }
       } catch (err) {
         console.warn('Supabase admin_set_user_approval fallback:', err);
       }
     }
 
-    const users = this.get('tps_users');
+    const users = this.get('tps_users') || [];
     const idx = users.findIndex(u => u.id === user_id);
     if (idx >= 0) {
-      users[idx].approval_status = approval_status;
-      if (role) users[idx].role = role;
+      users[idx] = { ...users[idx], ...updates };
       this.set('tps_users', users);
+      this._usersCache = null;
+      this._usersCacheTime = 0;
+      this._usersInFlightPromise = null;
       this.logAudit('USER_APPROVAL_UPDATE', 'profiles', user_id, `Approval: ${approval_status}, Role: ${role}`);
       return users[idx];
     }

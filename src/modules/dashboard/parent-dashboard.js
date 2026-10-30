@@ -19,23 +19,33 @@ export async function renderParentDashboard(container, { onNavigate }) {
   const examSubjects = await db.getExamSubjects();
 
   // STRICT CHILD ISOLATION: A parent gets ONLY their children's data
-  let myChildren = allStudents.filter(s => {
-    if (!user) return false;
-    const phone = (user.phone || '').replace(/[^0-9]/g, '');
-    const sFatherPhone = (s.father_phone || '').replace(/[^0-9]/g, '');
-    const sMotherPhone = (s.mother_phone || '').replace(/[^0-9]/g, '');
-    const sWhatsApp = (s.whatsapp_number || '').replace(/[^0-9]/g, '');
+  const explicitAssignedIds = Array.isArray(user?.assigned_student_ids) && user.assigned_student_ids.length > 0
+    ? user.assigned_student_ids
+    : (Array.isArray(user?.student_ids) && user.student_ids.length > 0
+        ? user.student_ids
+        : (Array.isArray(user?.child_ids) && user.child_ids.length > 0 ? user.child_ids : null));
 
-    if (phone && (phone === sFatherPhone || phone === sMotherPhone || phone === sWhatsApp)) return true;
-    if (user.full_name && s.father_name && s.father_name.toLowerCase() === user.full_name.toLowerCase()) return true;
-    if (user.student_admission_number && s.admission_number === user.student_admission_number) return true;
-    if (user.child_ids && Array.isArray(user.child_ids) && user.child_ids.includes(s.id)) return true;
-    return false;
-  });
+  let myChildren = [];
+  if (explicitAssignedIds && explicitAssignedIds.length > 0) {
+    myChildren = allStudents.filter(s => explicitAssignedIds.includes(s.id));
+  } else {
+    myChildren = allStudents.filter(s => {
+      if (!user) return false;
+      const phone = (user.phone || user.phone_number || '').replace(/[^0-9]/g, '');
+      const sFatherPhone = (s.father_phone || '').replace(/[^0-9]/g, '');
+      const sMotherPhone = (s.mother_phone || '').replace(/[^0-9]/g, '');
+      const sWhatsApp = (s.whatsapp_number || '').replace(/[^0-9]/g, '');
 
-  // Fallback to sample children for rich testing if no children directly match phone in dev
-  if (myChildren.length === 0) {
-    myChildren = allStudents.slice(0, 2);
+      if (phone && (phone === sFatherPhone || phone === sMotherPhone || phone === sWhatsApp)) return true;
+      if (user.full_name && s.father_name && s.father_name.toLowerCase().trim() === user.full_name.toLowerCase().trim()) return true;
+      if (user.student_admission_number && s.admission_number === user.student_admission_number) return true;
+      return false;
+    });
+
+    // Fallback to sample children for rich testing if no children directly match in dev preview
+    if (myChildren.length === 0 && (user?.is_dev_profile || !user?.id)) {
+      myChildren = allStudents.slice(0, 2);
+    }
   }
 
   // Active selected child

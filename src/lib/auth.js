@@ -517,7 +517,19 @@ export function getDevProfile(role) {
 }
 
 export function getCurrentUser() {
-  return currentProfile;
+  if (currentProfile) {
+    try {
+      if (typeof localStorage !== 'undefined' && currentProfile.id) {
+        const localUsers = JSON.parse(localStorage.getItem('tps_users') || '[]');
+        const matched = localUsers.find(u => u.id === currentProfile.id || (u.email && (currentProfile.email || '').toLowerCase() === (u.email || '').toLowerCase()));
+        if (matched) {
+          return { ...currentProfile, ...matched };
+        }
+      }
+    } catch {}
+    return currentProfile;
+  }
+  return null;
 }
 
 export function canSwitchRoles() {
