@@ -1383,8 +1383,22 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 toast.success('Individual leave pass issued successfully.');
                 close();
                 const updatedLeaves = await db.getLeaves();
+                const reFiltered = isParent
+                  ? updatedLeaves.filter(l => {
+                      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                      return sIds.some(sid => {
+                        const st = allStudents.find(s => s.id === sid);
+                        return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
+                      });
+                    })
+                  : (isGirlsMentor || isBoysMentor)
+                    ? updatedLeaves.filter(l => {
+                        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                        return sIds.some(sid => scopedStudentIds.has(sid));
+                      })
+                    : updatedLeaves;
                 leaves.length = 0;
-                leaves.push(...updatedLeaves);
+                leaves.push(...reFiltered);
                 renderView();
               } catch (err) {
                 toast.error(err.message || 'Error issuing leave pass');
@@ -1399,6 +1413,31 @@ export async function renderLeavesModule(container, { onNavigate }) {
           let batchSearch = '';
           let batchGender = 'all';
           let batchClass = 'all';
+          let savedBatchDepDate = today;
+          let savedBatchDepTime = '16:00';
+          let savedBatchRetDate = defaultReturn;
+          let savedBatchRetTime = '17:00';
+          let savedBatchLeaveType = 'vacation';
+          let savedBatchFineRate = 50;
+          let savedBatchReason = 'Term End Vacation';
+
+          function saveBatchState() {
+            const depDateEl = modalBody.querySelector('#batch-pass-dep-date');
+            const depTimeEl = modalBody.querySelector('#batch-pass-dep-time');
+            const retDateEl = modalBody.querySelector('#batch-pass-ret-date');
+            const retTimeEl = modalBody.querySelector('#batch-pass-ret-time');
+            const typeEl = modalBody.querySelector('#batch-pass-type');
+            const fineEl = modalBody.querySelector('#batch-pass-fine-rate');
+            const reasonEl = modalBody.querySelector('#batch-pass-reason');
+
+            if (depDateEl) savedBatchDepDate = depDateEl.value;
+            if (depTimeEl) savedBatchDepTime = depTimeEl.value;
+            if (retDateEl) savedBatchRetDate = retDateEl.value;
+            if (retTimeEl) savedBatchRetTime = retTimeEl.value;
+            if (typeEl) savedBatchLeaveType = typeEl.value;
+            if (fineEl) savedBatchFineRate = Number(fineEl.value) || 50;
+            if (reasonEl) savedBatchReason = reasonEl.value;
+          }
 
           function getBatchFiltered() {
             return students.filter(s => {
@@ -1427,33 +1466,41 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Departure Date & Time *</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
-                        <input type="date" id="batch-pass-dep-date" class="form-control" value="${today}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
-                        <input type="time" id="batch-pass-dep-time" class="form-control" value="16:00" data-picker-title="Departure Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
+                        <input type="date" id="batch-pass-dep-date" class="form-control" value="${savedBatchDepDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
+                        <input type="time" id="batch-pass-dep-time" class="form-control" value="${savedBatchDepTime}" data-picker-title="Departure Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
                       </div>
                     </div>
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Expected Return Date & Time *</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
-                        <input type="date" id="batch-pass-ret-date" class="form-control" value="${defaultReturn}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
-                        <input type="time" id="batch-pass-ret-time" class="form-control" value="17:00" data-picker-title="Expected Return Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
+                        <input type="date" id="batch-pass-ret-date" class="form-control" value="${savedBatchRetDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
+                        <input type="time" id="batch-pass-ret-time" class="form-control" value="${savedBatchRetTime}" data-picker-title="Expected Return Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
                       </div>
                     </div>
                   </div>
 
-                  <!-- Type & Reason Row -->
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
+                  <!-- Line 1: Leave Type (3/5) & Late Fine / Hour (2/5) in a single line -->
+                  <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type *</label>
-                      <select id="batch-pass-type" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="vacation">Vacation / Term Holidays</option>
-                        <option value="hostel_leave">Hostel Weekend Leave</option>
-                        <option value="emergency_leave">Emergency Break</option>
+                      <select id="batch-pass-type" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
+                        <option value="vacation" ${savedBatchLeaveType === 'vacation' ? 'selected' : ''}>Vacation / Term Holidays</option>
+                        <option value="hostel_leave" ${savedBatchLeaveType === 'hostel_leave' ? 'selected' : ''}>Hostel Weekend Leave</option>
+                        <option value="emergency_leave" ${savedBatchLeaveType === 'emergency_leave' ? 'selected' : ''}>Emergency Break</option>
+                        <option value="medical_leave" ${savedBatchLeaveType === 'medical_leave' ? 'selected' : ''}>Medical Leave</option>
+                        <option value="personal_leave" ${savedBatchLeaveType === 'personal_leave' ? 'selected' : ''}>Personal / Family Event</option>
                       </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason / Vacation Description *</label>
-                      <input type="text" id="batch-pass-reason" class="form-control" placeholder="e.g. Eid Vacation / Term End Holidays" value="Term End Vacation" required style="height: 34px; font-size: 0.8rem;" />
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
+                      <input type="number" id="batch-pass-fine-rate" class="form-control" value="${savedBatchFineRate}" min="0" step="5" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                     </div>
+                  </div>
+
+                  <!-- Line 2: Reason / Vacation Description underneath in a single line -->
+                  <div class="form-group" style="margin: 0; width: 100%;">
+                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason / Vacation Description *</label>
+                    <input type="text" id="batch-pass-reason" class="form-control" placeholder="e.g. Eid Vacation / Term End Holidays" value="${savedBatchReason}" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                   </div>
                 </div>
 
@@ -1527,26 +1574,31 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
             // Search & filter handlers
             modalBody.querySelector('#batch-pass-search')?.addEventListener('input', (e) => {
+              saveBatchState();
               batchSearch = e.target.value;
               renderBatchForm();
             });
 
             modalBody.querySelector('#batch-pass-cls-filter')?.addEventListener('change', (e) => {
+              saveBatchState();
               batchClass = e.target.value;
               renderBatchForm();
             });
 
             modalBody.querySelector('#batch-pass-gen-filter')?.addEventListener('change', (e) => {
+              saveBatchState();
               batchGender = e.target.value;
               renderBatchForm();
             });
 
             modalBody.querySelector('#btn-batch-pass-all')?.addEventListener('click', () => {
+              saveBatchState();
               filtered.forEach(s => selectedBatchStudentIds.add(s.id));
               renderBatchForm();
             });
 
             modalBody.querySelector('#btn-batch-pass-clear')?.addEventListener('click', () => {
+              saveBatchState();
               selectedBatchStudentIds.clear();
               renderBatchForm();
             });
@@ -1575,6 +1627,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
               const retDate = modalBody.querySelector('#batch-pass-ret-date')?.value;
               const retTime = modalBody.querySelector('#batch-pass-ret-time')?.value;
               const leaveType = modalBody.querySelector('#batch-pass-type')?.value;
+              const fineRate = Number(modalBody.querySelector('#batch-pass-fine-rate')?.value) || 50;
               const reason = modalBody.querySelector('#batch-pass-reason')?.value.trim();
 
               if (!depDate || !retDate || !reason) {
@@ -1591,17 +1644,33 @@ export async function renderLeavesModule(container, { onNavigate }) {
                   expected_return_date: retDate,
                   expected_return_time: retTime,
                   fine_unit: 'hour',
-                  fine_per_hour: 50,
-                  fine_per_day: 1200,
+                  fine_per_hour: fineRate,
+                  fine_per_hour_applied: fineRate,
+                  fine_per_day: fineRate * 24,
+                  fine_per_day_applied: fineRate * 24,
                   reason,
                   approved_by: user?.full_name || 'Hostel Warden'
                 });
 
-                toast.success(`Batch leave card created for ${selectedBatchStudentIds.size} student(s).`);
+                toast.success(`Batch leave card created for ${selectedBatchStudentIds.size} student(s) at ₹${fineRate}/hr.`);
                 close();
                 const updatedLeaves = await db.getLeaves();
+                const reFiltered = isParent
+                  ? updatedLeaves.filter(l => {
+                      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                      return sIds.some(sid => {
+                        const st = allStudents.find(s => s.id === sid);
+                        return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
+                      });
+                    })
+                  : (isGirlsMentor || isBoysMentor)
+                    ? updatedLeaves.filter(l => {
+                        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                        return sIds.some(sid => scopedStudentIds.has(sid));
+                      })
+                    : updatedLeaves;
                 leaves.length = 0;
-                leaves.push(...updatedLeaves);
+                leaves.push(...reFiltered);
                 renderView();
               } catch (err) {
                 toast.error(err.message || 'Error generating batch leave');

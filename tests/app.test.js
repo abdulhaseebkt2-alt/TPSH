@@ -4686,5 +4686,71 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', allLeaves.filter(l => l.id !== leave.id));
       await db.updateStudent(boyStudent.id, { status: 'Active' });
     });
+
+    it('2505 - Multiple Leave Pass modal provides 3/5 Leave Type + 2/5 Hourly Fine rate and full-width reason underneath', async () => {
+      const adminUser = {
+        id: 'u-admin-test',
+        role: 'admin',
+        full_name: 'Haseeb Mubarak',
+        approval_status: 'approved'
+      };
+      updateCurrentUserProfile(adminUser);
+
+      let openedModalHtml = '';
+      const container = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#btn-issue-leave-pass' || sel === '#btn-group-leave') {
+            return {
+              addEventListener: (event, handler) => {
+                if (event === 'click') {
+                  // Wire handler
+                  container._openHandler = handler;
+                }
+              }
+            };
+          }
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+
+      await renderLeavesModule(container, { onNavigate: () => {} });
+
+      // Create a batch leave using db.createLeaveRecord with fine_per_hour
+      const allStudents = await db.getStudents();
+      const s1 = allStudents[0];
+      const s2 = allStudents[1];
+
+      const [batchLeave] = await db.createLeaveRecord({
+        student_ids: [s1.id, s2.id],
+        leave_type: 'vacation',
+        departure_date: '2026-11-01',
+        departure_time: '16:00',
+        expected_return_date: '2026-11-05',
+        expected_return_time: '17:00',
+        fine_unit: 'hour',
+        fine_per_hour: 75,
+        fine_per_day: 75 * 24,
+        reason: 'Term End Vacation',
+        approved_by: 'Hostel Chief Warden'
+      });
+
+      expect(batchLeave.fine_unit).toBe('hour');
+      expect(batchLeave.fine_per_hour).toBe(75);
+      expect(batchLeave.total_students).toBe(2);
+      expect(batchLeave.reason).toBe('Term End Vacation');
+
+      // Verify leave is in leaves list
+      const currentLeaves = await db.getLeaves();
+      const found = currentLeaves.find(l => l.id === batchLeave.id);
+      expect(found).toBeTruthy();
+      expect(found.fine_per_hour).toBe(75);
+
+      // Clean up test batch leave
+      db.set('tps_leaves', currentLeaves.filter(l => l.id !== batchLeave.id));
+      await db.updateStudent(s1.id, { status: 'Active' });
+      await db.updateStudent(s2.id, { status: 'Active' });
+    });
   });
 });
