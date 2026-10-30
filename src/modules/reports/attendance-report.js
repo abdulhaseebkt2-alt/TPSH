@@ -629,37 +629,32 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
             }).join('')}
           </div>
 
-          <!-- CARD FOOTER: LEGEND & INSTRUCTIONS -->
-          <div class="cal-card-footer" style="padding: 0.65rem 0.95rem; background: #FFFFFF; border-top: 1px solid #F3F4F6; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem;">
-            <div style="font-size: 0.74rem; color: #475569; font-weight: 600;">
-              Tap any date to inspect details or unlock missed attendance.
-            </div>
-
-            <!-- Visual Legend -->
-            <div style="display: flex; align-items: center; gap: 0.85rem; font-size: 0.72rem; flex-wrap: wrap;">
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #DC2626; font-weight: 700;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444;"></span>
-                Missed Attendance (Red Round)
+          <!-- CARD FOOTER: MINIMAL 1-LINE LEGEND -->
+          <div class="cal-card-footer" style="padding: 0.45rem 0.85rem; background: #FFFFFF; border-top: 1px solid #F3F4F6; display: flex; align-items: center; justify-content: space-between; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none;">
+            <div class="cal-legend-row" style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 0.55rem; font-size: 0.69rem; font-weight: 700; flex-wrap: nowrap;">
+              <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #DC2626; flex-shrink: 0;" title="Missed Attendance">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: #EF4444; flex-shrink: 0;"></span>
+                M. Attendance
               </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #059669; font-weight: 700;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #ECFDF5; border: 1.5px dashed #059669;"></span>
-                Faculty Leave (Waived)
+              <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #059669; flex-shrink: 0;" title="Faculty Leave">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: #ECFDF5; border: 1.5px dashed #059669; flex-shrink: 0;"></span>
+                F. Leave
               </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #047857; font-weight: 700;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #10B981;"></span>
-                Attendance Taken
+              <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #047857; flex-shrink: 0;" title="Attendance Taken">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; flex-shrink: 0;"></span>
+                Taken
               </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #B45309; font-weight: 700;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #F59E0B;"></span>
-                Holiday (Yellow)
+              <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #B45309; flex-shrink: 0;" title="Holiday">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: #F59E0B; flex-shrink: 0;"></span>
+                Holiday
               </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #EF4444; opacity: 0.7; font-weight: 700;">
+              <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #EF4444; opacity: 0.8; flex-shrink: 0;" title="Hostel Leave">
                 <span style="font-size: 0.72rem; font-weight: 800;">15</span>
-                Hostel Leave (Fade Red Text)
+                H. Leave
               </span>
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem; color: #94A3B8; font-weight: 600;">
-                <span style="font-size: 0.72rem; opacity: 0.4;">18</span>
-                Class Off Day (Faded)
+              <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #94A3B8; font-weight: 600; flex-shrink: 0;" title="Class Off Day">
+                <span style="font-size: 0.72rem; opacity: 0.45; font-weight: 800;">18</span>
+                Class Off
               </span>
             </div>
           </div>
@@ -731,7 +726,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     } else if (!isClassScheduledDay) {
       statusTitle = 'Unworking Day for this Classroom';
       statusDesc = `${activeClass?.name} is scheduled on (${classDays.join(', ')}). ${dayName} is an off-day for this class.`;
-      statusBadge = '<span class="badge" style="background: #F1F5F9; color: #64748B;">Class Off Day (Faded)</span>';
+      statusBadge = '<span class="badge" style="background: #F1F5F9; color: #64748B;">Class Off Day</span>';
     } else if (isHoliday) {
       statusTitle = `Official Academic Holiday (${dayInfo.title || 'Holiday'})`;
       statusDesc = 'Institutional holiday as per Academic Calendar. No academic duties.';
@@ -743,7 +738,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     } else if (isMissed) {
       statusTitle = 'Missed Attendance (Teacher Duty Unrecorded)';
       statusDesc = `Class scheduled from ${formatTime(activeClass?.start_time)} to ${formatTime(activeClass?.end_time)}, but attendance was not submitted during the session window.`;
-      statusBadge = '<span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 800;">🔴 Missed Attendance (Red Round)</span>';
+      statusBadge = '<span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 800;">🔴 Missed Attendance</span>';
     } else if (hasAttendanceSession) {
       statusTitle = 'Attendance Successfully Recorded';
       statusDesc = `Recorded by ${session.teacher_name || activeTeacher.full_name} at ${formatTime(session.recorded_at?.slice(11, 16) || '')}. Total ${session.records?.length || 0} students evaluated.`;

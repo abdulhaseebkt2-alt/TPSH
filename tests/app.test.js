@@ -2454,11 +2454,20 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('is-holiday-single');     // Academic calendar holiday
     expect(container.innerHTML).toContain('is-missed-attendance');  // Red colour round for missed attendance
 
-    // Legend items
-    expect(container.innerHTML).toContain('Missed Attendance (Red Round)');
-    expect(container.innerHTML).toContain('Hostel Leave (Fade Red Text)');
-    expect(container.innerHTML).toContain('Holiday (Yellow)');
-    expect(container.innerHTML).toContain('Class Off Day (Faded)');
+    // Minimal one-line legend items
+    expect(container.innerHTML).toContain('M. Attendance');
+    expect(container.innerHTML).toContain('F. Leave');
+    expect(container.innerHTML).toContain('Taken');
+    expect(container.innerHTML).toContain('Holiday');
+    expect(container.innerHTML).toContain('H. Leave');
+    expect(container.innerHTML).toContain('Class Off');
+
+    // No verbose color or parenthetical descriptions in legend
+    expect(container.innerHTML).not.toContain('(Red Round)');
+    expect(container.innerHTML).not.toContain('(Yellow)');
+    expect(container.innerHTML).not.toContain('(Fade Red Text)');
+    expect(container.innerHTML).not.toContain('(Faded)');
+    expect(container.innerHTML).not.toContain('(Waived)');
 
     // Bulk Month Missed Attendance button on top of calendar
     expect(container.innerHTML).toContain('btn-bulk-unlock-month');

@@ -8795,3 +8795,19 @@ body.tps-wheel-open {
 
 
 
+
+.cal-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.69rem;
+  font-weight: 700;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.cal-legend-row::-webkit-scrollbar {
+  display: none;
+}
