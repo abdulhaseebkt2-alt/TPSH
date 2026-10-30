@@ -415,7 +415,19 @@ class DatabaseService {
     }
   }
 
-  async pullCloudKeys(keys = ['tps_programs', 'tps_sections', 'tps_classrooms', 'tps_classroom_assignments', 'tps_teacher_assignments'], force = false) {
+  async pullCloudKeys(keys = [
+    'tps_programs',
+    'tps_sections',
+    'tps_classrooms',
+    'tps_classroom_assignments',
+    'tps_teacher_assignments',
+    'tps_leaves',
+    'tps_hostel_rooms',
+    'tps_hostel_beds',
+    'tps_discipline',
+    'tps_fines',
+    'tps_black_marks'
+  ], force = false) {
     if (!supabase || isTestEnv) return;
     const now = Date.now();
     const TTL = 25000;
@@ -1753,69 +1765,491 @@ class DatabaseService {
     return this.get('tps_leaves');
   }
 
-  async createLeaveRecord({ student_ids, leave_type, departure_date, departure_time, reason, expected_return_date, expected_return_time, fine_per_day = 200, approved_by }) {
+  calculateReturnLate(expectedDateStr, expectedTimeStr, actualDateStr, actualTimeStr, fineRate = 100) {
+    if (!expectedDateStr || !actualDateStr) return { lateDays: 0, fineAmount: 0, blackMarks: 0 };
+    const expDate = new Date(expectedDateStr + 'T00:00:00');
+    const actDate = new Date(actualDateStr + 'T00:00:00');
+    const diffTime = actDate.getTime() - expDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let lateDays = 0;
+    let fineAmount = 0.00;
+    let blackMarks = 0;
+
+    if (diffDays > 0) {
+      lateDays = diffDays;
+      fineAmount = lateDays * Number(fineRate);
+      blackMarks = lateDays; // 1 black mark per late calendar day
+    } else if (diffDays === 0) {
+      if (actualTimeStr && expectedTimeStr && actualTimeStr > expectedTimeStr) {
+        blackMarks = 1; // Late Mark for late return on scheduled date
+      }
+    }
+
+    return { lateDays, fineAmount, blackMarks };
+  }
+
+  async createLeaveRecord({ student_ids, leave_type, departure_date, departure_time, reason, expected_return_date, expected_return_time, fine_per_day = 100, approved_by }) {
     const leaves = this.get('tps_leaves');
-    const students = this.get('tps_students');
-    const createdRecords = [];
+    const sIds = Array.isArray(student_ids) ? student_ids : [student_ids];
+    const year = new Date().getFullYear();
+    const randomSeq = Math.floor(100 + Math.random() * 900);
+    const leaveCode = `LV-${year}-${randomSeq}`;
+    const regNo = 'LR-2026-' + String(leaves.length + 1).padStart(3, '0');
 
-    for (const sid of student_ids) {
-      const regNo = 'LR-2026-' + String(leaves.length + createdRecords.length + 1).padStart(3, '0');
-      const rec = {
-        id: 'leave-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-        student_id: sid,
-        leave_register_number: regNo,
-        leave_type: leave_type || 'individual',
-        departure_date,
-        departure_time,
-        reason,
-        expected_return_date,
-        expected_return_time,
-        actual_return_date: null,
-        actual_return_time: null,
-        status: 'Away',
-        fine_per_day_applied: Number(fine_per_day),
-        late_days: 0,
-        calculated_fine: 0,
-        adjusted_fine: 0,
-        fine_status: 'no_fine',
-        approved_by: approved_by || 'Hostel Warden'
-      };
-      createdRecords.push(rec);
+    const studentEntries = sIds.map(sid => ({
+      student_id: sid,
+      is_returned: false,
+      actual_return_date: null,
+      actual_return_time: null,
+      late_days: 0,
+      fine_amount: 0,
+      black_marks: 0,
+      return_remarks: ''
+    }));
 
-      // Update student status to On Approved Leave in database & local
+    const primaryRec = {
+      id: 'leave-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      leave_code: leaveCode,
+      leave_register_number: regNo,
+      leave_type: leave_type || 'hostel_leave',
+      departure_date: departure_date || '',
+      departure_time: departure_time || '16:00',
+      leaving_date: departure_date || '',
+      leaving_time: departure_time || '16:00',
+      reason: reason || 'Hostel Leave',
+      expected_return_date: expected_return_date || '',
+      expected_return_time: expected_return_time || '17:00',
+      fine_per_day: Number(fine_per_day) || 100,
+      fine_per_day_applied: Number(fine_per_day) || 100,
+      is_batch: sIds.length > 1,
+      total_students: sIds.length,
+      student_ids: sIds,
+      student_id: sIds[0], // backward compatibility
+      students: studentEntries,
+      actual_return_date: null,
+      actual_return_time: null,
+      status: 'Away',
+      late_days: 0,
+      calculated_fine: 0,
+      adjusted_fine: 0,
+      fine_status: 'no_fine',
+      approved_by: approved_by || 'Warden Office',
+      created_at: new Date().toISOString()
+    };
+
+    // Update each student status to On Approved Leave
+    for (const sid of sIds) {
       await this.updateStudent(sid, { status: 'On Approved Leave' });
     }
 
-    leaves.push(...createdRecords);
+    leaves.unshift(primaryRec);
     this.set('tps_leaves', leaves);
-    this.logAudit('CREATE_LEAVE', 'student_leave_records', createdRecords[0]?.id, `Leave approved for ${createdRecords.length} student(s)`);
-    return createdRecords;
+    this.logAudit('CREATE_LEAVE', 'student_leave_records', primaryRec.id, `Created leave ${leaveCode} for ${sIds.length} student(s)`);
+    return [primaryRec];
   }
 
   async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '') {
     const leaves = this.get('tps_leaves');
-    const idx = leaves.findIndex(l => l.id === leave_record_id);
+    const idx = leaves.findIndex(l => l.id === leave_record_id || l.leave_code === leave_record_id);
     if (idx === -1) throw new Error('Leave record not found');
 
     const leave = leaves[idx];
-    const lateDays = calculateLateDays(leave.expected_return_date, actual_return_date);
-    const fine = calculateLateFine(lateDays, leave.fine_per_day_applied);
+    const calc = this.calculateReturnLate(
+      leave.expected_return_date,
+      leave.expected_return_time || '17:00',
+      actual_return_date,
+      actual_return_time || '17:00',
+      leave.fine_per_day_applied || leave.fine_per_day || 100
+    );
 
     leave.actual_return_date = actual_return_date;
     leave.actual_return_time = actual_return_time;
-    leave.late_days = lateDays;
-    leave.calculated_fine = fine;
-    leave.adjusted_fine = fine;
-    leave.fine_status = fine > 0 ? 'unpaid' : 'no_fine';
+    leave.late_days = calc.lateDays;
+    leave.calculated_fine = calc.fineAmount;
+    leave.adjusted_fine = calc.fineAmount;
+    leave.fine_status = calc.fineAmount > 0 ? 'unpaid' : 'no_fine';
     leave.status = 'Returned';
     leave.remarks = remarks;
 
-    // Reactivate student hostel status in database & local
-    await this.updateStudent(leave.student_id, { status: 'Active', hostel_status: 'resident' });
+    if (Array.isArray(leave.students)) {
+      leave.students.forEach(s => {
+        s.is_returned = true;
+        s.actual_return_date = actual_return_date;
+        s.actual_return_time = actual_return_time;
+        s.late_days = calc.lateDays;
+        s.fine_amount = calc.fineAmount;
+        s.black_marks = calc.blackMarks;
+        s.return_remarks = remarks;
+      });
+    }
+
+    // Reactivate all students on this leave
+    const sIds = Array.isArray(leave.student_ids) && leave.student_ids.length > 0
+      ? leave.student_ids
+      : [leave.student_id];
+
+    for (const sid of sIds) {
+      if (sid) {
+        await this.updateStudent(sid, { status: 'Active', hostel_status: 'resident' });
+
+        // Record fine and black mark if late
+        if (calc.fineAmount > 0) {
+          const fnNo = `FN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+          const fines = this.get('tps_fines') || [];
+          fines.unshift({
+            id: 'fine-' + Date.now() + Math.random().toString(36).substring(2, 5),
+            fine_no: fnNo,
+            student_id: sid,
+            leave_id: leave.id,
+            category_name: 'Late Hostel Return',
+            amount: calc.fineAmount,
+            late_days: calc.lateDays,
+            black_marks: calc.blackMarks,
+            reason: `${calc.lateDays} days late return from approved hostel leave (${leave.leave_code || leave.leave_register_number})`,
+            issue_date: actual_return_date,
+            status: 'pending',
+            issued_by: 'Warden Office'
+          });
+          this.set('tps_fines', fines);
+        }
+
+        if (calc.blackMarks > 0) {
+          const blackMarks = this.get('tps_black_marks') || [];
+          blackMarks.unshift({
+            id: 'bm-' + Date.now() + Math.random().toString(36).substring(2, 5),
+            student_id: sid,
+            leave_id: leave.id,
+            marks_count: calc.blackMarks,
+            reason: calc.lateDays > 0 ? `${calc.lateDays} days late return from hostel leave` : `Late return on scheduled date (${actual_return_time})`,
+            issued_date: actual_return_date,
+            issued_by: 'Warden Office'
+          });
+          this.set('tps_black_marks', blackMarks);
+        }
+      }
+    }
 
     this.set('tps_leaves', leaves);
-    this.logAudit('RECORD_RETURN', 'student_leave_records', leave_record_id, `Return recorded. Late days: ${lateDays}, Fine: ₹${fine}`);
+    this.logAudit('RECORD_RETURN', 'student_leave_records', leave_record_id, `Return recorded. Late days: ${calc.lateDays}, Fine: ₹${calc.fineAmount}`);
     return leave;
+  }
+
+  async recordBatchReturn({ leave_id, student_ids, actual_return_date, actual_return_time, remarks = '' }) {
+    const leaves = this.get('tps_leaves');
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+
+    const leave = leaves[idx];
+    const calc = this.calculateReturnLate(
+      leave.expected_return_date,
+      leave.expected_return_time || '17:00',
+      actual_return_date,
+      actual_return_time || '17:00',
+      leave.fine_per_day_applied || leave.fine_per_day || 100
+    );
+
+    const targetIds = new Set(student_ids);
+
+    if (Array.isArray(leave.students)) {
+      leave.students.forEach(s => {
+        if (targetIds.has(s.student_id)) {
+          s.is_returned = true;
+          s.actual_return_date = actual_return_date;
+          s.actual_return_time = actual_return_time;
+          s.late_days = calc.lateDays;
+          s.fine_amount = calc.fineAmount;
+          s.black_marks = calc.blackMarks;
+          s.return_remarks = remarks;
+        }
+      });
+    }
+
+    // Check if all students in this leave pass have returned
+    const allReturned = Array.isArray(leave.students) ? leave.students.every(s => s.is_returned) : true;
+    if (allReturned) {
+      leave.status = 'Returned';
+      leave.actual_return_date = actual_return_date;
+      leave.actual_return_time = actual_return_time;
+    }
+
+    // Reactivate returning students
+    for (const sid of student_ids) {
+      await this.updateStudent(sid, { status: 'Active', hostel_status: 'resident' });
+
+      if (calc.fineAmount > 0) {
+        const fnNo = `FN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const fines = this.get('tps_fines') || [];
+        fines.unshift({
+          id: 'fine-' + Date.now() + Math.random().toString(36).substring(2, 5),
+          fine_no: fnNo,
+          student_id: sid,
+          leave_id: leave.id,
+          category_name: 'Late Hostel Return',
+          amount: calc.fineAmount,
+          late_days: calc.lateDays,
+          black_marks: calc.blackMarks,
+          reason: `${calc.lateDays} days late return from batch leave (${leave.leave_code || leave.leave_register_number})`,
+          issue_date: actual_return_date,
+          status: 'pending',
+          issued_by: 'Warden Office'
+        });
+        this.set('tps_fines', fines);
+      }
+
+      if (calc.blackMarks > 0) {
+        const blackMarks = this.get('tps_black_marks') || [];
+        blackMarks.unshift({
+          id: 'bm-' + Date.now() + Math.random().toString(36).substring(2, 5),
+          student_id: sid,
+          leave_id: leave.id,
+          marks_count: calc.blackMarks,
+          reason: calc.lateDays > 0 ? `${calc.lateDays} days late return` : `Late return on scheduled date (${actual_return_time})`,
+          issued_date: actual_return_date,
+          issued_by: 'Warden Office'
+        });
+        this.set('tps_black_marks', blackMarks);
+      }
+    }
+
+    this.set('tps_leaves', leaves);
+    this.logAudit('RECORD_BATCH_RETURN', 'student_leave_records', leave_id, `Batch return recorded for ${student_ids.length} student(s)`);
+    return leave;
+  }
+
+  // --- HOSTEL & BED ALLOCATION ENGINE ---
+  getHostels() {
+    return [
+      {
+        id: 'h-boys',
+        name: 'Thaiba Boys Hostel Campus',
+        code: 'BH-01',
+        gender: 'boys',
+        building: 'Block A (Al-Farooq Block)',
+        warden_name: 'Usthad Abdullah K.',
+        warden_phone: '+91 98765 43210',
+        capacity: 48,
+        status: 'active'
+      },
+      {
+        id: 'h-girls',
+        name: 'Thaiba Girls Hostel Campus',
+        code: 'GH-01',
+        gender: 'girls',
+        building: 'Block B (Khadija Block)',
+        warden_name: 'Usthaza Fatima M.',
+        warden_phone: '+91 98765 43211',
+        capacity: 32,
+        status: 'active'
+      }
+    ];
+  }
+
+  getHostelRooms(hostelId = null) {
+    let rooms = this.get('tps_hostel_rooms');
+    if (!rooms || rooms.length === 0) {
+      rooms = [
+        { id: 'room-101', hostel_id: 'h-boys', floor: 'Ground Floor', room_number: '101', capacity: 8, room_type: '8-Bed Dormitory', status: 'active' },
+        { id: 'room-102', hostel_id: 'h-boys', floor: 'Ground Floor', room_number: '102', capacity: 8, room_type: '8-Bed Dormitory', status: 'active' },
+        { id: 'room-201', hostel_id: 'h-boys', floor: 'First Floor', room_number: '201', capacity: 8, room_type: '8-Bed Dormitory', status: 'active' },
+        { id: 'room-202', hostel_id: 'h-boys', floor: 'First Floor', room_number: '202', capacity: 8, room_type: '8-Bed Dormitory', status: 'active' },
+        { id: 'room-g101', hostel_id: 'h-girls', floor: 'Ground Floor', room_number: 'G-101', capacity: 8, room_type: 'Girls 8-Bed Dormitory', status: 'active' },
+        { id: 'room-g102', hostel_id: 'h-girls', floor: 'Ground Floor', room_number: 'G-102', capacity: 8, room_type: 'Girls 8-Bed Dormitory', status: 'active' }
+      ];
+      this.set('tps_hostel_rooms', rooms);
+    }
+    return hostelId ? rooms.filter(r => r.hostel_id === hostelId) : rooms;
+  }
+
+  getHostelBeds(roomId = null) {
+    let beds = this.get('tps_hostel_beds');
+    if (!beds || beds.length === 0) {
+      const rooms = this.getHostelRooms();
+      const students = this.get('tps_students');
+      beds = [];
+
+      for (const r of rooms) {
+        for (let i = 1; i <= 8; i++) {
+          const bedNum = `Bed ${i}`;
+          const side = i <= 5 ? 'Left Side' : 'Window Side';
+          const assignedStudent = students.find(s => 
+            s.hostel_room === r.room_number && (s.hostel_bed === bedNum || s.hostel_bed === `Bed ${i}`)
+          );
+
+          beds.push({
+            id: `bed-${r.room_number.toLowerCase()}-${i}`,
+            room_id: r.id,
+            bed_number: bedNum,
+            side,
+            status: assignedStudent ? 'occupied' : 'available',
+            current_student_id: assignedStudent ? assignedStudent.id : null
+          });
+        }
+      }
+      this.set('tps_hostel_beds', beds);
+    }
+    return roomId ? beds.filter(b => b.room_id === roomId) : beds;
+  }
+
+  async getHostelStats() {
+    const hostels = this.getHostels();
+    const rooms = this.getHostelRooms();
+    const beds = this.getHostelBeds();
+    const students = await this.getStudents();
+    const leaves = await this.getLeaves();
+
+    const totalBeds = beds.length;
+    const occupiedBeds = beds.filter(b => b.status === 'occupied').length;
+    const availableBeds = Math.max(0, totalBeds - occupiedBeds);
+    const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+    const awayStudents = students.filter(s => s.status === 'On Approved Leave').length;
+    const presentStudents = Math.max(0, students.length - awayStudents);
+
+    return {
+      hostels,
+      rooms,
+      beds,
+      totalBeds,
+      occupiedBeds,
+      availableBeds,
+      occupancyRate,
+      totalStudents: students.length,
+      presentStudents,
+      awayStudents
+    };
+  }
+
+  async assignStudentToBed(bedId, studentId) {
+    const beds = this.getHostelBeds();
+    const targetBed = beds.find(b => b.id === bedId);
+    if (!targetBed) throw new Error('Target bed space not found.');
+
+    const rooms = this.getHostelRooms();
+    const room = rooms.find(r => r.id === targetBed.room_id);
+    if (!room) throw new Error('Room not found for bed.');
+
+    const hostels = this.getHostels();
+    const hostel = hostels.find(h => h.id === room.hostel_id) || { name: 'Thaiba Boys Hostel' };
+    const student = await this.getStudentById(studentId);
+    if (!student) throw new Error('Student not found.');
+
+    // 1. If target bed was previously occupied by someone else, vacate that previous student
+    if (targetBed.current_student_id && targetBed.current_student_id !== studentId) {
+      await this.updateStudent(targetBed.current_student_id, {
+        hostel_bed: '',
+        bed_id: null
+      });
+    }
+
+    // 2. If student had another bed previously, free old bed
+    const oldBed = beds.find(b => b.current_student_id === studentId && b.id !== bedId);
+    if (oldBed) {
+      oldBed.status = 'available';
+      oldBed.current_student_id = null;
+    }
+
+    // 3. Occupy target bed
+    targetBed.status = 'occupied';
+    targetBed.current_student_id = studentId;
+    this.set('tps_hostel_beds', beds);
+
+    // 4. Update student profile
+    await this.updateStudent(studentId, {
+      hostel_unit: hostel.name,
+      hostel_room: room.room_number,
+      hostel_bed: targetBed.bed_number,
+      room_id: room.id,
+      bed_id: bedId
+    });
+
+    this.logAudit('ASSIGN_BED', 'hostel_beds', bedId, `Assigned ${student.full_name} to Room ${room.room_number} ${targetBed.bed_number}`);
+    return { success: true, bed: targetBed, room, student };
+  }
+
+  async vacateBed(bedId) {
+    const beds = this.getHostelBeds();
+    const bed = beds.find(b => b.id === bedId);
+    if (!bed) throw new Error('Bed space not found.');
+
+    if (bed.current_student_id) {
+      await this.updateStudent(bed.current_student_id, {
+        hostel_bed: '',
+        bed_id: null
+      });
+    }
+
+    bed.status = 'available';
+    bed.current_student_id = null;
+    this.set('tps_hostel_beds', beds);
+
+    this.logAudit('VACATE_BED', 'hostel_beds', bedId, `Vacated ${bed.bed_number}`);
+    return { success: true };
+  }
+
+  async createRoom({ room_number, floor, hostel_id, capacity = 8, room_type }) {
+    const rooms = this.getHostelRooms();
+    const newRoom = {
+      id: 'room-' + Date.now(),
+      hostel_id: hostel_id || 'h-boys',
+      floor: floor || 'Ground Floor',
+      room_number,
+      capacity: Number(capacity) || 8,
+      room_type: room_type || '8-Bed Dormitory',
+      status: 'active'
+    };
+    rooms.push(newRoom);
+    this.set('tps_hostel_rooms', rooms);
+
+    // Generate initial beds for this room
+    const beds = this.getHostelBeds();
+    for (let i = 1; i <= newRoom.capacity; i++) {
+      beds.push({
+        id: `bed-${newRoom.room_number.toLowerCase()}-${i}-${Date.now()}`,
+        room_id: newRoom.id,
+        bed_number: `Bed ${i}`,
+        side: i <= 5 ? 'Left Side' : 'Window Side',
+        status: 'available',
+        current_student_id: null
+      });
+    }
+    this.set('tps_hostel_beds', beds);
+    return newRoom;
+  }
+
+  async deleteRoom(roomId) {
+    const rooms = this.getHostelRooms();
+    const filtered = rooms.filter(r => r.id !== roomId);
+    this.set('tps_hostel_rooms', filtered);
+
+    // Free all beds
+    const beds = this.getHostelBeds();
+    const remainingBeds = beds.filter(b => b.room_id !== roomId);
+    this.set('tps_hostel_beds', remainingBeds);
+    return true;
+  }
+
+  // --- FINES & BLACK MARKS ---
+  async getFines() {
+    return this.get('tps_fines') || [];
+  }
+
+  async markFinePaid(fineId, paidDate, receivedBy) {
+    const fines = this.get('tps_fines') || [];
+    const idx = fines.findIndex(f => f.id === fineId || f.fine_no === fineId);
+    if (idx >= 0) {
+      fines[idx].status = 'paid';
+      fines[idx].paid_date = paidDate || new Date().toISOString().split('T')[0];
+      fines[idx].received_by = receivedBy || 'Accounts / Warden';
+      this.set('tps_fines', fines);
+      return fines[idx];
+    }
+    return null;
+  }
+
+  async getBlackMarks(studentId = null) {
+    const marks = this.get('tps_black_marks') || [];
+    return studentId ? marks.filter(m => m.student_id === studentId) : marks;
   }
 
   async recordFinePayment(leave_record_id, amount, payment_method = 'Cash', reference_number = '') {
@@ -1873,6 +2307,42 @@ class DatabaseService {
     if (sidx >= 0) {
       students[sidx].black_marks = (students[sidx].black_marks || 0) + newInc.black_marks_awarded;
       this.set('tps_students', students);
+    }
+
+    // Auto-create fine record if monetary fine was assessed
+    if (newInc.monetary_fine > 0) {
+      const fines = this.get('tps_fines') || [];
+      const fnNo = `FN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      fines.unshift({
+        id: 'fine-' + Date.now() + Math.random().toString(36).substring(2, 5),
+        fine_no: fnNo,
+        student_id,
+        incident_id: newInc.id,
+        category_name: category || 'Disciplinary Violation',
+        amount: newInc.monetary_fine,
+        late_days: 0,
+        black_marks: newInc.black_marks_awarded || 0,
+        reason: `${category}: ${description}`,
+        issue_date: newInc.incident_date,
+        status: 'pending',
+        issued_by: reported_by || 'Staff'
+      });
+      this.set('tps_fines', fines);
+    }
+
+    // Auto-create black mark entry in ledger
+    if (newInc.black_marks_awarded > 0) {
+      const blackMarks = this.get('tps_black_marks') || [];
+      blackMarks.unshift({
+        id: 'bm-' + Date.now() + Math.random().toString(36).substring(2, 5),
+        student_id,
+        incident_id: newInc.id,
+        marks_count: newInc.black_marks_awarded,
+        reason: `${category}: ${description}`,
+        issued_date: newInc.incident_date,
+        issued_by: reported_by || 'Staff'
+      });
+      this.set('tps_black_marks', blackMarks);
     }
 
     this.logAudit('LOG_INCIDENT', 'discipline_incidents', newInc.id, `Discipline incident recorded for student`);

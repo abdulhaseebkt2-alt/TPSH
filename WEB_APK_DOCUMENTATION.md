@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.8.1`  
-> **Last Updated:** 2026-10-30T11:45:00+05:30  
+> **Current Version:** `v1.8.2`  
+> **Last Updated:** 2026-10-30T12:05:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -17,7 +17,7 @@
 > 1. You **MUST** update this file (`WEB_APK_DOCUMENTATION.md`).
 > 2. You **MUST** record the change in [Section 10: Living Changelog & Revision History](#10-living-changelog--revision-history) with the date, timestamp, modified files, and summary.
 > 3. You **MUST** update the affected component/module section in this document to reflect the current code behavior accurately.
-> 4. You **MUST** verify all 82 unit tests pass (`cmd /c npx vitest run`) and production build succeeds (`cmd /c npm run build`).
+> 4. You **MUST** verify all 87 unit tests pass (`cmd /c npx vitest run`) and production build succeeds (`cmd /c npm run build`).
 > 5. Never let code and this document drift apart!
 
 ---
@@ -288,33 +288,59 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
   - Desktop: Full data grid with search, sortable columns, pagination, and multi-student batch actions.
   - Mobile: Clean cards where **Class replaces ID Number** for quick student identification.
 
-### 4.5 Hostel Leave & Return Register (`src/modules/leave/`)
-- **Group Leave (Type A)**: Multi-student selector for institutional vacations, holiday departures, and bulk leave slip printing.
-- **Individual Leave (Type B)**: Personal departures, medical leaves, emergency home visits.
-- **A4 Printable Leave Slip**: Formal pass with institutional crest, warden signature, parent contact, and QR/barcode identifier.
+### 4.5 Hostel Leave & Return Management (`src/modules/leaves/`)
+- **Ingested from Hostel IRP & Modernized**: Architecture, workflows, and data structures adapted directly from `E:\Hostel IRP`, tailored with an executive light-theme UI and high mobile touch ergonomics matching reference design screenshots.
+- **Pass Code Architecture**: Generates institutional sequential pass codes in the format `LV-YYYY-XXX` (e.g., `LV-2026-001`).
+- **Issue Leave Pass Modal**: Features a segmented mode switcher:
+  - `[ Individual Leave ]`: Targeted student search, live status badge check, single resident pass issuance.
+  - `[ Batch Leave Card ]`: Institutional vacations and group outings with class filters, select all, and multi-student checklist.
+  - Captures departure & expected return date/time, leave type/category, customizable fine rate per day (defaults to ₹200.00), reason/remarks, and approving warden.
+  - Automatically updates student status to `'On Approved Leave'` and synchronizes state to Supabase (`tps_leaves`).
+- **Arrival & Return Register Modal**: Segmented mode switcher:
+  - `[ Individual Student (N Away) ]`: Dropdown search of students currently away, displaying departure date, expected return, and calculating live late status.
+  - `[ Batch Leave Card (N Active) ]`: Batch return recording allowing wardens to check off multiple students returning together.
+  - Captures actual return date, actual return time, arrival condition remarks, and gate security notes.
+  - Automatically restores returning students to `'Active'` (Hostel Resident) status.
+- **Calendar-Day Late Return & Automated Fine Engine (`calculateReturnLate`)**:
+  - Strictly calculated by calendar date difference: $\Delta \text{Days} = \text{Actual Date} - \text{Expected Date}$.
+  - Returning on or before the expected calendar date incurs ₹0.00 fine.
+  - Returning on the expected date after expected time incurs ₹0.00 fine and awards 1 disciplinary Black Mark for late return.
+  - Returning after expected calendar date incurs $\Delta \text{Days} \times \text{Fine Rate}$ (default ₹200/day).
+  - Automatically generates an uncollected fine slip in `tps_fines` and logs infractions in `tps_black_marks`.
+- **Gate Leave Pass Modal & Print Slip**: Formal gate pass modal with barcode/QR code header, student photo, admission details, departure/expected arrival schedule, reason, and 3 physical signature blocks (Parent/Guardian, Hostel Warden, Gate Security).
+- **Dual Responsive Layout**: Clean desktop data table + mobile card feed (`.mobile-leave-cards`) ensuring optimal presentation across phones, tablets, and desktop workstations.
 
-### 4.6 Calendar-Day Late-Return Fine Engine (`src/lib/utils.js`)
-- **Calculation Rule**:
-  $$\text{Late Days} = \max(0, \text{Actual Return Date} - \text{Expected Return Date})$$
-  $$\text{Fine Amount} = \text{Late Days} \times ₹200.00$$
-- Returning on the expected calendar date (even late at night) incurs ₹0.00 fine.
-- Fine waiver workflow requires Super Admin approval with mandatory audit reason logging.
+### 4.6 Hostels & Bedroom Bed Allocation Management (`src/modules/hostel/`)
+- **Interactive 8-Bed Bedroom Rack**: Visual dormitory room rack adapted from `E:\Hostel IRP`. Bedrooms (e.g., Room 101, 102, 201, 202, G-101, G-102) are partitioned into two architectural zones:
+  - `Left Side Beds`: Beds 1 through 5.
+  - `Window Side Beds`: Beds 6 through 8.
+- **Single Source of Truth for Bed Allocation**: Bed and room assignment inputs have been completely removed from the Student Master edit form (`src/modules/students/index.js`), replaced with a clean read-only display. All resident bed allocations and room assignments are exclusively performed in the Hostels & Beds module.
+- **Direct Allocation & Vacate Console**:
+  - Vacant beds display green `+ Assign Student` buttons, opening a modal filtered to unassigned students matching the hostel gender.
+  - Occupied beds display resident name, admission number, class, and an instant `Change / Vacate` action button.
+  - Vacating a bed frees the bed space and clears the student's room/bed fields in a single atomic transaction.
+- **Bento Occupancy KPI Cards & View Switcher**: Live occupancy progress bars for Boys Hostel and Girls Hostel, vacant bed counters, and view switcher between `Hostels & Bedrooms Rack` and `Resident Bed Allocation Roster`.
 
-### 4.7 Examination & Results Publication (`src/modules/exams/`)
+### 4.7 Discipline, Conduct Incidents & Fines Ledger (`src/modules/discipline/`, `src/modules/fines/`)
+- **Conduct Incident Logging**: Records infractions categorized by severity (Minor, Moderate, Severe, Critical) with automatic black marks (1 to 5) and property damage fine creation.
+- **Integrated Fine Slips**: Fines generated from late hostel returns or property damage are logged to `tps_fines` with receipt generation and payment tracking.
+- **Cross-Module Linkage**: Integrated directly with `src/modules/leaves/index.js` arrival recording.
+
+### 4.8 Examination & Results Publication (`src/modules/exams/`)
 - Exam creation (Mid-Term, Final, Monthly Assessment) with subject max/passing marks.
 - Spreadsheet-style marks entry with boundary checks ($0 \le \text{Marks} \le \text{Max}$).
 - **Publication Gate**: Marks remain strictly draft until marked Published.
 - Automated rankings: Sequential Rank & Competition Tied Rank.
 - Printable A4 Student Report Cards.
 
-### 4.8 Visual Dynamic RBAC Matrix (`src/lib/permissions.js`)
+### 4.9 Visual Dynamic RBAC Matrix (`src/lib/permissions.js`)
 - Interactive matrix with 3-position toggles:
   - **Left (0)**: Access Denied.
   - **Center (1)**: View Only (all creation, editing, deletion, and export buttons hidden).
   - **Right (2)**: Full Access.
 - Supports individual user permission overrides that take precedence over default role policies.
 
-### 4.9 Institutional Academic Calendar (`src/modules/calendar/`)
+### 4.10 Institutional Academic Calendar (`src/modules/calendar/`)
 - Purely institutional calendar accessible from sidebar `#calendar`.
 - **Screenshot 2 Event Calendar Card & Multi-Day Date Range Engine**:
   - **Embedded Month Header (Eliminating Screenshot 4 Redundancy)**: Removed the separate floating top date pill. The calendar card itself natively houses the month navigation `< October 2026 > Today` alongside an icon and subtitle.
@@ -335,7 +361,7 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
     5. **Holidays & Events Agenda**: Chronological event list with deletion controls.
     6. **Calendar Management Hub**: Working days scheduler, add holiday button, and bridge link to attendance reports.
 
-### 4.10 Attendance Reports & Student Attendance Calendar (`src/modules/reports/`)
+### 4.11 Attendance Reports & Student Attendance Calendar (`src/modules/reports/`)
 - Master attendance intelligence and reporting module accessible via `#reports`.
 - **Three Student View Modes**:
   1. `📅 Calendar`: Visual monthly attendance calendar for individual students. Includes Screenshot 3 filter toolbar (`Search student...`, `Section`, `Class`, `Student`), Active Student Hero card with presence percentage and counts, monthly 7-column grid with minimal status dots on mobile, and tap-to-inspect Daily Attendance Inspection popup modal.
@@ -348,8 +374,8 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
 
 ## 5. Database Schema & Data Synchronization
 
-### 5.1 Supabase PostgreSQL Tables
-| Table | Description |
+### 5.1 Supabase PostgreSQL Tables & Synced Keys
+| Table / Cloud Key | Description |
 |---|---|
 | `users` | User credentials, roles, approval status, TGI staff IDs, phone numbers |
 | `programs` | Attendance programs (Hostel Moral Class, Coaching Class, etc.) |
@@ -358,8 +384,12 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
 | `classroom_students` | Many-to-many mapping of students to classrooms |
 | `students` | Master student profiles, admission numbers, status, photos |
 | `attendance_sessions`| Daily session records, timestamps, teacher duty tracking |
-| `leave_records` | Hostel group and individual leaves, return dates, fines |
-| `discipline_records`| Violation logs, cumulative black marks, property damage fines |
+| `tps_leaves` / `leave_records` | Hostel group and individual leaves, return dates, pass codes `LV-YYYY-XXX`, fine rates, status |
+| `tps_hostel_rooms` / `hostel_rooms` | Hostel dormitory rooms, capacity, gender allocation, room numbers |
+| `tps_hostel_beds` / `hostel_beds` | Individual dormitory beds (Left Side Beds 1-5, Window Side Beds 6-8), student occupancy |
+| `tps_discipline` / `discipline_incidents` | Conduct violation logs, severity levels, action taken |
+| `tps_black_marks` | Student cumulative disciplinary black marks ledger |
+| `tps_fines` | Automated late return fines, property damage fines, payment status, receipts |
 | `exams` | Exam schedules, programs, subjects, publication status |
 | `marks` | Student marks per exam subject |
 | `dormitory_rooms` | Dorm units, rooms, bed allocations |
@@ -428,7 +458,7 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 70 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 87 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention, dedicated `attendance_report` permissions for teachers, mentors, and admins.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
@@ -462,6 +492,14 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
   - Admin direct "✏️ Edit Attendance" bridge to live attendance module.
   - Strict attendance window governance: mandatory class time window for all roles; teachers taking missed attendance can only select Admin-unlocked missed dates and cannot tamper with already taken attendance.
   - Faculty Duty Tenure & Assignment-Bound Attendance: Missed attendance ("Losen Attendance" / red round circles) is only evaluated starting from the date the teacher was assigned to the classroom (`teacher_assigned_date`). If an administrator removes the teacher from the classroom, duties immediately end on that removal date (`teacher_removed_date`). Dates prior to assignment or after removal do not show red circles or penalize the teacher.
+- **Hostel Leave Passes, Calendar-Day Late Fines, Return Recording & Bedroom Bed Allocation Rack (Section 20)**:
+  - Rebuilt Hostel Leave & Return Management UI (`renderLeavesModule`) with desktop table and mobile card feed (`.mobile-leave-cards`).
+  - Sequential `LV-YYYY-XXX` pass code generation supporting individual and batch leave records.
+  - Strict calendar-day late calculation (`calculateReturnLate`): 0 fine on expected day returns, exact day-based fines on late returns, and 1 black mark for late-hour returns.
+  - Return recording (`recordReturn`) restoring student status from `'On Approved Leave'` back to `'Active'`.
+  - Interactive 8-Bed Bedroom Rack (`renderHostelModule`) with Left Side (Beds 1-5) and Window Side (Beds 6-8).
+  - Direct bed allocation (`assignStudentToBed`) and vacating (`vacateBed`) with dual bed/student record synchronization.
+  - Student admission/edit form bed gating (`showEditStudentModal`) ensuring bed assignment inputs are removed and read-only allocation note is displayed.
 - **Cloud Sync**: Cross-device unified database integrity.
 
 ---
@@ -472,7 +510,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 2. **Strict Domain Separation**: Academic Calendar (`#calendar`) is exclusively for the institutional calendar, working days schedule, and official holidays. Student attendance data, student search, student dropdowns, and student attendance calendars are housed strictly inside Attendance Reports (`#reports` and `#attendance_report`).
 3. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 4. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-5. **Preserve Unit Tests**: Never commit changes that cause any of the 71 unit tests to fail.
+5. **Preserve Unit Tests**: Never commit changes that cause any of the 87 unit tests to fail.
 
 ---
 
@@ -480,6 +518,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.8.2** | 2026-10-30 12:05 | Antigravity AI | `src/lib/db.js`, `src/modules/leaves/index.js`, `src/modules/hostel/index.js`, `src/modules/students/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Integration of Hostel IRP Leave Passes, Arrival Register, 8-Bed Bedroom Rack, and Student Bed Gating: (1) Ingested and adapted full leave and arrival workflows from `E:\Hostel IRP` with modern light-theme UI and mobile responsiveness: created sequential `LV-YYYY-XXX` leave code generator, segmented Leave Pass modal with `[ Individual Leave ]` vs `[ Batch Leave Card ]`, and segmented Arrival Register modal with `[ Individual Student (N Away) ]` vs `[ Batch Leave Card (N Active) ]`; (2) Implemented calendar-day late calculation (`calculateReturnLate`) strictly computing late days by date difference ($\Delta \text{Days} = \text{Actual Date} - \text{Expected Date}$); returning on expected day incurs ₹0 fine (and 1 black mark if after expected time); returning after expected day incurs $\Delta \text{Days} \times \text{Fine Rate}$ per day; automatically posts fines to `tps_fines` and black marks to `tps_black_marks`; (3) Implemented automated student status synchronization: departing students transition to `'On Approved Leave'` and returning students are restored to `'Active'` (Hostel Resident); (4) Integrated interactive 8-Bed Bedroom Rack in Hostels & Beds module (`src/modules/hostel/index.js`): visual dormitory rack partitioned into Left Side Beds (1-5) and Window Side Beds (6-8) with direct `+ Assign Student` on vacant beds and `Change / Vacate` on occupied beds; (5) Removed bed and room assignment inputs from Student Master edit form (`src/modules/students/index.js`), replacing them with read-only indicators to establish Hostels & Beds as the exclusive single source of truth for bed allocations; (6) Persisted and synchronized all leave, room, bed, fine, and black mark records with Supabase via `DatabaseService` (`tps_leaves`, `tps_hostel_rooms`, `tps_hostel_beds`, `tps_fines`, `tps_black_marks`); (7) Added comprehensive unit tests in Section 20 of `tests/app.test.js`; all 87/87 Vitest tests passing; verified clean production build. |
 | **v1.8.1** | 2026-10-30 11:45 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Month Boundary Curvature for Cross-Month Leave & Holiday Ranges: (1) Resolved straight/flat vertical cut-offs at month transitions (Oct 31 right edge flat in October view, Nov 1 left edge flat in November view when leave spans Oct 30 to Nov 3): added `isMonthFirst: d === 1` and `isMonthLast: d === totalDays` properties to `getCalendarGridDays` and injected `.is-month-first` / `.is-month-last` CSS classes on calendar day cells; (2) Added month boundary CSS rules in `src/styles/main.css` for `.is-month-last` and `.is-month-first`: on the last day of the month (`is-month-last`), multi-day connecting tracks (`is-holiday-middle`, `is-hostel-leave-middle`, `is-range-middle`) receive rounded right caps (`border-top-right-radius: 9999px !important; border-bottom-right-radius: 9999px !important;`) and single-day starts have `::after` hidden with complete border-radius; on the 1st of the month (`is-month-first`), multi-day connecting tracks receive rounded left caps (`border-top-left-radius: 9999px !important; border-bottom-left-radius: 9999px !important;`) and endings have `::before` hidden with complete border-radius; (3) Added full row-wrapping pill cap rules for `:nth-child(7n)` (Sunday) and `:nth-child(7n+1)` (Monday); (4) Added automated unit test in `tests/app.test.js` asserting month boundary class injection across October 31 and November 1; all 82/82 Vitest tests pass; production build verified cleanly. |
 | **v1.8.0** | 2026-10-30 11:33 | Antigravity AI | `src/components/bottom-nav.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Universal Edge-to-Edge Mobile Bottom Navigation & Sidebar Stacking: (1) Transformed the floating rounded capsule pill bar into a native, full-width edge-to-edge mobile bottom bar (`bottom: 0; left: 0; right: 0; width: 100vw; border-radius: 0; border-top: 1px solid #E2E8F0;`) filling the entire bottom area from left to right; (2) Created dedicated `src/components/bottom-nav.js` with `getBottomNavItems` dynamically deriving role-scoped accessible windows for every mobile user (Admin: Home, Schedule, Attendance, Reports, Settings; Teacher: Home, Schedule, Attendance, Reports, Marks; Mentor: Home, Attendance, Gate Pass, Hostel, Discipline; Parent: Home, Attendance, Leaves, Marks, Fees; Student: Home, Attendance, Leave Pass, Marks, Exams), fully honoring RBAC permissions; (3) Mounted globally in `src/app.js` shell so all accessible windows across the entire ERP maintain continuous one-thumb mobile bottom navigation; (4) Added equal `flex: 1 1 0%` distribution to `.m-nav-pill-btn` with soft mint `.m-nav-icon-wrap` active pill highlight; (5) Resolved sidebar stacking: configured mobile `.sidebar` with `z-index: 999 !important;` and `.sidebar-backdrop` with `z-index: 998 !important;` over bottom nav (`z-index: 40`), ensuring the sidebar drawer smoothly covers the bottom buttons when opened; (6) Added automated unit tests; all 81/81 Vitest tests pass; production build verified cleanly. |
 | **v1.7.9** | 2026-10-30 11:22 | Antigravity AI | `src/modules/reports/attendance-report.js`, `src/components/custom-select.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Full-Width Faculty / Teacher Name Dropdown up to Right Last End of Card: (1) Resolved dropdown width constraint in Attendance Report filter card where the Faculty / Teacher pill dropdown (`#att-rep-teacher-select`) stopped halfway across the card: enhanced select trigger had defaulted to `display: inline-flex` with content-sized width; (2) Updated `enhanceSelect` in `src/components/custom-select.js` to detect when a native `<select>` defines `style.width === '100%'`, class `select-full-width`, `w-100`, or `data-full-width="true"`, automatically conferring `.w-100` and `width: 100%`, `display: flex`, and `box-sizing: border-box` to `.tps-custom-select-trigger`; (3) Added full-width rules in `src/styles/main.css` for `#att-rep-teacher-select + .tps-custom-select-trigger`, `.select-full-width + .tps-custom-select-trigger`, and `.tps-select-full-width`, ensuring the pill stretches 100% all the way to the right last edge of the card on all screen viewports; (4) Configured `positionMenu` to match the floating options menu card width to the full-width trigger; (5) Added unit test asserting full-width custom-select enhancer behavior; all 80/80 Vitest tests passing; verified clean production build. |

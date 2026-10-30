@@ -8128,4 +8128,24 @@ body.tps-wheel-open {
   }
 }
 
+/* Responsive Ergonomics for Hostel Leaves & Bedrooms */
+@media (max-width: 768px) {
+  .desktop-leave-table {
+    display: none !important;
+  }
+  .mobile-leave-cards {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .desktop-leave-table {
+    display: block !important;
+  }
+  .mobile-leave-cards {
+    display: none !important;
+  }
+}
+
+
 

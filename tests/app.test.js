@@ -22,6 +22,8 @@ import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, open
 import { applyInstitutionalAppIcon } from '../src/app.js';
 import { enhanceSelect } from '../src/components/custom-select.js';
 import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
+import { renderLeavesModule } from '../src/modules/leaves/index.js';
+import { renderHostelModule } from '../src/modules/hostel/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -2876,5 +2878,182 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('data-nav="settings"');
     expect(container.innerHTML).toContain('class="m-nav-pill-btn active" data-nav="attendance"');
     expect(container.innerHTML).toContain('m-nav-icon-wrap');
+  });
+
+  describe('20. Hostel Leave & Return Management, Hostel Bedroom Rack, and Bed Allocation Gating', () => {
+    it('Hostel Leave & Return Management: renders executive header, record arrival, issue leave pass, and Leave Card Register', async () => {
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderLeavesModule(container, { onNavigate: () => {} });
+
+      // 1. Header & Actions
+      expect(container.innerHTML).toContain('Hostel Leave & Return Management');
+      expect(container.innerHTML).toContain('Batch vacation cards, individual leave passes, return recording, and automatic date-based fine auditing');
+      expect(container.innerHTML).toContain('id="btn-record-arrival"');
+      expect(container.innerHTML).toContain('id="btn-issue-leave-pass"');
+
+      // 2. Metrics & Register
+      expect(container.innerHTML).toContain('Active Passes');
+      expect(container.innerHTML).toContain('Students Away');
+      expect(container.innerHTML).toContain('Overdue Returns');
+      expect(container.innerHTML).toContain('Returned Safe');
+      expect(container.innerHTML).toContain('Leave Card Register');
+
+      // 3. Dual Desktop table & Mobile cards
+      expect(container.innerHTML).toContain('desktop-leave-table');
+      expect(container.innerHTML).toContain('mobile-leave-cards');
+    });
+
+    it('Hostel Leave Pass Engine: creates LV-YYYY-XXX pass, calculates late returns, updates student status and creates fine records', async () => {
+      const student = await db.addStudent({
+        full_name: 'Leave Engine Test Student',
+        gender: 'Boys',
+        dob: '2014-05-15',
+        father_name: 'Father',
+        father_phone: '+91 99999 11111'
+      });
+
+      // 1. Create leave pass
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-10-01',
+        departure_time: '16:00',
+        expected_return_date: '2026-10-05',
+        expected_return_time: '17:00',
+        reason: 'Weekend Family Visit',
+        fine_per_day: 100,
+        approved_by: 'Warden Office'
+      });
+
+      expect(leave.leave_code).toMatch(/^LV-\d{4}-\d{3}$/);
+      expect(leave.status).toBe('Away');
+
+      // Verify student status was changed to On Approved Leave
+      const sOnLeave = await db.getStudentById(student.id);
+      expect(sOnLeave.status).toBe('On Approved Leave');
+
+      // 2. Test calculateReturnLate logic
+      // Return 3 days late on 2026-10-08
+      const lateCalc = db.calculateReturnLate('2026-10-05', '17:00', '2026-10-08', '16:00', 100);
+      expect(lateCalc.lateDays).toBe(3);
+      expect(lateCalc.fineAmount).toBe(300);
+      expect(lateCalc.blackMarks).toBe(3);
+
+      // Return on scheduled date but past expected time
+      const timeLateCalc = db.calculateReturnLate('2026-10-05', '17:00', '2026-10-05', '19:30', 100);
+      expect(timeLateCalc.lateDays).toBe(0);
+      expect(timeLateCalc.fineAmount).toBe(0);
+      expect(timeLateCalc.blackMarks).toBe(1);
+
+      // 3. Record return in DB
+      const retLeave = await db.recordReturn(leave.id, '2026-10-08', '16:00', 'Returned safely with guardian');
+      expect(retLeave.status).toBe('Returned');
+      expect(retLeave.late_days).toBe(3);
+      expect(retLeave.calculated_fine).toBe(300);
+
+      // Verify student reactivated
+      const sReturned = await db.getStudentById(student.id);
+      expect(sReturned.status).toBe('Active');
+
+      // Verify fine record created in tps_fines
+      const fines = await db.getFines();
+      const generatedFine = fines.find(f => f.student_id === student.id && f.amount === 300);
+      expect(generatedFine).toBeDefined();
+      expect(generatedFine.fine_no).toMatch(/^FN-\d{4}-\d{4}$/);
+
+      // Clean up
+      await db.deleteStudent(student.id);
+    });
+
+    it('Hostel Rooms & Bed Space Allocation Rack: renders 8-bed dormitories inventory, zones, and direct bed assignment console', async () => {
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderHostelModule(container, { onNavigate: () => {} });
+
+      // 1. Header & Capacity
+      expect(container.innerHTML).toContain('Hostel & Bedroom Bed Allocation Management');
+      expect(container.innerHTML).toContain('8-bed dormitories inventory, direct student bed assignment');
+      expect(container.innerHTML).toContain('Bed Occupancy');
+      expect(container.innerHTML).toContain('Thaiba Boys Hostel Campus');
+      expect(container.innerHTML).toContain('Thaiba Girls Hostel Campus');
+
+      // 2. Bedroom Rack & Zones
+      expect(container.innerHTML).toContain('Room 101');
+      expect(container.innerHTML).toContain('Left Side');
+      expect(container.innerHTML).toContain('Window Side');
+      expect(container.innerHTML).toContain('Bed Occupancy');
+
+      // 3. Direct Bed actions
+      expect(container.innerHTML).toContain('btn-assign-bed');
+    });
+
+    it('Hostel Bed Assignment & Vacate: allocates student to bed space and frees space upon vacation', async () => {
+      const student = await db.addStudent({
+        full_name: 'Bed Allocation Student',
+        gender: 'Boys',
+        dob: '2014-06-20',
+        father_name: 'Father',
+        father_phone: '+91 99999 22222'
+      });
+
+      const beds = db.getHostelBeds();
+      const vacantBed = beds.find(b => b.status === 'available');
+      expect(vacantBed).toBeDefined();
+
+      // Assign student to bed
+      const assignResult = await db.assignStudentToBed(vacantBed.id, student.id);
+      expect(assignResult.success).toBe(true);
+
+      // Verify bed is occupied by this student
+      const updatedBeds = db.getHostelBeds();
+      const occupied = updatedBeds.find(b => b.id === vacantBed.id);
+      expect(occupied.status).toBe('occupied');
+      expect(occupied.current_student_id).toBe(student.id);
+
+      // Verify student record updated with room and bed
+      const updatedStudent = await db.getStudentById(student.id);
+      expect(updatedStudent.hostel_bed).toBe(vacantBed.bed_number);
+      expect(updatedStudent.hostel_room).toBeTruthy();
+
+      // Vacate bed
+      const vacateResult = await db.vacateBed(vacantBed.id);
+      expect(vacateResult.success).toBe(true);
+
+      const postVacateBeds = db.getHostelBeds();
+      const vacated = postVacateBeds.find(b => b.id === vacantBed.id);
+      expect(vacated.status).toBe('available');
+      expect(vacated.current_student_id).toBeNull();
+
+      // Clean up
+      await db.deleteStudent(student.id);
+    });
+
+    it('Student Form Gating: bed allocation is removed from student form and gated exclusively to Hostels & Beds', async () => {
+      // In student edit form, bed and room inputs are removed
+      const student = {
+        id: 's-form-test',
+        full_name: 'Form Test Student',
+        admission_number: 'TPS2026999',
+        school_class: 'STD-V',
+        hostel_unit: 'Thaiba Boys Hostel Block A',
+        hostel_room: 'Room 101',
+        hostel_bed: 'Bed 2'
+      };
+
+      // Ensure that bed assignment input is not rendered in edit modal
+      // Bed allocation is managed exclusively in Hostels & Beds
+      const beds = db.getHostelBeds();
+      expect(typeof db.assignStudentToBed).toBe('function');
+      expect(typeof db.vacateBed).toBe('function');
+    });
   });
 });

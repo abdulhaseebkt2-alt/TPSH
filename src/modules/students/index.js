@@ -665,14 +665,14 @@ export async function renderStudentsModule(container, { onNavigate }) {
               <input type="text" id="edit-cat" class="form-control" value="${student.category || 'General'}" required />
             </div>
             <div class="form-group">
-              <label class="form-label">Hostel Unit</label>
-              <input type="text" id="edit-hostel" class="form-control" value="${student.hostel_unit || ''}" placeholder="e.g. Thaiba Boys Hostel Block A" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Room & Bed</label>
-              <div style="display: flex; gap: 0.5rem;">
-                <input type="text" id="edit-room" class="form-control" value="${student.hostel_room || ''}" placeholder="Room (e.g. Room 101)" />
-                <input type="text" id="edit-bed" class="form-control" value="${student.hostel_bed || ''}" placeholder="Bed (e.g. Bed 1)" />
+              <label class="form-label">Hostel & Bed Allocation</label>
+              <div style="padding: 0.65rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.85rem; color: #334155;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span>${student.hostel_unit || 'Thaiba Hostel'}: <strong>${student.hostel_room ? `${student.hostel_room} • ${student.hostel_bed}` : '<span style="color: #94A3B8;">No Bed Assigned</span>'}</strong></span>
+                </div>
+                <div style="font-size: 0.74rem; color: #64748B; margin-top: 3px;">
+                  Bed space is allocated exclusively in the <strong>Hostels & Beds</strong> console.
+                </div>
               </div>
             </div>
             <div class="form-group">
@@ -740,9 +740,6 @@ export async function renderStudentsModule(container, { onNavigate }) {
           const updatedGender = modalBody.querySelector('#edit-gender').value;
           const updatedClass = modalBody.querySelector('#edit-class').value.trim();
           const updatedCat = modalBody.querySelector('#edit-cat').value.trim();
-          const updatedHostel = modalBody.querySelector('#edit-hostel').value.trim();
-          const updatedRoom = modalBody.querySelector('#edit-room').value.trim();
-          const updatedBed = modalBody.querySelector('#edit-bed').value.trim();
           const updatedParent = modalBody.querySelector('#edit-parent').value.trim();
           const updatedPhone = modalBody.querySelector('#edit-phone').value.trim();
           const updatedStatus = modalBody.querySelector('#edit-status').value;
@@ -759,9 +756,9 @@ export async function renderStudentsModule(container, { onNavigate }) {
             gender: updatedGender,
             school_class: normalizeClassPattern(updatedClass),
             category: updatedCat,
-            hostel_unit: updatedHostel,
-            hostel_room: updatedRoom,
-            hostel_bed: updatedBed,
+            hostel_unit: student.hostel_unit || '',
+            hostel_room: student.hostel_room || '',
+            hostel_bed: student.hostel_bed || '',
             father_name: updatedParent,
             father_phone: updatedPhone,
             status: updatedStatus,
