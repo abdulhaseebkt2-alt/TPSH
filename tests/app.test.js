@@ -3354,6 +3354,22 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(mainCss).toContain('max-width: 440px;');
     });
 
+    it('Hostel Rooms & Beds Cards Layout: bounded compact card width and multi-column grid', async () => {
+      const fs = await import('fs');
+      const hostelJs = fs.readFileSync('src/modules/hostel/index.js', 'utf8');
+      const mainCss = fs.readFileSync('src/styles/main.css', 'utf8');
+
+      // Uses rooms-rack-grid and hostel-capacity-overview-grid
+      expect(hostelJs).toContain('class="rooms-rack-grid"');
+      expect(hostelJs).toContain('class="hostel-capacity-overview-grid"');
+
+      // CSS styles rooms-rack-grid and room-rack-card with max-width: 520px
+      expect(mainCss).toContain('.rooms-rack-grid');
+      expect(mainCss).toContain('repeat(auto-fill, minmax(420px, 520px))');
+      expect(mainCss).toContain('.room-rack-card');
+      expect(mainCss).toContain('max-width: 520px;');
+    });
+
     it('Hostel Leave Pass Engine: creates LV-YYYY-XXX pass, calculates late returns, updates student status and creates fine records', async () => {
       const student = await db.addStudent({
         full_name: 'Leave Engine Test Student',

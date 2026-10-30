@@ -107,7 +107,7 @@ export async function renderHostelModule(container, { onNavigate }) {
       </div>
 
       <!-- Capacity Overview Cards Row -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+      <div class="hostel-capacity-overview-grid">
         ${hostels.map(h => {
           const hRooms = rooms.filter(r => r.hostel_id === h.id);
           const hBeds = beds.filter(b => hRooms.some(r => r.id === b.room_id));
@@ -227,7 +227,7 @@ export async function renderHostelModule(container, { onNavigate }) {
     }
 
     return `
-      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <div class="rooms-rack-grid">
         ${rooms.map(r => {
           const hostel = hostels.find(h => h.id === r.hostel_id);
           const rBeds = beds.filter(b => b.room_id === r.id);

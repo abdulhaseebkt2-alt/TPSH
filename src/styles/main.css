@@ -8807,6 +8807,62 @@ body.tps-wheel-open {
   justify-content: space-between !important;
 }
 
+/* Hostel Rooms & Beds: Dedicated Rooms Grid & Card Width Normalization (Compact & Balanced Width) */
+.rooms-rack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 520px));
+  gap: 1.15rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .rooms-rack-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+}
+
+.room-rack-card {
+  max-width: 520px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  .room-rack-card {
+    max-width: 100%;
+  }
+}
+
+.hostel-capacity-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 380px));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hostel-capacity-overview-grid > div {
+  max-width: 380px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .hostel-capacity-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .hostel-capacity-overview-grid > div {
+    max-width: 100%;
+  }
+}
+
 .bedroom-sides-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -8821,7 +8877,8 @@ body.tps-wheel-open {
   .bedroom-side-card {
     padding: 0.5rem !important;
   }
-  .bed-item-card {
+  .bed-item-card,
+  .hostel-bed-item {
     padding: 0.45rem 0.5rem !important;
     min-height: 70px !important;
   }
