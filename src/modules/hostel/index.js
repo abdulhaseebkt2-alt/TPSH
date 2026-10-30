@@ -2,30 +2,49 @@ import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
+import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
 export async function renderHostelModule(container, { onNavigate }) {
   const user = getCurrentUser();
-  const canManageBeds = user?.is_super_admin || user?.role === 'admin' || user?.role === 'mentor';
+  const mentorGender = getMentorGenderScope(user);
+  const isGirlsMentor = mentorGender === 'Girls';
+  const isBoysMentor = mentorGender === 'Boys';
+  const canManageBeds = user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role);
 
   // Pull cloud keys to ensure latest state from Supabase
   await db.pullCloudKeys(['tps_hostel_rooms', 'tps_hostel_beds', 'tps_students']);
 
-  const [students, rawRooms, rawBeds] = await Promise.all([
+  const [allStudents, rawRooms, rawBeds] = await Promise.all([
     db.getStudents(),
     db.getHostelRooms(),
     db.getHostelBeds()
   ]);
 
-  const hostels = db.getHostels();
+  const rawHostels = db.getHostels();
+  const hostels = rawHostels.filter(h => {
+    if (isGirlsMentor) return h.gender === 'girls' || h.id === 'h-girls';
+    if (isBoysMentor) return h.gender === 'boys' || h.id === 'h-boys';
+    return true;
+  });
+  const allowedHostelIds = new Set(hostels.map(h => h.id));
+
+  const students = allStudents.filter(s => {
+    if (isGirlsMentor) return s.gender === 'Girls' || s.gender === 'Female' || (s.hostel_unit && s.hostel_unit.includes('Girls'));
+    if (isBoysMentor) return s.gender === 'Boys' || s.gender === 'Male' || (s.hostel_unit && s.hostel_unit.includes('Boys'));
+    return true;
+  });
 
   let activeTab = 'rack'; // 'rack' or 'roster'
-  let selectedHostelFilter = 'all'; // 'all', 'h-boys', 'h-girls'
+  let selectedHostelFilter = isGirlsMentor ? 'h-girls' : isBoysMentor ? 'h-boys' : 'all';
   let rosterSearch = '';
 
   function renderView() {
-    const rooms = db.getHostelRooms();
-    const beds = db.getHostelBeds();
+    const allRooms = db.getHostelRooms();
+    const allBeds = db.getHostelBeds();
+
+    const rooms = allRooms.filter(r => allowedHostelIds.has(r.hostel_id));
+    const allowedRoomIds = new Set(rooms.map(r => r.id));
+    const beds = allBeds.filter(b => allowedRoomIds.has(b.room_id));
 
     // Stats calculation
     const totalBeds = beds.length;
@@ -46,10 +65,10 @@ export async function renderHostelModule(container, { onNavigate }) {
               <path d="M2 17h20"></path>
               <path d="M6 8v9"></path>
             </svg>
-            Hostel & Bedroom Bed Allocation Management
+            ${isGirlsMentor ? 'Girls Hostel & Bedroom Bed Allocation' : isBoysMentor ? 'Boys Hostel & Bedroom Bed Allocation' : 'Hostel & Bedroom Bed Allocation Management'}
           </h2>
           <p style="font-size: 0.85rem; color: #64748B; margin-top: 0.2rem;">
-            8-bed dormitories inventory, direct student bed assignment, and visual room layout rack
+            ${isGirlsMentor ? 'Thaiba Girls Hostel Campus • 8-bed dormitories inventory, direct student bed assignment & room layout' : isBoysMentor ? 'Thaiba Boys Hostel Campus • 8-bed dormitories inventory, direct student bed assignment & room layout' : '8-bed dormitories inventory, direct student bed assignment, and visual room layout rack'}
           </p>
         </div>
         <div class="page-actions" style="display: flex; gap: 0.5rem;">
@@ -117,7 +136,7 @@ export async function renderHostelModule(container, { onNavigate }) {
           </button>
         </div>
 
-        ${activeTab === 'rack' ? `
+        ${activeTab === 'rack' && !isGirlsMentor && !isBoysMentor ? `
           <!-- Hostel Building Filter -->
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span style="font-size: 0.78rem; font-weight: 600; color: #64748B;">Filter:</span>

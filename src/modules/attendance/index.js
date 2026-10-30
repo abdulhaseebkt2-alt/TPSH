@@ -2,7 +2,7 @@ import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
+import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters } from '../../lib/utils.js';
 import { openMobileWheelPicker, formatDateYMD } from '../../components/date-picker.js';
 
@@ -15,6 +15,11 @@ function parseMinutes(timeStr) {
 export async function renderAttendanceModule(container, { onNavigate, initialClassId, initialDate } = {}) {
   const user = getCurrentUser();
   const isTeacher = user?.role === 'teacher';
+  const isMentor = isMentorRole(user?.role);
+  const mentorGender = isMentor ? getMentorGenderScope(user) : null;
+  const isBoysMentor = mentorGender === 'Boys';
+  const isGirlsMentor = mentorGender === 'Girls';
+  const isFaculty = isTeacher || isMentor;
   const isAdmin = user?.is_super_admin || user?.role === 'admin' || user?.role === 'super_admin';
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
@@ -50,7 +55,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     });
   }
 
-  // 1. Scoping: Teacher can ONLY see their own assigned classes / timetable (not others)
+  // 1. Scoping: Teacher / Mentor can ONLY see their own assigned classes / timetable (not others)
   let availableClassrooms = allClassrooms;
   let selectedAdminTeacherId = 'all';
 
@@ -62,6 +67,15 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       // Fallback only if no classrooms have any teacher assigned yet
       const anyAssigned = allClassrooms.some(c => Boolean(c.teacher_id));
       availableClassrooms = anyAssigned ? [] : allClassrooms.slice(0, 2);
+    }
+  } else if (isMentor) {
+    // "boys mentor can access only boys hostel data and his class... same to girls mentor"
+    const assigned = getAssignedClassroomsForUser(user);
+    if (assigned.length > 0) {
+      availableClassrooms = assigned;
+    } else {
+      // If no specific classroom is mapped by teacher_id, allow classrooms matching mentor's gender scope
+      availableClassrooms = allClassrooms.filter(c => !c.gender_eligibility || c.gender_eligibility === mentorGender || c.gender_eligibility === 'Mixed');
     }
   }
 
@@ -218,12 +232,18 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   // Determine eligible students for an active class
   function getEligibleStudents(clsId = activeClassroomId) {
     const targetCls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
+    let list = students;
     if (targetCls && Array.isArray(targetCls.student_ids) && targetCls.student_ids.length > 0) {
       const assignedSet = new Set(targetCls.student_ids);
       const filtered = students.filter(s => assignedSet.has(s.id));
-      if (filtered.length > 0) return filtered;
+      if (filtered.length > 0) list = filtered;
+    } else if (targetCls?.gender_eligibility && targetCls.gender_eligibility !== 'Mixed') {
+      list = students.filter(s => (s.gender || 'Boys').toLowerCase() === targetCls.gender_eligibility.toLowerCase());
     }
-    return students;
+    if (isMentor && mentorGender) {
+      list = list.filter(s => (s.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase());
+    }
+    return list;
   }
 
   // Attendance State and "Late Present" tracking
@@ -389,14 +409,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           <div class="page-title-group">
             <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
               <h2 style="font-size: 1.35rem; font-weight: 800; color: #0F172A; margin: 0;">
-                ${isTeacher ? 'My Teaching Timetable & Attendance' : 'Faculty Timetable & Attendance Duty'}
+                ${isTeacher ? 'My Teaching Timetable & Attendance' : isMentor ? `${isBoysMentor ? 'Boys' : 'Girls'} Mentor Class Timetable & Attendance` : 'Faculty Timetable & Attendance Duty'}
               </h2>
-              <span class="badge ${isTeacher ? 'badge-active' : 'badge-default'}" style="font-size: 0.72rem; font-weight: 700;">
-                ${isTeacher ? 'Personal Timetable' : 'Administrative Governance'}
+              <span class="badge ${isFaculty ? 'badge-active' : 'badge-default'}" style="font-size: 0.72rem; font-weight: 700;">
+                ${isTeacher ? 'Personal Timetable' : isMentor ? `${isBoysMentor ? 'Boys' : 'Girls'} Mentor Class Schedule` : 'Administrative Governance'}
               </span>
             </div>
             <p style="font-size: 0.8rem; color: #64748B; margin-top: 2px;">
-              ${isTeacher 
+              ${isFaculty 
                 ? 'Your assigned class timetable cards. Live attendance is strictly enabled only during class hours.' 
                 : 'All faculty teaching schedule cards with strict timetable attendance window governance.'}
             </p>
@@ -737,7 +757,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const windowState = await checkWindowStatus(activeClassroomId);
     const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
-    const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+    const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
     const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
 
     const canInteract = canSubmitAction && !isViewOnly && windowState.canTake;
@@ -1329,7 +1349,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
           const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
           const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
-          const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+          const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
 
           const records = activeList.map(s => {
             const sid = s.id;

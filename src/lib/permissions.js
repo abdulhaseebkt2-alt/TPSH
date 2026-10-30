@@ -5,27 +5,27 @@
 // - RIGHT ('full'): Full Access. Role can view, create, edit, delete, and apply.
 
 export const MODULE_DEFINITIONS = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'users', label: 'User & Permissions', icon: 'shield-check', roles: ['super_admin'] },
   { key: 'admissions', label: 'Student Admissions', icon: 'user-plus', roles: ['super_admin', 'admin'] },
-  { key: 'students', label: 'Student Directory', icon: 'users', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
+  { key: 'students', label: 'Student Directory', icon: 'users', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
   { key: 'sections', label: 'Sections & Classrooms', icon: 'folder-tree', roles: ['super_admin', 'admin'] },
   { key: 'assignments', label: 'Student Assignments', icon: 'user-check', roles: ['super_admin', 'admin'] },
   { key: 'timetable', label: 'Teacher Timetable', icon: 'calendar-clock', roles: ['super_admin', 'admin', 'teacher'] },
-  { key: 'calendar', label: 'Academic Calendar', icon: 'calendar', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
-  { key: 'attendance', label: 'Attendance Management', icon: 'check-square', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
-  { key: 'attendance_report', label: 'Attendance Report', icon: 'clipboard-check', roles: ['super_admin', 'admin', 'mentor', 'teacher'] },
-  { key: 'faculty_leaves', label: 'Faculty Leaves', icon: 'calendar-check', roles: ['super_admin', 'admin', 'mentor', 'teacher'] },
-  { key: 'leaves', label: 'Hostel Leave Register', icon: 'plane-takeoff', roles: ['super_admin', 'admin', 'mentor', 'parent', 'student', 'hostel_leader'] },
-  { key: 'fines', label: 'Late Fine Management', icon: 'receipt', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
-  { key: 'discipline', label: 'Discipline & Black Marks', icon: 'alert-triangle', roles: ['super_admin', 'admin', 'mentor', 'parent', 'hostel_leader'] },
+  { key: 'calendar', label: 'Academic Calendar', icon: 'calendar', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'attendance', label: 'Attendance Management', icon: 'check-square', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'attendance_report', label: 'Attendance Report', icon: 'clipboard-check', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher'] },
+  { key: 'faculty_leaves', label: 'Faculty Leaves', icon: 'calendar-check', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher'] },
+  { key: 'leaves', label: 'Hostel Leave Register', icon: 'plane-takeoff', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'student', 'hostel_leader'] },
+  { key: 'fines', label: 'Late Fine Management', icon: 'receipt', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
+  { key: 'discipline', label: 'Discipline & Black Marks', icon: 'alert-triangle', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
   { key: 'exams', label: 'Exam Management', icon: 'file-text', roles: ['super_admin', 'admin', 'teacher', 'student'] },
   { key: 'marks', label: 'Marks & Results', icon: 'award', roles: ['super_admin', 'admin', 'teacher', 'parent', 'student'] },
-  { key: 'hostel', label: 'Hostel Rooms & Beds', icon: 'bed', roles: ['super_admin', 'admin', 'mentor', 'hostel_leader'] },
+  { key: 'hostel', label: 'Hostel Rooms & Beds', icon: 'bed', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'hostel_leader'] },
   { key: 'fees', label: 'Fees & Payments', icon: 'credit-card', roles: ['super_admin', 'admin', 'parent'] },
-  { key: 'notices', label: 'Notices & WhatsApp', icon: 'bell', roles: ['super_admin', 'admin', 'mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
-  { key: 'maintenance', label: 'Hostel Maintenance', icon: 'wrench', roles: ['super_admin', 'admin', 'mentor', 'hostel_leader'] },
-  { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor', 'teacher'] },
+  { key: 'notices', label: 'Notices & WhatsApp', icon: 'bell', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'maintenance', label: 'Hostel Maintenance', icon: 'wrench', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'hostel_leader'] },
+  { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher'] },
   { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
 ];
@@ -55,6 +55,36 @@ export const DEFAULT_RBAC_MATRIX = {
     maintenance: 'full',
     reports: 'full',
     settings: 'full'
+  },
+  boys_mentor: {
+    dashboard: 'full',
+    students: 'view',
+    calendar: 'view',
+    attendance: 'full',
+    attendance_report: 'view',
+    faculty_leaves: 'view',
+    leaves: 'full',
+    fines: 'view',
+    discipline: 'full',
+    hostel: 'full',
+    notices: 'full',
+    maintenance: 'full',
+    reports: 'view'
+  },
+  girls_mentor: {
+    dashboard: 'full',
+    students: 'view',
+    calendar: 'view',
+    attendance: 'full',
+    attendance_report: 'view',
+    faculty_leaves: 'view',
+    leaves: 'full',
+    fines: 'view',
+    discipline: 'full',
+    hostel: 'full',
+    notices: 'full',
+    maintenance: 'full',
+    reports: 'view'
   },
   mentor: {
     dashboard: 'full',
@@ -361,4 +391,23 @@ export function canPerformAction(profile, moduleKey, action) {
   }
 
   return false;
+}
+
+export function isMentorRole(role) {
+  return role === 'mentor' || role === 'boys_mentor' || role === 'girls_mentor';
+}
+
+export function getMentorGenderScope(user) {
+  if (!user) return null;
+  const role = user.role;
+  if (role === 'boys_mentor') return 'Boys';
+  if (role === 'girls_mentor') return 'Girls';
+  if (role === 'mentor') {
+    const isGirls = user.gender === 'Girls' || 
+                    user.gender_scope === 'Girls' || 
+                    user.mentor_type === 'girls' || 
+                    (user.hostel_unit && user.hostel_unit.includes('Girls'));
+    return isGirls ? 'Girls' : 'Boys';
+  }
+  return null;
 }

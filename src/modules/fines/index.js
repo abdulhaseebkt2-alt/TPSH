@@ -3,6 +3,7 @@ import { formatCurrency, formatDate, printDocument } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
 export async function renderFinesModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -12,6 +13,9 @@ export async function renderFinesModule(container, { onNavigate }) {
   ]);
   const payments = db.get('tps_fine_payments');
 
+  const isMentor = isMentorRole(user?.role);
+  const mentorGender = isMentor ? getMentorGenderScope(user) : null;
+
   // Filter leaves that have fine > 0
   const isParent = user?.role === 'parent';
   const allFineRecords = leaves.filter(l => (l.calculated_fine || 0) > 0);
@@ -20,7 +24,12 @@ export async function renderFinesModule(container, { onNavigate }) {
         const st = students.find(s => s.id === l.student_id);
         return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
       })
-    : allFineRecords;
+    : mentorGender
+      ? allFineRecords.filter(l => {
+          const st = students.find(s => s.id === l.student_id);
+          return st && (st.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase();
+        })
+      : allFineRecords;
 
   const totalAssessed = displayFines.reduce((sum, l) => sum + (l.calculated_fine || 0), 0);
   const totalPaid = displayFines.filter(l => l.fine_status === 'paid').reduce((sum, l) => sum + (l.calculated_fine || 0), 0);
@@ -115,7 +124,7 @@ export async function renderFinesModule(container, { onNavigate }) {
                     <td>
                       <div style="display: flex; gap: 0.35rem;">
                         <button class="btn btn-outline btn-sm btn-print-fine-slip" data-id="${l.id}">Slip</button>
-                        ${!isPaid && !isWaived && (user?.is_super_admin || user?.role === 'admin' || user?.role === 'mentor') ? `
+                        ${!isPaid && !isWaived && (user?.is_super_admin || user?.role === 'admin' || isMentor) ? `
                           <button class="btn btn-primary btn-sm btn-collect-fine" data-id="${l.id}">Collect</button>
                           <button class="btn btn-outline btn-sm btn-waive-fine" data-id="${l.id}">Waive</button>
                         ` : ''}

@@ -90,8 +90,10 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
           <select id="sidebar-role-selector" class="form-control" style="width: 100%; cursor: pointer;">
             <option value="super_admin" ${user?.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
             <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Admin</option>
+            <option value="boys_mentor" ${user?.role === 'boys_mentor' ? 'selected' : ''}>Boys Hostel Mentor</option>
+            <option value="girls_mentor" ${user?.role === 'girls_mentor' ? 'selected' : ''}>Girls Hostel Mentor</option>
             <option value="teacher" ${user?.role === 'teacher' ? 'selected' : ''}>Teacher</option>
-            <option value="mentor" ${user?.role === 'mentor' ? 'selected' : ''}>Hostel Mentor</option>
+            <option value="mentor" ${user?.role === 'mentor' ? 'selected' : ''}>Hostel Mentor (General)</option>
             <option value="parent" ${user?.role === 'parent' ? 'selected' : ''}>Parent</option>
             <option value="student" ${user?.role === 'student' ? 'selected' : ''}>Student</option>
             <option value="hostel_leader" ${user?.role === 'hostel_leader' ? 'selected' : ''}>Hostel Leader</option>

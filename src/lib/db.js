@@ -404,9 +404,10 @@ class DatabaseService {
       this.setStorageItem('tps_users', JSON.stringify([
         { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true },
         { id: 'u-2', email: 'teacher@thaibaschool.edu.in', full_name: 'Rashid Sir', role: 'teacher', approval_status: 'approved', is_super_admin: false },
-        { id: 'u-3', email: 'mentor@thaibaschool.edu.in', full_name: 'Usthad Usman', role: 'mentor', approval_status: 'approved', is_super_admin: false },
+        { id: 'u-3', email: 'mentor@thaibaschool.edu.in', full_name: 'Usthad Usman', role: 'boys_mentor', mentor_type: 'boys', gender: 'Boys', hostel_unit: 'Thaiba Boys Hostel Block A', approval_status: 'approved', is_super_admin: false },
         { id: 'u-4', email: 'parent@example.com', full_name: 'Ahmad K.T.', role: 'parent', approval_status: 'approved', is_super_admin: false },
-        { id: 'u-5', email: 'applicant@gmail.com', full_name: 'New Applicant', role: null, approval_status: 'pending', is_super_admin: false }
+        { id: 'u-5', email: 'applicant@gmail.com', full_name: 'New Applicant', role: null, approval_status: 'pending', is_super_admin: false },
+        { id: 'u-6', email: 'girls_mentor@thaibaschool.edu.in', full_name: 'Usthada Mariyam', role: 'girls_mentor', mentor_type: 'girls', gender: 'Girls', hostel_unit: 'Thaiba Girls Hostel Campus', approval_status: 'approved', is_super_admin: false }
       ]));
     }
   }

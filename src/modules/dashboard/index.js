@@ -15,6 +15,8 @@ export async function renderDashboard(container, { onNavigate }) {
       break;
 
     case 'mentor':
+    case 'boys_mentor':
+    case 'girls_mentor':
     case 'hostel_leader':
       await renderMentorDashboard(container, { onNavigate });
       break;

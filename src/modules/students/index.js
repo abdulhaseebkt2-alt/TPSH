@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
+import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
 export async function renderStudentsModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -19,11 +19,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
   // - Parents see only their children
   // - Mentors assigned to Girls/Boys Hostel see only their hostel residents
   const isParent = user?.role === 'parent';
-  const isMentor = user?.role === 'mentor';
-  const savedMentorHostel = typeof localStorage !== 'undefined' ? localStorage.getItem('tps_mentor_active_hostel') : null;
-  const mentorUnit = user?.hostel_unit || savedMentorHostel;
-  const isGirlsMentor = isMentor && (mentorUnit?.includes('Girls') || user?.gender_scope === 'Girls');
-  const isBoysMentor = isMentor && (mentorUnit?.includes('Boys') || user?.gender_scope === 'Boys');
+  const isMentor = isMentorRole(user?.role);
+  const mentorGender = isMentor ? getMentorGenderScope(user) : null;
+  const isGirlsMentor = mentorGender === 'Girls';
+  const isBoysMentor = mentorGender === 'Boys';
 
   let students = allStudents;
   if (isParent) {
@@ -86,9 +85,11 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
       <div class="capsule-filters">
         <select id="filter-gender">
+          ${isGirlsMentor ? `<option value="Female" selected>Female (Girls Only)</option>` : isBoysMentor ? `<option value="Male" selected>Male (Boys Only)</option>` : `
           <option value="all">All</option>
           <option value="Male">Male</option>
           <option value="Female">Female</option>
+          `}
         </select>
 
         <select id="filter-status">

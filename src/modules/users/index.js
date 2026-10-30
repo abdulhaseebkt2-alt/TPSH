@@ -32,6 +32,18 @@ export const RBAC_ROLES = [
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>`
   },
   {
+    key: 'boys_mentor',
+    label: 'Boys Hostel Mentor',
+    subtitle: 'Boys Hostel Units, Leaves & Coaching Class',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
+  },
+  {
+    key: 'girls_mentor',
+    label: 'Girls Hostel Mentor',
+    subtitle: 'Girls Hostel Units, Leaves & Coaching Class',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
+  },
+  {
     key: 'mentor',
     label: 'Hostel Mentor',
     subtitle: 'Hostel Operations, Leaves & Welfare',
@@ -60,6 +72,8 @@ export const RBAC_ROLES = [
 export const RBAC_ROLE_THEMES = {
   admin: { color: '#059669', light: '#ECFDF5', border: '#A7F3D0', badgeBg: '#D1FAE5', badgeColor: '#065F46' },
   teacher: { color: '#2563EB', light: '#EFF6FF', border: '#BFDBFE', badgeBg: '#DBEAFE', badgeColor: '#1E40AF' },
+  boys_mentor: { color: '#0284C7', light: '#F0F9FF', border: '#BAE6FD', badgeBg: '#E0F2FE', badgeColor: '#0369A1' },
+  girls_mentor: { color: '#DB2777', light: '#FDF2F8', border: '#FBCFE8', badgeBg: '#FCE7F3', badgeColor: '#9D174D' },
   mentor: { color: '#7C3AED', light: '#F5F3FF', border: '#DDD6FE', badgeBg: '#EDE9FE', badgeColor: '#5B21B6' },
   hostel_leader: { color: '#D97706', light: '#FFFBEB', border: '#FDE68A', badgeBg: '#FEF3C7', badgeColor: '#92400E' },
   parent: { color: '#E11D48', light: '#FFF1F2', border: '#FECDD3', badgeBg: '#FFE4E6', badgeColor: '#9F1239' },
@@ -1353,7 +1367,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           <label class="form-label required">Assign Institutional Role</label>
           <select id="modal-role-select" class="form-control">
             <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Admin (Academic / Records Administrator)</option>
-            <option value="mentor" ${currentRole === 'mentor' ? 'selected' : ''}>Hostel Mentor / Warden (Hostel Operations & Discipline)</option>
+            <option value="boys_mentor" ${currentRole === 'boys_mentor' ? 'selected' : ''}>Boys Hostel Mentor (Boys Hostel Data, Leaves & Class)</option>
+            <option value="girls_mentor" ${currentRole === 'girls_mentor' ? 'selected' : ''}>Girls Hostel Mentor (Girls Hostel Data, Leaves & Class)</option>
+            <option value="mentor" ${currentRole === 'mentor' ? 'selected' : ''}>General Hostel Mentor / Warden (Hostel & Leave Register)</option>
             <option value="teacher" ${currentRole === 'teacher' ? 'selected' : ''}>Teacher (Class Attendance & Examination Marks)</option>
             <option value="hostel_leader" ${currentRole === 'hostel_leader' ? 'selected' : ''}>Hostel Leader (Student Assistant)</option>
             <option value="parent" ${currentRole === 'parent' ? 'selected' : ''}>Parent (Linked Student View Only)</option>
@@ -1374,7 +1390,17 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       onMount: ({ container: modalBody, close }) => {
         modalBody.querySelector('#btn-confirm-approve').addEventListener('click', async () => {
           const role = modalBody.querySelector('#modal-role-select').value;
-          await db.updateUserApproval(userId, { approval_status: 'approved', role });
+          const payload = { approval_status: 'approved', role };
+          if (role === 'boys_mentor') {
+            payload.gender = 'Boys';
+            payload.mentor_type = 'boys';
+            payload.hostel_unit = 'Thaiba Boys Hostel Block A';
+          } else if (role === 'girls_mentor') {
+            payload.gender = 'Girls';
+            payload.mentor_type = 'girls';
+            payload.hostel_unit = 'Thaiba Girls Hostel Campus';
+          }
+          await db.updateUserApproval(userId, payload);
           toast.success(`Account approved with role: ${role.toUpperCase()}`);
           close();
           renderUsersModule(container, { onNavigate });
@@ -1399,7 +1425,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           <label class="form-label required">Pre-Assigned Role</label>
           <select id="invite-role" class="form-control">
             <option value="teacher">Teacher (Class Attendance & Marks)</option>
-            <option value="mentor">Hostel Mentor / Warden (Hostel & Leave Register)</option>
+            <option value="boys_mentor">Boys Hostel Mentor (Boys Hostel Data & Class)</option>
+            <option value="girls_mentor">Girls Hostel Mentor (Girls Hostel Data & Class)</option>
+            <option value="mentor">Hostel Mentor / Warden (General Hostel)</option>
             <option value="admin">Admin (Operational & Records Administrator)</option>
             <option value="hostel_leader">Hostel Leader (Student Assistant)</option>
             <option value="parent">Parent</option>

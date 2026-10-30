@@ -4,6 +4,8 @@ import { openProfileModal } from './profile-modal.js';
 const ROLE_POSITION_TITLES = {
   super_admin: 'Super Admin',
   admin: 'Admin',
+  boys_mentor: 'Boys Hostel Mentor',
+  girls_mentor: 'Girls Hostel Mentor',
   teacher: 'Teacher',
   mentor: 'Hostel Mentor',
   parent: 'Parent',

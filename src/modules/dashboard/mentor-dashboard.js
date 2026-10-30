@@ -1,6 +1,7 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
 import { formatDate } from '../../lib/utils.js';
+import { getMentorGenderScope } from '../../lib/permissions.js';
 
 export async function renderMentorDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -8,16 +9,29 @@ export async function renderMentorDashboard(container, { onNavigate }) {
   const allLeaves = await db.getLeaves();
   const allDiscipline = await db.getDisciplineIncidents();
 
-  // Retrieve or determine active hostel unit scope
-  // If user profile has hostel_unit (e.g. Girls Hostel Campus), prioritize it
-  const savedScope = typeof localStorage !== 'undefined' ? localStorage.getItem('tps_mentor_active_hostel') : null;
-  let activeUnit = savedScope || user?.hostel_unit || 'Thaiba Girls Hostel Campus';
+  // Retrieve or determine active hostel unit scope based on Boys / Girls mentor role
+  const mentorGender = getMentorGenderScope(user);
+  const isGirlsMentor = mentorGender === 'Girls';
+  const isBoysMentor = mentorGender === 'Boys';
 
-  const units = [
+  let units = [
     { id: 'girls', name: 'Thaiba Girls Hostel Campus', gender: 'Girls', capacity: 60, totalRooms: 15 },
     { id: 'boys-a', name: 'Thaiba Boys Hostel Block A', gender: 'Boys', capacity: 48, totalRooms: 12 },
     { id: 'boys-b', name: 'Thaiba Boys Hostel Block B', gender: 'Boys', capacity: 40, totalRooms: 10 }
   ];
+
+  if (isGirlsMentor) {
+    units = units.filter(u => u.gender === 'Girls');
+  } else if (isBoysMentor) {
+    units = units.filter(u => u.gender === 'Boys');
+  }
+
+  const savedScope = typeof localStorage !== 'undefined' ? localStorage.getItem('tps_mentor_active_hostel') : null;
+  let activeUnit = (savedScope && units.some(u => u.name === savedScope))
+    ? savedScope 
+    : (user?.hostel_unit && units.some(u => u.name === user.hostel_unit)) 
+      ? user.hostel_unit 
+      : units[0].name;
 
   const currentUnitConfig = units.find(u => u.name === activeUnit) || units[0];
   const isGirlsHostel = currentUnitConfig.gender === 'Girls';
@@ -113,7 +127,7 @@ export async function renderMentorDashboard(container, { onNavigate }) {
     <div class="page-header" style="margin-bottom: 1.5rem;">
       <div class="page-title-group">
         <h2 style="font-size: 1.45rem; font-weight: 800; color: #0F172A; letter-spacing: -0.01em;">
-          Hostel Mentor Dashboard • ${user?.full_name || 'Usthad Usman'}
+          ${isGirlsMentor ? 'Girls Hostel Mentor Dashboard' : isBoysMentor ? 'Boys Hostel Mentor Dashboard' : 'Hostel Mentor Dashboard'} • ${user?.full_name || (isGirlsMentor ? 'Usthada Mariyam' : 'Usthad Usman')}
         </h2>
         <p style="font-size: 0.85rem; color: #64748B; margin-top: 0.15rem;">
           Hostel Ward Management, Resident Safety, Night Roll Call & Gate Passes

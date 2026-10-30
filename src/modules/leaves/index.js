@@ -3,10 +3,13 @@ import { formatDate, formatTime, formatCurrency, printDocument } from '../../lib
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { canPerformAction, isViewOnlyModule } from '../../lib/permissions.js';
+import { canPerformAction, isViewOnlyModule, getMentorGenderScope } from '../../lib/permissions.js';
 
 export async function renderLeavesModule(container, { onNavigate }) {
   const user = getCurrentUser();
+  const mentorGender = getMentorGenderScope(user);
+  const isGirlsMentor = mentorGender === 'Girls';
+  const isBoysMentor = mentorGender === 'Boys';
   const canCreateLeave = canPerformAction(user, 'leaves', 'create');
   const canRecordReturn = canPerformAction(user, 'leaves', 'record_return');
   const isViewOnly = isViewOnlyModule(user, 'leaves');
@@ -14,13 +17,21 @@ export async function renderLeavesModule(container, { onNavigate }) {
   // Pull cloud keys to ensure latest state from Supabase
   await db.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_hostel_rooms', 'tps_hostel_beds', 'tps_fines', 'tps_black_marks']);
 
-  const [students, rawLeaves, hostels, rooms, beds] = await Promise.all([
+  const [allStudents, rawLeaves, hostels, rooms, beds] = await Promise.all([
     db.getStudents(),
     db.getLeaves(),
     db.getHostels(),
     db.getHostelRooms(),
     db.getHostelBeds()
   ]);
+
+  const students = isGirlsMentor
+    ? allStudents.filter(s => s.gender === 'Girls' || s.gender === 'Female' || (s.hostel_unit && s.hostel_unit.includes('Girls')))
+    : isBoysMentor
+      ? allStudents.filter(s => s.gender === 'Boys' || s.gender === 'Male' || (s.hostel_unit && s.hostel_unit.includes('Boys')))
+      : allStudents;
+
+  const scopedStudentIds = new Set(students.map(s => s.id));
 
   const isParent = user?.role === 'parent';
   const leaves = isParent
@@ -31,7 +42,12 @@ export async function renderLeavesModule(container, { onNavigate }) {
           return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
         });
       })
-    : rawLeaves;
+    : (isGirlsMentor || isBoysMentor)
+      ? rawLeaves.filter(l => {
+          const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+          return sIds.some(sid => scopedStudentIds.has(sid));
+        })
+      : rawLeaves;
 
   // Active filter state
   let searchQuery = '';
@@ -225,6 +241,9 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     const code = l.leave_code || l.leave_register_number || 'LV-2026';
                     const typeDisplay = (l.leave_type || 'Hostel Leave').replace(/_/g, ' ');
                     const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
+                    const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+                    const firstStudent = students.find(s => s.id === sIds[0]);
+                    const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                     return `
                       <tr style="border-bottom: 1px solid #F1F5F9; transition: background 0.15s ease;">
@@ -245,7 +264,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                           <span class="badge" style="background: #F1F5F9; color: #334155; font-weight: 600; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
-                            ${totalStudents} Student(s)
+                            ${studentLabel}
                           </span>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
@@ -284,6 +303,9 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 const isRet = l.status === 'Returned' || unretCount === 0;
                 const code = l.leave_code || l.leave_register_number || 'LV-2026';
                 const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
+                const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+                const firstStudent = students.find(s => s.id === sIds[0]);
+                const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                 return `
                   <div style="background: #FFFFFF; border: 1.5px solid ${isOverdue ? '#FCA5A5' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -315,7 +337,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     <!-- Footer Action Row -->
                     <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                       <span style="font-size: 0.76rem; font-weight: 600; color: #475569;">
-                        👥 ${totalStudents} Student(s)
+                        👥 ${studentLabel}
                       </span>
                       <div style="display: flex; gap: 0.35rem;">
                         ${unretCount > 0 && canRecordReturn ? `

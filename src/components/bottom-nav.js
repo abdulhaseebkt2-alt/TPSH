@@ -28,7 +28,7 @@ export function getBottomNavItems(profile) {
       { key: 'attendance_report', label: 'Reports', icon: 'reports' },
       { key: 'marks', label: 'Marks', icon: 'marks' }
     ];
-  } else if (role === 'mentor' || role === 'hostel_leader') {
+  } else if (role === 'mentor' || role === 'boys_mentor' || role === 'girls_mentor' || role === 'hostel_leader') {
     candidates = [
       { key: 'dashboard', label: 'Home', icon: 'home' },
       { key: 'attendance', label: 'Attendance', icon: 'attendance' },

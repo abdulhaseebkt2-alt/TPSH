@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
-import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions } from '../src/lib/permissions.js';
+import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions, isMentorRole, getMentorGenderScope } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
 import { updateCurrentUserProfile } from '../src/lib/auth.js';
@@ -24,6 +24,8 @@ import { enhanceSelect } from '../src/components/custom-select.js';
 import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
 import { renderLeavesModule } from '../src/modules/leaves/index.js';
 import { renderHostelModule } from '../src/modules/hostel/index.js';
+import { renderDisciplineModule } from '../src/modules/discipline/index.js';
+import { renderFinesModule } from '../src/modules/fines/index.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -3443,6 +3445,325 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(hasLeaveNextDay).toBe(false);
       const isMissedNextDay = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !hasLeaveNextDay;
       expect(isMissedNextDay).toBe(true);
+    });
+  });
+
+  describe('24. Boys Hostel Mentor & Girls Hostel Mentor Strict Separation, Classroom Access & Window Allotment', () => {
+    const boysMentor = {
+      id: 'd0000000-0000-0000-0000-000000000005',
+      email: 'mentor@thaibaschool.edu.in',
+      full_name: 'Usthad Usman',
+      role: 'boys_mentor',
+      mentor_type: 'boys',
+      gender: 'Boys',
+      hostel_unit: 'Thaiba Boys Hostel Block A',
+      approval_status: 'approved',
+      is_super_admin: false
+    };
+
+    const girlsMentor = {
+      id: 'd0000000-0000-0000-0000-000000000006',
+      email: 'girls_mentor@thaibaschool.edu.in',
+      full_name: 'Usthada Mariyam',
+      role: 'girls_mentor',
+      mentor_type: 'girls',
+      gender: 'Girls',
+      hostel_unit: 'Thaiba Girls Hostel Campus',
+      approval_status: 'approved',
+      is_super_admin: false
+    };
+
+    it('2401 - Helper functions correctly identify mentor roles and gender scopes', () => {
+      expect(isMentorRole('boys_mentor')).toBe(true);
+      expect(isMentorRole('girls_mentor')).toBe(true);
+      expect(isMentorRole('mentor')).toBe(true);
+      expect(isMentorRole('teacher')).toBe(false);
+      expect(isMentorRole('admin')).toBe(false);
+      expect(isMentorRole('super_admin')).toBe(false);
+
+      expect(getMentorGenderScope(boysMentor)).toBe('Boys');
+      expect(getMentorGenderScope(girlsMentor)).toBe('Girls');
+      expect(getMentorGenderScope({ role: 'mentor', gender: 'Girls' })).toBe('Girls');
+      expect(getMentorGenderScope({ role: 'mentor', hostel_unit: 'Thaiba Girls Hostel Campus' })).toBe('Girls');
+      expect(getMentorGenderScope({ role: 'mentor', hostel_unit: 'Thaiba Boys Hostel Block A' })).toBe('Boys');
+      expect(getMentorGenderScope({ role: 'teacher' })).toBeNull();
+    });
+
+    it('2402 - Default permissions for boys_mentor and girls_mentor provide full access to hostel modules', () => {
+      expect(canAccessModule(boysMentor, 'hostel')).toBe(true);
+      expect(canAccessModule(boysMentor, 'leaves')).toBe(true);
+      expect(canAccessModule(boysMentor, 'discipline')).toBe(true);
+      expect(canAccessModule(boysMentor, 'attendance')).toBe(true);
+      expect(canAccessModule(boysMentor, 'students')).toBe(true);
+
+      expect(canAccessModule(girlsMentor, 'hostel')).toBe(true);
+      expect(canAccessModule(girlsMentor, 'leaves')).toBe(true);
+      expect(canAccessModule(girlsMentor, 'discipline')).toBe(true);
+      expect(canAccessModule(girlsMentor, 'attendance')).toBe(true);
+      expect(canAccessModule(girlsMentor, 'students')).toBe(true);
+
+      // By default, sensitive financial or exam configuration windows are off
+      expect(canAccessModule(boysMentor, 'fees')).toBe(false);
+      expect(canAccessModule(boysMentor, 'exams')).toBe(false);
+      expect(canAccessModule(girlsMentor, 'fees')).toBe(false);
+      expect(canAccessModule(girlsMentor, 'exams')).toBe(false);
+    });
+
+    it('2403 - Hostel Module strict data isolation: Boys mentor only sees boys hostel units, rooms and beds', async () => {
+      updateCurrentUserProfile(boysMentor);
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderHostelModule(container, { onNavigate: () => {} });
+
+      // Boys hostel names present
+      expect(container.innerHTML).toContain('Thaiba Boys Hostel');
+      // Girls hostel campus strictly excluded
+      expect(container.innerHTML).not.toContain('Thaiba Girls Hostel Campus');
+      // No hostel switcher dropdown for mentors to prevent cross-campus switching
+      expect(container.innerHTML).not.toContain('id="hostel-building-select"');
+    });
+
+    it('2404 - Hostel Module strict data isolation: Girls mentor only sees girls hostel units, rooms and beds', async () => {
+      updateCurrentUserProfile(girlsMentor);
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderHostelModule(container, { onNavigate: () => {} });
+
+      // Girls hostel campus present
+      expect(container.innerHTML).toContain('Thaiba Girls Hostel');
+      // Boys hostel units strictly excluded
+      expect(container.innerHTML).not.toContain('Thaiba Boys Hostel Block A');
+      expect(container.innerHTML).not.toContain('Thaiba Boys Hostel Block B');
+      // No hostel switcher dropdown
+      expect(container.innerHTML).not.toContain('id="hostel-building-select"');
+    });
+
+    it('2405 - Leaves Module strict data isolation: Mentors only see students and leaves matching their gender scope', async () => {
+      const boyStudent = await db.addStudent({
+        full_name: 'Harun Boys Resident',
+        gender: 'Boys',
+        admission_number: 'TPS-2026-B101',
+        school_class: 'STD-VIII'
+      });
+      const girlStudent = await db.addStudent({
+        full_name: 'Amina Girls Resident',
+        gender: 'Girls',
+        admission_number: 'TPS-2026-G102',
+        school_class: 'STD-VIII'
+      });
+
+      await db.createLeaveRecord({
+        student_ids: [boyStudent.id],
+        leave_type: 'individual',
+        reason_category: 'Medical',
+        departure_date: '2026-10-25',
+        expected_return_date: '2026-10-28',
+        transport_mode: 'Parent Pickup',
+        parent_contact: '+91 98470 11223'
+      });
+
+      await db.createLeaveRecord({
+        student_ids: [girlStudent.id],
+        leave_type: 'individual',
+        reason_category: 'Family Function',
+        departure_date: '2026-10-25',
+        expected_return_date: '2026-10-28',
+        transport_mode: 'Parent Pickup',
+        parent_contact: '+91 98470 55667'
+      });
+
+      // 1. Boys mentor
+      updateCurrentUserProfile(boysMentor);
+      let container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(container, { onNavigate: () => {} });
+      // Table should only show boys leaves, e.g. Harun
+      expect(container.innerHTML).toContain('Harun Boys Resident');
+      // Should not contain girls leaves
+      expect(container.innerHTML).not.toContain('Amina Girls Resident');
+
+      // 2. Girls mentor
+      updateCurrentUserProfile(girlsMentor);
+      container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(container, { onNavigate: () => {} });
+      // Should strictly not contain boys leaves
+      expect(container.innerHTML).not.toContain('Harun Boys Resident');
+      // Should contain girls leaves
+      expect(container.innerHTML).toContain('Amina Girls Resident');
+    });
+
+    it('2406 - Discipline & Misconduct Module strict isolation by mentor gender', async () => {
+      const boyStudent = await db.addStudent({
+        full_name: 'Ziyad Boys Resident',
+        gender: 'Boys',
+        admission_number: 'TPS-2026-B103',
+        school_class: 'STD-VII'
+      });
+      const girlStudent = await db.addStudent({
+        full_name: 'Khadija Girls Resident',
+        gender: 'Girls',
+        admission_number: 'TPS-2026-G104',
+        school_class: 'STD-VII'
+      });
+
+      const incidents = [
+        {
+          id: 'inc-boy-1',
+          student_id: boyStudent.id,
+          category: 'Leaving hostel without permission',
+          severity: 'Major',
+          incident_date: '2026-10-25',
+          description: 'Left boys hostel block without exit slip',
+          black_marks_awarded: 3,
+          monetary_fine: 0,
+          resolution_status: 'Under Review'
+        },
+        {
+          id: 'inc-girl-1',
+          student_id: girlStudent.id,
+          category: 'Possessing a mobile phone in hostel',
+          severity: 'Moderate',
+          incident_date: '2026-10-26',
+          description: 'Phone found in study desk',
+          black_marks_awarded: 2,
+          monetary_fine: 0,
+          resolution_status: 'Under Review'
+        }
+      ];
+      db.set('tps_discipline', incidents);
+
+      // Boys Mentor view
+      updateCurrentUserProfile(boysMentor);
+      let container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderDisciplineModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('Left boys hostel block');
+      expect(container.innerHTML).not.toContain('Phone found in study desk');
+
+      // Girls Mentor view
+      updateCurrentUserProfile(girlsMentor);
+      container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderDisciplineModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('Phone found in study desk');
+      expect(container.innerHTML).not.toContain('Left boys hostel block');
+    });
+
+    it('2407 - Mentor Classroom Access: Mentor can view and take attendance for assigned or gender-scoped classes', async () => {
+      updateCurrentUserProfile(boysMentor);
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceModule(container, { onNavigate: () => {} });
+
+      // Boys mentor sees Boys Mentor Class Timetable & Attendance
+      expect(container.innerHTML).toContain('Boys Mentor Class Timetable & Attendance');
+      // Should show boys classrooms (like Moral Hall A1 or Htl BB or Hostel Study Lab 2)
+      expect(container.innerHTML).toContain('Moral Hall A1');
+      // Should NOT show girls coaching hall
+      expect(container.innerHTML).not.toContain('Girls Coaching Hall');
+    });
+
+    it('2408 - Dynamic Window Allotment: If Admin allots additional window (e.g. exams or fees), mentor can immediately access it', async () => {
+      // By default, boys mentor has no exams access
+      expect(canAccessModule(boysMentor, 'exams')).toBe(false);
+
+      // Admin allots 'exams' window with 'full' access to boys mentor specifically
+      saveUserCustomPermissions(boysMentor.id, { exams: 'full' });
+
+      // Verification: canAccessModule now returns true
+      expect(canAccessModule(boysMentor, 'exams')).toBe(true);
+
+      // Sidebar also renders the allotted 'exams' window
+      const sidebarContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      renderSidebar(sidebarContainer, { activeModule: 'dashboard', isCollapsed: false, onToggleCollapse: () => {}, onNavigate: () => {} });
+      expect(sidebarContainer.innerHTML).toContain('data-module="exams"');
+
+      // Clean up custom permissions
+      clearUserCustomPermissions(boysMentor.id);
+      expect(canAccessModule(boysMentor, 'exams')).toBe(false);
+    });
+
+    it('2409 - Fines Module strict isolation: Late fines only displayed for respective hostel residents', async () => {
+      const boyStudent = await db.addStudent({
+        full_name: 'Farhan Boy Resident',
+        gender: 'Boys',
+        admission_number: 'TPS-2026-B105',
+        school_class: 'STD-IX'
+      });
+      const girlStudent = await db.addStudent({
+        full_name: 'Zainab Girl Resident',
+        gender: 'Girls',
+        admission_number: 'TPS-2026-G106',
+        school_class: 'STD-IX'
+      });
+
+      const fines = [
+        {
+          id: 'fine-boy-1',
+          student_id: boyStudent.id,
+          leave_register_number: 'LV-2026-901',
+          expected_return_date: '2026-10-20',
+          actual_return_date: '2026-10-22',
+          late_days: 2,
+          fine_per_day_applied: 200,
+          calculated_fine: 400,
+          fine_status: 'unpaid'
+        },
+        {
+          id: 'fine-girl-1',
+          student_id: girlStudent.id,
+          leave_register_number: 'LV-2026-902',
+          expected_return_date: '2026-10-20',
+          actual_return_date: '2026-10-23',
+          late_days: 3,
+          fine_per_day_applied: 200,
+          calculated_fine: 600,
+          fine_status: 'unpaid'
+        }
+      ];
+      db.set('tps_leaves', fines);
+
+      // Boys Mentor view
+      updateCurrentUserProfile(boysMentor);
+      let container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderFinesModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('LV-2026-901');
+      expect(container.innerHTML).not.toContain('LV-2026-902');
+
+      // Girls Mentor view
+      updateCurrentUserProfile(girlsMentor);
+      container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderFinesModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('LV-2026-902');
+      expect(container.innerHTML).not.toContain('LV-2026-901');
+    });
+
+    it('2410 - Students Directory strict isolation: Mentors view only their gender residents with locked gender filter', async () => {
+      // Boys Mentor
+      updateCurrentUserProfile(boysMentor);
+      let container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentsModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('Male (Boys Only)');
+      expect(container.innerHTML).not.toContain('Female (Girls Only)');
+
+      // Girls Mentor
+      updateCurrentUserProfile(girlsMentor);
+      container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentsModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('Female (Girls Only)');
+      expect(container.innerHTML).not.toContain('Male (Boys Only)');
     });
   });
 });

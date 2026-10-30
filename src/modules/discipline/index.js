@@ -3,6 +3,7 @@ import { formatDate, formatCurrency } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
+import { getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
 export async function renderDisciplineModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -11,13 +12,26 @@ export async function renderDisciplineModule(container, { onNavigate }) {
     db.getDisciplineIncidents()
   ]);
 
+  const isMentor = isMentorRole(user?.role);
+  const mentorGender = isMentor ? getMentorGenderScope(user) : null;
+
+  // Scope students if mentor
+  const scopedStudents = mentorGender
+    ? students.filter(s => (s.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase())
+    : students;
+
   const isParent = user?.role === 'parent';
   const displayIncidents = isParent
     ? incidents.filter(d => {
         const st = students.find(s => s.id === d.student_id);
         return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
       })
-    : incidents;
+    : mentorGender
+      ? incidents.filter(d => {
+          const st = students.find(s => s.id === d.student_id);
+          return st && (st.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase();
+        })
+      : incidents;
 
   container.innerHTML = `
     <div class="page-header">
@@ -26,7 +40,7 @@ export async function renderDisciplineModule(container, { onNavigate }) {
         <p>Institutional record of hostel rule violations, black marks ledger, property damage fines, and resolution</p>
       </div>
       <div class="page-actions">
-        ${user?.is_super_admin || user?.role === 'admin' || user?.role === 'mentor' ? `
+        ${user?.is_super_admin || user?.role === 'admin' || isMentor ? `
           <button class="btn btn-primary" id="btn-log-incident">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Record Disciplinary Incident
@@ -99,7 +113,7 @@ export async function renderDisciplineModule(container, { onNavigate }) {
           <div class="form-group">
             <label class="form-label required">Student Involved</label>
             <select id="inc-student" class="form-control">
-              ${students.map(s => `<option value="${s.id}">${s.full_name} (${s.admission_number}) — ${s.school_class}</option>`).join('')}
+              ${scopedStudents.map(s => `<option value="${s.id}">${s.full_name} (${s.admission_number}) — ${s.school_class}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
