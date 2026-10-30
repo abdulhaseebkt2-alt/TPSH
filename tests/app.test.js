@@ -3352,6 +3352,12 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(leavesJs).toContain('id="ind-student-search"');
       expect(mainCss).toContain('.student-ind-select-tile');
       expect(mainCss).toContain('.student-ret-ind-tile');
+
+      // 6. Leave type (3/5) & late fine (2/5) single line row, and reason in single line under them
+      expect(leavesJs).toContain('grid-template-columns: 3fr 2fr; gap: 0.45rem;');
+      expect(leavesJs).toContain('id="pass-leave-type"');
+      expect(leavesJs).toContain('id="pass-fine-rate"');
+      expect(leavesJs).toContain('id="pass-reason"');
     });
 
     it('Attendance Management Timetable Cards Layout: bounded compact card width and multi-column grid', async () => {

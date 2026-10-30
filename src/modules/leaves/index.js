@@ -1139,26 +1139,28 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     </div>
                   </div>
 
-                  <!-- Type, Fine & Reason Row -->
-                  <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 0.45rem;">
+                  <!-- Line 1: Leave Type (3/5) & Late Fine / Hour (2/5) in a single line -->
+                  <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type *</label>
-                      <select id="pass-leave-type" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="hostel_leave" ${savedLeaveType === 'hostel_leave' ? 'selected' : ''}>Hostel Weekend</option>
-                        <option value="vacation" ${savedLeaveType === 'vacation' ? 'selected' : ''}>Vacation / Holidays</option>
+                      <select id="pass-leave-type" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
+                        <option value="hostel_leave" ${savedLeaveType === 'hostel_leave' ? 'selected' : ''}>Hostel Weekend Leave</option>
+                        <option value="vacation" ${savedLeaveType === 'vacation' ? 'selected' : ''}>Vacation / Term Holidays</option>
                         <option value="medical_leave" ${savedLeaveType === 'medical_leave' ? 'selected' : ''}>Medical Leave</option>
                         <option value="emergency_leave" ${savedLeaveType === 'emergency_leave' ? 'selected' : ''}>Emergency Leave</option>
-                        <option value="personal_leave" ${savedLeaveType === 'personal_leave' ? 'selected' : ''}>Personal / Event</option>
+                        <option value="personal_leave" ${savedLeaveType === 'personal_leave' ? 'selected' : ''}>Personal / Family Event</option>
                       </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
-                      <input type="number" id="pass-fine-rate" class="form-control" value="${savedFineRate}" min="0" step="5" required style="height: 34px; font-size: 0.8rem;" />
+                      <input type="number" id="pass-fine-rate" class="form-control" value="${savedFineRate}" min="0" step="5" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                     </div>
-                    <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason for Leave *</label>
-                      <input type="text" id="pass-reason" class="form-control" placeholder="e.g. Attending sister's wedding" value="${savedReason}" required style="height: 34px; font-size: 0.8rem;" />
-                    </div>
+                  </div>
+
+                  <!-- Line 2: Reason for Leave under them in a single line -->
+                  <div class="form-group" style="margin: 0; width: 100%;">
+                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason for Leave *</label>
+                    <input type="text" id="pass-reason" class="form-control" placeholder="e.g. Attending sister's wedding / Family function" value="${savedReason}" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                   </div>
                 </div>
 
