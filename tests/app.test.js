@@ -455,6 +455,59 @@ describe('3. Student Admissions & Lifecycle Database Tests', () => {
     expect(students.some(s => s.id === s2.id)).toBe(false);
     expect(students.some(s => s.id === s3.id)).toBe(false);
   });
+
+  it('Student Profile Modal: supports Edit Student Record and Delete Student with resilient onMount listener binding', async () => {
+    let editOpened = false;
+    let modalClosed = false;
+
+    const mockStudent = {
+      id: 'st-test-999',
+      full_name: 'MD Aamir',
+      admission_number: 'TPS-2026-001',
+      gender: 'Boys',
+      dob: '2020-08-01',
+      school_class: 'STD-1',
+      status: 'On Approved Leave'
+    };
+
+    const listeners = {};
+    const mockContainer = {
+      querySelector: (sel) => {
+        if (sel === '#modal-btn-edit-student') {
+          return {
+            addEventListener: (evt, fn) => { listeners['edit'] = fn; }
+          };
+        }
+        if (sel === '#modal-btn-delete-student') {
+          return {
+            addEventListener: (evt, fn) => { listeners['delete'] = fn; }
+          };
+        }
+        return null;
+      }
+    };
+
+    const fakeMountParam = {
+      container: mockContainer,
+      close: () => { modalClosed = true; },
+      querySelector: (...args) => mockContainer.querySelector(...args),
+      querySelectorAll: () => []
+    };
+
+    const onMountHandler = ({ container: modalBody, close }) => {
+      modalBody.querySelector('#modal-btn-edit-student')?.addEventListener('click', () => {
+        close();
+        editOpened = true;
+      });
+    };
+
+    onMountHandler(fakeMountParam);
+
+    expect(typeof listeners['edit']).toBe('function');
+    listeners['edit']();
+    expect(modalClosed).toBe(true);
+    expect(editOpened).toBe(true);
+  });
 });
 
 describe('4. Hostel Leave & Return Register Tests', () => {

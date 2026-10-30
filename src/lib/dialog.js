@@ -78,10 +78,13 @@ export function openModal({ title, contentHtml, size = 'md', modalClass = '', on
   initAllWheelTimePickers(contentContainer);
 
   if (onMount) {
-    onMount({
+    const mountObj = {
       container: contentContainer,
-      close
-    });
+      close,
+      querySelector: (...args) => contentContainer.querySelector(...args),
+      querySelectorAll: (...args) => contentContainer.querySelectorAll(...args)
+    };
+    onMount(mountObj, overlay);
     // Ensure any time inputs created dynamically in onMount are also upgraded
     initAllWheelTimePickers(contentContainer);
   }

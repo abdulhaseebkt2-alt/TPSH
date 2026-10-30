@@ -558,10 +558,9 @@ export async function renderStudentsModule(container, { onNavigate }) {
           </div>
         ` : ''}
       `,
-      onMount: (modalBody, modalOverlay) => {
+      onMount: ({ container: modalBody, close }) => {
         modalBody.querySelector('#modal-btn-edit-student')?.addEventListener('click', () => {
-          modalOverlay.classList.remove('open');
-          setTimeout(() => modalOverlay.remove(), 200);
+          close();
           showEditStudentModal(student);
         });
 
@@ -574,8 +573,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
           });
 
           if (confirmed) {
-            modalOverlay.classList.remove('open');
-            setTimeout(() => modalOverlay.remove(), 200);
+            close();
             await db.deleteStudent(student.id);
             selectedIds.delete(student.id);
             toast.success(`Student record for ${student.full_name} deleted.`);
