@@ -248,7 +248,7 @@ export async function renderTimetableModule(container, { onNavigate }) {
               const roomOrHall = cls.room_number ? 'Room ' + cls.room_number : (cls.name.toLowerCase().includes('hall') || cls.name.toLowerCase().includes('lab') ? cls.name : 'Campus Hall');
 
               return `
-                <!-- TEACHER TIMETABLE CARD MATCHING SCREENSHOT 2 EXACTLY -->
+                <!-- TEACHER TIMETABLE CARD (COMPACT NEW LOOK UI) -->
                 <div class="teacher-upcoming-card ${isLive ? 'is-live' : isSoon ? 'is-soon' : ''}" 
                      id="timetable-card-${cls.id}" 
                      data-cls-id="${cls.id}" 
@@ -256,73 +256,68 @@ export async function renderTimetableModule(container, { onNavigate }) {
                      tabindex="0"
                      style="cursor: pointer;">
                   
-                  <!-- Top Portion: Icon, Title & Subtitle -->
-                  <div class="upcoming-card-top" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem;">
-                    <div class="upcoming-card-title-group" style="display: flex; align-items: center; gap: 0.85rem;">
-                      <div class="upcoming-card-icon-pill ${isLive ? 'is-live' : isSoon ? 'is-soon' : ''}" style="width: 48px; height: 48px; border-radius: 14px; background: #F1F5F9; border: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isLive ? '#059669' : '#475569'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="13" r="8"></circle>
-                          <path d="M12 9v4l2.5 2.5"></path>
-                          <path d="M5 3L2 6"></path>
-                          <path d="M22 6l-3-3"></path>
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 class="upcoming-card-heading" style="font-size: 1.18rem; font-weight: 800; color: #0F172A; margin: 0; line-height: 1.25;">Your upcoming class</h3>
-                        <span class="upcoming-card-subtitle" style="font-size: 0.82rem; color: #64748B; margin-top: 0.2rem; display: block;">Scheduled teaching session</span>
-                      </div>
-                    </div>
-                    ${isAdmin ? `
-                      <span class="badge" style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 700;">
-                        Faculty: ${teacherName}
+                  <!-- Top Row: Class Name, Program Badge & Quick Action -->
+                  <div class="upcoming-class-primary" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+                      <h4 class="upcoming-class-name" style="font-size: 1.25rem; font-weight: 800; color: #065F46; margin: 0; letter-spacing: -0.01em;">
+                        ${cls.name}
+                      </h4>
+                      <span class="upcoming-prog-pill" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.18rem 0.65rem; font-size: 0.72rem; font-weight: 700; display: inline-block;">
+                        ${progName}
                       </span>
-                    ` : ''}
-                  </div>
-
-                  <!-- Timing Badge Pill (Under Header, Left-Aligned matching Screenshot 2) -->
-                  <div class="upcoming-card-timing-row" style="margin-top: 0.75rem; margin-bottom: 0.15rem;">
-                    ${statusBadgeHtml}
-                  </div>
-
-                  <!-- Clean Divider Line -->
-                  <div class="upcoming-divider" style="height: 1px; background: #E2E8F0; border: none; margin: 0.75rem 0 0.85rem 0; width: 100%;"></div>
-
-                  <!-- Class Primary: Large Green Name & Program Pill -->
-                  <div class="upcoming-class-primary" style="margin-bottom: 0.75rem;">
-                    <h4 class="upcoming-class-name" style="font-size: 1.28rem; font-weight: 800; color: #065F46; margin: 0 0 0.35rem 0; letter-spacing: -0.01em;">${cls.name}</h4>
-                    <div>
-                      <span class="upcoming-prog-pill" style="background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.22rem 0.75rem; font-size: 0.76rem; font-weight: 700; display: inline-block;">${progName}</span>
+                      ${isLive ? `
+                        <span style="display: inline-flex; align-items: center; gap: 0.3rem; background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800;">
+                          <span class="live-pulse-dot" style="width: 6px; height: 6px;"></span> LIVE
+                        </span>
+                      ` : isSoon ? `
+                        <span style="display: inline-flex; align-items: center; gap: 0.3rem; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800;">
+                          Starts in ${sMin - currentMinutes}m
+                        </span>
+                      ` : ''}
                     </div>
-                  </div>
 
-                  <!-- 2x2 Details Grid (Timetable Specifications) -->
-                  <div class="upcoming-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem 1.25rem;">
-                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.2rem;">
-                      <span class="detail-label" style="font-size: 0.68rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Schedule Time</span>
-                      <span class="detail-value" style="font-size: 0.9rem; font-weight: 800; color: #1E293B;">${formatTime(cls.start_time || '06:30')} – ${formatTime(cls.end_time || '07:30')}</span>
-                    </div>
-                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.2rem;">
-                      <span class="detail-label" style="font-size: 0.68rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Classroom / Hall</span>
-                      <span class="detail-value" style="font-size: 0.9rem; font-weight: 800; color: #1E293B;">${roomOrHall}</span>
-                    </div>
-                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.2rem;">
-                      <span class="detail-label" style="font-size: 0.68rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Enrolled Roster</span>
-                      <span class="detail-value" style="font-size: 0.9rem; font-weight: 800; color: #1E293B;">${enrolledCount} Students</span>
-                    </div>
-                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.2rem;">
-                      <span class="detail-label" style="font-size: 0.68rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Scheduled Days</span>
-                      <span class="detail-value" style="font-size: 0.9rem; font-weight: 800; color: #1E293B; white-space: nowrap;">${formatDaysSingleLetters(cls.days)}</span>
-                    </div>
-                  </div>
-
-                  <!-- Actions Footer: Take Attendance Button -->
-                  <div class="upcoming-card-footer" style="display: flex; align-items: center; justify-content: flex-end; margin-top: auto; padding-top: 1rem;">
                     <button type="button" 
                             class="btn btn-primary btn-sm btn-open-attendance" 
                             data-cls-id="${cls.id}"
-                            style="font-weight: 800; border-radius: 10px; padding: 0.6rem 1.45rem; font-size: 0.88rem; background: #059669; border-color: #047857; color: #FFFFFF; display: inline-flex; align-items: center; gap: 0.35rem; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25); cursor: pointer; border: none;">
+                            style="font-weight: 800; border-radius: 8px; padding: 0.35rem 0.85rem; font-size: 0.78rem; background: #059669; border-color: #047857; color: #FFFFFF; display: inline-flex; align-items: center; gap: 0.3rem; box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2); cursor: pointer; border: none; white-space: nowrap;">
                       Take Attendance →
                     </button>
+                  </div>
+
+                  <!-- Thin Subtle Divider Line -->
+                  <div class="upcoming-divider" style="height: 1px; background: #F1F5F9; border: none; margin: 0.55rem 0 0.65rem 0; width: 100%;"></div>
+
+                  <!-- The Given Portion: Specifications Grid -->
+                  <div class="upcoming-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem 1rem;">
+                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.18rem;">
+                      <span class="detail-label" style="font-size: 0.66rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Schedule Time</span>
+                      <span class="detail-value" style="font-size: 0.88rem; font-weight: 800; color: #0F172A;">${formatTime(cls.start_time || '06:30')} – ${formatTime(cls.end_time || '07:30')}</span>
+                    </div>
+
+                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.18rem;">
+                      <span class="detail-label" style="font-size: 0.66rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Classroom / Hall</span>
+                      <span class="detail-value" style="font-size: 0.88rem; font-weight: 800; color: #0F172A;">${roomOrHall}</span>
+                    </div>
+
+                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.18rem;">
+                      <span class="detail-label" style="font-size: 0.66rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Enrolled Roster</span>
+                      <span class="detail-value" style="font-size: 0.88rem; font-weight: 800; color: #0F172A;">${enrolledCount} Students</span>
+                    </div>
+
+                    <div class="upcoming-detail-cell" style="display: flex; flex-direction: column; gap: 0.18rem;">
+                      <span class="detail-label" style="font-size: 0.66rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.04em;">Scheduled Days</span>
+                      <span class="detail-value" style="font-size: 0.88rem; font-weight: 800; color: #0F172A; white-space: nowrap;">${formatDaysSingleLetters(cls.days)}</span>
+                    </div>
+
+                    ${isAdmin ? `
+                      <div class="upcoming-detail-cell upcoming-detail-faculty" style="grid-column: span 2; margin-top: 0.15rem; padding-top: 0.45rem; border-top: 1px dashed #E2E8F0; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                        <span class="detail-label" style="font-size: 0.66rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.04em;">Assigned Faculty</span>
+                        <span class="detail-value" style="font-size: 0.85rem; font-weight: 800; color: #0F172A; display: inline-flex; align-items: center; gap: 0.35rem; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 2px 8px; border-radius: 6px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                          ${teacherName}
+                        </span>
+                      </div>
+                    ` : ''}
                   </div>
 
                 </div>

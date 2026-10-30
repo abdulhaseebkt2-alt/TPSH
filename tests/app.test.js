@@ -1016,14 +1016,15 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(teacherContainer.innerHTML).toContain('My Teaching Timetable');
     expect(teacherContainer.innerHTML).toContain('Personal Faculty Timetable Active');
     expect(teacherContainer.innerHTML).toContain('teacher-upcoming-card');
-    expect(teacherContainer.innerHTML).toContain('Your upcoming class');
-    expect(teacherContainer.innerHTML).toContain('Scheduled teaching session');
     expect(teacherContainer.innerHTML).toContain('upcoming-details-grid');
     expect(teacherContainer.innerHTML).toContain('Schedule Time');
     expect(teacherContainer.innerHTML).toContain('Classroom / Hall');
     expect(teacherContainer.innerHTML).toContain('Enrolled Roster');
     expect(teacherContainer.innerHTML).toContain('Scheduled Days');
     expect(teacherContainer.innerHTML).toContain('Take Attendance →');
+    // Removed redundant contents to resize height
+    expect(teacherContainer.innerHTML).not.toContain('Your upcoming class');
+    expect(teacherContainer.innerHTML).not.toContain('Scheduled teaching session');
 
     // 2. Admin view
     updateCurrentUserProfile({
@@ -1044,6 +1045,9 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(adminContainer.innerHTML).toContain('Faculty Timetable & Schedule Governance');
     expect(adminContainer.innerHTML).toContain('Master Institutional Timetable');
     expect(adminContainer.innerHTML).toContain('All Faculty');
+    // Admin needs name of faculty among them
+    expect(adminContainer.innerHTML).toContain('Assigned Faculty');
+    expect(adminContainer.innerHTML).toContain('Rashid Sir');
   });
 
   it('Teacher Timetable displays cards for all assigned classes with strict faculty isolation', async () => {
