@@ -2854,6 +2854,63 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     await db.deleteFacultyLeave(l2.id);
   });
 
+  it('Admin Dashboard Hero Stat: replaces Curfew Lock with currently running class number / received attendance number', async () => {
+    let navigatedTo = null;
+    const listeners = {};
+    const elements = {};
+
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (!elements[sel]) {
+          elements[sel] = {
+            textContent: '',
+            innerHTML: '',
+            addEventListener: (evt, fn) => {
+              listeners[sel] = fn;
+            }
+          };
+        }
+        return elements[sel];
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderAdminDashboard(container, {
+      onNavigate: (route) => {
+        navigatedTo = route;
+      }
+    });
+
+    // 1. Curfew Lock / 09:30 PM is replaced
+    expect(container.innerHTML).not.toContain('Curfew Lock');
+    expect(container.innerHTML).not.toContain('09:30 PM Lock');
+
+    // 2. Contains Running / Received label and live attendance stat
+    expect(container.innerHTML).toContain('m-hero-live-att-stat');
+    expect(container.innerHTML).toContain('Running / Received');
+    expect(container.innerHTML).toContain('m-hero-live-att-val');
+
+    // 3. Desktop view also reflects Live Class Attendance
+    expect(container.innerHTML).toContain('Live Class Attendance');
+    expect(container.innerHTML).toContain('Running classes / attendance received');
+
+    // 4. Clicking the stat navigates to attendance
+    if (typeof listeners['#m-hero-live-att-stat'] === 'function') {
+      listeners['#m-hero-live-att-stat']();
+      expect(navigatedTo).toBe('attendance');
+    }
+
+    // 5. Eye toggle button hides and restores live attendance value
+    if (typeof listeners['#m-hero-eye-toggle'] === 'function') {
+      listeners['#m-hero-eye-toggle']();
+      expect(elements['#m-hero-live-att-val'].textContent).toBe('••/••');
+
+      listeners['#m-hero-eye-toggle']();
+      expect(elements['#m-hero-live-att-val'].textContent).toContain('/');
+    }
+  });
+
   it('Full-Width Select Enhancer: enhances full-width selects with 100% trigger width up to the right edge of the card', () => {
     const createdElements = [];
     const mockDocument = {

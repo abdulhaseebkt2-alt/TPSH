@@ -12,7 +12,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     exams,
     users,
     auditLogs,
-    facultyLeaves
+    facultyLeaves,
+    attendance
   ] = await Promise.all([
     db.getStudents(),
     db.getClassrooms(),
@@ -21,8 +22,54 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     db.getExams(),
     db.getUsers(),
     db.getAuditLogs(),
-    db.getFacultyLeaves()
+    db.getFacultyLeaves(),
+    db.getAttendanceRecords()
   ]);
+
+  // Live attendance & currently running classes calculation
+  const now = new Date();
+  const todayIso = now.toISOString().split('T')[0];
+  const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const todayKey = DAY_KEYS[now.getDay()];
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  function parseMinutes(tStr) {
+    if (!tStr) return 0;
+    const parts = String(tStr).split(':');
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
+  }
+
+  // Scheduled classes for today
+  const todayClassrooms = (classrooms || []).filter(c => {
+    const days = Array.isArray(c.days) && c.days.length > 0 ? c.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days.includes(todayKey);
+  });
+
+  // Currently running classes right now (meeting today and between start_time and end_time)
+  const runningClassrooms = todayClassrooms.filter(c => {
+    const sMin = parseMinutes(c.start_time || '06:30');
+    const eMin = parseMinutes(c.end_time || '07:30');
+    return currentMinutes >= sMin && currentMinutes <= eMin;
+  });
+
+  const runningCount = runningClassrooms.length;
+
+  // Attendance sessions recorded for today
+  const todayAttendanceSessions = (attendance || []).filter(s =>
+    s.session_date === todayIso && Array.isArray(s.records) && s.records.length > 0
+  );
+  const attendedClassroomIds = new Set(todayAttendanceSessions.map(s => s.classroom_id));
+
+  // Count of running classes that have received attendance
+  const receivedRunningCount = runningClassrooms.filter(c => attendedClassroomIds.has(c.id)).length;
+
+  // Count of today's total scheduled classes that have received attendance
+  const receivedTodayCount = todayClassrooms.filter(c => attendedClassroomIds.has(c.id)).length;
+
+  // Received attendance number of classes:
+  // If classes are currently running, evaluate attendance received for running classes;
+  // If no classes are currently running, evaluate attendance received across today's classes
+  const receivedCount = runningCount > 0 ? receivedRunningCount : receivedTodayCount;
 
   // Check pending faculty leave requests for hero card brand pill
   const pendingFacultyLeaves = (facultyLeaves || []).filter(l => (l.status || '').toLowerCase() === 'pending');
@@ -211,9 +258,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             <span class="m-hero-f-val" id="m-hero-girls">${girlsCount}</span>
           </div>
           <div class="m-hero-f-divider"></div>
-          <div class="m-hero-f-stat">
-            <span class="m-hero-f-label">Curfew Lock</span>
-            <span class="m-hero-f-val" style="color: #34D399;">09:30 PM</span>
+          <div class="m-hero-f-stat" id="m-hero-live-att-stat" data-route="attendance" style="cursor: pointer;" title="${runningCount} currently running classes / ${receivedCount} classes attendance received (${receivedTodayCount} of ${todayClassrooms.length} attended today). Tap to view live timetable & attendance.">
+            <span class="m-hero-f-label">Running / Received</span>
+            <span class="m-hero-f-val" id="m-hero-live-att-val" style="color: #34D399;">${runningCount} / ${receivedCount}</span>
           </div>
         </div>
       </div>
@@ -596,16 +643,16 @@ export async function renderAdminDashboard(container, { onNavigate }) {
           </div>
         </div>
 
-        <div class="stat-card" data-route="attendance" style="cursor: pointer;">
+        <div class="stat-card" data-route="attendance" style="cursor: pointer;" title="${runningCount} currently running classes / ${receivedCount} classes attendance received (${receivedTodayCount} of ${todayClassrooms.length} attended today)">
           <div class="stat-header">
-            <span class="stat-title">Night Curfew Status</span>
+            <span class="stat-title">Live Class Attendance</span>
             <div class="stat-icon-wrapper" style="background: #ECFDF5; color: #059669;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
           </div>
-          <div class="stat-value" style="font-size: 1.45rem; color: #059669;">09:30 PM Lock</div>
+          <div class="stat-value" style="font-size: 1.45rem; color: #059669;">${runningCount} / ${receivedCount}</div>
           <div class="stat-footer">
-            <span>Dormitory roll call synchronized</span>
+            <span>Running classes / attendance received</span>
           </div>
         </div>
       </div>
@@ -738,12 +785,23 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     const heroVal = container.querySelector('#m-hero-val');
     const heroBoys = container.querySelector('#m-hero-boys');
     const heroGirls = container.querySelector('#m-hero-girls');
+    const heroLiveAtt = container.querySelector('#m-hero-live-att-val');
     if (heroVal) heroVal.textContent = isMetricsHidden ? '••••' : String(activeStudents.length);
     if (heroBoys) heroBoys.textContent = isMetricsHidden ? '••' : String(boysCount);
     if (heroGirls) heroGirls.textContent = isMetricsHidden ? '••' : String(girlsCount);
+    if (heroLiveAtt) heroLiveAtt.textContent = isMetricsHidden ? '••/••' : `${runningCount} / ${receivedCount}`;
     eyeBtn.innerHTML = isMetricsHidden
       ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
       : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  });
+
+  // Interactive Live Attendance Hero Stat: click to open attendance module
+  container.querySelector('#m-hero-live-att-stat')?.addEventListener('click', () => {
+    if (typeof onNavigate === 'function') {
+      onNavigate('attendance');
+    } else {
+      window.location.hash = '#attendance';
+    }
   });
 
   // Interactive Hero Brand Pill: click to view faculty leaves when request active
