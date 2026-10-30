@@ -2931,6 +2931,19 @@ body.tps-wheel-open {
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
 }
 
+.tps-custom-select-trigger.w-100,
+.tps-custom-select-trigger.full-width,
+.select-full-width + .tps-custom-select-trigger,
+#att-rep-teacher-select + .tps-custom-select-trigger,
+#att-rep-section-select + .tps-custom-select-trigger,
+#att-rep-class-select + .tps-custom-select-trigger,
+#timetable-faculty-filter + .tps-custom-select-trigger,
+.tps-select-full-width .tps-custom-select-trigger {
+  width: 100% !important;
+  display: flex !important;
+  box-sizing: border-box !important;
+}
+
 .tps-dropdown-label {
   white-space: nowrap;
   overflow: hidden;

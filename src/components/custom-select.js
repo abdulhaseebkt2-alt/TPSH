@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function enhanceSelect(select) {
-  if (!select || select.hasAttribute('data-tps-enhanced-select')) return;
+  if (typeof document === 'undefined' || !select || select.hasAttribute('data-tps-enhanced-select')) return;
   select.setAttribute('data-tps-enhanced-select', 'true');
 
   // Hide the native select while keeping it functional in DOM
@@ -43,6 +43,20 @@ export function enhanceSelect(select) {
   // Create custom pill trigger
   const trigger = document.createElement('div');
   trigger.className = 'tps-custom-select-trigger';
+
+  // Inherit full-width behavior when select specifies 100% width or full-width classes/attributes
+  if (
+    select.style.width === '100%' ||
+    select.classList.contains('select-full-width') ||
+    select.classList.contains('w-100') ||
+    select.classList.contains('w-full') ||
+    select.hasAttribute('data-full-width')
+  ) {
+    trigger.classList.add('w-100');
+    trigger.style.width = '100%';
+    trigger.style.display = 'flex';
+    trigger.style.boxSizing = 'border-box';
+  }
   trigger.tabIndex = 0; // Focusable via keyboard
   trigger.setAttribute('role', 'combobox');
   trigger.setAttribute('aria-haspopup', 'listbox');
@@ -169,4 +183,6 @@ function positionMenu(menu, trigger) {
   menu.style.left = `${Math.round(left)}px`;
   menu.style.top = `${Math.round(top)}px`;
   menu.style.minWidth = `${Math.round(triggerWidth)}px`;
+  menu.style.maxWidth = `${Math.round(Math.max(triggerWidth, 280))}px`;
+  menu.style.boxSizing = 'border-box';
 }

@@ -20,6 +20,7 @@ import { renderStudentsModule } from '../src/modules/students/index.js';
 import { renderAttendanceReportModule } from '../src/modules/reports/attendance-report.js';
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
 import { applyInstitutionalAppIcon } from '../src/app.js';
+import { enhanceSelect } from '../src/components/custom-select.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -2189,9 +2190,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(html).not.toContain('Ahmad K.T.');
     expect(html).not.toContain('New Applicant');
 
-    // 5. Layout structure: Section and Class dropdowns divided equally into a single row
+    // 5. Layout structure: Faculty name dropdown spans 100% full width to right edge of card; Section and Class dropdowns divided equally into a single row
     expect(html).toContain('grid-template-columns: 1fr 1fr');
     expect(html).toContain('Classroom & Faculty Duty');
+    expect(html).toContain('tps-select-full-width');
+    expect(html).toContain('select-full-width');
   });
 
   it('Calendar UI in Attendance Report: renders unworking class days as faded, holidays as yellow, hostel leaves as fade red text only, and missed attendance as red color round', async () => {
@@ -2727,5 +2730,55 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('data-nav="attendance"');
     expect(container.innerHTML).toContain('data-nav="attendance_report"');
     expect(container.innerHTML).toContain('data-nav="settings"');
+  });
+
+  it('Full-Width Select Enhancer: enhances full-width selects with 100% trigger width up to the right edge of the card', () => {
+    const createdElements = [];
+    const mockDocument = {
+      createElement: (tag) => {
+        const el = {
+          tagName: tag.toUpperCase(),
+          className: '',
+          classList: {
+            classes: new Set(),
+            add(c) { this.classes.add(c); },
+            contains(c) { return this.classes.has(c); }
+          },
+          style: {},
+          attributes: {},
+          setAttribute(k, v) { this.attributes[k] = v; },
+          getAttribute(k) { return this.attributes[k]; },
+          hasAttribute(k) { return k in this.attributes; },
+          appendChild(child) { this.children.push(child); child.parentNode = this; },
+          children: [],
+          options: [{ text: 'Haseeb Mubarak', selected: true }],
+          selectedIndex: 0,
+          addEventListener: () => {}
+        };
+        createdElements.push(el);
+        return el;
+      }
+    };
+    globalThis.document = mockDocument;
+    try {
+      const select = mockDocument.createElement('select');
+      select.style.width = '100%';
+      select.className = 'form-control select-full-width';
+      select.setAttribute('data-full-width', 'true');
+      const parent = mockDocument.createElement('div');
+      parent.appendChild(select);
+      select.parentNode.insertBefore = (newEl) => { parent.children.push(newEl); };
+
+      enhanceSelect(select);
+
+      const trigger = createdElements.find(el => el.className.includes('tps-custom-select-trigger'));
+      expect(trigger).toBeDefined();
+      expect(trigger.classList.contains('w-100')).toBe(true);
+      expect(trigger.style.width).toBe('100%');
+      expect(trigger.style.display).toBe('flex');
+      expect(trigger.style.boxSizing).toBe('border-box');
+    } finally {
+      delete globalThis.document;
+    }
   });
 });

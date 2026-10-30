@@ -334,17 +334,17 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
           <div style="height: 1px; background: #F1F5F9; border: none; margin: 0.65rem 0 0.85rem 0; width: 100%;"></div>
 
-          <!-- 1. Teacher Selector (Full Width Top Row) -->
-          <div style="margin-bottom: 0.75rem;">
+          <!-- 1. Teacher Selector (Full Width Top Row - Stretches to Right Last End of Card) -->
+          <div class="tps-select-full-width" style="margin-bottom: 0.75rem; width: 100%; box-sizing: border-box;">
             <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
               Faculty / Teacher ${isTeacher ? '(Locked)' : ''}
             </label>
             ${isAdmin ? `
-              <select id="att-rep-teacher-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+              <select id="att-rep-teacher-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; box-sizing: border-box;">
                 ${eligibleTeachers.map(t => `<option value="${t.id}" ${t.id === selectedTeacherId ? 'selected' : ''}>${t.full_name || t.email}</option>`).join('')}
               </select>
             ` : `
-              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0.55rem 0.75rem; font-weight: 700; font-size: 0.86rem; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
+              <div style="background: #F8FAFC; border: 1.5px solid #059669; border-radius: 9999px; padding: 0.45rem 1rem; font-weight: 600; font-size: 0.825rem; color: #1E293B; display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
                 <span>${activeTeacher?.full_name || user?.full_name || 'My Faculty Duty'}</span>
                 <span class="badge badge-active" style="font-size: 0.65rem;">My Account</span>
               </div>
@@ -352,13 +352,13 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
           </div>
 
           <!-- 2 & 3. Section & Classroom Selectors (Divided Equally in a Single Row) -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; width: 100%; box-sizing: border-box;">
             <!-- 2. Section Selector -->
             <div style="min-width: 0;">
               <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Assigned Section
               </label>
-              <select id="att-rep-section-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis;">
+              <select id="att-rep-section-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis; box-sizing: border-box;">
                 ${assignedSections.map(s => `<option value="${s.id}" ${s.id === selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('')}
               </select>
             </div>
@@ -368,7 +368,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Assigned Classroom Session
               </label>
-              <select id="att-rep-class-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis;">
+              <select id="att-rep-class-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis; box-sizing: border-box;">
                 ${assignedClasses.map(c => `<option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
               </select>
             </div>
