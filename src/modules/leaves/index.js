@@ -4,6 +4,8 @@ import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule, getMentorGenderScope } from '../../lib/permissions.js';
+import { initAllWheelTimePickers } from '../../lib/wheelTimePicker.js';
+import { enhanceDateInput } from '../../components/date-picker.js';
 
 export async function renderLeavesModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -477,6 +479,14 @@ export async function renderLeavesModule(container, { onNavigate }) {
     let selectedStudentLeaveId = unreturnedStudents[0]?.student.id || '';
     let selectedBatchStudentIds = new Set();
 
+    function enhanceModalInputs(container) {
+      if (!container) return;
+      initAllWheelTimePickers(container);
+      if (typeof container.querySelectorAll === 'function') {
+        container.querySelectorAll('input[type="date"]').forEach(inp => enhanceDateInput(inp));
+      }
+    }
+
     openModal({
       title: 'Hostel Arrival & Return Register',
       size: 'lg',
@@ -587,7 +597,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                   </div>
                   <div class="form-group" style="margin: 0;">
                     <label class="form-label required" style="font-size: 0.78rem;">Actual Return Time *</label>
-                    <input type="time" id="ind-return-time" class="form-control" value="${nowTime}" required style="height: 38px;" />
+                    <input type="time" id="ind-return-time" class="form-control" value="${nowTime}" data-picker-title="Actual Return Time" required style="height: 38px;" />
                   </div>
                 </div>
 
@@ -607,6 +617,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
               </div>
             `;
+
+            enhanceModalInputs(contentEl);
 
             // Attach listeners
             modalBody.querySelector('#ind-gender-filter')?.addEventListener('change', (e) => {
@@ -708,7 +720,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
                 <div class="form-group" style="margin: 0;">
                   <label class="form-label required" style="font-size: 0.78rem;">Batch Return Time *</label>
-                  <input type="time" id="batch-ret-time" class="form-control" value="${nowTime}" required style="height: 38px;" />
+                  <input type="time" id="batch-ret-time" class="form-control" value="${nowTime}" data-picker-title="Batch Return Time" required style="height: 38px;" />
                 </div>
               </div>
 
@@ -758,6 +770,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
               </div>
             </div>
           `;
+
+          enhanceModalInputs(contentEl);
 
           // Event Listeners for Batch Mode
           modalBody.querySelector('#batch-leave-select')?.addEventListener('change', (e) => {
@@ -857,6 +871,14 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
     let selectedBatchStudentIds = new Set();
 
+    function enhanceModalInputs(container) {
+      if (!container) return;
+      initAllWheelTimePickers(container);
+      if (typeof container.querySelectorAll === 'function') {
+        container.querySelectorAll('input[type="date"]').forEach(inp => enhanceDateInput(inp));
+      }
+    }
+
     openModal({
       title: 'Hostel Leave Pass Register',
       size: 'lg',
@@ -932,16 +954,16 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
                   <div class="form-group" style="margin: 0;">
                     <label class="form-label required" style="font-size: 0.75rem;">Departure Date & Time *</label>
-                    <div style="display: flex; gap: 0.35rem;">
-                      <input type="date" id="pass-dep-date" class="form-control" value="${today}" required style="height: 38px;" />
-                      <input type="time" id="pass-dep-time" class="form-control" value="16:00" required style="height: 38px; width: 110px;" />
+                    <div style="display: flex; gap: 0.35rem; align-items: center;">
+                      <input type="date" id="pass-dep-date" class="form-control" value="${today}" required style="height: 38px; flex: 1; min-width: 0;" />
+                      <input type="time" id="pass-dep-time" class="form-control" value="16:00" data-picker-title="Departure Time" required style="height: 38px; width: 125px; flex: 0 0 125px;" />
                     </div>
                   </div>
                   <div class="form-group" style="margin: 0;">
                     <label class="form-label required" style="font-size: 0.75rem;">Expected Return Date & Time *</label>
-                    <div style="display: flex; gap: 0.35rem;">
-                      <input type="date" id="pass-ret-date" class="form-control" value="${defaultReturn}" required style="height: 38px;" />
-                      <input type="time" id="pass-ret-time" class="form-control" value="17:00" required style="height: 38px; width: 110px;" />
+                    <div style="display: flex; gap: 0.35rem; align-items: center;">
+                      <input type="date" id="pass-ret-date" class="form-control" value="${defaultReturn}" required style="height: 38px; flex: 1; min-width: 0;" />
+                      <input type="time" id="pass-ret-time" class="form-control" value="17:00" data-picker-title="Expected Return Time" required style="height: 38px; width: 125px; flex: 0 0 125px;" />
                     </div>
                   </div>
                 </div>
@@ -977,6 +999,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
               </div>
             `;
+
+            enhanceModalInputs(contentEl);
 
             modalBody.querySelector('#pass-ind-gender')?.addEventListener('change', (e) => {
               genderFilter = e.target.value;
@@ -1062,16 +1086,16 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
                   <div class="form-group" style="margin: 0;">
                     <label class="form-label required" style="font-size: 0.75rem;">Departure Date & Time *</label>
-                    <div style="display: flex; gap: 0.35rem;">
-                      <input type="date" id="batch-pass-dep-date" class="form-control" value="${today}" required style="height: 38px;" />
-                      <input type="time" id="batch-pass-dep-time" class="form-control" value="16:00" required style="height: 38px; width: 110px;" />
+                    <div style="display: flex; gap: 0.35rem; align-items: center;">
+                      <input type="date" id="batch-pass-dep-date" class="form-control" value="${today}" required style="height: 38px; flex: 1; min-width: 0;" />
+                      <input type="time" id="batch-pass-dep-time" class="form-control" value="16:00" data-picker-title="Departure Time" required style="height: 38px; width: 125px; flex: 0 0 125px;" />
                     </div>
                   </div>
                   <div class="form-group" style="margin: 0;">
                     <label class="form-label required" style="font-size: 0.75rem;">Expected Return Date & Time *</label>
-                    <div style="display: flex; gap: 0.35rem;">
-                      <input type="date" id="batch-pass-ret-date" class="form-control" value="${defaultReturn}" required style="height: 38px;" />
-                      <input type="time" id="batch-pass-ret-time" class="form-control" value="17:00" required style="height: 38px; width: 110px;" />
+                    <div style="display: flex; gap: 0.35rem; align-items: center;">
+                      <input type="date" id="batch-pass-ret-date" class="form-control" value="${defaultReturn}" required style="height: 38px; flex: 1; min-width: 0;" />
+                      <input type="time" id="batch-pass-ret-time" class="form-control" value="17:00" data-picker-title="Expected Return Time" required style="height: 38px; width: 125px; flex: 0 0 125px;" />
                     </div>
                   </div>
                 </div>
@@ -1150,6 +1174,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
               </div>
             `;
+
+            enhanceModalInputs(contentEl);
 
             // Search & filter handlers
             modalBody.querySelector('#batch-pass-search')?.addEventListener('input', (e) => {

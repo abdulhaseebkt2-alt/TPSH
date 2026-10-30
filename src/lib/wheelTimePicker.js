@@ -292,27 +292,52 @@ export function attachWheelTimePicker(input, { onChange } = {}) {
   const trigger = document.createElement('button');
   trigger.type = 'button';
   trigger.className = 'wheel-time-trigger';
+  if (input.id) trigger.setAttribute('data-for', input.id);
+
+  // Inherit explicit width or flex sizing from the input so flexbox layouts don't break
+  if (input.style.width) {
+    trigger.style.width = input.style.width;
+    trigger.style.flex = `0 0 ${input.style.width}`;
+  }
+  if (input.style.flex) {
+    trigger.style.flex = input.style.flex;
+  }
+  if (input.style.maxWidth) {
+    trigger.style.maxWidth = input.style.maxWidth;
+  }
+
   trigger.innerHTML = `
     <span class="wheel-time-val">${initial12}</span>
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #64748B; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
   `;
 
-  input.parentNode.insertBefore(trigger, input.nextSibling);
+  if (input.parentNode) {
+    input.parentNode.insertBefore(trigger, input.nextSibling);
+  }
 
-  // Sync when input.value changes externally
-  const observer = new MutationObserver(() => {
+  // Sync when input.value changes externally or via event
+  const updateDisplay = () => {
     const p = from24Hour(input.value);
-    trigger.querySelector('.wheel-time-val').textContent = format12Hour(p.hour, p.minute, p.period);
-  });
-  observer.observe(input, { attributes: true, attributeFilter: ['value'] });
+    const valSpan = trigger.querySelector('.wheel-time-val');
+    if (valSpan) valSpan.textContent = format12Hour(p.hour, p.minute, p.period);
+  };
 
-  trigger.addEventListener('click', () => {
+  input.addEventListener('input', updateDisplay);
+  input.addEventListener('change', updateDisplay);
+
+  if (typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver(updateDisplay);
+    observer.observe(input, { attributes: true, attributeFilter: ['value'] });
+  }
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
     openWheelTimePicker({
       initialTime: input.value || '08:00',
-      title: input.getAttribute('data-picker-title') || 'Time',
+      title: input.getAttribute('data-picker-title') || input.title || 'Select Time',
       onSelect: (time24, time12) => {
         input.value = time24;
-        trigger.querySelector('.wheel-time-val').textContent = time12;
+        updateDisplay();
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
         if (onChange) onChange(time24, time12);

@@ -1,9 +1,11 @@
 import { enhanceDateInput } from '../components/date-picker.js';
 import { enhanceSelect } from '../components/custom-select.js';
+import { initAllWheelTimePickers } from './wheelTimePicker.js';
 
 /**
  * Global Institutional UI Enhancer
- * Automatically upgrades all date inputs to the Image 1 Calendar UI,
+ * Automatically upgrades all date inputs to the PhonePe 3-column drum wheel / calendar UI,
+ * all time inputs to the custom institutional wheel clock UI,
  * and all <select> elements to the Image 2 Pill & Mint Dropdown pattern.
  * Uses a MutationObserver to ensure ALL dynamic and upcoming UI automatically inherits this pattern!
  */
@@ -16,6 +18,9 @@ export function enhanceAllUI(root = document.body) {
   dateInputs.forEach(input => {
     enhanceDateInput(input);
   });
+
+  // Enhance all time inputs to custom institutional wheel clock UI
+  initAllWheelTimePickers(root);
 
   // Enhance all select elements
   const selects = root.querySelectorAll ? root.querySelectorAll('select:not([data-tps-enhanced-select]):not(.native-select)') : [];
@@ -37,7 +42,7 @@ export function initGlobalUIObserver() {
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
         for (const node of mutation.addedNodes) {
           if (node.nodeType === 1) { // ELEMENT_NODE
-            if (node.matches && (node.matches('select, input[type="date"]') || node.querySelector('select, input[type="date"]'))) {
+            if (node.matches && (node.matches('select, input[type="date"], input[type="time"]') || node.querySelector('select, input[type="date"], input[type="time"]'))) {
               shouldEnhance = true;
               break;
             }

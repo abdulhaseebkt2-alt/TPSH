@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions, isMentorRole, getMentorGenderScope } from '../src/lib/permissions.js';
-import { from24Hour, to24Hour, format12Hour } from '../src/lib/wheelTimePicker.js';
+import { from24Hour, to24Hour, format12Hour, attachWheelTimePicker, initAllWheelTimePickers } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
 import { updateCurrentUserProfile } from '../src/lib/auth.js';
 import { db } from '../src/lib/db.js';
@@ -802,6 +802,108 @@ describe('11. Wheel / Drum Time Picker Engine Tests', () => {
     expect(format12Hour(8, 0, 'PM')).toBe('08:00 PM');
     expect(format12Hour(12, 30, 'AM')).toBe('12:30 AM');
     expect(format12Hour(6, 5, 'AM')).toBe('06:05 AM');
+  });
+
+  it('attachWheelTimePicker hides raw input, attaches .wheel-time-trigger with 12-hour formatted time and clock icon', () => {
+    const parent = {
+      children: [],
+      insertBefore: (newChild, refChild) => {
+        parent.children.push(newChild);
+      }
+    };
+    const input = {
+      tagName: 'INPUT',
+      type: 'time',
+      value: '16:26',
+      style: { width: '125px', display: '' },
+      parentNode: parent,
+      nextSibling: null,
+      getAttribute: (attr) => attr === 'data-picker-title' ? 'Actual Return Time' : null,
+      addEventListener: () => {},
+      dispatchEvent: () => {}
+    };
+
+    const originalDocument = global.document;
+    global.document = {
+      createElement: (tag) => {
+        const el = {
+          tagName: tag,
+          className: '',
+          style: {},
+          innerHTML: '',
+          setAttribute: (k, v) => { el[k] = v; },
+          addEventListener: () => {},
+          querySelector: (sel) => {
+            if (sel === '.wheel-time-val') {
+              return { textContent: '' };
+            }
+            return null;
+          }
+        };
+        return el;
+      }
+    };
+
+    try {
+      attachWheelTimePicker(input);
+      expect(input.style.display).toBe('none');
+      expect(input.__wheelPickerAttached).toBe(true);
+      expect(parent.children.length).toBe(1);
+      const trigger = parent.children[0];
+      expect(trigger.className).toBe('wheel-time-trigger');
+      expect(trigger.innerHTML).toContain('04:26 PM');
+      expect(trigger.innerHTML).toContain('<svg');
+      expect(trigger.style.width).toBe('125px');
+    } finally {
+      global.document = originalDocument;
+    }
+  });
+
+  it('initAllWheelTimePickers finds all time inputs in a container and attaches wheel pickers', () => {
+    const parent = {
+      children: [],
+      insertBefore: (newChild) => { parent.children.push(newChild); }
+    };
+    const input1 = {
+      tagName: 'INPUT',
+      type: 'time',
+      value: '09:15',
+      style: {},
+      parentNode: parent,
+      nextSibling: null,
+      getAttribute: () => null,
+      addEventListener: () => {},
+      dispatchEvent: () => {}
+    };
+    const container = {
+      querySelectorAll: (sel) => {
+        if (sel.includes('input[type="time"]')) return [input1];
+        return [];
+      }
+    };
+
+    const originalDocument = global.document;
+    global.document = {
+      createElement: () => ({
+        tagName: 'button',
+        className: '',
+        style: {},
+        innerHTML: '',
+        setAttribute: () => {},
+        addEventListener: () => {},
+        querySelector: () => ({ textContent: '' })
+      })
+    };
+
+    try {
+      initAllWheelTimePickers(container);
+      expect(input1.style.display).toBe('none');
+      expect(input1.__wheelPickerAttached).toBe(true);
+      expect(parent.children.length).toBe(1);
+      expect(parent.children[0].innerHTML).toContain('09:15 AM');
+    } finally {
+      global.document = originalDocument;
+    }
   });
 });
 

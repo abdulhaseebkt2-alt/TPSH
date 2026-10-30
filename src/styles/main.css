@@ -5836,6 +5836,19 @@ body.tps-wheel-open {
   padding-right: 2px;
 }
 
+.hostel-modal-flow-wrap .tps-date-input-wrapper {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+
+.hostel-modal-flow-wrap .wheel-time-trigger {
+  flex-shrink: 0 !important;
+  height: 38px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
 .hostel-modal-scroll-area {
   flex: 1;
   min-height: 140px;

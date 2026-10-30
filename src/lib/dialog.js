@@ -1,5 +1,6 @@
 // TPS Hostel ERP Dialog & Modal Manager
 import { initAllWheelTimePickers } from './wheelTimePicker.js';
+import { enhanceDateInput } from '../components/date-picker.js';
 
 export function confirmDialog({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', isDanger = false }) {
   if (typeof document === 'undefined') return Promise.resolve(true);
@@ -76,6 +77,9 @@ export function openModal({ title, contentHtml, size = 'md', modalClass = '', on
 
   const contentContainer = overlay.querySelector('#modal-content-container');
   initAllWheelTimePickers(contentContainer);
+  if (contentContainer.querySelectorAll) {
+    contentContainer.querySelectorAll('input[type="date"]').forEach(inp => enhanceDateInput(inp));
+  }
 
   if (onMount) {
     const mountObj = {
@@ -87,6 +91,9 @@ export function openModal({ title, contentHtml, size = 'md', modalClass = '', on
     onMount(mountObj, overlay);
     // Ensure any time inputs created dynamically in onMount are also upgraded
     initAllWheelTimePickers(contentContainer);
+    if (contentContainer.querySelectorAll) {
+      contentContainer.querySelectorAll('input[type="date"]').forEach(inp => enhanceDateInput(inp));
+    }
   }
 
   return { close };
