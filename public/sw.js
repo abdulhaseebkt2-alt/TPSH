@@ -1,5 +1,5 @@
 // TPS Hostel IRP Service Worker
-const CACHE_NAME = 'tps-irp-v2';
+const CACHE_NAME = 'tps-irp-v1.9.8';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -35,8 +35,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-while-revalidate for static assets only
-  if (event.request.method === 'GET' && (event.request.destination === 'style' || event.request.destination === 'script' || event.request.destination === 'image' || event.request.destination === 'font')) {
+  // Network-first with cache fallback for HTML documents, scripts, and stylesheets
+  // Ensures user mobile devices always receive the latest deployed APK updates immediately
+  if (
+    event.request.method === 'GET' &&
+    (event.request.mode === 'navigate' ||
+      event.request.destination === 'document' ||
+      event.request.destination === 'script' ||
+      event.request.destination === 'style')
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-while-revalidate for images and fonts
+  if (event.request.method === 'GET' && (event.request.destination === 'image' || event.request.destination === 'font')) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {

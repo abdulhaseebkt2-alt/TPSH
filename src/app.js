@@ -211,7 +211,9 @@ class App {
 
     // Register PWA service worker if supported
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('/sw.js').catch(e => console.warn('PWA SW error:', e));
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(e => console.warn('PWA SW error:', e));
     }
 
     // Listen to hash changes
