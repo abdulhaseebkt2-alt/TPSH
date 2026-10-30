@@ -3,7 +3,7 @@ import { formatDate, formatTime, formatCurrency, printDocument } from '../../lib
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { canPerformAction, isViewOnlyModule, getMentorGenderScope } from '../../lib/permissions.js';
+import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 import { initAllWheelTimePickers } from '../../lib/wheelTimePicker.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
 
@@ -270,13 +270,27 @@ export async function renderLeavesModule(container, { onNavigate }) {
                           </span>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
-                          <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
-                            ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
-                          </span>
+                          ${l.status === 'Pending' ? `
+                            <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                              Pending Approval
+                            </span>
+                          ` : `
+                            <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                              ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
+                            </span>
+                          `}
                         </td>
                         <td style="padding: 0.85rem 1rem; text-align: right;">
                           <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
-                            ${unretCount > 0 && canRecordReturn ? `
+                            ${l.status === 'Pending' && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                              <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                                Approve
+                              </button>
+                              <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                                Reject
+                              </button>
+                            ` : ''}
+                            ${l.status !== 'Pending' && unretCount > 0 && canRecordReturn ? `
                               <button class="btn btn-xs btn-outline-success btn-record-arrival-action btn-checkin-return" data-id="${l.id}" title="Record arrival for students on this pass" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; color: #059669; border-color: #A7F3D0; background: #ECFDF5;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
                                 Arrival (${unretCount})
@@ -314,9 +328,15 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                       <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #0F172A;">${code}</span>
-                      <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
-                        ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
-                      </span>
+                      ${l.status === 'Pending' ? `
+                        <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+                          Pending Approval
+                        </span>
+                      ` : `
+                        <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+                          ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
+                        </span>
+                      `}
                     </div>
 
                     <!-- Reason & Type -->
@@ -342,7 +362,15 @@ export async function renderLeavesModule(container, { onNavigate }) {
                         👥 ${studentLabel}
                       </span>
                       <div style="display: flex; gap: 0.35rem;">
-                        ${unretCount > 0 && canRecordReturn ? `
+                        ${l.status === 'Pending' && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                          <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                            Approve
+                          </button>
+                          <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                            Reject
+                          </button>
+                        ` : ''}
+                        ${l.status !== 'Pending' && unretCount > 0 && canRecordReturn ? `
                           <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.3rem 0.7rem; font-weight: 700; font-size: 0.75rem;">
                             Arrival (${unretCount})
                           </button>
@@ -412,6 +440,88 @@ export async function renderLeavesModule(container, { onNavigate }) {
       btn.addEventListener('click', () => {
         const leaveId = btn.dataset.id;
         openLeaveDetailsModal(leaveId);
+      });
+    });
+
+    container.querySelectorAll('.btn-approve-leave').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const leaveId = btn.dataset.id;
+        const leave = leaves.find(l => l.id === leaveId);
+        if (!leave) return;
+
+        const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
+        const studentNames = sIds.map(sid => students.find(s => s.id === sid)?.full_name || 'Student').join(', ');
+
+        const { modal, close } = openModal({
+          title: `Approve Leave Request — ${leave.leave_code || leave.leave_register_number}`,
+          contentHtml: `
+            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+              <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.85rem; font-size: 0.85rem; line-height: 1.5;">
+                <div><strong>Student:</strong> ${studentNames}</div>
+                <div><strong>Period:</strong> ${formatDate(leave.departure_date)} ${leave.departure_time || ''} → ${formatDate(leave.expected_return_date)} ${leave.expected_return_time || ''}</div>
+                <div><strong>Reason:</strong> ${leave.reason}</div>
+                ${leave.requested_by ? `<div><strong>Requested By:</strong> ${leave.requested_by} • Phone: ${leave.parent_phone || 'N/A'}</div>` : ''}
+              </div>
+
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-weight: 700; font-size: 0.82rem; color: #0F172A;">
+                  Per-Hour Overdue Fine Rate (₹/hr) *
+                </label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="font-weight: 700; color: #475569;">₹</span>
+                  <input type="number" id="approve-fine-rate" class="form-control" value="${leave.fine_per_hour || 50}" min="0" step="5" required style="height: 38px; font-weight: 700; font-size: 0.95rem; max-width: 130px;" />
+                  <span style="font-size: 0.8rem; color: #64748B;">/ hour late</span>
+                </div>
+                <p style="font-size: 0.74rem; color: #64748B; margin-top: 0.25rem;">
+                  Late fine will be calculated hourly if student returns after ${leave.expected_return_date} ${leave.expected_return_time || '18:00'}.
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-approve">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-approve" style="background: #059669; border-color: #059669; font-weight: 700;">
+                  Approve & Issue Pass
+                </button>
+              </div>
+            </div>
+          `
+        });
+
+        modal.querySelector('#btn-cancel-approve')?.addEventListener('click', close);
+        modal.querySelector('#btn-confirm-approve')?.addEventListener('click', async () => {
+          const fineRateVal = Number(modal.querySelector('#approve-fine-rate')?.value) || 50;
+          try {
+            await db.approveLeaveRecord(leave.id, {
+              approved_by: user?.full_name || 'Hostel Warden',
+              fine_per_hour: fineRateVal
+            });
+            toast.success(`Leave request approved at ₹${fineRateVal}/hr overdue fine rate.`);
+            close();
+            const updatedLeaves = await db.getLeaves();
+            leaves.length = 0;
+            leaves.push(...updatedLeaves);
+            renderView();
+          } catch (err) {
+            toast.error(err.message || 'Error approving leave');
+          }
+        });
+      });
+    });
+
+    container.querySelectorAll('.btn-reject-leave').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const leaveId = btn.dataset.id;
+        if (!confirm('Are you sure you want to reject this leave request?')) return;
+        try {
+          await db.rejectLeaveRecord(leaveId, { rejected_by: user?.full_name || 'Hostel Warden' });
+          toast.success('Leave request rejected.');
+          const updatedLeaves = await db.getLeaves();
+          leaves.length = 0;
+          leaves.push(...updatedLeaves);
+          renderView();
+        } catch (err) {
+          toast.error(err.message || 'Error rejecting leave');
+        }
       });
     });
 
@@ -1001,8 +1111,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
                       </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Day (₹) *</label>
-                      <input type="number" id="pass-fine-rate" class="form-control" value="100" min="0" step="10" required style="height: 34px; font-size: 0.8rem;" />
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
+                      <input type="number" id="pass-fine-rate" class="form-control" value="50" min="0" step="5" required style="height: 34px; font-size: 0.8rem;" />
                     </div>
                   </div>
 
@@ -1058,7 +1168,9 @@ export async function renderLeavesModule(container, { onNavigate }) {
                   departure_time: depTime,
                   expected_return_date: retDate,
                   expected_return_time: retTime,
-                  fine_per_day: fineRate,
+                  fine_unit: 'hour',
+                  fine_per_hour: Number(fineRate) || 50,
+                  fine_per_day: (Number(fineRate) || 50) * 24,
                   reason,
                   approved_by: user?.full_name || 'Hostel Warden'
                 });
@@ -1273,7 +1385,9 @@ export async function renderLeavesModule(container, { onNavigate }) {
                   departure_time: depTime,
                   expected_return_date: retDate,
                   expected_return_time: retTime,
-                  fine_per_day: 100,
+                  fine_unit: 'hour',
+                  fine_per_hour: 50,
+                  fine_per_day: 1200,
                   reason,
                   approved_by: user?.full_name || 'Hostel Warden'
                 });
@@ -1404,7 +1518,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
             <div><strong>Leave Type:</strong> ${(leave.leave_type || 'Hostel Leave').replace(/_/g, ' ')}</div>
             <div><strong>Departure Date:</strong> ${leave.departure_date} (${leave.departure_time || '16:00'})</div>
             <div><strong>Expected Return:</strong> ${leave.expected_return_date} (${leave.expected_return_time || '17:00'})</div>
-            <div><strong>Late Fine Policy:</strong> ₹${leave.fine_per_day || 100} / day</div>
+            <div><strong>Late Fine Policy:</strong> ₹${leave.fine_unit === 'hour' || leave.fine_per_hour ? (leave.fine_per_hour || 50) + ' / hour' : (leave.fine_per_day || 100) + ' / day'}</div>
             <div style="grid-column: span 2;"><strong>Approved Purpose / Reason:</strong> ${leave.reason || 'General leave'}</div>
           </div>
 

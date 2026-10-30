@@ -29,6 +29,10 @@ export function enhanceAllUI(root = document.body) {
   });
 }
 
+export function enhanceModalInputs(root = document.body) {
+  enhanceAllUI(root);
+}
+
 export function initGlobalUIObserver() {
   if (typeof window === 'undefined') return;
 

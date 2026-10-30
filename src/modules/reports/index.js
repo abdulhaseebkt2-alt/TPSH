@@ -1444,8 +1444,8 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
               <tr>
                 <th>Student</th>
                 <th>Leave Reg</th>
-                <th>Late Days</th>
-                <th>Daily Rate</th>
+                <th>Late Duration</th>
+                <th>Fine Rate</th>
                 <th>Fine Total</th>
                 <th>Payment Status</th>
               </tr>
@@ -1453,12 +1453,15 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
             <tbody>
               ${fineLeaves.map(l => {
                 const st = students.find(s => s.id === l.student_id);
+                const isHourly = l.fine_unit === 'hour' || l.late_hours != null;
+                const durationLabel = isHourly ? `${l.late_hours || 0} Hr(s)` : `${l.late_days || 0} Day(s)`;
+                const rateLabel = isHourly ? `₹${l.fine_per_hour_applied || l.fine_per_hour || 50}/hr` : `₹${l.fine_per_day_applied || 100}/day`;
                 return `
                   <tr>
                     <td><strong>${st?.full_name || 'Student'}</strong></td>
                     <td><code>${l.leave_register_number}</code></td>
-                    <td>${l.late_days}</td>
-                    <td>₹${l.fine_per_day_applied}</td>
+                    <td>${durationLabel}</td>
+                    <td>${rateLabel}</td>
                     <td><strong style="color: #DC2626;">${formatCurrency(l.calculated_fine)}</strong></td>
                     <td><span class="badge ${l.fine_status === 'paid' ? 'badge-present' : 'badge-absent'}">${(l.fine_status || 'unpaid').toUpperCase()}</span></td>
                   </tr>

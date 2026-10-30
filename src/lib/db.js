@@ -1918,31 +1918,107 @@ class DatabaseService {
     return this.get('tps_leaves');
   }
 
-  calculateReturnLate(expectedDateStr, expectedTimeStr, actualDateStr, actualTimeStr, fineRate = 100) {
-    if (!expectedDateStr || !actualDateStr) return { lateDays: 0, fineAmount: 0, blackMarks: 0 };
+  calculateReturnLate(expectedDateStr, expectedTimeStr, actualDateStr, actualTimeStr, fineRate = 50, rateType = 'daily') {
+    if (!expectedDateStr || !actualDateStr) return { lateHours: 0, lateDays: 0, fineAmount: 0, blackMarks: 0 };
     const expDate = new Date(expectedDateStr + 'T00:00:00');
     const actDate = new Date(actualDateStr + 'T00:00:00');
     const diffTime = actDate.getTime() - expDate.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+    // Full timestamp comparison for precise hourly calculation
+    const expTime = (expectedTimeStr && expectedTimeStr.length === 5) ? `${expectedTimeStr}:00` : (expectedTimeStr || '18:00:00');
+    const actTime = (actualTimeStr && actualTimeStr.length === 5) ? `${actualTimeStr}:00` : (actualTimeStr || '18:00:00');
+    const expFull = new Date(`${expectedDateStr}T${expTime}`);
+    const actFull = new Date(`${actualDateStr}T${actTime}`);
+    const diffMs = actFull.getTime() - expFull.getTime();
+    const lateHours = diffMs > 0 ? Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60))) : 0;
+
     let lateDays = 0;
     let fineAmount = 0.00;
     let blackMarks = 0;
 
-    if (diffDays > 0) {
-      lateDays = diffDays;
-      fineAmount = lateDays * Number(fineRate);
-      blackMarks = lateDays; // 1 black mark per late calendar day
-    } else if (diffDays === 0) {
-      if (actualTimeStr && expectedTimeStr && actualTimeStr > expectedTimeStr) {
-        blackMarks = 1; // Late Mark for late return on scheduled date
+    if (rateType === 'hour' || rateType === 'hourly') {
+      if (diffMs > 0) {
+        lateDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        fineAmount = lateHours * Number(fineRate);
+        blackMarks = Math.min(3, Math.ceil(lateHours / 24));
+      }
+    } else {
+      if (diffDays > 0) {
+        lateDays = diffDays;
+        fineAmount = lateDays * Number(fineRate);
+        blackMarks = lateDays; // 1 black mark per late calendar day
+      } else if (diffDays === 0) {
+        if (actualTimeStr && expectedTimeStr && actualTimeStr > expectedTimeStr) {
+          blackMarks = 1; // Late Mark for late return on scheduled date
+        }
       }
     }
 
-    return { lateDays, fineAmount, blackMarks };
+    return { lateHours, lateDays, fineAmount, blackMarks };
   }
 
-  async createLeaveRecord({ student_ids, leave_type, departure_date, departure_time, reason, expected_return_date, expected_return_time, fine_per_day = 100, approved_by }) {
+  calculateHourlyLate(expectedDateStr, expectedTimeStr, actualDateStr = null, actualTimeStr = null, hourlyRate = 50) {
+    if (!expectedDateStr) return { lateHours: 0, late_hours: 0, lateMinutes: 0, chargedHours: 0, lateDays: 0, fineAmount: 0, calculated_fine: 0, isOverdue: false, remainingHours: 0, remainingMinutes: 0 };
+    const expTime = (expectedTimeStr && expectedTimeStr.length === 5) ? `${expectedTimeStr}:00` : (expectedTimeStr || '18:00:00');
+    const expFull = new Date(`${expectedDateStr}T${expTime}`);
+    const actFull = actualDateStr ? new Date(`${actualDateStr}T${(actualTimeStr && actualTimeStr.length === 5) ? `${actualTimeStr}:00` : (actualTimeStr || '18:00:00')}`) : new Date();
+
+    if (actFull.getTime() > expFull.getTime()) {
+      const diffMs = actFull.getTime() - expFull.getTime();
+      const lateHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const lateMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const chargedHours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
+      const fineAmount = chargedHours * Number(hourlyRate);
+      return {
+        lateHours,
+        late_hours: lateHours,
+        lateMinutes,
+        chargedHours,
+        lateDays: Math.ceil(diffMs / (1000 * 60 * 60 * 24)),
+        fineAmount,
+        calculated_fine: fineAmount,
+        isOverdue: true,
+        remainingHours: 0,
+        remainingMinutes: 0
+      };
+    } else {
+      const diffMs = expFull.getTime() - actFull.getTime();
+      const remainingHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const remainingMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return {
+        lateHours: 0,
+        late_hours: 0,
+        lateMinutes: 0,
+        chargedHours: 0,
+        lateDays: 0,
+        fineAmount: 0,
+        calculated_fine: 0,
+        isOverdue: false,
+        remainingHours,
+        remainingMinutes
+      };
+    }
+  }
+
+  async createLeaveRecord({
+    student_ids,
+    leave_type,
+    departure_date,
+    departure_time,
+    reason,
+    expected_return_date,
+    expected_return_time,
+    fine_per_hour = 50,
+    fine_per_day = null,
+    fine_unit = null,
+    escort_type = 'Parent / Guardian',
+    parent_phone = '',
+    requested_by = '',
+    requester_role = '',
+    status = null,
+    approved_by = 'Warden Office'
+  }) {
     const leaves = this.get('tps_leaves');
     const sIds = Array.isArray(student_ids) ? student_ids : [student_ids];
     const year = new Date().getFullYear();
@@ -1950,11 +2026,17 @@ class DatabaseService {
     const leaveCode = `LV-${year}-${randomSeq}`;
     const regNo = 'LR-2026-' + String(leaves.length + 1).padStart(3, '0');
 
+    const effectiveStatus = status || (requester_role === 'parent' ? 'Pending' : 'Away');
+    const effectiveUnit = fine_unit || (fine_per_day !== null ? 'daily' : 'hour');
+    const effectiveHourlyFine = Number(fine_per_hour) || 50;
+    const effectiveDailyFine = Number(fine_per_day) || (effectiveHourlyFine * 24);
+
     const studentEntries = sIds.map(sid => ({
       student_id: sid,
       is_returned: false,
       actual_return_date: null,
       actual_return_time: null,
+      late_hours: 0,
       late_days: 0,
       fine_amount: 0,
       black_marks: 0,
@@ -1972,9 +2054,16 @@ class DatabaseService {
       leaving_time: departure_time || '16:00',
       reason: reason || 'Hostel Leave',
       expected_return_date: expected_return_date || '',
-      expected_return_time: expected_return_time || '17:00',
-      fine_per_day: Number(fine_per_day) || 100,
-      fine_per_day_applied: Number(fine_per_day) || 100,
+      expected_return_time: expected_return_time || '18:00',
+      fine_unit: effectiveUnit,
+      fine_per_hour: effectiveHourlyFine,
+      fine_per_hour_applied: effectiveHourlyFine,
+      fine_per_day: effectiveDailyFine,
+      fine_per_day_applied: effectiveDailyFine,
+      escort_type: escort_type || 'Parent / Guardian',
+      parent_phone: parent_phone || '',
+      requested_by: requested_by || '',
+      requester_role: requester_role || '',
       is_batch: sIds.length > 1,
       total_students: sIds.length,
       student_ids: sIds,
@@ -1982,24 +2071,66 @@ class DatabaseService {
       students: studentEntries,
       actual_return_date: null,
       actual_return_time: null,
-      status: 'Away',
+      status: effectiveStatus,
+      late_hours: 0,
       late_days: 0,
       calculated_fine: 0,
       adjusted_fine: 0,
       fine_status: 'no_fine',
-      approved_by: approved_by || 'Warden Office',
+      approved_by: effectiveStatus === 'Pending' ? 'Awaiting Approval' : approved_by,
       created_at: new Date().toISOString()
     };
 
-    // Update each student status to On Approved Leave
-    for (const sid of sIds) {
-      await this.updateStudent(sid, { status: 'On Approved Leave' });
+    // If already active/away, update each student status to On Approved Leave
+    if (effectiveStatus !== 'Pending') {
+      for (const sid of sIds) {
+        await this.updateStudent(sid, { status: 'On Approved Leave' });
+      }
     }
 
     leaves.unshift(primaryRec);
     this.set('tps_leaves', leaves);
-    this.logAudit('CREATE_LEAVE', 'student_leave_records', primaryRec.id, `Created leave ${leaveCode} for ${sIds.length} student(s)`);
+    this.logAudit('CREATE_LEAVE', 'student_leave_records', primaryRec.id, `Created leave ${leaveCode} for ${sIds.length} student(s) [${effectiveStatus}]`);
     return [primaryRec];
+  }
+
+  async approveLeaveRecord(leave_id, { approved_by = 'Hostel Warden', fine_per_hour = 50 } = {}) {
+    const leaves = this.get('tps_leaves');
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+
+    const leave = leaves[idx];
+    leave.status = 'Approved';
+    leave.approved_by = approved_by || 'Hostel Warden';
+    leave.approved_at = new Date().toISOString();
+    leave.fine_unit = 'hour';
+    leave.fine_per_hour = Number(fine_per_hour) || 50;
+    leave.fine_per_hour_applied = Number(fine_per_hour) || 50;
+    leave.fine_per_day = (Number(fine_per_hour) || 50) * 24;
+    leave.fine_per_day_applied = (Number(fine_per_hour) || 50) * 24;
+
+    const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
+    for (const sid of sIds) {
+      await this.updateStudent(sid, { status: 'On Approved Leave' });
+    }
+
+    this.set('tps_leaves', leaves);
+    this.logAudit('APPROVE_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} approved by ${approved_by} at ₹${fine_per_hour}/hr fine rate`);
+    return leave;
+  }
+
+  async rejectLeaveRecord(leave_id, { rejected_by = 'Hostel Warden', reason = 'Administrative grounds' } = {}) {
+    const leaves = this.get('tps_leaves');
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+
+    const leave = leaves[idx];
+    leave.status = 'Rejected';
+    leave.rejected_by = rejected_by || 'Hostel Warden';
+    leave.rejected_reason = reason;
+    this.set('tps_leaves', leaves);
+    this.logAudit('REJECT_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} rejected by ${rejected_by}`);
+    return leave;
   }
 
   async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '') {
@@ -2008,16 +2139,23 @@ class DatabaseService {
     if (idx === -1) throw new Error('Leave record not found');
 
     const leave = leaves[idx];
+    const isHourly = leave.fine_unit === 'hour';
+    const rate = isHourly
+      ? (leave.fine_per_hour_applied || leave.fine_per_hour || 50)
+      : (leave.fine_per_day_applied || leave.fine_per_day || 100);
+
     const calc = this.calculateReturnLate(
       leave.expected_return_date,
       leave.expected_return_time || '17:00',
       actual_return_date,
       actual_return_time || '17:00',
-      leave.fine_per_day_applied || leave.fine_per_day || 100
+      rate,
+      isHourly ? 'hour' : 'daily'
     );
 
     leave.actual_return_date = actual_return_date;
     leave.actual_return_time = actual_return_time;
+    leave.late_hours = calc.lateHours;
     leave.late_days = calc.lateDays;
     leave.calculated_fine = calc.fineAmount;
     leave.adjusted_fine = calc.fineAmount;
@@ -2030,6 +2168,7 @@ class DatabaseService {
         s.is_returned = true;
         s.actual_return_date = actual_return_date;
         s.actual_return_time = actual_return_time;
+        s.late_hours = calc.lateHours;
         s.late_days = calc.lateDays;
         s.fine_amount = calc.fineAmount;
         s.black_marks = calc.blackMarks;

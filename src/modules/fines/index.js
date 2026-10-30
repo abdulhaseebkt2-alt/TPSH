@@ -94,7 +94,7 @@ export async function renderFinesModule(container, { onNavigate }) {
                 <th>Leave Reg</th>
                 <th>Expected Date</th>
                 <th>Actual Return</th>
-                <th>Late Days</th>
+                <th>Late Duration</th>
                 <th>Fine Rate</th>
                 <th>Assessed Amount</th>
                 <th>Status</th>
@@ -107,6 +107,9 @@ export async function renderFinesModule(container, { onNavigate }) {
                 const isPaid = l.fine_status === 'paid';
                 const isWaived = l.fine_status === 'waived';
                 const statusBadge = isPaid ? 'badge-present' : isWaived ? 'badge-leave' : 'badge-absent';
+                const isHourly = l.fine_unit === 'hour' || l.late_hours != null;
+                const durationLabel = isHourly ? `${l.late_hours || 0} Hr(s)` : `${l.late_days || 0} Day(s)`;
+                const rateLabel = isHourly ? `₹${l.fine_per_hour_applied || l.fine_per_hour || 50}/hr` : `₹${l.fine_per_day_applied || 100}/day`;
 
                 return `
                   <tr>
@@ -117,8 +120,8 @@ export async function renderFinesModule(container, { onNavigate }) {
                     <td><code>${l.leave_register_number}</code></td>
                     <td>${formatDate(l.expected_return_date)}</td>
                     <td>${formatDate(l.actual_return_date || new Date().toISOString())}</td>
-                    <td><strong>${l.late_days} Day(s)</strong></td>
-                    <td>₹${l.fine_per_day_applied}/day</td>
+                    <td><strong>${durationLabel}</strong></td>
+                    <td>${rateLabel}</td>
                     <td><strong style="color: #DC2626; font-size: 1rem;">${formatCurrency(l.calculated_fine)}</strong></td>
                     <td><span class="badge ${statusBadge}">${l.fine_status.toUpperCase()}</span></td>
                     <td>
@@ -303,12 +306,12 @@ export async function renderFinesModule(container, { onNavigate }) {
                 <span class="print-value">${formatDate(leave.actual_return_date || new Date().toISOString())}</span>
               </div>
               <div class="print-field">
-                <span class="print-label">Late Days Assessed</span>
-                <span class="print-value">${leave.late_days} Calendar Day(s)</span>
+                <span class="print-label">Late Assessed</span>
+                <span class="print-value">${(leave.fine_unit === 'hour' || leave.late_hours != null) ? `${leave.late_hours || 0} Hour(s)` : `${leave.late_days || 0} Calendar Day(s)`}</span>
               </div>
               <div class="print-field">
-                <span class="print-label">Fine Per Day</span>
-                <span class="print-value">₹${leave.fine_per_day_applied}</span>
+                <span class="print-label">Fine Rate</span>
+                <span class="print-value">₹${(leave.fine_unit === 'hour' || leave.late_hours != null) ? `${leave.fine_per_hour_applied || leave.fine_per_hour || 50}/hr` : `${leave.fine_per_day_applied || 100}/day`}</span>
               </div>
               <div class="print-field" style="grid-column: span 2; background: #F1F5F9; padding: 12px; border-radius: 6px;">
                 <span class="print-label">Total Fine Payable</span>

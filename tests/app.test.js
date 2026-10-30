@@ -4465,4 +4465,106 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).not.toContain('Male (Boys Only)');
     });
   });
+  describe('25. Parent Leave Request, Countdown/Countup & Hourly Fine System Tests', () => {
+    it('2501 - db.calculateHourlyLate correctly assesses overdue hours and hourly fine', () => {
+      // On-time return: expected 2026-10-30 18:00, actual 2026-10-30 17:30
+      const onTime = db.calculateHourlyLate('2026-10-30', '18:00', '2026-10-30', '17:30', 50);
+      expect(onTime.late_hours).toBe(0);
+      expect(onTime.calculated_fine).toBe(0);
+
+      // Exactly on-time
+      const exactTime = db.calculateHourlyLate('2026-10-30', '18:00', '2026-10-30', '18:00', 50);
+      expect(exactTime.late_hours).toBe(0);
+      expect(exactTime.calculated_fine).toBe(0);
+
+      // 3 hours late
+      const late3h = db.calculateHourlyLate('2026-10-30', '18:00', '2026-10-30', '21:00', 50);
+      expect(late3h.late_hours).toBe(3);
+      expect(late3h.calculated_fine).toBe(150);
+
+      // Next day return: 28 hours late at ₹60/hr
+      const nextDay = db.calculateHourlyLate('2026-10-30', '18:00', '2026-10-31', '22:00', 60);
+      expect(nextDay.late_hours).toBe(28);
+      expect(nextDay.calculated_fine).toBe(1680);
+    });
+
+    it('2502 - Parent leave request workflow: Pending creation, hourly fine, mentor approval & rejection', async () => {
+      const student = await db.addStudent({
+        full_name: 'Zayan Test Student',
+        gender: 'Boys',
+        admission_number: 'TPS-2026-TEST-P1',
+        school_class: 'STD-VIII'
+      });
+
+      // 1. Create pending leave request submitted by parent
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-01',
+        departure_time: '16:00',
+        expected_return_date: '2026-11-03',
+        expected_return_time: '18:00',
+        reason: 'Family wedding celebration',
+        requested_by: 'Parent: Abdul Rahman',
+        requester_role: 'parent',
+        status: 'Pending',
+        fine_unit: 'hour',
+        fine_per_hour: 50
+      });
+
+      expect(leave.status).toBe('Pending');
+      expect(leave.requester_role).toBe('parent');
+      expect(leave.fine_unit).toBe('hour');
+      expect(leave.fine_per_hour).toBe(50);
+
+      // 2. Warden/Mentor approves with updated custom hourly fine (₹75/hr)
+      const approved = await db.approveLeaveRecord(leave.id, {
+        approved_by: 'Hostel Chief Warden',
+        fine_per_hour: 75
+      });
+
+      expect(approved.status).toBe('Approved');
+      expect(approved.approved_by).toBe('Hostel Chief Warden');
+      expect(approved.fine_per_hour).toBe(75);
+
+      // 3. Create another leave and verify rejection
+      const [leave2] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'personal_leave',
+        departure_date: '2026-11-05',
+        expected_return_date: '2026-11-06',
+        reason: 'Weekend visit',
+        status: 'Pending'
+      });
+
+      const rejected = await db.rejectLeaveRecord(leave2.id, {
+        rejected_by: 'Hostel Chief Warden',
+        reason: 'Upcoming terminal exams'
+      });
+
+      expect(rejected.status).toBe('Rejected');
+    });
+
+    it('2503 - Parent Dashboard removes Fee Invoices and provides Request Hostel Leave action', async () => {
+      const parentUser = {
+        id: 'p-test-01',
+        email: 'parent.test@thaiba.edu',
+        role: 'parent',
+        approval_status: 'approved',
+        full_name: 'Parent Test User'
+      };
+      updateCurrentUserProfile(parentUser);
+
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(container, { onNavigate: () => {} });
+
+      // Fee invoices button must be removed
+      expect(container.innerHTML).not.toContain('id="btn-parent-fees"');
+      expect(container.innerHTML).not.toContain('Fee Invoices');
+
+      // Request Hostel Leave button must be active and present
+      expect(container.innerHTML).toContain('id="btn-parent-apply-leave"');
+      expect(container.innerHTML).toContain('Request Hostel Leave');
+    });
+  });
 });
