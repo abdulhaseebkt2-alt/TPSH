@@ -1497,17 +1497,31 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
     await renderAttendanceModule(container, { onNavigate: () => {}, initialClassId: 'cls-1' });
 
-    // 1. Bottom of card shows only Present, Absent, Total Students (and On Leave if any) with zero buttons
+    // 1. Bottom of card shows only Present, Absent, and On Leave with zero buttons and NO Total Students
     expect(container.innerHTML).toContain('att-class-footer-bar');
     expect(container.innerHTML).toContain('att-counters');
     expect(container.innerHTML).toContain('Present:');
     expect(container.innerHTML).toContain('Absent:');
-    expect(container.innerHTML).toContain('Total Students:');
+    expect(container.innerHTML).toContain('On Leave:');
     // Verify no buttons inside the bottom of the card
     expect(container.innerHTML).not.toContain('att-bulk-btns');
     expect(container.innerHTML).not.toContain('id="btn-mark-all-absent"');
 
-    // 2. After card action bar: 3/5 Search, 1/5 All Present, 1/5 Clear
+    // Bottom counter element does NOT contain "Total Students:"
+    const countersHtml = container.innerHTML.substring(
+      container.innerHTML.indexOf('id="att-counters"'),
+      container.innerHTML.indexOf('</div>\n          </div>\n\n        <!-- Search Bar') > 0
+        ? container.innerHTML.indexOf('</div>\n          </div>\n\n        <!-- Search Bar')
+        : container.innerHTML.indexOf('att-search-actions-bar')
+    );
+    expect(countersHtml).not.toContain('Total Students:');
+
+    // 2. Filter tabs row (All, In Class, etc.) is removed
+    expect(container.innerHTML).not.toContain('att-roster-subbar');
+    expect(container.innerHTML).not.toContain('att-roster-tab');
+    expect(container.innerHTML).not.toContain('att-roster-filter-pills');
+
+    // 3. After card action bar: 3/5 Search, 1/5 All Present, 1/5 Clear
     expect(container.innerHTML).toContain('att-search-actions-bar');
     expect(container.innerHTML).toContain('att-search-col-3-5');
     expect(container.innerHTML).toContain('att-search-input');
@@ -1517,7 +1531,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('All Present');
     expect(container.innerHTML).toContain('Clear');
 
-    // 3. Clear button functionality
+    // 4. Clear button functionality
     expect(typeof listeners['#btn-clear-attendance']).toBe('function');
   });
 
@@ -3362,10 +3376,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // D. Verify summary counter displays "On Leave" count
       expect(html).toContain('On Leave:');
 
-      // E. Verify segmented roster filter tabs (All, In Class, On Leave)
-      expect(html).toContain('data-roster-filter="all"');
-      expect(html).toContain('data-roster-filter="in_class"');
-      expect(html).toContain('data-roster-filter="on_leave"');
+      // E. Verify segmented roster filter tabs (All, In Class, On Leave) row is removed per user request
+      expect(html).not.toContain('data-roster-filter="all"');
+      expect(html).not.toContain('data-roster-filter="in_class"');
+      expect(html).not.toContain('data-roster-filter="on_leave"');
 
       // Clean up
       await db.deleteStudent(student.id);

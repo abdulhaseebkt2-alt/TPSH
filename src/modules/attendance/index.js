@@ -98,7 +98,6 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   let activeClassroomId = preselectedClsId || availableClassrooms[0]?.id || 'cls-1';
   let currentView = preselectedClsId ? 'roster' : 'cards';
   let timetableFilterTab = 'today'; // 'today' | 'weekly' | 'live'
-  let rosterFilterMode = 'all'; // 'all' | 'in_class' | 'on_leave'
 
   // Time-Window Status Calculation for a classroom on targetDate
   async function checkWindowStatus(clsId, targetDate = sessionDate) {
@@ -938,25 +937,6 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           </button>
         </div>
 
-        <!-- Roster Filter Segmented Tabs & Count Subbar -->
-        <div class="att-roster-subbar">
-          <div class="att-roster-filter-pills">
-            <button type="button" class="btn btn-xs ${rosterFilterMode === 'all' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="all" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.3rem 0.65rem;">
-              All (${activeList.length})
-            </button>
-            <button type="button" class="btn btn-xs ${rosterFilterMode === 'in_class' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="in_class" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.3rem 0.65rem;" title="Show only students physically in class (hide students on leave)">
-              In Class (${inClassCount})
-            </button>
-            ${onLeaveCount > 0 ? `
-              <button type="button" class="btn btn-xs ${rosterFilterMode === 'on_leave' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="on_leave" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.3rem 0.65rem; color: ${rosterFilterMode === 'on_leave' ? '#FFFFFF' : '#2563EB'}; border-color: #BFDBFE;" title="Show only students on approved leave">
-                ✈️ On Leave (${onLeaveCount})
-              </button>
-            ` : ''}
-          </div>
-
-          <span class="att-roster-count">${activeList.length} Students</span>
-        </div>
-
         <!-- SMALL COMPACT STUDENT ATTENDANCE CARDS WITH 2-WAY SWITCH -->
         <div class="attendance-compact-list" id="att-cards-container">
           ${renderCompactCardsHtml(activeList, canInteract)}
@@ -1021,15 +1001,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       }
     });
 
-    const inClassCount = activeList.length - leaveCount;
-
     return `
       <span class="att-counter-item">Present: <strong style="color: #059669;">${presentCount}</strong></span>
       <span class="att-counter-dot">•</span>
       <span class="att-counter-item">Absent: <strong style="color: #DC2626;">${absentCount}</strong></span>
-      ${leaveCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item" style="color: #2563EB;">On Leave: <strong>${leaveCount}</strong></span>` : ''}
       <span class="att-counter-dot">•</span>
-      <span class="att-counter-item" style="color: #0F172A;">Total Students: <strong>${activeList.length}</strong> ${leaveCount > 0 ? `<span style="font-size: 0.74rem; color: #64748B; font-weight: 600;">(${inClassCount} in class)</span>` : ''}</span>
+      <span class="att-counter-item" style="color: #2563EB;">On Leave: <strong>${leaveCount}</strong></span>
       ${lateCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item" style="color: #D97706;">Late: <strong>${lateCount}</strong></span>` : ''}
     `;
   }
@@ -1269,14 +1246,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     container.querySelectorAll('.attendance-compact-card').forEach(card => {
       const name = card.getAttribute('data-student-name') || '';
-      const isOnLeave = card.getAttribute('data-is-on-leave') === 'true';
-
-      let matchesFilter = true;
-      if (rosterFilterMode === 'in_class' && isOnLeave) matchesFilter = false;
-      if (rosterFilterMode === 'on_leave' && !isOnLeave) matchesFilter = false;
-
-      const matchesQuery = !query || name.includes(query);
-      const visible = matchesFilter && matchesQuery;
+      const visible = !query || name.includes(query);
 
       if (visible) {
         card.style.display = 'flex';
@@ -1313,20 +1283,6 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     // Search filter
     container.querySelector('#att-search-input')?.addEventListener('input', filterCards);
-
-    // Roster filter pills (All / In Class / On Leave)
-    container.querySelectorAll('.att-roster-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        rosterFilterMode = btn.getAttribute('data-roster-filter') || 'all';
-        container.querySelectorAll('.att-roster-tab').forEach(b => {
-          b.classList.remove('btn-primary');
-          b.classList.add('btn-outline');
-        });
-        btn.classList.add('btn-primary');
-        btn.classList.remove('btn-outline');
-        filterCards();
-      });
-    });
 
     // Guard clicks on leave cards to inform teachers
     container.querySelectorAll('.attendance-compact-card.is-on-leave').forEach(card => {
