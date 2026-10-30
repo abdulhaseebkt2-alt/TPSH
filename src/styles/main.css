@@ -6781,10 +6781,61 @@ body.tps-wheel-open {
   display: none;
 }
 
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-holiday-start .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-hostel-leave-start .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n).is-range-start .cal-cell-track {
+  border-radius: 9999px;
+}
+
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-end .cal-cell-track::before,
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-hostel-leave-end .cal-cell-track::before,
 .cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-end .cal-cell-track::before {
   display: none;
+}
+
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-holiday-end .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-hostel-leave-end .cal-cell-track,
+.cal-month-grid > .cal-inst-day-cell:nth-child(7n+1).is-range-end .cal-cell-track {
+  border-radius: 9999px;
+}
+
+/* Month Boundary Curvature for Cross-Month Ranges (Last Day of Month & 1st Day of Month) */
+.cal-inst-day-cell.is-month-last.is-holiday-middle .cal-cell-track,
+.cal-inst-day-cell.is-month-last.is-hostel-leave-middle .cal-cell-track,
+.cal-inst-day-cell.is-month-last.is-range-middle .cal-cell-track {
+  border-top-right-radius: 9999px !important;
+  border-bottom-right-radius: 9999px !important;
+}
+
+.cal-inst-day-cell.is-month-last.is-holiday-start .cal-cell-track::after,
+.cal-inst-day-cell.is-month-last.is-hostel-leave-start .cal-cell-track::after,
+.cal-inst-day-cell.is-month-last.is-range-start .cal-cell-track::after {
+  display: none !important;
+}
+
+.cal-inst-day-cell.is-month-last.is-holiday-start .cal-cell-track,
+.cal-inst-day-cell.is-month-last.is-hostel-leave-start .cal-cell-track,
+.cal-inst-day-cell.is-month-last.is-range-start .cal-cell-track {
+  border-radius: 9999px !important;
+}
+
+.cal-inst-day-cell.is-month-first.is-holiday-middle .cal-cell-track,
+.cal-inst-day-cell.is-month-first.is-hostel-leave-middle .cal-cell-track,
+.cal-inst-day-cell.is-month-first.is-range-middle .cal-cell-track {
+  border-top-left-radius: 9999px !important;
+  border-bottom-left-radius: 9999px !important;
+}
+
+.cal-inst-day-cell.is-month-first.is-holiday-end .cal-cell-track::before,
+.cal-inst-day-cell.is-month-first.is-hostel-leave-end .cal-cell-track::before,
+.cal-inst-day-cell.is-month-first.is-range-end .cal-cell-track::before {
+  display: none !important;
+}
+
+.cal-inst-day-cell.is-month-first.is-holiday-end .cal-cell-track,
+.cal-inst-day-cell.is-month-first.is-hostel-leave-end .cal-cell-track,
+.cal-inst-day-cell.is-month-first.is-range-end .cal-cell-track {
+  border-radius: 9999px !important;
 }
 
 .cal-day-num-wrap {

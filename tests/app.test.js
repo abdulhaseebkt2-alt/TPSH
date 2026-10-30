@@ -1975,6 +1975,59 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     await db.removeCalendarHoliday('2026-10-03');
   });
 
+  it('Academic Calendar Month Boundary Curvature: curves right edge on last day of month (Oct 31) and left edge on 1st day of month (Nov 1) for cross-month holiday ranges', async () => {
+    // Add cross-month holiday range (Oct 30 to Nov 03, 2026)
+    await db.addCalendarHolidayRange({
+      startDate: '2026-10-30',
+      endDate: '2026-11-03',
+      name: 'Autumn Term Leave',
+      type: 'holiday'
+    });
+
+    let nextMonthCb = null;
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (sel === '#cal-btn-next-month') {
+          return {
+            addEventListener: (event, cb) => {
+              if (event === 'click') nextMonthCb = cb;
+            }
+          };
+        }
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderCalendarModule(container, { onNavigate: () => {} });
+
+    // 1. In October 2026:
+    // Oct 30 is holiday start
+    expect(container.innerHTML).toContain('data-date="2026-10-30"');
+    expect(container.innerHTML).toMatch(/cal-inst-day-cell cal-day-box[^"]*is-holiday-start/);
+
+    // Oct 31 is the last day of October: must be tagged with is-month-last and is-holiday-middle
+    expect(container.innerHTML).toContain('data-date="2026-10-31"');
+    expect(container.innerHTML).toMatch(/class="cal-inst-day-cell cal-day-box is-month-last[^"]*is-holiday-middle"/);
+
+    // 2. Click next month button to inspect November 2026
+    expect(typeof nextMonthCb).toBe('function');
+    nextMonthCb();
+
+    // In November 2026:
+    // Nov 01 is the 1st day of November: must be tagged with is-month-first and is-holiday-middle
+    expect(container.innerHTML).toContain('data-date="2026-11-01"');
+    expect(container.innerHTML).toMatch(/class="cal-inst-day-cell cal-day-box is-month-first[^"]*is-holiday-middle"/);
+
+    // Nov 03 is the holiday end
+    expect(container.innerHTML).toContain('data-date="2026-11-03"');
+    expect(container.innerHTML).toMatch(/cal-inst-day-cell cal-day-box[^"]*is-holiday-end/);
+
+    // Clean up
+    await db.removeCalendarHoliday('2026-10-30');
+  });
+
   it('Attendance Reports Student Calendar View: renders Screenshot 3 student filter toolbar and day box click triggers student inspection popup modal', async () => {
     let appendedModal = null;
     const originalDocument = global.document;

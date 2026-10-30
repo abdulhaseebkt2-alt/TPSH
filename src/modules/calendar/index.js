@@ -124,7 +124,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
         hasCustomEvent: isCustom,
         holidayRole,
         hostelLeaveRole,
-        type: dayInfo.type
+        type: dayInfo.type,
+        isMonthFirst: d === 1,
+        isMonthLast: d === totalDays
       });
     }
 
@@ -433,9 +435,11 @@ export async function renderCalendarModule(container, { onNavigate }) {
                     else if (cell.holidayRole === 'single') holidayClass = 'is-holiday-single';
                   }
 
+                  const monthBoundaryClass = `${cell.isMonthFirst ? 'is-month-first' : ''} ${cell.isMonthLast ? 'is-month-last' : ''}`.trim();
+
                   return `
                     <div 
-                      class="cal-inst-day-cell cal-day-box ${rangeClass} ${leaveClass} ${holidayClass}" 
+                      class="cal-inst-day-cell cal-day-box ${monthBoundaryClass} ${rangeClass} ${leaveClass} ${holidayClass}" 
                       data-date="${cell.dateStr}"
                       data-is-holiday="${isHol}"
                       role="button"
