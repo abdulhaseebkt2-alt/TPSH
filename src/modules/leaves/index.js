@@ -635,6 +635,23 @@ export async function renderLeavesModule(container, { onNavigate }) {
             });
           }
 
+          let indSearch = '';
+          let savedRetDate = today;
+          let savedRetTime = nowTime;
+          let savedRemarks = 'Good health, reported safely';
+
+          function getFilteredStudents() {
+            return unreturnedStudents.filter(us => {
+              const q = indSearch.toLowerCase().trim();
+              const nameMatch = !q || us.student.full_name?.toLowerCase().includes(q) || us.student.admission_number?.toLowerCase().includes(q);
+              const gMatch = genderFilter === 'all' || 
+                (genderFilter === 'male' && (us.student.gender === 'male' || us.student.gender === 'boys' || us.student.gender === 'Boys')) ||
+                (genderFilter === 'female' && (us.student.gender === 'female' || us.student.gender === 'girls' || us.student.gender === 'Girls'));
+              const cMatch = classFilter === 'all' || us.student.school_class === classFilter;
+              return nameMatch && gMatch && cMatch;
+            });
+          }
+
           function renderIndContent() {
             const filtered = getFilteredStudents();
             const activeTarget = filtered.find(us => us.student.id === selectedStudentLeaveId) || filtered[0] || null;
@@ -643,84 +660,95 @@ export async function renderLeavesModule(container, { onNavigate }) {
             const contentEl = modalBody.querySelector('#arrival-mode-content');
             if (!contentEl) return;
 
-            const isBoy = activeTarget && (activeTarget.student.gender === 'male' || activeTarget.student.gender === 'boys' || activeTarget.student.gender === 'Boys');
-
             contentEl.innerHTML = `
               <div class="hostel-modal-flow-wrap">
-                <!-- Scrollable Form Body -->
-                <div class="hostel-modal-scroll-area" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.45rem; padding-right: 2px;">
-                  <!-- Filter Dropdowns Row (50/50 Class & Gender) -->
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
-                    <div class="form-group" style="margin: 0;">
-                      <label class="form-label" style="font-size: 0.72rem; font-weight: 600;">Gender</label>
-                      <select id="ind-gender-filter" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All Genders</option>
-                        <option value="male" ${genderFilter === 'male' ? 'selected' : ''}>Boys</option>
-                        <option value="female" ${genderFilter === 'female' ? 'selected' : ''}>Girls</option>
-                      </select>
-                    </div>
-                    <div class="form-group" style="margin: 0;">
-                      <label class="form-label" style="font-size: 0.72rem; font-weight: 600;">Class</label>
-                      <select id="ind-class-filter" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="all">All Classes</option>
-                        ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="form-group" style="margin: 0;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Select Student *</label>
-                    <select id="ind-student-select" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                      ${filtered.map(us => {
-                        const uBoy = (us.student.gender === 'male' || us.student.gender === 'boys' || us.student.gender === 'Boys');
-                        return `
-                          <option value="${us.student.id}" ${us.student.id === selectedStudentLeaveId ? 'selected' : ''}>
-                            ${us.student.full_name} — Class ${us.student.school_class || '-'} • ${uBoy ? 'Boy' : 'Girl'}
-                          </option>
-                        `;
-                      }).join('')}
-                    </select>
-                  </div>
-
-                  <!-- Selected Student Details Card: ONLY photo, name, class under name, and Boy/Girl on right -->
-                  ${activeTarget ? `
-                    <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 0.55rem 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 0.65rem;">
-                      <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0;">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; background: #059669; color: #FFFFFF; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 0.85rem; flex-shrink: 0;">
-                          ${activeTarget.student.photo_url ? `<img src="${activeTarget.student.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : (activeTarget.student.full_name?.charAt(0) || 'S')}
-                        </div>
-                        <div style="min-width: 0;">
-                          <div style="font-weight: 700; font-size: 0.84rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${activeTarget.student.full_name}</div>
-                          <div style="font-size: 0.72rem; color: #64748B; margin-top: 1px;">Class ${activeTarget.student.school_class || '-'}</div>
-                        </div>
-                      </div>
-                      <span class="badge" style="font-size: 0.68rem; font-weight: 600; padding: 3px 8px; border-radius: 9999px; background: ${(activeTarget.student.gender === 'male' || activeTarget.student.gender === 'boys' || activeTarget.student.gender === 'Boys') ? '#EFF6FF' : '#FDF2F8'}; color: ${(activeTarget.student.gender === 'male' || activeTarget.student.gender === 'boys' || activeTarget.student.gender === 'Boys') ? '#1D4ED8' : '#BE185D'}; flex-shrink: 0;">
-                        ${(activeTarget.student.gender === 'male' || activeTarget.student.gender === 'boys' || activeTarget.student.gender === 'Boys') ? 'Boy' : 'Girl'}
-                      </span>
-                    </div>
-                  ` : '<div style="padding: 0.75rem; text-align: center; color: #94A3B8; font-size: 0.8rem;">No students match selected filter.</div>'}
-
+                <!-- Top Return Inputs -->
+                <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4rem;">
                   <!-- Return Date & Time Row -->
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Actual Return Date *</label>
-                      <input type="date" id="ind-return-date" class="form-control" value="${today}" required style="height: 34px; font-size: 0.8rem;" />
+                      <input type="date" id="ind-return-date" class="form-control" value="${savedRetDate}" required style="height: 34px; font-size: 0.8rem;" />
                     </div>
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Actual Return Time *</label>
-                      <input type="time" id="ind-return-time" class="form-control" value="${nowTime}" data-picker-title="Actual Return Time" required style="height: 34px; font-size: 0.78rem;" />
+                      <input type="time" id="ind-return-time" class="form-control" value="${savedRetTime}" data-picker-title="Actual Return Time" required style="height: 34px; font-size: 0.78rem;" />
                     </div>
                   </div>
 
                   <!-- Health & Remarks -->
                   <div class="form-group" style="margin: 0;">
                     <label class="form-label" style="font-size: 0.72rem; font-weight: 600;">Health Condition & Return Remarks</label>
-                    <input type="text" id="ind-return-remarks" class="form-control" placeholder="e.g. Good health, reported on time" value="Good health, reported safely" style="height: 34px; font-size: 0.8rem;" />
+                    <input type="text" id="ind-return-remarks" class="form-control" placeholder="e.g. Good health, reported on time" value="${savedRemarks}" style="height: 34px; font-size: 0.8rem;" />
+                  </div>
+                </div>
+
+                <!-- Students Selection Box (Dynamic Height on Big Phones) -->
+                <div style="flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.5rem 0.65rem; background: #F8FAFC;">
+                  <!-- Header: clean 'Select Student' -->
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-shrink: 0;">
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #0F172A;">
+                      Select Student *
+                    </span>
+                    ${activeTarget ? `
+                      <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px;">
+                        ✓ ${activeTarget.student.full_name}
+                      </span>
+                    ` : `
+                      <span style="font-size: 0.72rem; color: #DC2626; font-weight: 600;">Tap student to select</span>
+                    `}
                   </div>
 
-                  <!-- Live Late Fine preview if past expected return date -->
-                  <div id="ind-late-preview"></div>
+                  <!-- Row 1: Search bar spans full width from left to right end -->
+                  <div style="margin-bottom: 0.4rem; flex-shrink: 0; width: 100%;">
+                    <input type="text" id="ind-student-search" class="form-control" placeholder="Search student name..." value="${indSearch}" style="width: 100%; height: 34px; font-size: 0.8rem;" />
+                  </div>
+
+                  <!-- Row 2: Next line class and gender dropdown equally divided (50% / 50%) -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-bottom: 0.45rem; flex-shrink: 0; width: 100%;">
+                    <select id="ind-class-filter" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
+                      <option value="all">All Classes</option>
+                      ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                    <select id="ind-gender-filter" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
+                      <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All Genders</option>
+                      <option value="male" ${genderFilter === 'male' ? 'selected' : ''}>Boys</option>
+                      <option value="female" ${genderFilter === 'female' ? 'selected' : ''}>Girls</option>
+                    </select>
+                  </div>
+
+                  <!-- Radio List: ONLY photo, name, class under name, and Boy/Girl on right -->
+                  <div class="hostel-modal-scroll-area" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; padding-right: 2px;">
+                    ${filtered.length === 0 ? `
+                      <div style="padding: 1.5rem; text-align: center; color: #94A3B8; font-size: 0.82rem;">
+                        No away students match current search / filters.
+                      </div>
+                    ` : filtered.map(us => {
+                      const isBoy = (us.student.gender === 'male' || us.student.gender === 'boys' || us.student.gender === 'Boys');
+                      const isSelected = selectedStudentLeaveId === us.student.id;
+                      return `
+                        <label class="student-ret-ind-tile" data-id="${us.student.id}" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: ${isSelected ? '#ECFDF5' : '#FFFFFF'}; border: 1.5px solid ${isSelected ? '#10B981' : '#E2E8F0'}; border-radius: 8px; cursor: pointer; user-select: none; transition: all 0.15s ease;">
+                          <input type="radio" name="ind-ret-student-radio" class="radio-ind-ret-student" value="${us.student.id}" ${isSelected ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #059669;" />
+                          <div style="width: 32px; height: 32px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            ${us.student.photo_url ? `<img src="${us.student.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : (us.student.full_name?.charAt(0) || 'S')}
+                          </div>
+                          <div style="flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                            <div style="min-width: 0;">
+                              <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${us.student.full_name}</div>
+                              <div style="font-size: 0.72rem; color: #64748B; margin-top: 1px;">Class ${us.student.school_class || '-'}</div>
+                            </div>
+                            <span class="badge" style="font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 9999px; background: ${isBoy ? '#EFF6FF' : '#FDF2F8'}; color: ${isBoy ? '#1D4ED8' : '#BE185D'}; flex-shrink: 0;">
+                              ${isBoy ? 'Boy' : 'Girl'}
+                            </span>
+                          </div>
+                        </label>
+                      `;
+                    }).join('')}
+                  </div>
                 </div>
+
+                <!-- Hidden input for backwards compatibility -->
+                <input type="hidden" id="ind-student-select" value="${selectedStudentLeaveId || ''}" />
 
                 <!-- Action Buttons Frozen at Bottom -->
                 <div class="hostel-modal-actions-bar" style="flex-shrink: 0; margin-top: auto; padding-top: 0.45rem;">
@@ -732,29 +760,56 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
             enhanceModalInputs(contentEl);
 
-            // Attach listeners
+            function saveArrivalInputs() {
+              savedRetDate = modalBody.querySelector('#ind-return-date')?.value || savedRetDate;
+              savedRetTime = modalBody.querySelector('#ind-return-time')?.value || savedRetTime;
+              savedRemarks = modalBody.querySelector('#ind-return-remarks')?.value || savedRemarks;
+            }
+
+            modalBody.querySelector('#ind-student-search')?.addEventListener('input', (e) => {
+              indSearch = e.target.value;
+              saveArrivalInputs();
+              const q = indSearch.toLowerCase().trim();
+              modalBody.querySelectorAll('.student-ret-ind-tile').forEach(tile => {
+                const sid = tile.dataset.id;
+                const us = unreturnedStudents.find(u => u.student.id === sid);
+                const matches = !q || us?.student?.full_name?.toLowerCase().includes(q) || us?.student?.admission_number?.toLowerCase().includes(q);
+                tile.style.display = matches ? 'flex' : 'none';
+              });
+            });
+
             modalBody.querySelector('#ind-gender-filter')?.addEventListener('change', (e) => {
+              saveArrivalInputs();
               genderFilter = e.target.value;
               renderIndContent();
             });
 
             modalBody.querySelector('#ind-class-filter')?.addEventListener('change', (e) => {
+              saveArrivalInputs();
               classFilter = e.target.value;
               renderIndContent();
             });
 
-            modalBody.querySelector('#ind-student-select')?.addEventListener('change', (e) => {
-              selectedStudentLeaveId = e.target.value;
-              renderIndContent();
+            modalBody.querySelectorAll('.student-ret-ind-tile').forEach(tile => {
+              tile.addEventListener('click', () => {
+                const sid = tile.dataset.id;
+                selectedStudentLeaveId = sid;
+                saveArrivalInputs();
+                renderIndContent();
+              });
             });
 
             modalBody.querySelector('#btn-cancel-arrival')?.addEventListener('click', close);
 
             modalBody.querySelector('#btn-confirm-ind-arrival')?.addEventListener('click', async () => {
-              if (!activeTarget) return;
-              const retDate = modalBody.querySelector('#ind-return-date').value;
-              const retTime = modalBody.querySelector('#ind-return-time').value;
-              const remarks = modalBody.querySelector('#ind-return-remarks').value.trim();
+              saveArrivalInputs();
+              if (!activeTarget) {
+                toast.error('Please select a student.');
+                return;
+              }
+              const retDate = savedRetDate;
+              const retTime = savedRetTime;
+              const remarks = savedRemarks.trim();
 
               if (!retDate || !retTime) {
                 toast.error('Actual return date and time are required.');
@@ -765,7 +820,6 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 await db.recordReturn(activeTarget.leave.id, retDate, retTime, remarks);
                 toast.success(`Arrival recorded successfully for ${activeTarget.student.full_name}.`);
                 close();
-                // Refresh leaves
                 const updatedLeaves = await db.getLeaves();
                 leaves.length = 0;
                 leaves.push(...updatedLeaves);
@@ -1029,99 +1083,151 @@ export async function renderLeavesModule(container, { onNavigate }) {
       `,
       onMount: ({ container: modalBody, close }) => {
         function renderIndividualPass() {
+          let indSearch = '';
           let genderFilter = 'all';
           let classFilter = 'all';
+          let selectedStudentId = null;
+          let savedDepDate = today;
+          let savedDepTime = '16:00';
+          let savedRetDate = defaultReturn;
+          let savedRetTime = '17:00';
+          let savedLeaveType = 'hostel_leave';
+          let savedFineRate = 50;
+          let savedReason = '';
 
           function getFiltered() {
             return students.filter(s => {
+              const q = indSearch.toLowerCase().trim();
+              const nameMatch = !q || s.full_name?.toLowerCase().includes(q) || s.admission_number?.toLowerCase().includes(q);
               const gMatch = genderFilter === 'all' || 
                 (genderFilter === 'male' && (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys')) ||
                 (genderFilter === 'female' && (s.gender === 'female' || s.gender === 'girls' || s.gender === 'Girls'));
               const cMatch = classFilter === 'all' || s.school_class === classFilter;
-              return gMatch && cMatch;
+              return nameMatch && gMatch && cMatch;
             });
           }
 
           function renderIndForm() {
             const filtered = getFiltered();
+            if (!selectedStudentId && filtered.length > 0) {
+              selectedStudentId = filtered[0].id;
+            }
+            const selectedStudent = students.find(s => s.id === selectedStudentId);
+
             const contentEl = modalBody.querySelector('#pass-mode-content');
             if (!contentEl) return;
 
             contentEl.innerHTML = `
               <div class="hostel-modal-flow-wrap">
-                <!-- Scrollable Form Body -->
-                <div class="hostel-modal-scroll-area" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.45rem; padding-right: 2px;">
-                  <!-- Filter Row (50/50 Class & Gender) -->
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
-                    <div class="form-group" style="margin: 0;">
-                      <label class="form-label" style="font-size: 0.72rem; font-weight: 600;">Gender</label>
-                      <select id="pass-ind-gender" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All Genders</option>
-                        <option value="male" ${genderFilter === 'male' ? 'selected' : ''}>Boys</option>
-                        <option value="female" ${genderFilter === 'female' ? 'selected' : ''}>Girls</option>
-                      </select>
-                    </div>
-                    <div class="form-group" style="margin: 0;">
-                      <label class="form-label" style="font-size: 0.72rem; font-weight: 600;">Class / Standard</label>
-                      <select id="pass-ind-class" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="all">All Classes</option>
-                        ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="form-group" style="margin: 0;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Select Student *</label>
-                    <select id="pass-ind-student" class="form-control" style="height: 34px; font-size: 0.8rem;" required>
-                      ${filtered.map(s => {
-                        const isBoy = (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys');
-                        return `<option value="${s.id}">${s.full_name} — Class ${s.school_class || '-'} • ${isBoy ? 'Boy' : 'Girl'}</option>`;
-                      }).join('')}
-                    </select>
-                  </div>
-
+                <!-- Top Inputs (Compact & Frozen) -->
+                <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4rem;">
                   <!-- Departure & Return Row -->
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Departure Date & Time *</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
-                        <input type="date" id="pass-dep-date" class="form-control" value="${today}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
-                        <input type="time" id="pass-dep-time" class="form-control" value="16:00" data-picker-title="Departure Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
+                        <input type="date" id="pass-dep-date" class="form-control" value="${savedDepDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
+                        <input type="time" id="pass-dep-time" class="form-control" value="${savedDepTime}" data-picker-title="Departure Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
                       </div>
                     </div>
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Expected Return Date & Time *</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
-                        <input type="date" id="pass-ret-date" class="form-control" value="${defaultReturn}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
-                        <input type="time" id="pass-ret-time" class="form-control" value="17:00" data-picker-title="Expected Return Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
+                        <input type="date" id="pass-ret-date" class="form-control" value="${savedRetDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
+                        <input type="time" id="pass-ret-time" class="form-control" value="${savedRetTime}" data-picker-title="Expected Return Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
                       </div>
                     </div>
                   </div>
 
-                  <!-- Type & Late Fine Rate -->
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
+                  <!-- Type, Fine & Reason Row -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type *</label>
                       <select id="pass-leave-type" class="form-control" style="height: 34px; font-size: 0.8rem;">
-                        <option value="hostel_leave">Hostel Weekend Leave</option>
-                        <option value="vacation">Vacation / Term Holidays</option>
-                        <option value="medical_leave">Medical Leave</option>
-                        <option value="emergency_leave">Emergency Leave</option>
-                        <option value="personal_leave">Personal / Family Event</option>
+                        <option value="hostel_leave" ${savedLeaveType === 'hostel_leave' ? 'selected' : ''}>Hostel Weekend</option>
+                        <option value="vacation" ${savedLeaveType === 'vacation' ? 'selected' : ''}>Vacation / Holidays</option>
+                        <option value="medical_leave" ${savedLeaveType === 'medical_leave' ? 'selected' : ''}>Medical Leave</option>
+                        <option value="emergency_leave" ${savedLeaveType === 'emergency_leave' ? 'selected' : ''}>Emergency Leave</option>
+                        <option value="personal_leave" ${savedLeaveType === 'personal_leave' ? 'selected' : ''}>Personal / Event</option>
                       </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
-                      <input type="number" id="pass-fine-rate" class="form-control" value="50" min="0" step="5" required style="height: 34px; font-size: 0.8rem;" />
+                      <input type="number" id="pass-fine-rate" class="form-control" value="${savedFineRate}" min="0" step="5" required style="height: 34px; font-size: 0.8rem;" />
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason for Leave *</label>
+                      <input type="text" id="pass-reason" class="form-control" placeholder="e.g. Attending sister's wedding" value="${savedReason}" required style="height: 34px; font-size: 0.8rem;" />
                     </div>
                   </div>
+                </div>
 
-                  <!-- Reason -->
-                  <div class="form-group" style="margin: 0;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason for Leave *</label>
-                    <input type="text" id="pass-reason" class="form-control" placeholder="e.g. Attending sister's wedding / Family function" required style="height: 34px; font-size: 0.8rem;" />
+                <!-- Student Selection Box: dynamic height according to screen size -->
+                <div style="flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.5rem 0.65rem; background: #F8FAFC;">
+                  <!-- Header: 'Select Student' + selected indicator -->
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-shrink: 0;">
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #0F172A;">
+                      Select Student *
+                    </span>
+                    ${selectedStudent ? `
+                      <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px;">
+                        ✓ ${selectedStudent.full_name}
+                      </span>
+                    ` : `
+                      <span style="font-size: 0.72rem; color: #DC2626; font-weight: 600;">Tap student to select</span>
+                    `}
+                  </div>
+
+                  <!-- Row 1: Search bar spans full width from left to right end -->
+                  <div style="margin-bottom: 0.4rem; flex-shrink: 0; width: 100%;">
+                    <input type="text" id="pass-ind-search" class="form-control" placeholder="Search student name..." value="${indSearch}" style="width: 100%; height: 34px; font-size: 0.8rem;" />
+                  </div>
+
+                  <!-- Row 2: Next line class and gender dropdown equally divided (50% / 50%) -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-bottom: 0.45rem; flex-shrink: 0; width: 100%;">
+                    <select id="pass-ind-cls-filter" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
+                      <option value="all">All Classes</option>
+                      ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                    <select id="pass-ind-gen-filter" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
+                      <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All Genders</option>
+                      <option value="male" ${genderFilter === 'male' ? 'selected' : ''}>Boys</option>
+                      <option value="female" ${genderFilter === 'female' ? 'selected' : ''}>Girls</option>
+                    </select>
+                  </div>
+
+                  <!-- Radio List (Dynamic Height, ONLY photo, name, class under name, and Boy/Girl on right) -->
+                  <div class="hostel-modal-scroll-area" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; padding-right: 2px;">
+                    ${filtered.length === 0 ? `
+                      <div style="padding: 1.5rem; text-align: center; color: #94A3B8; font-size: 0.82rem;">
+                        No students match current search / filters.
+                      </div>
+                    ` : filtered.map(s => {
+                      const isBoy = (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys');
+                      const isSelected = selectedStudentId === s.id;
+                      return `
+                        <label class="student-ind-select-tile" data-id="${s.id}" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: ${isSelected ? '#ECFDF5' : '#FFFFFF'}; border: 1.5px solid ${isSelected ? '#10B981' : '#E2E8F0'}; border-radius: 8px; cursor: pointer; user-select: none; transition: all 0.15s ease;">
+                          <input type="radio" name="ind-pass-student-radio" class="radio-ind-pass-student" value="${s.id}" ${isSelected ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #059669;" />
+                          <div style="width: 32px; height: 32px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            ${s.photo_url ? `<img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : (s.full_name?.charAt(0) || 'S')}
+                          </div>
+                          <div style="flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                            <div style="min-width: 0;">
+                              <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.full_name}</div>
+                              <div style="font-size: 0.72rem; color: #64748B; margin-top: 1px;">Class ${s.school_class || '-'}</div>
+                            </div>
+                            <span class="badge" style="font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 9999px; background: ${isBoy ? '#EFF6FF' : '#FDF2F8'}; color: ${isBoy ? '#1D4ED8' : '#BE185D'}; flex-shrink: 0;">
+                              ${isBoy ? 'Boy' : 'Girl'}
+                            </span>
+                          </div>
+                        </label>
+                      `;
+                    }).join('')}
                   </div>
                 </div>
+
+                <!-- Hidden input for backwards compatibility -->
+                <input type="hidden" id="pass-ind-student" value="${selectedStudentId || ''}" />
 
                 <!-- Actions Frozen at Bottom -->
                 <div class="hostel-modal-actions-bar" style="flex-shrink: 0; margin-top: auto; padding-top: 0.45rem;">
@@ -1133,29 +1239,68 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
             enhanceModalInputs(contentEl);
 
-            modalBody.querySelector('#pass-ind-gender')?.addEventListener('change', (e) => {
+            function saveTopInputs() {
+              savedDepDate = modalBody.querySelector('#pass-dep-date')?.value || savedDepDate;
+              savedDepTime = modalBody.querySelector('#pass-dep-time')?.value || savedDepTime;
+              savedRetDate = modalBody.querySelector('#pass-ret-date')?.value || savedRetDate;
+              savedRetTime = modalBody.querySelector('#pass-ret-time')?.value || savedRetTime;
+              savedLeaveType = modalBody.querySelector('#pass-leave-type')?.value || savedLeaveType;
+              savedFineRate = Number(modalBody.querySelector('#pass-fine-rate')?.value) || savedFineRate;
+              savedReason = modalBody.querySelector('#pass-reason')?.value || savedReason;
+            }
+
+            modalBody.querySelector('#pass-ind-search')?.addEventListener('input', (e) => {
+              indSearch = e.target.value;
+              saveTopInputs();
+              const q = indSearch.toLowerCase().trim();
+              modalBody.querySelectorAll('.student-ind-select-tile').forEach(tile => {
+                const sid = tile.dataset.id;
+                const st = students.find(s => s.id === sid);
+                const matches = !q || st?.full_name?.toLowerCase().includes(q) || st?.admission_number?.toLowerCase().includes(q);
+                tile.style.display = matches ? 'flex' : 'none';
+              });
+            });
+
+            modalBody.querySelector('#pass-ind-gen-filter')?.addEventListener('change', (e) => {
+              saveTopInputs();
               genderFilter = e.target.value;
               renderIndForm();
             });
 
-            modalBody.querySelector('#pass-ind-class')?.addEventListener('change', (e) => {
+            modalBody.querySelector('#pass-ind-cls-filter')?.addEventListener('change', (e) => {
+              saveTopInputs();
               classFilter = e.target.value;
               renderIndForm();
+            });
+
+            modalBody.querySelectorAll('.student-ind-select-tile').forEach(tile => {
+              tile.addEventListener('click', () => {
+                const sid = tile.dataset.id;
+                selectedStudentId = sid;
+                saveTopInputs();
+                renderIndForm();
+              });
             });
 
             modalBody.querySelector('#btn-cancel-pass')?.addEventListener('click', close);
 
             modalBody.querySelector('#btn-submit-ind-pass')?.addEventListener('click', async () => {
-              const studentId = modalBody.querySelector('#pass-ind-student')?.value;
-              const depDate = modalBody.querySelector('#pass-dep-date')?.value;
-              const depTime = modalBody.querySelector('#pass-dep-time')?.value;
-              const retDate = modalBody.querySelector('#pass-ret-date')?.value;
-              const retTime = modalBody.querySelector('#pass-ret-time')?.value;
-              const leaveType = modalBody.querySelector('#pass-leave-type')?.value;
-              const fineRate = modalBody.querySelector('#pass-fine-rate')?.value;
-              const reason = modalBody.querySelector('#pass-reason')?.value.trim();
+              saveTopInputs();
+              const studentId = selectedStudentId || modalBody.querySelector('#pass-ind-student')?.value;
+              const depDate = savedDepDate;
+              const depTime = savedDepTime;
+              const retDate = savedRetDate;
+              const retTime = savedRetTime;
+              const leaveType = savedLeaveType;
+              const fineRate = savedFineRate;
+              const reason = savedReason.trim();
 
-              if (!studentId || !depDate || !retDate || !reason) {
+              if (!studentId) {
+                toast.error('Please select a student for the leave pass.');
+                return;
+              }
+
+              if (!depDate || !retDate || !reason) {
                 toast.error('Please complete all required fields.');
                 return;
               }

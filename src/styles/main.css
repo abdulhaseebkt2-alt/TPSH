@@ -5917,6 +5917,22 @@ body.tps-wheel-open {
   padding-right: 2px;
 }
 
+.student-ind-select-tile,
+.student-ret-ind-tile {
+  transition: all 0.15s ease;
+}
+
+.student-ind-select-tile:hover,
+.student-ret-ind-tile:hover {
+  border-color: #94A3B8 !important;
+  background: #F8FAFC !important;
+}
+
+.student-ind-select-tile:active,
+.student-ret-ind-tile:active {
+  transform: scale(0.99);
+}
+
 .hostel-modal-actions-bar {
   display: flex;
   justify-content: flex-end;

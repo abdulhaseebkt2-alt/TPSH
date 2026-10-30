@@ -3342,6 +3342,16 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(mainCss).toContain('overflow: hidden !important;');
       expect(mainCss).toContain('.hostel-modal-actions-bar {');
       expect(mainCss).toContain('.hostel-modal-scroll-area {');
+
+      // 5. Individual Leave & Arrival also use rich student cards with photos (no raw <select> dropdowns)
+      expect(leavesJs).not.toContain('<select id="pass-ind-student"');
+      expect(leavesJs).not.toContain('<select id="ind-student-select"');
+      expect(leavesJs).toContain('class="student-ind-select-tile"');
+      expect(leavesJs).toContain('class="student-ret-ind-tile"');
+      expect(leavesJs).toContain('id="pass-ind-search"');
+      expect(leavesJs).toContain('id="ind-student-search"');
+      expect(mainCss).toContain('.student-ind-select-tile');
+      expect(mainCss).toContain('.student-ret-ind-tile');
     });
 
     it('Attendance Management Timetable Cards Layout: bounded compact card width and multi-column grid', async () => {
