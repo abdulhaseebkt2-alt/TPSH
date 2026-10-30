@@ -21,6 +21,7 @@ import { renderAttendanceReportModule } from '../src/modules/reports/attendance-
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
 import { applyInstitutionalAppIcon } from '../src/app.js';
 import { enhanceSelect } from '../src/components/custom-select.js';
+import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -2780,5 +2781,47 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     } finally {
       delete globalThis.document;
     }
+  });
+
+  it('Mobile Bottom Navigation: edge-to-edge full width with role-scoped accessible windows for every mobile user and sidebar over bottom nav', () => {
+    // 1. Admin navigation items
+    const adminItems = getBottomNavItems({ role: 'admin', is_super_admin: false });
+    expect(adminItems.map(i => i.key)).toEqual(['dashboard', 'timetable', 'attendance', 'attendance_report', 'settings']);
+
+    // 2. Teacher navigation items
+    const teacherItems = getBottomNavItems({ role: 'teacher', is_super_admin: false });
+    expect(teacherItems.map(i => i.key)).toEqual(['dashboard', 'timetable', 'attendance', 'attendance_report', 'marks']);
+
+    // 3. Mentor navigation items
+    const mentorItems = getBottomNavItems({ role: 'mentor', is_super_admin: false });
+    expect(mentorItems.map(i => i.key)).toEqual(['dashboard', 'attendance', 'leaves', 'hostel', 'discipline']);
+
+    // 4. Parent navigation items
+    const parentItems = getBottomNavItems({ role: 'parent', is_super_admin: false });
+    expect(parentItems.map(i => i.key)).toEqual(['dashboard', 'attendance', 'leaves', 'marks', 'fees']);
+
+    // 5. Student navigation items
+    const studentItems = getBottomNavItems({ role: 'student', is_super_admin: false });
+    expect(studentItems.map(i => i.key)).toEqual(['dashboard', 'attendance', 'leaves', 'marks', 'exams']);
+
+    // 6. Test renderBottomNav DOM rendering and active button
+    const container = {
+      innerHTML: '',
+      querySelectorAll: () => []
+    };
+
+    renderBottomNav(container, {
+      profile: { role: 'admin' },
+      activeModule: 'attendance',
+      onNavigate: () => {}
+    });
+
+    expect(container.innerHTML).toContain('data-nav="dashboard"');
+    expect(container.innerHTML).toContain('data-nav="attendance"');
+    expect(container.innerHTML).toContain('data-nav="timetable"');
+    expect(container.innerHTML).toContain('data-nav="attendance_report"');
+    expect(container.innerHTML).toContain('data-nav="settings"');
+    expect(container.innerHTML).toContain('class="m-nav-pill-btn active" data-nav="attendance"');
+    expect(container.innerHTML).toContain('m-nav-icon-wrap');
   });
 });

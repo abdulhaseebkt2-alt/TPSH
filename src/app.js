@@ -2,6 +2,7 @@ import { initAuth, onAuthStateChanged, signInWithGoogle, signInWithEmail, signOu
 import { canAccessModule } from './lib/permissions.js';
 import { renderNavbar } from './components/navbar.js';
 import { renderSidebar } from './components/sidebar.js';
+import { renderBottomNav } from './components/bottom-nav.js';
 import { toast } from './lib/toast.js';
 import { initGlobalUIObserver, enhanceAllUI } from './lib/ui-enhancer.js';
 
@@ -227,7 +228,7 @@ class App {
     // Initialize global UI enhancer observer for dynamic & upcoming UI (calendar & custom dropdown)
     initGlobalUIObserver();
 
-    // Re-render sidebar when permissions/RBAC matrix is updated
+    // Re-render sidebar and bottom navigation when permissions/RBAC matrix is updated
     window.addEventListener('tps:permissions-updated', () => {
       const sidebarEl = this.appEl.querySelector('#app-sidebar');
       if (sidebarEl) {
@@ -237,6 +238,14 @@ class App {
           onToggleCollapse: () => this.toggleSidebarCollapse(),
           onNavigate: (mod) => this.navigate(mod),
           onCloseMobile: () => this.closeSidebarMobile()
+        });
+      }
+      const bottomNavEl = this.appEl.querySelector('#app-bottom-nav');
+      if (bottomNavEl && this.currentUser) {
+        renderBottomNav(bottomNavEl, {
+          profile: this.currentUser,
+          activeModule: this.activeModule,
+          onNavigate: (mod) => this.navigate(mod)
         });
       }
     });
@@ -294,6 +303,16 @@ class App {
       const mod = item.getAttribute('data-module');
       item.classList.toggle('active', mod === this.activeModule);
     });
+
+    // Update role-scoped mobile bottom navigation bar
+    const bottomNavEl = this.appEl.querySelector('#app-bottom-nav');
+    if (bottomNavEl) {
+      renderBottomNav(bottomNavEl, {
+        profile,
+        activeModule: this.activeModule,
+        onNavigate: (mod) => this.navigate(mod)
+      });
+    }
 
     // Provide instant feedback with sleek lightweight loader
     contentEl.innerHTML = `
@@ -975,6 +994,7 @@ class App {
       <div class="main-wrapper ${this.sidebarCollapsed ? 'sidebar-collapsed' : ''}">
         <div id="app-navbar"></div>
         <main class="content-area" id="app-content"></main>
+        <nav class="m-floating-bottom-nav" id="app-bottom-nav"></nav>
       </div>
     `;
 
@@ -982,6 +1002,7 @@ class App {
     const navbarEl = this.appEl.querySelector('#app-navbar');
     const contentEl = this.appEl.querySelector('#app-content');
     const backdropEl = this.appEl.querySelector('#sidebar-backdrop');
+    const bottomNavEl = this.appEl.querySelector('#app-bottom-nav');
 
     backdropEl?.addEventListener('click', () => this.closeSidebarMobile());
 
@@ -1003,6 +1024,14 @@ class App {
       onNavigate: (mod) => this.navigate(mod),
       onCloseMobile: () => this.closeSidebarMobile()
     });
+
+    if (bottomNavEl) {
+      renderBottomNav(bottomNavEl, {
+        profile,
+        activeModule: this.activeModule,
+        onNavigate: (mod) => this.navigate(mod)
+      });
+    }
 
     // Render active module
     const routerFn = MODULE_ROUTERS[this.activeModule] || renderDashboard;

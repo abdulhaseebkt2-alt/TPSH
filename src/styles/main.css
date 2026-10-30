@@ -1735,6 +1735,10 @@ a {
   .sidebar {
     transform: translateX(-100%);
     width: var(--sidebar-width) !important;
+    z-index: 999 !important;
+  }
+  .sidebar-backdrop {
+    z-index: 998 !important;
   }
   .menu-toggle-btn {
     display: flex !important;
@@ -1742,6 +1746,7 @@ a {
   .sidebar.mobile-open {
     transform: translateX(0);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 999 !important;
   }
   .sidebar-close-btn {
     display: block;
@@ -7869,28 +7874,37 @@ body.tps-wheel-open {
     border-radius: 9999px;
   }
 
-  /* 9. Floating Bottom Navigation Bar */
+  /* 9. Mobile Bottom Navigation Bar: Edge-to-Edge Full-Width */
   .m-floating-bottom-nav {
     position: fixed;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 24px);
-    max-width: 380px;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    border-radius: 9999px;
-    padding: 6px 8px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 100%;
+    background: #FFFFFF;
+    border-top: 1px solid #E2E8F0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 0;
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom, 6px));
     display: flex;
     align-items: center;
     justify-content: space-around;
-    box-shadow: 0 10px 30px -4px rgba(15, 23, 42, 0.16);
-    z-index: 1000;
+    box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.05);
+    z-index: 40; /* Lower than mobile sidebar (z-index: 999) and backdrop (z-index: 998) */
+    transform: none;
+    box-sizing: border-box;
+  }
+
+  .content-area .m-floating-bottom-nav {
+    display: none !important; /* Hide duplicate dashboard in-module nav in favor of shell nav */
   }
 
   .m-nav-pill-btn {
+    flex: 1 1 0%;
+    min-width: 0;
     background: transparent;
     border: none;
     display: flex;
@@ -7898,19 +7912,39 @@ body.tps-wheel-open {
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 6px 12px;
-    border-radius: 9999px;
+    padding: 4px 2px;
     color: #64748B;
     font-size: 0.65rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .m-nav-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 12px;
+    border-radius: 9999px;
+    transition: background-color 0.15s ease;
+  }
+
+  .m-nav-pill-btn span:last-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    line-height: 1.1;
   }
 
   .m-nav-pill-btn.active {
-    background: #ECFDF5;
     color: #059669;
     font-weight: 800;
+  }
+
+  .m-nav-pill-btn.active .m-nav-icon-wrap {
+    background: #ECFDF5;
   }
 
   .m-nav-pill-btn.active svg {
