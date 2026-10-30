@@ -5763,33 +5763,35 @@ body.tps-wheel-open {
 }
 
 /* ============================================================
-   HOSTEL ARRIVAL & LEAVE FLOW MODALS (FIXED SIZE & EQUAL ALIGNMENT)
+   HOSTEL ARRIVAL & LEAVE FLOW MODALS (DYNAMIC SIZING & FROZEN FOOTER)
    ============================================================ */
 .modal-dialog.hostel-flow-modal {
-  height: 650px;
-  max-height: 88vh;
-  min-height: 540px;
+  height: 90vh;
+  max-height: 720px;
+  min-height: 500px;
   width: 100%;
   max-width: 620px;
   display: flex;
   flex-direction: column;
+  overflow: hidden !important;
 }
 
 .modal-dialog.hostel-flow-modal .modal-body {
-  padding: 1rem 1.25rem 0.85rem;
+  padding: 0.75rem 1rem 0.65rem !important;
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .modal-dialog.hostel-flow-modal #arrival-mode-content,
 .modal-dialog.hostel-flow-modal #pass-mode-content {
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden !important;
 }
 
 .hostel-mode-switcher-bar {
@@ -5828,33 +5830,72 @@ body.tps-wheel-open {
 .hostel-modal-flow-wrap {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
-  gap: 0.75rem;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-right: 2px;
+  gap: 0.45rem;
+  overflow: hidden !important; /* Outer container NEVER scrolls; only student list scrolls */
+  box-sizing: border-box;
+}
+
+.hostel-modal-flow-wrap .form-control,
+.hostel-modal-flow-wrap input.form-control,
+.hostel-modal-flow-wrap select.form-control,
+.hostel-modal-flow-wrap textarea.form-control {
+  height: 34px !important;
+  font-size: 0.8rem !important;
+  padding: 0.35rem 0.65rem !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+
+.hostel-modal-flow-wrap .form-label {
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 2px !important;
+  color: #475569 !important;
 }
 
 .hostel-modal-flow-wrap .tps-date-input-wrapper {
   flex: 1 1 0% !important;
   min-width: 0 !important;
+  height: 34px !important;
+}
+
+.hostel-modal-flow-wrap .tps-date-input-field {
+  height: 34px !important;
+  font-size: 0.8rem !important;
+  padding: 0.35rem 0.55rem !important;
+}
+
+.hostel-modal-flow-wrap .tps-date-icon {
+  right: 0.55rem !important;
+}
+
+.hostel-modal-flow-wrap .tps-date-icon svg {
+  width: 14px !important;
+  height: 14px !important;
 }
 
 .hostel-modal-flow-wrap .wheel-time-trigger {
   flex-shrink: 0 !important;
-  height: 38px !important;
-  font-size: 0.82rem !important;
+  height: 34px !important;
+  font-size: 0.78rem !important;
   font-weight: 600 !important;
   white-space: nowrap !important;
+  padding: 0.35rem 0.55rem !important;
+  border-radius: 8px !important;
+}
+
+.hostel-modal-flow-wrap .wheel-time-val {
+  font-size: 0.78rem !important;
 }
 
 .hostel-modal-scroll-area {
-  flex: 1;
-  min-height: 140px;
+  flex: 1 1 0%;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 .hostel-modal-actions-bar {
@@ -5862,46 +5903,58 @@ body.tps-wheel-open {
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: auto;
-  padding-top: 0.65rem;
+  padding-top: 0.45rem;
   border-top: 1px solid #F1F5F9;
   flex-shrink: 0;
+  background: inherit;
 }
 
 @media (max-width: 768px) {
   .modal-overlay.has-hostel-flow-modal {
-    padding: 0.5rem;
+    padding: 0.35rem;
     align-items: center;
   }
 
   .modal-dialog.hostel-flow-modal {
-    height: 84vh !important;
-    max-height: 85vh !important;
-    min-height: 540px !important;
+    height: 92vh !important;
+    max-height: 94vh !important;
+    min-height: 480px !important;
     border-radius: 16px !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
+    overflow: hidden !important;
   }
 
   .modal-dialog.hostel-flow-modal .modal-header {
-    padding: 0.75rem 0.85rem !important;
+    padding: 0.65rem 0.85rem !important;
   }
 
   .modal-dialog.hostel-flow-modal .modal-body {
-    padding: 0.65rem 0.75rem 0.5rem !important;
+    padding: 0.5rem 0.65rem 0.45rem !important;
+    overflow: hidden !important;
   }
 
   .hostel-mode-switcher-bar button,
   .hostel-mode-switcher-bar .hostel-mode-btn {
     font-size: 0.76rem !important;
     gap: 4px !important;
-    padding: 0.4rem 0.25rem !important;
+    padding: 0.35rem 0.25rem !important;
   }
 
   .hostel-mode-switcher-bar button svg,
   .hostel-mode-switcher-bar .hostel-mode-btn svg {
     width: 13px !important;
     height: 13px !important;
+  }
+
+  /* Compact and refined inputs inside cards and modals across mobile APK */
+  .card .form-control,
+  .modal-dialog .form-control,
+  .form-card .form-control,
+  .mobile-card .form-control,
+  .tps-date-input-field {
+    font-size: 0.825rem !important;
   }
 }
 

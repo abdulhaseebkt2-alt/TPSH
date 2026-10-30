@@ -3306,6 +3306,40 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       }
     });
 
+    it('Hostel Leave and Arrival Modals UX (v1.9.8): minimal student cards, full-width search, 50/50 filters, and frozen bottom actions', async () => {
+      const fs = await import('fs');
+      const leavesJs = fs.readFileSync('src/modules/leaves/index.js', 'utf8');
+      const mainCss = fs.readFileSync('src/styles/main.css', 'utf8');
+
+      // 1. Clean header without emojis or verbose text
+      expect(leavesJs).not.toContain('👥 Select Students for Batch Leave Card');
+      expect(leavesJs).not.toContain('👥 Select Returning Students');
+      expect(leavesJs).toContain('Select Students (<span id="batch-pass-sel-count">');
+      expect(leavesJs).toContain('Select Students (<span id="batch-sel-count">');
+      expect(leavesJs).toContain('Select Student *');
+
+      // 2. Full-width search bar and 50/50 dropdown division
+      expect(leavesJs).toContain('id="batch-pass-search"');
+      expect(leavesJs).toContain('width: 100%; height: 34px; font-size: 0.8rem;');
+      expect(leavesJs).toContain('grid-template-columns: 1fr 1fr; gap: 0.45rem;');
+
+      // 3. Minimal student card: only photo, name, class under name, and Boy/Girl on right
+      // No admission numbers in batch student list items
+      expect(leavesJs).not.toContain('(${s.admission_number})');
+      expect(leavesJs).not.toContain('(${st.admission_number})');
+      expect(leavesJs).toContain('Class ${s.school_class || \'-\'}');
+      expect(leavesJs).toContain('Class ${st.school_class || \'-\'}');
+      expect(leavesJs).toContain("${isBoy ? 'Boy' : 'Girl'}");
+
+      // 4. Frozen footer actions bar and dynamic screen sizing
+      expect(leavesJs).toContain('class="hostel-modal-actions-bar"');
+      expect(leavesJs).toContain('class="hostel-modal-scroll-area"');
+      expect(mainCss).toContain('.hostel-modal-flow-wrap {');
+      expect(mainCss).toContain('overflow: hidden !important;');
+      expect(mainCss).toContain('.hostel-modal-actions-bar {');
+      expect(mainCss).toContain('.hostel-modal-scroll-area {');
+    });
+
     it('Hostel Leave Pass Engine: creates LV-YYYY-XXX pass, calculates late returns, updates student status and creates fine records', async () => {
       const student = await db.addStudent({
         full_name: 'Leave Engine Test Student',
