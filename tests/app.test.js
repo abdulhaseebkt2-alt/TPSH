@@ -2130,6 +2130,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     // 4. Strict cascading: unassigned faculty (e.g. parent or new applicant) are NOT in the dropdown
     expect(html).not.toContain('Ahmad K.T.');
     expect(html).not.toContain('New Applicant');
+
+    // 5. Layout structure: Section and Class dropdowns divided equally into a single row
+    expect(html).toContain('grid-template-columns: 1fr 1fr');
+    expect(html).toContain('Classroom & Faculty Duty');
   });
 
   it('Calendar UI in Attendance Report: renders unworking class days as faded, holidays as yellow, hostel leaves as fade red text only, and missed attendance as red color round', async () => {

@@ -290,98 +290,123 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
             </p>
           </div>
           <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline btn-sm" id="btn-rep-goto-attendance" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-rep-goto-attendance" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem; background: #FFFFFF; border-color: #CBD5E1; color: #1E293B;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
               Live Attendance Duty
             </button>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-rep-goto-calendar" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-rep-goto-calendar" style="font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 0.4rem; background: #FFFFFF; border-color: #CBD5E1; color: #1E293B;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               Academic Calendar
             </button>
           </div>
         </div>
 
         <!-- CASCADING HIERARCHY SELECTOR CARD -->
-        <div class="card-panel" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05);">
-          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
-            <span style="display: flex; align-items: center; gap: 0.4rem;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-              Cascading Attendance Filter
-            </span>
-            <span style="font-size: 0.68rem; color: #059669; background: #ECFDF5; border: 1px solid #A7F3D0; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">Role Scoped</span>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem;">
-            
-            <!-- 1. Teacher Selector -->
+        <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 18px; padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05);">
+          
+          <!-- Modern Card Header (Replaces Clunky Filter Title & Badge) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.85rem;">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              <div style="width: 34px; height: 34px; border-radius: 10px; background: #ECFDF5; border: 1px solid #A7F3D0; display: inline-flex; align-items: center; justify-content: center; color: #059669; flex-shrink: 0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 0.96rem; font-weight: 800; color: #0F172A; margin: 0; line-height: 1.25;">
+                  ${isAdmin ? 'Classroom & Faculty Duty' : 'My Teaching Duty'}
+                </h3>
+                <span style="font-size: 0.72rem; color: #64748B; font-weight: 500;">
+                  ${isAdmin ? 'Filter duty schedule by teacher, section & class' : 'Active class session timetable'}
+                </span>
+              </div>
+            </div>
             <div>
-              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
-                Faculty / Teacher ${isTeacher ? '(Locked)' : ''}
-              </label>
               ${isAdmin ? `
-                <select id="att-rep-teacher-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
-                  ${eligibleTeachers.map(t => `<option value="${t.id}" ${t.id === selectedTeacherId ? 'selected' : ''}>${t.full_name || t.email}</option>`).join('')}
-                </select>
+                <span class="badge" style="background: #F8FAFC; color: #475569; border: 1px solid #E2E8F0; font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 9999px;">
+                  Administrative Governance
+                </span>
               ` : `
-                <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0.55rem 0.75rem; font-weight: 700; font-size: 0.86rem; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
-                  <span>${activeTeacher?.full_name || user?.full_name || 'My Faculty Duty'}</span>
-                  <span class="badge badge-active" style="font-size: 0.65rem;">My Account</span>
-                </div>
+                <span class="badge badge-active" style="font-size: 0.7rem; padding: 0.25rem 0.65rem; border-radius: 9999px;">
+                  Personal Faculty Duty
+                </span>
               `}
             </div>
+          </div>
 
+          <div style="height: 1px; background: #F1F5F9; border: none; margin: 0.65rem 0 0.85rem 0; width: 100%;"></div>
+
+          <!-- 1. Teacher Selector (Full Width Top Row) -->
+          <div style="margin-bottom: 0.75rem;">
+            <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+              Faculty / Teacher ${isTeacher ? '(Locked)' : ''}
+            </label>
+            ${isAdmin ? `
+              <select id="att-rep-teacher-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+                ${eligibleTeachers.map(t => `<option value="${t.id}" ${t.id === selectedTeacherId ? 'selected' : ''}>${t.full_name || t.email}</option>`).join('')}
+              </select>
+            ` : `
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 0.55rem 0.75rem; font-weight: 700; font-size: 0.86rem; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
+                <span>${activeTeacher?.full_name || user?.full_name || 'My Faculty Duty'}</span>
+                <span class="badge badge-active" style="font-size: 0.65rem;">My Account</span>
+              </div>
+            `}
+          </div>
+
+          <!-- 2 & 3. Section & Classroom Selectors (Divided Equally in a Single Row) -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
             <!-- 2. Section Selector -->
-            <div>
-              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+            <div style="min-width: 0;">
+              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Assigned Section
               </label>
-              <select id="att-rep-section-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+              <select id="att-rep-section-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis;">
                 ${assignedSections.map(s => `<option value="${s.id}" ${s.id === selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('')}
               </select>
             </div>
 
             <!-- 3. Class Selector -->
-            <div>
-              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+            <div style="min-width: 0;">
+              <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Assigned Classroom Session
               </label>
-              <select id="att-rep-class-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1;">
+              <select id="att-rep-class-select" class="form-control" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis;">
                 ${assignedClasses.map(c => `<option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
               </select>
             </div>
-
           </div>
 
           <!-- Classroom Timetable Specs Ribbon -->
           ${activeClass ? `
-            <div style="margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px dashed #E2E8F0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.78rem;">
-              <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
-                <span style="color: #64748B; font-weight: 600;">Meeting Days:</span>
-                <div style="display: inline-flex; align-items: center; gap: 4px;" title="Scheduled class meeting days">
-                  ${[
-                    { key: 'Mon', short: 'M', title: 'Monday' },
-                    { key: 'Tue', short: 'T', title: 'Tuesday' },
-                    { key: 'Wed', short: 'W', title: 'Wednesday' },
-                    { key: 'Thu', short: 'T', title: 'Thursday' },
-                    { key: 'Fri', short: 'F', title: 'Friday' },
-                    { key: 'Sat', short: 'S', title: 'Saturday' },
-                    { key: 'Sun', short: 'S', title: 'Sunday' }
-                  ].map(d => {
-                    const isMeeting = (activeClass?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).includes(d.key);
-                    return `<span class="day-round ${isMeeting ? 'active' : 'inactive'}" title="${d.title}: ${isMeeting ? 'Active Class Day' : 'Off'}">${d.short}</span>`;
-                  }).join('')}
+            <div style="margin-top: 0.95rem; padding-top: 0.85rem; border-top: 1px dashed #E2E8F0; display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.78rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem;">
+                <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+                  <span style="color: #64748B; font-weight: 700; font-size: 0.74rem;">Meeting Days:</span>
+                  <div style="display: inline-flex; align-items: center; gap: 4px;" title="Scheduled class meeting days">
+                    ${[
+                      { key: 'Mon', short: 'M', title: 'Monday' },
+                      { key: 'Tue', short: 'T', title: 'Tuesday' },
+                      { key: 'Wed', short: 'W', title: 'Wednesday' },
+                      { key: 'Thu', short: 'T', title: 'Thursday' },
+                      { key: 'Fri', short: 'F', title: 'Friday' },
+                      { key: 'Sat', short: 'S', title: 'Saturday' },
+                      { key: 'Sun', short: 'S', title: 'Sunday' }
+                    ].map(d => {
+                      const isMeeting = (activeClass?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).includes(d.key);
+                      return `<span class="day-round ${isMeeting ? 'active' : 'inactive'}" title="${d.title}: ${isMeeting ? 'Active Class Day' : 'Off'}">${d.short}</span>`;
+                    }).join('')}
+                  </div>
                 </div>
 
-                <span style="color: #CBD5E1; margin: 0 2px;">•</span>
-
-                <span style="color: #64748B; font-weight: 600;">Timing:</span>
-                <strong style="color: #0F172A; font-family: var(--font-mono); font-size: 0.82rem; background: #F8FAFC; padding: 2px 7px; border-radius: 6px; border: 1px solid #E2E8F0;">
-                  ${formatTime(activeClass?.start_time || '06:00')} – ${formatTime(activeClass?.end_time || '07:00')}
-                </strong>
+                <div style="display: flex; align-items: center; gap: 0.45rem;">
+                  <span style="color: #64748B; font-weight: 700; font-size: 0.74rem;">Timing:</span>
+                  <strong style="color: #0F172A; font-family: var(--font-mono); font-size: 0.82rem; background: #F8FAFC; padding: 2px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
+                    ${formatTime(activeClass?.start_time || '06:00')} – ${formatTime(activeClass?.end_time || '07:00')}
+                  </strong>
+                </div>
               </div>
 
-              <div style="color: #059669; font-weight: 700; font-size: 0.72rem; display: flex; align-items: center; gap: 4px; background: #ECFDF5; padding: 3px 9px; border-radius: 6px; border: 1px solid #A7F3D0;">
-                <span>⚡ Attendance restricted strictly between ${formatTime(activeClass?.start_time || '06:00')} and ${formatTime(activeClass?.end_time || '07:00')}</span>
+              <div style="color: #059669; font-weight: 700; font-size: 0.73rem; display: flex; align-items: center; gap: 5px; background: #ECFDF5; padding: 4px 10px; border-radius: 8px; border: 1px solid #A7F3D0;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Attendance restricted strictly between ${formatTime(activeClass?.start_time || '06:00')} and ${formatTime(activeClass?.end_time || '07:00')}</span>
               </div>
             </div>
           ` : ''}
