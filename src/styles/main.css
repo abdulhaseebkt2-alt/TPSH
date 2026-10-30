@@ -4082,6 +4082,59 @@ body.tps-wheel-open {
   cursor: not-allowed;
 }
 
+/* Attendance After-Card Search & 3/5 + 1/5 + 1/5 Action Bar */
+.att-search-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.att-search-col-3-5 {
+  flex: 3 1 0%;
+  min-width: 0;
+}
+
+.att-search-col-3-5 .att-search-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.att-btn-col-1-5 {
+  flex: 1 1 0%;
+  min-width: 0;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 10px;
+  white-space: nowrap;
+  padding: 0 0.4rem;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.att-roster-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .att-btn-col-1-5 {
+    font-size: 0.74rem;
+    padding: 0 0.25rem;
+  }
+}
+
 /* ============================================================
    COMPACT ATTENDANCE ROSTER & 2-WAY ADJUSTABLE SWITCH (IMAGE 4)
    ============================================================ */

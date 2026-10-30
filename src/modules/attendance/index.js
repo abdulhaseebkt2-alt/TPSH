@@ -901,39 +901,54 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             ` : ''}
           </div>
 
-          <!-- Attendance Summary Counters & Quick Bulk Buttons -->
+          <!-- Attendance Summary Counters at Bottom of Card (Present, Absent, On Leave, Total Students) -->
           <div class="att-class-footer-bar">
             <div class="att-stats-classic" id="att-counters">
               ${renderCountersHtml(activeList)}
             </div>
-            <div class="att-bulk-btns">
-              <button type="button" class="btn-classic-action" id="btn-mark-all-absent" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-                All Absent
-              </button>
-              <button type="button" class="btn-classic-action" id="btn-mark-all-present" ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-                All Present
-              </button>
-            </div>
           </div>
         </div>
 
-        <!-- Roster Search & Filter Bar -->
-        <div class="att-roster-header">
-          <div class="att-search-wrap">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="att-search-input" placeholder="Search student by name..." />
+        <!-- Search Bar (3/5 of line) + All Present (1/5) + Clear (1/5) -->
+        <div class="att-search-actions-bar">
+          <!-- 3/5: Search Input -->
+          <div class="att-search-col-3-5">
+            <div class="att-search-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="att-search-input" placeholder="Search student by name..." />
+            </div>
           </div>
 
-          <!-- Roster Filter Segmented Tabs (All / In Class / On Leave) -->
+          <!-- 1/5: All Present Button -->
+          <button type="button" 
+                  class="btn btn-primary att-btn-col-1-5" 
+                  id="btn-mark-all-present" 
+                  ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
+                  title="Mark all physically present in-class students as Present (skips students on leave)">
+            All Present
+          </button>
+
+          <!-- 1/5: Clear Button -->
+          <button type="button" 
+                  class="btn btn-outline att-btn-col-1-5" 
+                  id="btn-clear-attendance" 
+                  ${!canInteract ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
+                  title="Clear all marked attendance back to default (Absent)">
+            Clear
+          </button>
+        </div>
+
+        <!-- Roster Filter Segmented Tabs & Count Subbar -->
+        <div class="att-roster-subbar">
           <div class="att-roster-filter-pills">
-            <button type="button" class="btn btn-xs ${rosterFilterMode === 'all' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="all" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.28rem 0.65rem;">
+            <button type="button" class="btn btn-xs ${rosterFilterMode === 'all' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="all" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.3rem 0.65rem;">
               All (${activeList.length})
             </button>
-            <button type="button" class="btn btn-xs ${rosterFilterMode === 'in_class' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="in_class" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.28rem 0.65rem;" title="Show only students physically in class (hide students on leave)">
+            <button type="button" class="btn btn-xs ${rosterFilterMode === 'in_class' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="in_class" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.3rem 0.65rem;" title="Show only students physically in class (hide students on leave)">
               In Class (${inClassCount})
             </button>
             ${onLeaveCount > 0 ? `
-              <button type="button" class="btn btn-xs ${rosterFilterMode === 'on_leave' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="on_leave" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.28rem 0.65rem; color: ${rosterFilterMode === 'on_leave' ? '#FFFFFF' : '#2563EB'}; border-color: #BFDBFE;" title="Show only students on approved leave">
+              <button type="button" class="btn btn-xs ${rosterFilterMode === 'on_leave' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="on_leave" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.3rem 0.65rem; color: ${rosterFilterMode === 'on_leave' ? '#FFFFFF' : '#2563EB'}; border-color: #BFDBFE;" title="Show only students on approved leave">
                 ✈️ On Leave (${onLeaveCount})
               </button>
             ` : ''}
@@ -1006,12 +1021,16 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       }
     });
 
+    const inClassCount = activeList.length - leaveCount;
+
     return `
-      <span class="att-counter-item">Present: <strong>${presentCount}</strong></span>
+      <span class="att-counter-item">Present: <strong style="color: #059669;">${presentCount}</strong></span>
       <span class="att-counter-dot">•</span>
-      <span class="att-counter-item">Absent: <strong>${absentCount}</strong></span>
+      <span class="att-counter-item">Absent: <strong style="color: #DC2626;">${absentCount}</strong></span>
       ${leaveCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item" style="color: #2563EB;">On Leave: <strong>${leaveCount}</strong></span>` : ''}
-      ${lateCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item">Late: <strong>${lateCount}</strong></span>` : ''}
+      <span class="att-counter-dot">•</span>
+      <span class="att-counter-item" style="color: #0F172A;">Total Students: <strong>${activeList.length}</strong> ${leaveCount > 0 ? `<span style="font-size: 0.74rem; color: #64748B; font-weight: 600;">(${inClassCount} in class)</span>` : ''}</span>
+      ${lateCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item" style="color: #D97706;">Late: <strong>${lateCount}</strong></span>` : ''}
     `;
   }
 
@@ -1346,6 +1365,56 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       });
     });
 
+    // Mark All Present (Skips students on approved leave)
+    container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
+      if (!canInteract) return;
+      const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
+      const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
+      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+      const minutesLate = Math.max(1, nowMin - clsStartMin);
+
+      let markedCount = 0;
+      activeList.forEach(s => {
+        if (isStudentOnLeave(s, sessionDate)) return; // Strictly skip students on leave
+        const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(s.id);
+        if (wasInitiallyAbsent) {
+          attendanceState[s.id] = 'Late Present';
+          if (!studentLateMinutes[s.id]) studentLateMinutes[s.id] = minutesLate;
+        } else {
+          attendanceState[s.id] = 'Present';
+        }
+        markedCount++;
+      });
+      updateAllCardsVisual(activeList);
+      updateCounters(activeList);
+      toast.info(`Marked in-class students (${markedCount}) Present.`);
+    });
+
+    // Clear Attendance (Resets in-class students back to default Absent & clears late minutes and search)
+    const handleClearAttendance = () => {
+      if (!canInteract) return;
+      let clearedCount = 0;
+      activeList.forEach(s => {
+        if (isStudentOnLeave(s, sessionDate)) return; // Strictly leave students on approved leave untouched
+        attendanceState[s.id] = 'Absent';
+        delete studentLateMinutes[s.id];
+        clearedCount++;
+      });
+
+      const searchInput = container.querySelector('#att-search-input');
+      if (searchInput && searchInput.value) {
+        searchInput.value = '';
+        filterCards();
+      }
+
+      updateAllCardsVisual(activeList);
+      updateCounters(activeList);
+      toast.info(`Attendance cleared: In-class students (${clearedCount}) reset to default (Absent).`);
+    };
+
+    container.querySelector('#btn-clear-attendance')?.addEventListener('click', handleClearAttendance);
+    container.querySelector('#btn-mark-all-absent')?.addEventListener('click', handleClearAttendance);
+
     if (canInteract) {
       // Toggle switches
       container.querySelectorAll('.att-2way-switch').forEach(sw => {
@@ -1354,43 +1423,6 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           const sid = sw.getAttribute('data-student-id');
           if (sid) toggleStudentSwitch(sid, activeList);
         });
-      });
-
-      // Mark All Present (Skips students on approved leave)
-      container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
-        const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
-        const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
-        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-        const minutesLate = Math.max(1, nowMin - clsStartMin);
-
-        let markedCount = 0;
-        activeList.forEach(s => {
-          if (isStudentOnLeave(s, sessionDate)) return; // Strictly skip students on leave
-          const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(s.id);
-          if (wasInitiallyAbsent) {
-            attendanceState[s.id] = 'Late Present';
-            if (!studentLateMinutes[s.id]) studentLateMinutes[s.id] = minutesLate;
-          } else {
-            attendanceState[s.id] = 'Present';
-          }
-          markedCount++;
-        });
-        updateAllCardsVisual(activeList);
-        updateCounters(activeList);
-        toast.info(`Marked in-class students (${markedCount}) Present.`);
-      });
-
-      // Mark All Absent (Skips students on approved leave)
-      container.querySelector('#btn-mark-all-absent')?.addEventListener('click', () => {
-        let markedCount = 0;
-        activeList.forEach(s => {
-          if (isStudentOnLeave(s, sessionDate)) return; // Strictly skip students on leave
-          attendanceState[s.id] = 'Absent';
-          markedCount++;
-        });
-        updateAllCardsVisual(activeList);
-        updateCounters(activeList);
-        toast.info(`Marked in-class students (${markedCount}) Absent.`);
       });
 
       // Submit attendance

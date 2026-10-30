@@ -1466,6 +1466,61 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('att-switch-thumb');
   });
 
+  it('Attendance Roster UI: card bottom shows only counters with Total Students and zero buttons; after card shows 3/5 search, 1/5 All Present, 1/5 Clear', async () => {
+    updateCurrentUserProfile({
+      id: 'd0000000-0000-0000-0000-000000000002',
+      email: 'admin@thaibaschool.edu.in',
+      role: 'admin',
+      approval_status: 'approved',
+      is_super_admin: true
+    });
+
+    const listeners = {};
+    const elements = {};
+    const container = {
+      innerHTML: '',
+      querySelector: (sel) => {
+        if (!elements[sel]) {
+          elements[sel] = {
+            value: '',
+            textContent: '',
+            innerHTML: '',
+            addEventListener: (evt, fn) => {
+              listeners[sel] = fn;
+            }
+          };
+        }
+        return elements[sel];
+      },
+      querySelectorAll: () => []
+    };
+
+    await renderAttendanceModule(container, { onNavigate: () => {}, initialClassId: 'cls-1' });
+
+    // 1. Bottom of card shows only Present, Absent, Total Students (and On Leave if any) with zero buttons
+    expect(container.innerHTML).toContain('att-class-footer-bar');
+    expect(container.innerHTML).toContain('att-counters');
+    expect(container.innerHTML).toContain('Present:');
+    expect(container.innerHTML).toContain('Absent:');
+    expect(container.innerHTML).toContain('Total Students:');
+    // Verify no buttons inside the bottom of the card
+    expect(container.innerHTML).not.toContain('att-bulk-btns');
+    expect(container.innerHTML).not.toContain('id="btn-mark-all-absent"');
+
+    // 2. After card action bar: 3/5 Search, 1/5 All Present, 1/5 Clear
+    expect(container.innerHTML).toContain('att-search-actions-bar');
+    expect(container.innerHTML).toContain('att-search-col-3-5');
+    expect(container.innerHTML).toContain('att-search-input');
+    expect(container.innerHTML).toContain('att-btn-col-1-5');
+    expect(container.innerHTML).toContain('id="btn-mark-all-present"');
+    expect(container.innerHTML).toContain('id="btn-clear-attendance"');
+    expect(container.innerHTML).toContain('All Present');
+    expect(container.innerHTML).toContain('Clear');
+
+    // 3. Clear button functionality
+    expect(typeof listeners['#btn-clear-attendance']).toBe('function');
+  });
+
   it('Editing attendance during class time saves absent student switched to present as "Late Present"', async () => {
     const sessionDate = '2026-10-27';
     const classroomId = 'cls-1';
