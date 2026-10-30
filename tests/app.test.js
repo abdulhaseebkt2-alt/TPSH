@@ -3100,6 +3100,101 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('mobile-leave-cards');
     });
 
+    it('Hostel Arrival & Leave Modals: equal 50/50 alignment, zero count suffix, and fixed-size hostel-flow-modal', async () => {
+      // 1. Create student and active leave to ensure unreturnedStudents exist
+      const student = await db.addStudent({
+        full_name: 'Modal Alignment Student',
+        gender: 'Boys',
+        dob: '2014-03-10',
+        father_name: 'Father',
+        father_phone: '+91 99999 33333'
+      });
+
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-10-28',
+        departure_time: '16:00',
+        expected_return_date: '2026-11-02',
+        expected_return_time: '18:00',
+        reason: 'Weekend Home Visit',
+        fine_per_day: 100,
+        approved_by: 'Hostel Office'
+      });
+
+      const originalDocument = global.document;
+      const appendedModals = [];
+      global.document = {
+        createElement: (tag) => {
+          const el = {
+            tagName: tag,
+            className: '',
+            innerHTML: '',
+            classList: { remove: () => {} },
+            querySelector: () => ({
+              addEventListener: () => {},
+              querySelector: () => null,
+              querySelectorAll: () => []
+            }),
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            remove: () => {}
+          };
+          return el;
+        },
+        body: {
+          appendChild: (el) => {
+            appendedModals.push(el);
+          }
+        }
+      };
+
+      try {
+        const listeners = {};
+        const container = {
+          innerHTML: '',
+          querySelector: (sel) => ({
+            addEventListener: (evt, fn) => { listeners[sel] = fn; }
+          }),
+          querySelectorAll: () => []
+        };
+
+        await renderLeavesModule(container, { onNavigate: () => {} });
+
+        // Click record arrival button to trigger arrival modal
+        expect(typeof listeners['#btn-record-arrival']).toBe('function');
+        listeners['#btn-record-arrival']();
+
+        // Check arrival modal
+        const arrivalModal = appendedModals[0];
+        expect(arrivalModal).toBeDefined();
+        expect(arrivalModal.className).toContain('has-hostel-flow-modal');
+        expect(arrivalModal.innerHTML).toContain('hostel-flow-modal');
+
+        // Verify equal 50/50 alignment switcher and clean labels without count suffixes
+        expect(arrivalModal.innerHTML).toContain('hostel-mode-switcher-bar');
+        expect(arrivalModal.innerHTML).toContain('Individual Arrival');
+        expect(arrivalModal.innerHTML).toContain('Multiple Arrival');
+        expect(arrivalModal.innerHTML).not.toContain('Away)');
+        expect(arrivalModal.innerHTML).not.toContain('Active)');
+
+        // Click issue leave pass button to trigger leave modal
+        expect(typeof listeners['#btn-issue-leave-pass']).toBe('function');
+        listeners['#btn-issue-leave-pass']();
+
+        const leaveModal = appendedModals[1];
+        expect(leaveModal).toBeDefined();
+        expect(leaveModal.className).toContain('has-hostel-flow-modal');
+        expect(leaveModal.innerHTML).toContain('hostel-flow-modal');
+        expect(leaveModal.innerHTML).toContain('hostel-mode-switcher-bar');
+        expect(leaveModal.innerHTML).toContain('Individual Leave');
+        expect(leaveModal.innerHTML).toContain('Multiple Leave');
+      } finally {
+        global.document = originalDocument;
+        await db.deleteStudent(student.id);
+      }
+    });
+
     it('Hostel Leave Pass Engine: creates LV-YYYY-XXX pass, calculates late returns, updates student status and creates fine records', async () => {
       const student = await db.addStudent({
         full_name: 'Leave Engine Test Student',

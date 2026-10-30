@@ -5763,6 +5763,136 @@ body.tps-wheel-open {
 }
 
 /* ============================================================
+   HOSTEL ARRIVAL & LEAVE FLOW MODALS (FIXED SIZE & EQUAL ALIGNMENT)
+   ============================================================ */
+.modal-dialog.hostel-flow-modal {
+  height: 650px;
+  max-height: 88vh;
+  min-height: 540px;
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-dialog.hostel-flow-modal .modal-body {
+  padding: 1rem 1.25rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal-dialog.hostel-flow-modal #arrival-mode-content,
+.modal-dialog.hostel-flow-modal #pass-mode-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hostel-mode-switcher-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 9999px;
+  border: 1px solid #E2E8F0;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.hostel-mode-switcher-bar button,
+.hostel-mode-switcher-bar .hostel-mode-btn {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  width: 50% !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-size: 0.84rem !important;
+  padding: 0.45rem 0.5rem !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+.hostel-modal-flow-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0.75rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+
+.hostel-modal-scroll-area {
+  flex: 1;
+  min-height: 140px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+}
+
+.hostel-modal-actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.65rem;
+  border-top: 1px solid #F1F5F9;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .modal-overlay.has-hostel-flow-modal {
+    padding: 0.5rem;
+    align-items: center;
+  }
+
+  .modal-dialog.hostel-flow-modal {
+    height: 84vh !important;
+    max-height: 85vh !important;
+    min-height: 540px !important;
+    border-radius: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .modal-dialog.hostel-flow-modal .modal-header {
+    padding: 0.75rem 0.85rem !important;
+  }
+
+  .modal-dialog.hostel-flow-modal .modal-body {
+    padding: 0.65rem 0.75rem 0.5rem !important;
+  }
+
+  .hostel-mode-switcher-bar button,
+  .hostel-mode-switcher-bar .hostel-mode-btn {
+    font-size: 0.76rem !important;
+    gap: 4px !important;
+    padding: 0.4rem 0.25rem !important;
+  }
+
+  .hostel-mode-switcher-bar button svg,
+  .hostel-mode-switcher-bar .hostel-mode-btn svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+}
+
+/* ============================================================
    ASSIGN STUDENTS MODAL (Clean 1-Column Spacious Layout)
    ============================================================ */
 .modal-dialog.assign-students-modal {

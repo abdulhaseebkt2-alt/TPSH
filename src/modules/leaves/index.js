@@ -480,22 +480,23 @@ export async function renderLeavesModule(container, { onNavigate }) {
     openModal({
       title: 'Hostel Arrival & Return Register',
       size: 'lg',
+      modalClass: 'hostel-flow-modal',
       contentHtml: `
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-          <!-- Top Segmented Mode Switcher -->
-          <div style="display: flex; gap: 0.4rem; background: #F1F5F9; padding: 4px; border-radius: 9999px; border: 1px solid #E2E8F0;">
-            <button type="button" id="arrival-tab-ind" class="btn btn-sm ${currentMode === 'individual' ? 'btn-primary' : 'btn-ghost'}" style="flex: 1; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; height: 100%; min-height: 0;">
+          <!-- Top Segmented Mode Switcher (Equal 50/50 Alignment, Zero Count Badges) -->
+          <div class="hostel-mode-switcher-bar">
+            <button type="button" id="arrival-tab-ind" class="btn btn-sm hostel-mode-btn ${currentMode === 'individual' ? 'btn-primary' : 'btn-ghost'}">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              Individual Student (${unreturnedStudents.length} Away)
+              <span>Individual Arrival</span>
             </button>
-            <button type="button" id="arrival-tab-batch" class="btn btn-sm ${currentMode === 'batch' ? 'btn-primary' : 'btn-ghost'}" style="flex: 1; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <button type="button" id="arrival-tab-batch" class="btn btn-sm hostel-mode-btn ${currentMode === 'batch' ? 'btn-primary' : 'btn-ghost'}">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              Batch Leave Card (${activeLeaves.length} Active)
+              <span>Multiple Arrival</span>
             </button>
           </div>
 
           <!-- Dynamic Container for Mode Content -->
-          <div id="arrival-mode-content"></div>
+          <div id="arrival-mode-content" style="flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column;"></div>
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
@@ -523,7 +524,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
             if (!contentEl) return;
 
             contentEl.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="hostel-modal-flow-wrap">
                 <!-- Filter Dropdowns Row -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem;">
                   <div class="form-group" style="margin: 0;">
@@ -600,7 +601,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 <div id="ind-late-preview"></div>
 
                 <!-- Action Buttons -->
-                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <div class="hostel-modal-actions-bar">
                   <button type="button" class="btn btn-outline" id="btn-cancel-arrival" style="font-weight: 600;">Cancel</button>
                   <button type="button" class="btn btn-primary" id="btn-confirm-ind-arrival" style="background: #059669; border-color: #059669; font-weight: 700;">Confirm Arrival</button>
                 </div>
@@ -683,7 +684,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
           }
 
           contentEl.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div class="hostel-modal-flow-wrap">
               <!-- Select Leave Card -->
               <div class="form-group" style="margin: 0;">
                 <label class="form-label required" style="font-size: 0.78rem;">Select Active Leave Card *</label>
@@ -728,14 +729,14 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
               </div>
 
-              <!-- Scrollable Student Checkbox List -->
-              <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; padding-right: 4px;">
+              <!-- Scrollable Student Checkbox List Card -->
+              <div class="hostel-modal-scroll-area" style="display: flex; flex-direction: column; gap: 0.35rem; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.65rem;">
                 ${batchUnreturned.length === 0 ? `
                   <div style="padding: 1.5rem; text-align: center; color: #94A3B8; font-size: 0.85rem;">
                     All students on this leave card have already returned.
                   </div>
                 ` : batchUnreturned.map(st => `
-                  <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.65rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; user-select: none;">
+                  <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.65rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; user-select: none;">
                     <input type="checkbox" class="chk-batch-ret-student" value="${st.id}" ${selectedBatchStudentIds.has(st.id) ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;" />
                     <div style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
                       <div>
@@ -749,7 +750,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
               </div>
 
               <!-- Action Buttons -->
-              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+              <div class="hostel-modal-actions-bar">
                 <button type="button" class="btn btn-outline" id="btn-cancel-batch-arrival">Cancel</button>
                 <button type="button" class="btn btn-primary" id="btn-confirm-batch-arrival" style="background: #059669; border-color: #059669; font-weight: 700;">
                   Confirm Arrival (<span id="btn-batch-confirm-count">${selectedBatchStudentIds.size}</span> Students)
@@ -822,15 +823,19 @@ export async function renderLeavesModule(container, { onNavigate }) {
         // Switch Tab Handlers
         modalBody.querySelector('#arrival-tab-ind')?.addEventListener('click', () => {
           currentMode = 'individual';
-          modalBody.querySelector('#arrival-tab-ind').className = 'btn btn-sm btn-primary';
-          modalBody.querySelector('#arrival-tab-batch').className = 'btn btn-sm btn-ghost';
+          modalBody.querySelector('#arrival-tab-ind')?.classList.add('btn-primary');
+          modalBody.querySelector('#arrival-tab-ind')?.classList.remove('btn-ghost');
+          modalBody.querySelector('#arrival-tab-batch')?.classList.add('btn-ghost');
+          modalBody.querySelector('#arrival-tab-batch')?.classList.remove('btn-primary');
           renderIndividualTab();
         });
 
         modalBody.querySelector('#arrival-tab-batch')?.addEventListener('click', () => {
           currentMode = 'batch';
-          modalBody.querySelector('#arrival-tab-batch').className = 'btn btn-sm btn-primary';
-          modalBody.querySelector('#arrival-tab-ind').className = 'btn btn-sm btn-ghost';
+          modalBody.querySelector('#arrival-tab-batch')?.classList.add('btn-primary');
+          modalBody.querySelector('#arrival-tab-batch')?.classList.remove('btn-ghost');
+          modalBody.querySelector('#arrival-tab-ind')?.classList.add('btn-ghost');
+          modalBody.querySelector('#arrival-tab-ind')?.classList.remove('btn-primary');
           renderBatchTab();
         });
 
@@ -855,22 +860,23 @@ export async function renderLeavesModule(container, { onNavigate }) {
     openModal({
       title: 'Hostel Leave Pass Register',
       size: 'lg',
+      modalClass: 'hostel-flow-modal',
       contentHtml: `
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-          <!-- Top Segmented Mode Switcher -->
-          <div style="display: flex; gap: 0.4rem; background: #F1F5F9; padding: 4px; border-radius: 9999px; border: 1px solid #E2E8F0;">
-            <button type="button" id="pass-tab-ind" class="btn btn-sm ${currentMode === 'individual' ? 'btn-primary' : 'btn-ghost'}" style="flex: 1; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; height: 100%; min-height: 0;">
+          <!-- Top Segmented Mode Switcher (Equal 50/50 Alignment, Zero Count Badges) -->
+          <div class="hostel-mode-switcher-bar">
+            <button type="button" id="pass-tab-ind" class="btn btn-sm hostel-mode-btn ${currentMode === 'individual' ? 'btn-primary' : 'btn-ghost'}">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              Individual Leave
+              <span>Individual Leave</span>
             </button>
-            <button type="button" id="pass-tab-batch" class="btn btn-sm ${currentMode === 'batch' ? 'btn-primary' : 'btn-ghost'}" style="flex: 1; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <button type="button" id="pass-tab-batch" class="btn btn-sm hostel-mode-btn ${currentMode === 'batch' ? 'btn-primary' : 'btn-ghost'}">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              Batch Leave Card
+              <span>Multiple Leave</span>
             </button>
           </div>
 
           <!-- Dynamic Container for Mode Content -->
-          <div id="pass-mode-content"></div>
+          <div id="pass-mode-content" style="flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column;"></div>
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
@@ -894,7 +900,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
             if (!contentEl) return;
 
             contentEl.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="hostel-modal-flow-wrap">
                 <!-- Filter Row -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
                   <div class="form-group" style="margin: 0;">
@@ -965,7 +971,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
 
                 <!-- Actions -->
-                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <div class="hostel-modal-actions-bar">
                   <button type="button" class="btn btn-outline" id="btn-cancel-pass">Cancel</button>
                   <button type="button" class="btn btn-primary" id="btn-submit-ind-pass" style="background: #059669; border-color: #059669; font-weight: 700;">Issue Leave Pass</button>
                 </div>
@@ -1051,7 +1057,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
             if (!contentEl) return;
 
             contentEl.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="hostel-modal-flow-wrap">
                 <!-- Dates Row -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
                   <div class="form-group" style="margin: 0;">
@@ -1113,7 +1119,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                   </div>
 
                   <!-- Checkbox List -->
-                  <div style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem; padding-right: 2px;">
+                  <div class="hostel-modal-scroll-area" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem; padding-right: 2px;">
                     ${filtered.map(s => `
                       <label style="display: flex; align-items: center; gap: 0.65rem; padding: 0.4rem 0.5rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; cursor: pointer; user-select: none;">
                         <input type="checkbox" class="chk-batch-pass-student" value="${s.id}" ${selectedBatchStudentIds.has(s.id) ? 'checked' : ''} style="width: 15px; height: 15px;" />
@@ -1136,7 +1142,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 </div>
 
                 <!-- Actions -->
-                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <div class="hostel-modal-actions-bar">
                   <button type="button" class="btn btn-outline" id="btn-cancel-batch-pass">Cancel</button>
                   <button type="button" class="btn btn-primary" id="btn-submit-batch-pass" style="background: #059669; border-color: #059669; font-weight: 700;">
                     Generate Batch Leave (<span id="btn-batch-generate-count">${selectedBatchStudentIds.size}</span>)
@@ -1233,15 +1239,19 @@ export async function renderLeavesModule(container, { onNavigate }) {
         // Segmented Switcher Handlers
         modalBody.querySelector('#pass-tab-ind')?.addEventListener('click', () => {
           currentMode = 'individual';
-          modalBody.querySelector('#pass-tab-ind').className = 'btn btn-sm btn-primary';
-          modalBody.querySelector('#pass-tab-batch').className = 'btn btn-sm btn-ghost';
+          modalBody.querySelector('#pass-tab-ind')?.classList.add('btn-primary');
+          modalBody.querySelector('#pass-tab-ind')?.classList.remove('btn-ghost');
+          modalBody.querySelector('#pass-tab-batch')?.classList.add('btn-ghost');
+          modalBody.querySelector('#pass-tab-batch')?.classList.remove('btn-primary');
           renderIndividualPass();
         });
 
         modalBody.querySelector('#pass-tab-batch')?.addEventListener('click', () => {
           currentMode = 'batch';
-          modalBody.querySelector('#pass-tab-batch').className = 'btn btn-sm btn-primary';
-          modalBody.querySelector('#pass-tab-ind').className = 'btn btn-sm btn-ghost';
+          modalBody.querySelector('#pass-tab-batch')?.classList.add('btn-primary');
+          modalBody.querySelector('#pass-tab-batch')?.classList.remove('btn-ghost');
+          modalBody.querySelector('#pass-tab-ind')?.classList.add('btn-ghost');
+          modalBody.querySelector('#pass-tab-ind')?.classList.remove('btn-primary');
           renderBatchPass();
         });
 
