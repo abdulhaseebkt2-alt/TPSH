@@ -48,8 +48,45 @@ export async function renderMentorDashboard(container, { onNavigate }) {
   const scopedStudentIds = new Set(scopedStudents.map(s => s.id));
 
   // Scoped leaves for residents of this hostel unit only
-  const rawScopedLeaves = allLeaves.filter(l => scopedStudentIds.has(l.student_id));
-  const displayLeaves = rawScopedLeaves.length > 0 ? rawScopedLeaves : [
+  const rawScopedLeaves = allLeaves.filter(l => {
+    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+    return sIds.some(sid => scopedStudentIds.has(sid));
+  });
+
+  // Check pending student leave requests for mentor's scoped hostel unit
+  const pendingScopedLeaves = rawScopedLeaves.filter(l => (l.status || '').toLowerCase() === 'pending');
+  const uniqueMentorPendingMap = new Map();
+  pendingScopedLeaves.forEach(l => {
+    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+    sIds.forEach(sid => {
+      if (sid && !uniqueMentorPendingMap.has(sid)) {
+        const studentObj = scopedStudents.find(s => s.id === sid);
+        uniqueMentorPendingMap.set(sid, studentObj?.full_name || l.student_name || 'Resident');
+      }
+    });
+    if (sIds.length === 0 || !sIds[0]) {
+      const name = l.student_name || 'Resident';
+      if (!uniqueMentorPendingMap.has(name)) {
+        uniqueMentorPendingMap.set(name, name);
+      }
+    }
+  });
+  const pendingMentorCount = uniqueMentorPendingMap.size;
+  const pendingMentorList = Array.from(uniqueMentorPendingMap.values());
+  const mentorAlertText = pendingMentorCount === 1
+    ? `${pendingMentorList[0]} requested leave`
+    : `${pendingMentorCount} residents requested leave`;
+
+  // Sort scoped leaves so pending requests appear at top
+  const sortedScopedLeaves = [...rawScopedLeaves].sort((a, b) => {
+    const aPend = (a.status || '').toLowerCase() === 'pending';
+    const bPend = (b.status || '').toLowerCase() === 'pending';
+    if (aPend && !bPend) return -1;
+    if (!aPend && bPend) return 1;
+    return new Date(b.created_at || b.departure_date || 0) - new Date(a.created_at || a.departure_date || 0);
+  });
+
+  const displayLeaves = sortedScopedLeaves.length > 0 ? sortedScopedLeaves : [
     {
       leave_register_number: isGirlsHostel ? 'GLR-2026-012' : 'BLR-2026-034',
       student_name: scopedStudents[0]?.full_name || (isGirlsHostel ? 'Sultana Sarkar' : 'MD Aamir'),
@@ -123,6 +160,21 @@ export async function renderMentorDashboard(container, { onNavigate }) {
         </select>
       </div>
     </div>
+
+    ${pendingMentorCount > 0 ? `
+      <div class="mentor-leave-alert-banner" id="mentor-leave-alert-banner" style="margin-bottom: 1.25rem; padding: 0.85rem 1.25rem; border-radius: 12px; background: #FFFBEB; border: 1.5px solid #FDE68A; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.9); animation: tpsPulseAmber 1.6s infinite ease-in-out;"></span>
+          <div>
+            <strong style="color: #92400E; font-size: 0.92rem;">${mentorAlertText}</strong>
+            <span style="font-size: 0.8rem; color: #B45309; margin-left: 0.35rem;">• Parent leave request awaiting mentor authorization & hourly fine entry</span>
+          </div>
+        </div>
+        <button class="btn btn-xs btn-outline" style="border-color: #F59E0B; color: #B45309; font-weight: 700; background: #FFFFFF; border-radius: 9999px;">
+          Review & Approve →
+        </button>
+      </div>
+    ` : ''}
 
     <div class="page-header" style="margin-bottom: 1.5rem;">
       <div class="page-title-group">
@@ -237,16 +289,21 @@ export async function renderMentorDashboard(container, { onNavigate }) {
               <tbody>
                 ${displayLeaves.map(l => {
                   const isOver = l.status === 'Overdue';
+                  const isPending = (l.status || '').toLowerCase() === 'pending';
+                  const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                  const residentObj = scopedStudents.find(s => sIds.includes(s.id));
+                  const residentName = residentObj?.full_name || l.student_name || 'Resident';
+                  const regNo = l.leave_register_number || l.leave_code || 'LV-2026';
                   return `
-                    <tr>
+                    <tr style="cursor: pointer;" data-leave-row="${l.id || ''}">
                       <td>
-                        <strong>${l.student_name}</strong>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${l.room || 'Dorm'} • ${l.admission_number}</div>
+                        <strong>${residentName}</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${residentObj?.hostel_room || l.room || 'Dorm'} • ${residentObj?.admission_number || l.admission_number || 'TPS'}</div>
                       </td>
-                      <td><code>${l.leave_register_number}</code></td>
+                      <td><code>${regNo}</code></td>
                       <td>${formatDate(l.expected_return_date)}</td>
                       <td>
-                        <span class="badge ${isOver ? 'badge-absent' : 'badge-leave'}">${l.status}</span>
+                        <span class="badge ${isPending ? 'badge-warning' : isOver ? 'badge-absent' : 'badge-leave'}" style="${isPending ? 'background: #FEF3C7; color: #92400E; font-weight: 700;' : ''}">${isPending ? 'Pending Approval' : l.status}</span>
                       </td>
                     </tr>
                   `;
@@ -340,6 +397,11 @@ export async function renderMentorDashboard(container, { onNavigate }) {
   `;
 
   // Attach handlers
+  container.querySelector('#mentor-leave-alert-banner')?.addEventListener('click', () => onNavigate('leaves'));
+  container.querySelectorAll('tr[data-leave-row]').forEach(row => {
+    row.addEventListener('click', () => onNavigate('leaves'));
+  });
+
   container.querySelector('#mentor-unit-selector')?.addEventListener('change', (e) => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('tps_mentor_active_hostel', e.target.value);

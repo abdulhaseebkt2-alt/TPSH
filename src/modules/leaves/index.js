@@ -53,9 +53,10 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
   // Active filter state
   let searchQuery = '';
-  let statusFilter = 'all'; // 'all', 'away', 'overdue', 'returned'
+  let statusFilter = 'all'; // 'all', 'pending', 'away', 'overdue', 'returned'
 
   function getUnreturnedCount(leave) {
+    if ((leave.status || '').toLowerCase() === 'pending') return 0;
     if (Array.isArray(leave.students) && leave.students.length > 0) {
       return leave.students.filter(s => !s.is_returned).length;
     }
@@ -63,6 +64,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
   }
 
   function isLeaveOverdue(leave) {
+    if ((leave.status || '').toLowerCase() === 'pending') return false;
     if (leave.status === 'Returned') return false;
     if (leave.status === 'Overdue' || leave.status === 'overdue') return true;
     if (!leave.expected_return_date) return false;
@@ -77,23 +79,29 @@ export async function renderLeavesModule(container, { onNavigate }) {
     let awayStudentsCount = 0;
     let overdueCount = 0;
     let returnedCount = 0;
+    const pendingCount = leaves.filter(l => (l.status || '').toLowerCase() === 'pending').length;
 
     leaves.forEach(l => {
+      const isPend = (l.status || '').toLowerCase() === 'pending';
       const unret = getUnreturnedCount(l);
-      awayStudentsCount += unret;
-      if (isLeaveOverdue(l) && unret > 0) overdueCount += unret;
+      if (!isPend) {
+        awayStudentsCount += unret;
+        if (isLeaveOverdue(l) && unret > 0) overdueCount += unret;
+      }
       if (l.status === 'Returned') returnedCount += (l.total_students || 1);
     });
 
     // Filter leaves
     const filteredLeaves = leaves.filter(l => {
+      const isPend = (l.status || '').toLowerCase() === 'pending';
       const unret = getUnreturnedCount(l);
       const isOverdue = isLeaveOverdue(l);
-      const isRet = l.status === 'Returned' || unret === 0;
+      const isRet = l.status === 'Returned' || (!isPend && unret === 0);
 
-      if (statusFilter === 'away' && (isRet || unret === 0)) return false;
-      if (statusFilter === 'overdue' && (!isOverdue || unret === 0)) return false;
-      if (statusFilter === 'returned' && !isRet) return false;
+      if (statusFilter === 'pending' && !isPend) return false;
+      if (statusFilter === 'away' && (isPend || isRet || unret === 0)) return false;
+      if (statusFilter === 'overdue' && (isPend || !isOverdue || unret === 0)) return false;
+      if (statusFilter === 'returned' && (isPend || !isRet)) return false;
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -101,15 +109,24 @@ export async function renderLeavesModule(container, { onNavigate }) {
         const reasonMatch = (l.reason || '').toLowerCase().includes(q);
         const typeMatch = (l.leave_type || '').toLowerCase().includes(q);
         
-        const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
         const studentMatch = sIds.some(sid => {
-          const st = students.find(s => s.id === sid);
+          const st = students.find(s => s.id === sid) || allStudents.find(s => s.id === sid);
           return st && (st.full_name?.toLowerCase().includes(q) || st.admission_number?.toLowerCase().includes(q));
-        });
+        }) || (l.student_name && l.student_name.toLowerCase().includes(q));
 
         if (!codeMatch && !reasonMatch && !typeMatch && !studentMatch) return false;
       }
       return true;
+    });
+
+    // Sort pending requests to the very top so admin and mentors see them immediately
+    filteredLeaves.sort((a, b) => {
+      const aPend = (a.status || '').toLowerCase() === 'pending';
+      const bPend = (b.status || '').toLowerCase() === 'pending';
+      if (aPend && !bPend) return -1;
+      if (!aPend && bPend) return 1;
+      return new Date(b.created_at || b.departure_date || 0) - new Date(a.created_at || a.departure_date || 0);
     });
 
     container.innerHTML = `
@@ -151,15 +168,20 @@ export async function renderLeavesModule(container, { onNavigate }) {
       </div>
 
       <!-- KPI Bento Stats Row -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
         <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
           <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.04em;">Active Passes</div>
           <div style="font-size: 1.6rem; font-weight: 800; color: #0F172A; margin-top: 0.2rem;">${totalPasses}</div>
           <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 0.15rem;">Registered leave files</div>
         </div>
+        <div style="background: ${pendingCount > 0 ? '#FFFBEB' : '#FFFFFF'}; border: 1px solid ${pendingCount > 0 ? '#FDE68A' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03); cursor: pointer;" id="kpi-pending-leaves-card" title="Click to filter pending requests">
+          <div style="font-size: 0.75rem; font-weight: 700; color: #D97706; text-transform: uppercase; letter-spacing: 0.04em;">Pending Approvals</div>
+          <div style="font-size: 1.6rem; font-weight: 800; color: #D97706; margin-top: 0.2rem;">${pendingCount}</div>
+          <div style="font-size: 0.75rem; color: ${pendingCount > 0 ? '#B45309' : '#94A3B8'}; margin-top: 0.15rem;">${pendingCount > 0 ? 'Requires authorization' : 'All clear'}</div>
+        </div>
         <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-          <div style="font-size: 0.75rem; font-weight: 700; color: #D97706; text-transform: uppercase; letter-spacing: 0.04em;">Students Away</div>
-          <div style="font-size: 1.6rem; font-weight: 800; color: #D97706; margin-top: 0.2rem;">${awayStudentsCount}</div>
+          <div style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em;">Students Away</div>
+          <div style="font-size: 1.6rem; font-weight: 800; color: #0F172A; margin-top: 0.2rem;">${awayStudentsCount}</div>
           <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 0.15rem;">Currently off-campus</div>
         </div>
         <div style="background: #FFFFFF; border: 1px solid ${overdueCount > 0 ? '#FECACA' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
@@ -194,6 +216,9 @@ export async function renderLeavesModule(container, { onNavigate }) {
           <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'all' ? 'btn-primary' : 'btn-ghost'}" data-status="all" style="border-radius: 9999px; font-weight: 600; font-size: 0.78rem;">
             All (${leaves.length})
           </button>
+          <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'pending' ? 'btn-warning' : 'btn-ghost'}" data-status="pending" style="border-radius: 9999px; font-weight: 700; font-size: 0.78rem; ${statusFilter === 'pending' ? 'background: #D97706; color: #FFFFFF; border: 1px solid #D97706;' : (pendingCount > 0 ? 'background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;' : '')}">
+            Pending (${pendingCount})
+          </button>
           <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'away' ? 'btn-primary' : 'btn-ghost'}" data-status="away" style="border-radius: 9999px; font-weight: 600; font-size: 0.78rem;">
             Away (${awayStudentsCount})
           </button>
@@ -201,7 +226,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
             Overdue (${overdueCount})
           </button>
           <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'returned' ? 'btn-primary' : 'btn-ghost'}" data-status="returned" style="border-radius: 9999px; font-weight: 600; font-size: 0.78rem;">
-            Returned
+            Returned (${returnedCount})
           </button>
         </div>
       </div>
@@ -411,6 +436,11 @@ export async function renderLeavesModule(container, { onNavigate }) {
       });
     });
 
+    container.querySelector('#kpi-pending-leaves-card')?.addEventListener('click', () => {
+      statusFilter = 'pending';
+      renderView();
+    });
+
     // Top action buttons
     container.querySelector('#btn-record-arrival')?.addEventListener('click', () => {
       openRecordArrivalModal('individual');
@@ -498,8 +528,22 @@ export async function renderLeavesModule(container, { onNavigate }) {
             toast.success(`Leave request approved at ₹${fineRateVal}/hr overdue fine rate.`);
             close();
             const updatedLeaves = await db.getLeaves();
+            const reFiltered = isParent
+              ? updatedLeaves.filter(l => {
+                  const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                  return sIds.some(sid => {
+                    const st = allStudents.find(s => s.id === sid);
+                    return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
+                  });
+                })
+              : (isGirlsMentor || isBoysMentor)
+                ? updatedLeaves.filter(l => {
+                    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                    return sIds.some(sid => scopedStudentIds.has(sid));
+                  })
+                : updatedLeaves;
             leaves.length = 0;
-            leaves.push(...updatedLeaves);
+            leaves.push(...reFiltered);
             renderView();
           } catch (err) {
             toast.error(err.message || 'Error approving leave');
@@ -516,8 +560,22 @@ export async function renderLeavesModule(container, { onNavigate }) {
           await db.rejectLeaveRecord(leaveId, { rejected_by: user?.full_name || 'Hostel Warden' });
           toast.success('Leave request rejected.');
           const updatedLeaves = await db.getLeaves();
+          const reFiltered = isParent
+            ? updatedLeaves.filter(l => {
+                const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                return sIds.some(sid => {
+                  const st = allStudents.find(s => s.id === sid);
+                  return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
+                });
+              })
+            : (isGirlsMentor || isBoysMentor)
+              ? updatedLeaves.filter(l => {
+                  const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+                  return sIds.some(sid => scopedStudentIds.has(sid));
+                })
+              : updatedLeaves;
           leaves.length = 0;
-          leaves.push(...updatedLeaves);
+          leaves.push(...reFiltered);
           renderView();
         } catch (err) {
           toast.error(err.message || 'Error rejecting leave');

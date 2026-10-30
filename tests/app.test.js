@@ -4582,5 +4582,109 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('id="btn-parent-apply-leave"');
       expect(container.innerHTML).toContain('Request Hostel Leave');
     });
+
+    it('2504 - Parent Leave Request notification on Admin Dashboard (Hero Pill & Desktop Banner) and Mentor Dashboard', async () => {
+      const allStudents = await db.getStudents();
+      const boyStudent = allStudents.find(s => s.gender === 'Boys' || s.gender === 'Male') || allStudents[0];
+
+      // 1. Create a pending leave request submitted by parent
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [boyStudent.id],
+        student_id: boyStudent.id,
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-10',
+        departure_time: '16:00',
+        expected_return_date: '2026-11-12',
+        expected_return_time: '18:00',
+        reason: 'Family wedding celebration',
+        requested_by: 'Parent: Abdul Rahman',
+        requester_role: 'parent',
+        status: 'Pending',
+        fine_unit: 'hour',
+        fine_per_hour: 50
+      });
+
+      // 2. Admin Dashboard View:
+      // Hero card brand pill and desktop banner must show student requested leave
+      const adminUser = {
+        id: 'u-admin-test',
+        role: 'admin',
+        full_name: 'Haseeb Mubarak',
+        approval_status: 'approved'
+      };
+      updateCurrentUserProfile(adminUser);
+
+      const adminContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(adminContainer, { onNavigate: () => {} });
+
+      expect(adminContainer.innerHTML).toContain(`${boyStudent.full_name} requested leave`);
+      expect(adminContainer.innerHTML).toContain('has-leave-request');
+      expect(adminContainer.innerHTML).toContain('dash-desktop-leave-alert');
+      expect(adminContainer.innerHTML).toContain('Parent leave request awaiting approval & hourly fine rate');
+
+      // 3. Boys Mentor Dashboard View:
+      // Must show alert banner for the boy resident
+      const boysMentor = {
+        id: 'd0000000-0000-0000-0000-000000000005',
+        role: 'boys_mentor',
+        gender: 'Boys',
+        hostel_unit: 'Thaiba Boys Hostel Block A',
+        approval_status: 'approved',
+        full_name: 'Usthad Usman'
+      };
+      updateCurrentUserProfile(boysMentor);
+
+      const mentorContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderMentorDashboard(mentorContainer, { onNavigate: () => {} });
+
+      expect(mentorContainer.innerHTML).toContain('id="mentor-leave-alert-banner"');
+      expect(mentorContainer.innerHTML).toContain(`${boyStudent.full_name} requested leave`);
+      expect(mentorContainer.innerHTML).toContain('Pending Approval');
+
+      // 4. Girls Mentor Dashboard View:
+      // Must NOT show alert banner for boys resident leave
+      const girlsMentor = {
+        id: 'd0000000-0000-0000-0000-000000000006',
+        role: 'girls_mentor',
+        gender: 'Girls',
+        hostel_unit: 'Thaiba Girls Hostel Campus',
+        approval_status: 'approved',
+        full_name: 'Usthada Mariyam'
+      };
+      updateCurrentUserProfile(girlsMentor);
+
+      const girlsMentorContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderMentorDashboard(girlsMentorContainer, { onNavigate: () => {} });
+
+      expect(girlsMentorContainer.innerHTML).not.toContain('id="mentor-leave-alert-banner"');
+
+      // 5. Leaves Module View for Boys Mentor:
+      // Must display pending pill and allow mentor to approve with per-hour fine
+      updateCurrentUserProfile(boysMentor);
+      const leavesContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(leavesContainer, { onNavigate: () => {} });
+
+      expect(leavesContainer.innerHTML).toContain('Pending (1)');
+      expect(leavesContainer.innerHTML).toContain('btn-approve-leave');
+      expect(leavesContainer.innerHTML).toContain('btn-reject-leave');
+
+      // 6. Approve leave with per-hour fine rate of 65/hr
+      const approvedLeave = await db.approveLeaveRecord(leave.id, {
+        approved_by: 'Usthad Usman (Boys Mentor)',
+        fine_per_hour: 65
+      });
+
+      expect(approvedLeave.status).toBe('Approved');
+      expect(approvedLeave.fine_per_hour).toBe(65);
+      expect(approvedLeave.approved_by).toBe('Usthad Usman (Boys Mentor)');
+
+      const updatedBoy = (await db.getStudents()).find(s => s.id === boyStudent.id);
+      expect(updatedBoy.status).toBe('On Approved Leave');
+
+      // Clean up test leave
+      const allLeaves = await db.getLeaves();
+      db.set('tps_leaves', allLeaves.filter(l => l.id !== leave.id));
+      await db.updateStudent(boyStudent.id, { status: 'Active' });
+    });
   });
 });

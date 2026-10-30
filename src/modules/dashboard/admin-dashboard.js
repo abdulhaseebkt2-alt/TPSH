@@ -83,16 +83,62 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const pendingFacultyCount = uniqueFacultyMap.size;
   const pendingFacultyList = Array.from(uniqueFacultyMap.values());
 
+  // Check pending student/parent leave requests
+  const pendingStudentLeaves = (leaves || []).filter(l => (l.status || '').toLowerCase() === 'pending');
+  const uniqueStudentPendingMap = new Map();
+  pendingStudentLeaves.forEach(l => {
+    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+    sIds.forEach(sid => {
+      if (sid && !uniqueStudentPendingMap.has(sid)) {
+        const studentObj = students.find(s => s.id === sid);
+        uniqueStudentPendingMap.set(sid, {
+          id: sid,
+          name: studentObj?.full_name || l.student_name || 'Student',
+          leave: l
+        });
+      }
+    });
+    if (sIds.length === 0 || !sIds[0]) {
+      const name = l.student_name || 'Student';
+      if (!uniqueStudentPendingMap.has(name)) {
+        uniqueStudentPendingMap.set(name, { id: name, name, leave: l });
+      }
+    }
+  });
+  const pendingStudentCount = uniqueStudentPendingMap.size;
+  const pendingStudentList = Array.from(uniqueStudentPendingMap.values());
+
   let heroPillText = 'THAIBASCHOOL CAMPUS';
   let isLeaveRequestPill = false;
+  let leaveRoute = 'faculty_leaves';
+  let leaveAlertSubtext = '• Pending review and administrative authorization';
 
-  if (pendingFacultyCount === 1) {
-    const applicantName = pendingFacultyList[0].faculty_name || '1 Faculty';
-    heroPillText = `${applicantName} requested leave`;
+  if (pendingStudentCount > 0 && pendingFacultyCount === 0) {
     isLeaveRequestPill = true;
-  } else if (pendingFacultyCount > 1) {
-    heroPillText = `${pendingFacultyCount} faculty requested leave`;
+    leaveRoute = 'leaves';
+    if (pendingStudentCount === 1) {
+      const applicantName = pendingStudentList[0].name;
+      heroPillText = `${applicantName} requested leave`;
+    } else {
+      heroPillText = `${pendingStudentCount} students requested leave`;
+    }
+    leaveAlertSubtext = '• Parent leave request awaiting approval & hourly fine rate';
+  } else if (pendingFacultyCount > 0 && pendingStudentCount === 0) {
     isLeaveRequestPill = true;
+    leaveRoute = 'faculty_leaves';
+    if (pendingFacultyCount === 1) {
+      const applicantName = pendingFacultyList[0].faculty_name || '1 Faculty';
+      heroPillText = `${applicantName} requested leave`;
+    } else {
+      heroPillText = `${pendingFacultyCount} faculty requested leave`;
+    }
+    leaveAlertSubtext = '• Faculty leave request pending administrative authorization';
+  } else if (pendingStudentCount > 0 && pendingFacultyCount > 0) {
+    isLeaveRequestPill = true;
+    leaveRoute = 'leaves';
+    const totalRequests = pendingStudentCount + pendingFacultyCount;
+    heroPillText = `${totalRequests} leave requests pending (${pendingStudentCount} student, ${pendingFacultyCount} faculty)`;
+    leaveAlertSubtext = '• Student and faculty leave requests awaiting authorization';
   }
 
   const activeStudents = students.filter(s => s.status === 'Active');
@@ -515,11 +561,11 @@ export async function renderAdminDashboard(container, { onNavigate }) {
       ${isLeaveRequestPill ? `
         <div class="dash-faculty-leave-banner" id="dash-desktop-leave-alert" style="margin-bottom: 1.25rem; padding: 0.85rem 1.25rem; border-radius: 12px; background: #FFFBEB; border: 1.5px solid #FDE68A; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.9);"></span>
+            <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.9); animation: tpsPulseAmber 1.6s infinite ease-in-out;"></span>
             <strong style="color: #92400E; font-size: 0.92rem;">${heroPillText}</strong>
-            <span style="font-size: 0.8rem; color: #B45309;">• Pending review and administrative authorization</span>
+            <span style="font-size: 0.8rem; color: #B45309;">${leaveAlertSubtext}</span>
           </div>
-          <button class="btn btn-xs btn-outline" style="border-color: #F59E0B; color: #B45309; font-weight: 700; background: #FFFFFF;">
+          <button class="btn btn-xs btn-outline" style="border-color: #F59E0B; color: #B45309; font-weight: 700; background: #FFFFFF; border-radius: 9999px;">
             Review Applications →
           </button>
         </div>
@@ -804,22 +850,22 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     }
   });
 
-  // Interactive Hero Brand Pill: click to view faculty leaves when request active
+  // Interactive Hero Brand Pill: click to view leaves when request active
   container.querySelector('#m-hero-brand-pill')?.addEventListener('click', () => {
     if (isLeaveRequestPill) {
       if (typeof onNavigate === 'function') {
-        onNavigate('faculty_leaves');
+        onNavigate(leaveRoute);
       } else {
-        window.location.hash = '#faculty_leaves';
+        window.location.hash = `#${leaveRoute}`;
       }
     }
   });
 
   container.querySelector('#dash-desktop-leave-alert')?.addEventListener('click', () => {
     if (typeof onNavigate === 'function') {
-      onNavigate('faculty_leaves');
+      onNavigate(leaveRoute);
     } else {
-      window.location.hash = '#faculty_leaves';
+      window.location.hash = `#${leaveRoute}`;
     }
   });
 
