@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.8.2`  
-> **Last Updated:** 2026-10-30T12:05:00+05:30  
+> **Current Version:** `v1.8.3`  
+> **Last Updated:** 2026-10-30T12:25:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -17,7 +17,7 @@
 > 1. You **MUST** update this file (`WEB_APK_DOCUMENTATION.md`).
 > 2. You **MUST** record the change in [Section 10: Living Changelog & Revision History](#10-living-changelog--revision-history) with the date, timestamp, modified files, and summary.
 > 3. You **MUST** update the affected component/module section in this document to reflect the current code behavior accurately.
-> 4. You **MUST** verify all 87 unit tests pass (`cmd /c npx vitest run`) and production build succeeds (`cmd /c npm run build`).
+> 4. You **MUST** verify all 89 unit tests pass (`cmd /c npx vitest run`) and production build succeeds (`cmd /c npm run build`).
 > 5. Never let code and this document drift apart!
 
 ---
@@ -263,6 +263,14 @@ Located in [`src/modules/calendar/index.js`](file:///e:/Web%20Apk/TPSH/src/modul
   - Immediately upon confirming attendance submission via `#btn-submit-attendance`, the session is persisted to the database with exact timestamp, and the student roster window automatically closes.
   - Returns the faculty or administrator back to the Timetable Cards view where that classroom reflects `✓ Attendance Recorded`.
   - Clears temporary session keys (`tps_active_att_cls`, `tps_active_att_date`) from `sessionStorage` preventing accidental roster re-entry.
+- **Student on Approved Leave Governance & Incapable Controls (v1.8.3)**:
+  - **Automatic Leave Detection**: Detects students currently away on approved leave (either by profile status `'On Approved Leave'` or an active leave pass in `tps_leaves` covering the session date).
+  - **Faded & On-Leave Presentation**: Cards for students on leave render as faded (`.attendance-compact-card.is-on-leave.is-faded`, `opacity: 0.55`, `#F8FAFC` background) with a prominent `✈️ On Leave` royal blue pill and `(Approved Hostel Leave)` subtitle.
+  - **Incapable Teacher Attendance Controls**: Teachers cannot take or alter attendance for students on approved leave; the interactive 2-way switch is replaced with a locked `Locked (On Leave)` badge (`.att-leave-locked-badge`), and clicking triggers a warning toast.
+  - **Immunity in Bulk Actions**: "Mark All Present" and "Mark All Absent" strictly skip students on leave.
+  - **Independent Summary Counters**: Displays `On Leave: N` in royal blue, separate from Present and Absent counts.
+  - **Segmented Roster Filter Tabs**: Roster header features segmented buttons (`All (N)`, `In Class (N)`, `✈️ On Leave (N)`), allowing teachers to filter the list to only in-class students so names of students on leave do not appear when taking attendance.
+  - **Submission Integrity**: Submitting attendance persists the student's record with `status: 'Leave'`.
 
 ### 4.3.1 Teacher Timetable & Classroom Schedule Cards (`src/modules/timetable/index.js`)
 - **Modernized Timetable Cards UI (v1.6.6)**: Replaced the flat master data table with a responsive grid (`.timetable-cards-grid`) of dedicated timetable cards matching Screenshot 2.
@@ -458,7 +466,7 @@ cmd /c npm run build
 
 ## 8. Automated Test Coverage
 
-The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 87 automated assertions covering:
+The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test.js) runs 89 automated assertions covering:
 - **RBAC**: Super Admin privileges, pending user blocks, privilege escalation prevention, dedicated `attendance_report` permissions for teachers, mentors, and admins.
 - **Fines**: Calendar-day late return calculations and boundary handling.
 - **Admissions**: Photo upload, CSV parsing, Indian dates, mobile spacing, TGI codes.
@@ -500,6 +508,14 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
   - Interactive 8-Bed Bedroom Rack (`renderHostelModule`) with Left Side (Beds 1-5) and Window Side (Beds 6-8).
   - Direct bed allocation (`assignStudentToBed`) and vacating (`vacateBed`) with dual bed/student record synchronization.
   - Student admission/edit form bed gating (`showEditStudentModal`) ensuring bed assignment inputs are removed and read-only allocation note is displayed.
+- **Student on Approved Leave Attendance Governance & Incapable Controls (Section 21)**:
+  - Automatic detection of approved leave (via student status or active pass in `tps_leaves`).
+  - Student card rendered as faded (`.attendance-compact-card.is-on-leave.is-faded`, `opacity: 0.55`) with prominent `✈️ On Leave` badge and `(Approved Hostel Leave)` subtitle.
+  - Locked `Locked (On Leave)` badge replaces interactive switch, rendering teachers incapable of altering attendance.
+  - Bulk actions ("Mark All Present" / "Mark All Absent") strictly skip students on leave.
+  - Summary counters display `On Leave: N` in royal blue.
+  - Segmented Roster Filter tabs (`All`, `In Class`, `✈️ On Leave`) allowing teachers to filter roster to in-class students only.
+  - Persists student status as `'Leave'` upon submission.
 - **Cloud Sync**: Cross-device unified database integrity.
 
 ---
@@ -510,7 +526,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 2. **Strict Domain Separation**: Academic Calendar (`#calendar`) is exclusively for the institutional calendar, working days schedule, and official holidays. Student attendance data, student search, student dropdowns, and student attendance calendars are housed strictly inside Attendance Reports (`#reports` and `#attendance_report`).
 3. **Zero Hardcoded PAN/KYC Text**: Date pickers must dynamically adopt institutional labels (`Date of Birth`, `Admission Date`, `Attendance Date`).
 4. **No Dropdown Clutter on Attendance**: Attendance screen must keep the big top card with compact student cards and 2-way switches.
-5. **Preserve Unit Tests**: Never commit changes that cause any of the 87 unit tests to fail.
+5. **Preserve Unit Tests**: Never commit changes that cause any of the 89 unit tests to fail.
 
 ---
 
@@ -518,6 +534,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.8.3** | 2026-10-30 12:25 | Antigravity AI | `src/modules/attendance/index.js`, `src/modules/reports/attendance-report.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Student on Approved Leave Attendance Governance (Faded/On-Leave Display, Incapable Switch, and Submission Protection): (1) Resolved requirement where students on approved leave should not have attendance taken by teachers or should show as faded / on-leave: integrated `isStudentOnLeave(s, sessionDate)` checking both student profile status (`status === 'On Approved Leave'`) and active leave passes in `tps_leaves` covering the session date; (2) Faded & On-Leave Presentation: cards render with `.is-on-leave` and `.is-faded` (`opacity: 0.55`, soft slate background `#F8FAFC`, border `#E2E8F0`), showing prominent royal blue `✈️ On Leave` pill (`.att-on-leave-pill`) and `(Approved Hostel Leave)` subtitle; (3) Incapable Teacher Controls: replaced interactive 2-way toggle switch for students on leave with a locked `Locked (On Leave)` badge (`.att-leave-locked-badge`) with lock icon; clicking the card or switch triggers a warning toast informing that the student is on approved leave and attendance cannot be modified; (4) Bulk Action Immunity: "Mark All Present" and "Mark All Absent" strictly skip students on leave; (5) Independent Counter: summary counters display `On Leave: N` in royal blue separate from Present and Absent counts; (6) Segmented Roster Filter Tabs: added `[ All (N) ]`, `[ In Class (N) ]`, and `[ ✈️ On Leave (N) ]` buttons on the roster header allowing teachers to filter the list to only in-class students (hiding students on leave); (7) Submission Integrity: submitting attendance automatically records student status as `'Leave'`; (8) Updated Attendance Report day inspection modal breakdown to display students on leave with `✈️ On Leave` badge; (9) Added automated unit tests in Section 21 of `tests/app.test.js`; all 89/89 Vitest tests passing; verified clean production build. |
 | **v1.8.2** | 2026-10-30 12:05 | Antigravity AI | `src/lib/db.js`, `src/modules/leaves/index.js`, `src/modules/hostel/index.js`, `src/modules/students/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Integration of Hostel IRP Leave Passes, Arrival Register, 8-Bed Bedroom Rack, and Student Bed Gating: (1) Ingested and adapted full leave and arrival workflows from `E:\Hostel IRP` with modern light-theme UI and mobile responsiveness: created sequential `LV-YYYY-XXX` leave code generator, segmented Leave Pass modal with `[ Individual Leave ]` vs `[ Batch Leave Card ]`, and segmented Arrival Register modal with `[ Individual Student (N Away) ]` vs `[ Batch Leave Card (N Active) ]`; (2) Implemented calendar-day late calculation (`calculateReturnLate`) strictly computing late days by date difference ($\Delta \text{Days} = \text{Actual Date} - \text{Expected Date}$); returning on expected day incurs ₹0 fine (and 1 black mark if after expected time); returning after expected day incurs $\Delta \text{Days} \times \text{Fine Rate}$ per day; automatically posts fines to `tps_fines` and black marks to `tps_black_marks`; (3) Implemented automated student status synchronization: departing students transition to `'On Approved Leave'` and returning students are restored to `'Active'` (Hostel Resident); (4) Integrated interactive 8-Bed Bedroom Rack in Hostels & Beds module (`src/modules/hostel/index.js`): visual dormitory rack partitioned into Left Side Beds (1-5) and Window Side Beds (6-8) with direct `+ Assign Student` on vacant beds and `Change / Vacate` on occupied beds; (5) Removed bed and room assignment inputs from Student Master edit form (`src/modules/students/index.js`), replacing them with read-only indicators to establish Hostels & Beds as the exclusive single source of truth for bed allocations; (6) Persisted and synchronized all leave, room, bed, fine, and black mark records with Supabase via `DatabaseService` (`tps_leaves`, `tps_hostel_rooms`, `tps_hostel_beds`, `tps_fines`, `tps_black_marks`); (7) Added comprehensive unit tests in Section 20 of `tests/app.test.js`; all 87/87 Vitest tests passing; verified clean production build. |
 | **v1.8.1** | 2026-10-30 11:45 | Antigravity AI | `src/modules/calendar/index.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Month Boundary Curvature for Cross-Month Leave & Holiday Ranges: (1) Resolved straight/flat vertical cut-offs at month transitions (Oct 31 right edge flat in October view, Nov 1 left edge flat in November view when leave spans Oct 30 to Nov 3): added `isMonthFirst: d === 1` and `isMonthLast: d === totalDays` properties to `getCalendarGridDays` and injected `.is-month-first` / `.is-month-last` CSS classes on calendar day cells; (2) Added month boundary CSS rules in `src/styles/main.css` for `.is-month-last` and `.is-month-first`: on the last day of the month (`is-month-last`), multi-day connecting tracks (`is-holiday-middle`, `is-hostel-leave-middle`, `is-range-middle`) receive rounded right caps (`border-top-right-radius: 9999px !important; border-bottom-right-radius: 9999px !important;`) and single-day starts have `::after` hidden with complete border-radius; on the 1st of the month (`is-month-first`), multi-day connecting tracks receive rounded left caps (`border-top-left-radius: 9999px !important; border-bottom-left-radius: 9999px !important;`) and endings have `::before` hidden with complete border-radius; (3) Added full row-wrapping pill cap rules for `:nth-child(7n)` (Sunday) and `:nth-child(7n+1)` (Monday); (4) Added automated unit test in `tests/app.test.js` asserting month boundary class injection across October 31 and November 1; all 82/82 Vitest tests pass; production build verified cleanly. |
 | **v1.8.0** | 2026-10-30 11:33 | Antigravity AI | `src/components/bottom-nav.js`, `src/app.js`, `src/styles/main.css`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Universal Edge-to-Edge Mobile Bottom Navigation & Sidebar Stacking: (1) Transformed the floating rounded capsule pill bar into a native, full-width edge-to-edge mobile bottom bar (`bottom: 0; left: 0; right: 0; width: 100vw; border-radius: 0; border-top: 1px solid #E2E8F0;`) filling the entire bottom area from left to right; (2) Created dedicated `src/components/bottom-nav.js` with `getBottomNavItems` dynamically deriving role-scoped accessible windows for every mobile user (Admin: Home, Schedule, Attendance, Reports, Settings; Teacher: Home, Schedule, Attendance, Reports, Marks; Mentor: Home, Attendance, Gate Pass, Hostel, Discipline; Parent: Home, Attendance, Leaves, Marks, Fees; Student: Home, Attendance, Leave Pass, Marks, Exams), fully honoring RBAC permissions; (3) Mounted globally in `src/app.js` shell so all accessible windows across the entire ERP maintain continuous one-thumb mobile bottom navigation; (4) Added equal `flex: 1 1 0%` distribution to `.m-nav-pill-btn` with soft mint `.m-nav-icon-wrap` active pill highlight; (5) Resolved sidebar stacking: configured mobile `.sidebar` with `z-index: 999 !important;` and `.sidebar-backdrop` with `z-index: 998 !important;` over bottom nav (`z-index: 40`), ensuring the sidebar drawer smoothly covers the bottom buttons when opened; (6) Added automated unit tests; all 81/81 Vitest tests pass; production build verified cleanly. |

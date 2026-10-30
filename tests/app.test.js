@@ -3056,4 +3056,182 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(typeof db.vacateBed).toBe('function');
     });
   });
+
+  describe('21. Student on Approved Leave Attendance Governance (Faded/On-Leave Display & Incapable Switch)', () => {
+    it('When a student is on approved leave, their attendance card renders as faded and on-leave with a locked control and segmented roster filters', async () => {
+      // 1. Create a student with On Approved Leave status
+      const student = await db.addStudent({
+        full_name: 'Zaid Leave Resident',
+        gender: 'Boys',
+        school_class: 'STD-V',
+        status: 'On Approved Leave',
+        dob: '2014-03-21',
+        father_name: 'Father',
+        father_phone: '+91 99999 33333'
+      });
+
+      // Also create an active leave record in tps_leaves
+      const todayIso = new Date().toISOString().split('T')[0];
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'hostel_leave',
+        departure_date: todayIso,
+        departure_time: '08:00',
+        expected_return_date: '2026-11-05',
+        expected_return_time: '18:00',
+        reason: 'Authorized Family Wedding',
+        fine_per_day: 100,
+        approved_by: 'Hostel Warden'
+      });
+
+      // Ensure class cls-1 includes this student
+      const classrooms = await db.getClassrooms();
+      const cls = classrooms.find(c => c.id === 'cls-1');
+      if (cls && (!Array.isArray(cls.student_ids) || !cls.student_ids.includes(student.id))) {
+        const studentIds = Array.isArray(cls.student_ids) ? [...cls.student_ids, student.id] : [student.id];
+        await db.updateClassroom('cls-1', { student_ids: studentIds });
+      }
+
+      // Unlock window for cls-1 today so interaction is enabled
+      await db.unlockAttendanceWindow('cls-1', todayIso);
+
+      // Set user as teacher
+      updateCurrentUserProfile({
+        id: 'u-2',
+        email: 'teacher@thaibaschool.edu.in',
+        full_name: 'Rashid Sir',
+        role: 'teacher',
+        approval_status: 'approved'
+      });
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceModule(container, {
+        onNavigate: () => {},
+        initialClassId: 'cls-1',
+        initialDate: todayIso
+      });
+
+      const html = container.innerHTML;
+
+      // A. Verify student card is faded with is-on-leave
+      expect(html).toContain('is-on-leave');
+      expect(html).toContain('is-faded');
+      expect(html).toContain('Zaid Leave Resident');
+
+      // B. Verify "On Leave" pill and approved hostel leave caption
+      expect(html).toContain('att-on-leave-pill');
+      expect(html).toContain('On Leave');
+      expect(html).toContain('Approved Hostel Leave');
+
+      // C. Verify locked control badge (teachers are incapable of taking his attendance)
+      expect(html).toContain('att-leave-locked-badge');
+      expect(html).toContain('On Leave');
+
+      // D. Verify summary counter displays "On Leave" count
+      expect(html).toContain('On Leave:');
+
+      // E. Verify segmented roster filter tabs (All, In Class, On Leave)
+      expect(html).toContain('data-roster-filter="all"');
+      expect(html).toContain('data-roster-filter="in_class"');
+      expect(html).toContain('data-roster-filter="on_leave"');
+
+      // Clean up
+      await db.deleteStudent(student.id);
+    });
+
+    it('Bulk actions skip student on leave, and submitting attendance persists status as "Leave"', async () => {
+      const todayIso = new Date().toISOString().split('T')[0];
+
+      // Add student on leave
+      const leaveStudent = await db.addStudent({
+        full_name: 'Tariq OnLeave Student',
+        gender: 'Boys',
+        school_class: 'STD-V',
+        status: 'On Approved Leave',
+        dob: '2014-01-10',
+        father_name: 'Father',
+        father_phone: '+91 99999 44444'
+      });
+
+      // Add normal student
+      const activeStudent = await db.addStudent({
+        full_name: 'Bilal Present Student',
+        gender: 'Boys',
+        school_class: 'STD-V',
+        status: 'Active',
+        dob: '2014-02-12',
+        father_name: 'Father',
+        father_phone: '+91 99999 55555'
+      });
+
+      // Assign both to cls-1
+      await db.updateClassroom('cls-1', { student_ids: [leaveStudent.id, activeStudent.id] });
+      await db.unlockAttendanceWindow('cls-1', todayIso);
+
+      updateCurrentUserProfile({
+        id: 'u-2',
+        email: 'teacher@thaibaschool.edu.in',
+        full_name: 'Rashid Sir',
+        role: 'teacher',
+        approval_status: 'approved'
+      });
+
+      const listeners = {};
+      const container = {
+        innerHTML: '',
+        querySelector: (selector) => {
+          return {
+            addEventListener: (evt, fn) => {
+              listeners[selector] = fn;
+            },
+            value: '',
+            style: {},
+            classList: { add: () => {}, remove: () => {}, toggle: () => {} },
+            setAttribute: () => {},
+            querySelector: () => null
+          };
+        },
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceModule(container, {
+        onNavigate: () => {},
+        initialClassId: 'cls-1',
+        initialDate: todayIso
+      });
+
+      // Trigger "All Present"
+      if (typeof listeners['#btn-mark-all-present'] === 'function') {
+        listeners['#btn-mark-all-present']();
+      }
+
+      // Submit attendance
+      if (typeof listeners['#btn-submit-attendance'] === 'function') {
+        await listeners['#btn-submit-attendance']();
+      }
+
+      // Verify recorded attendance session
+      const sessions = await db.getAttendanceRecords();
+      const session = sessions.find(s => s.classroom_id === 'cls-1' && s.session_date === todayIso);
+      expect(session).toBeDefined();
+
+      const leaveRecord = session.records.find(r => r.student_id === leaveStudent.id);
+      expect(leaveRecord).toBeDefined();
+      // Student on leave is strictly recorded as 'Leave'
+      expect(leaveRecord.status).toBe('Leave');
+
+      const activeRecord = session.records.find(r => r.student_id === activeStudent.id);
+      expect(activeRecord).toBeDefined();
+      expect(activeRecord.status).toBe('Present');
+
+      // Clean up
+      await db.deleteStudent(leaveStudent.id);
+      await db.deleteStudent(activeStudent.id);
+    });
+  });
 });

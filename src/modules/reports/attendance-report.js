@@ -791,6 +791,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
                     ${session.records.filter(r => r.status === 'Present').length} Present • 
                     ${session.records.filter(r => r.status === 'Late Present').length} Late • 
                     ${session.records.filter(r => r.status === 'Absent').length} Absent
+                    ${session.records.filter(r => r.status === 'Leave' || r.status === 'On Leave').length > 0 ? ` • ${session.records.filter(r => r.status === 'Leave' || r.status === 'On Leave').length} On Leave` : ''}
                   </div>
                 </div>
                 ${isAdmin ? `
@@ -805,11 +806,17 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
                   const st = allStudents.find(s => s.id === r.student_id);
                   const isLate = r.status === 'Late Present';
                   const isPres = r.status === 'Present';
+                  const isOnLeave = r.status === 'Leave' || r.status === 'On Leave';
                   const lateMin = r.late_minutes || 15;
                   return `
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 8px; background: ${isLate ? '#FFFDF5' : (isPres ? '#F0FDF4' : '#FEF2F2')}; border: 1px solid ${isLate ? '#FDE68A' : (isPres ? '#BBF7D0' : '#FECACA')}; font-size: 0.78rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 8px; background: ${isOnLeave ? '#EFF6FF' : isLate ? '#FFFDF5' : (isPres ? '#F0FDF4' : '#FEF2F2')}; border: 1px solid ${isOnLeave ? '#BFDBFE' : isLate ? '#FDE68A' : (isPres ? '#BBF7D0' : '#FECACA')}; font-size: 0.78rem; ${isOnLeave ? 'opacity: 0.85;' : ''}">
                       <div>
                         <strong style="color: #0F172A;">${st?.full_name || 'Student'}</strong>
+                        ${isOnLeave ? `
+                          <div style="font-size: 0.7rem; color: #2563EB; font-weight: 700; margin-top: 1px;">
+                            ✈️ Approved Hostel Leave
+                          </div>
+                        ` : ''}
                         ${isLate && isAdmin ? `
                           <div style="font-size: 0.7rem; color: #D97706; font-weight: 700; margin-top: 1px;">
                             ⏱️ ${lateMin} min late (Class: ${formatTime(activeClass?.start_time || '06:30')})
@@ -817,7 +824,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
                         ` : ''}
                       </div>
                       <div>
-                        ${isLate ? `
+                        ${isOnLeave ? `
+                          <span class="badge" style="background: #DBEAFE; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.7rem;">
+                            ✈️ On Leave
+                          </span>
+                        ` : isLate ? `
                           <span class="att-late-badge" style="font-size: 0.7rem;">
                             L • ${lateMin}m late
                           </span>

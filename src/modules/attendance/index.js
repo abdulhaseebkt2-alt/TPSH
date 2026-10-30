@@ -19,11 +19,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
 
-  const [allPrograms, allClassrooms, students, users] = await Promise.all([
+  const [allPrograms, allClassrooms, students, users, leaves] = await Promise.all([
     db.getPrograms(),
     db.getClassrooms(),
     db.getStudents(),
-    db.getUsers()
+    db.getUsers(),
+    db.getLeaves()
   ]);
 
   // Eligible teachers list for Admin filter
@@ -82,6 +83,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   let activeClassroomId = preselectedClsId || availableClassrooms[0]?.id || 'cls-1';
   let currentView = preselectedClsId ? 'roster' : 'cards';
   let timetableFilterTab = 'today'; // 'today' | 'weekly' | 'live'
+  let rosterFilterMode = 'all'; // 'all' | 'in_class' | 'on_leave'
 
   // Time-Window Status Calculation for a classroom on targetDate
   async function checkWindowStatus(clsId, targetDate = sessionDate) {
@@ -229,6 +231,68 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   let initialAbsentStudentIds = new Set();
   let hasExistingSession = false;
 
+  // Helper to determine if a student is on approved leave on target date
+  function isStudentOnLeave(studentOrId, dateStr = sessionDate) {
+    if (!studentOrId) return false;
+    const s = typeof studentOrId === 'object' ? studentOrId : students.find(item => item.id === studentOrId);
+    if (!s) return false;
+
+    // 1. Direct student profile status flag
+    if (s.status === 'On Approved Leave' && (dateStr === todayIso || !dateStr)) {
+      return true;
+    }
+
+    // 2. Active leave records in tps_leaves covering dateStr
+    if (Array.isArray(leaves) && leaves.length > 0) {
+      return leaves.some(l => {
+        let isAssociated = false;
+        let studentEntry = null;
+
+        if (l.student_id === s.id) {
+          isAssociated = true;
+        } else if (Array.isArray(l.student_ids) && l.student_ids.includes(s.id)) {
+          isAssociated = true;
+        }
+
+        if (Array.isArray(l.student_entries)) {
+          const entry = l.student_entries.find(e => e.student_id === s.id);
+          if (entry) {
+            isAssociated = true;
+            studentEntry = entry;
+          }
+        }
+
+        if (!isAssociated) return false;
+
+        const departs = l.departure_date;
+        if (!departs) return false;
+
+        const isEntryReturned = studentEntry ? Boolean(studentEntry.is_returned) : false;
+        const entryReturnDate = studentEntry?.actual_return_date;
+        const actualReturn = entryReturnDate || l.actual_return_date;
+        const expectedReturn = l.expected_return_date;
+        const isReturned = l.status === 'Returned' || isEntryReturned;
+
+        // If returned, leave was active between departure and actual return
+        if (isReturned && actualReturn) {
+          return dateStr >= departs && dateStr <= actualReturn;
+        }
+
+        // If not returned yet (Away or Overdue)
+        if (dateStr >= departs) {
+          if (expectedReturn && dateStr > expectedReturn && l.status !== 'Overdue' && l.status !== 'Away') {
+            return false;
+          }
+          return true;
+        }
+
+        return false;
+      });
+    }
+
+    return s.status === 'On Approved Leave';
+  }
+
   async function loadExistingSessionState() {
     const attendanceSessions = await db.getAttendanceRecords();
     const existingSession = attendanceSessions.find(s => 
@@ -250,10 +314,11 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
 
       activeList.forEach(s => {
+        const onLeave = isStudentOnLeave(s, sessionDate);
         const rec = existingSession.records.find(r => r.student_id === s.id);
         if (rec) {
-          attendanceState[s.id] = rec.status;
-          if (rec.status === 'Late Present') {
+          attendanceState[s.id] = onLeave ? 'Leave' : rec.status;
+          if (rec.status === 'Late Present' && !onLeave) {
             if (rec.late_minutes != null) {
               studentLateMinutes[s.id] = Number(rec.late_minutes);
             } else if (existingSession.recorded_at) {
@@ -265,15 +330,16 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             }
           }
         } else {
-          attendanceState[s.id] = 'Absent';
+          attendanceState[s.id] = onLeave ? 'Leave' : 'Absent';
         }
       });
     } else {
-      // Fresh attendance opening: Default to ABSENT as requested by user
+      // Fresh attendance opening: Default to ABSENT, except students on approved leave
       hasExistingSession = false;
       initialAbsentStudentIds = new Set();
       activeList.forEach(s => {
-        attendanceState[s.id] = 'Absent';
+        const onLeave = isStudentOnLeave(s, sessionDate);
+        attendanceState[s.id] = onLeave ? 'Leave' : 'Absent';
       });
     }
   }
@@ -675,6 +741,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     const canInteract = canSubmitAction && !isViewOnly && windowState.canTake;
     const activeList = getEligibleStudents(activeClassroomId);
+    const onLeaveList = activeList.filter(s => isStudentOnLeave(s, sessionDate));
+    const onLeaveCount = onLeaveList.length;
+    const inClassCount = activeList.length - onLeaveCount;
 
     container.innerHTML = `
       <div class="attendance-roster-view-container" style="padding-bottom: 2.5rem;">
@@ -723,7 +792,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             </div>
             <div class="att-detail-box">
               <span class="att-detail-lbl">Total Students</span>
-              <strong class="att-detail-val">${activeList.length} Enrolled</strong>
+              <strong class="att-detail-val">${activeList.length} Enrolled ${onLeaveCount > 0 ? `<span style="font-size: 0.72rem; color: #2563EB; font-weight: 700;">(${onLeaveCount} on leave)</span>` : ''}</strong>
             </div>
           </div>
 
@@ -760,12 +829,28 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           </div>
         </div>
 
-        <!-- Roster Search Bar -->
+        <!-- Roster Search & Filter Bar -->
         <div class="att-roster-header">
           <div class="att-search-wrap">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" id="att-search-input" placeholder="Search student by name..." />
           </div>
+
+          <!-- Roster Filter Segmented Tabs (All / In Class / On Leave) -->
+          <div class="att-roster-filter-pills">
+            <button type="button" class="btn btn-xs ${rosterFilterMode === 'all' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="all" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.28rem 0.65rem;">
+              All (${activeList.length})
+            </button>
+            <button type="button" class="btn btn-xs ${rosterFilterMode === 'in_class' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="in_class" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.28rem 0.65rem;" title="Show only students physically in class (hide students on leave)">
+              In Class (${inClassCount})
+            </button>
+            ${onLeaveCount > 0 ? `
+              <button type="button" class="btn btn-xs ${rosterFilterMode === 'on_leave' ? 'btn-primary' : 'btn-outline'} att-roster-tab" data-roster-filter="on_leave" style="border-radius: 8px; font-weight: 700; font-size: 0.72rem; padding: 0.28rem 0.65rem; color: ${rosterFilterMode === 'on_leave' ? '#FFFFFF' : '#2563EB'}; border-color: #BFDBFE;" title="Show only students on approved leave">
+                ✈️ On Leave (${onLeaveCount})
+              </button>
+            ` : ''}
+          </div>
+
           <span class="att-roster-count">${activeList.length} Students</span>
         </div>
 
@@ -812,10 +897,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     let presentCount = 0;
     let lateCount = 0;
     let absentCount = 0;
+    let leaveCount = 0;
 
     activeList.forEach(s => {
-      const st = attendanceState[s.id] || 'Absent';
-      if (st === 'Late Present') {
+      const onLeave = isStudentOnLeave(s, sessionDate);
+      const st = attendanceState[s.id] || (onLeave ? 'Leave' : 'Absent');
+      if (onLeave || st === 'Leave' || st === 'On Leave') {
+        leaveCount++;
+      } else if (st === 'Late Present') {
         lateCount++;
         presentCount++;
       } else if (st === 'Present') {
@@ -829,6 +918,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       <span class="att-counter-item">Present: <strong>${presentCount}</strong></span>
       <span class="att-counter-dot">•</span>
       <span class="att-counter-item">Absent: <strong>${absentCount}</strong></span>
+      ${leaveCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item" style="color: #2563EB;">On Leave: <strong>${leaveCount}</strong></span>` : ''}
       ${lateCount > 0 ? `<span class="att-counter-dot">•</span><span class="att-counter-item">Late: <strong>${lateCount}</strong></span>` : ''}
     `;
   }
@@ -843,9 +933,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
 
     return activeList.map(s => {
-      const currentStatus = attendanceState[s.id] || 'Absent';
-      const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
-      const isLatePresent = currentStatus === 'Late Present';
+      const onLeave = isStudentOnLeave(s, sessionDate);
+      const currentStatus = attendanceState[s.id] || (onLeave ? 'Leave' : 'Absent');
+      const isPresent = !onLeave && (currentStatus === 'Present' || currentStatus === 'Late Present');
+      const isLatePresent = !onLeave && (currentStatus === 'Late Present');
       const lateMins = studentLateMinutes[s.id] || 15;
       const isGirl = s.gender === 'Female' || s.gender === 'Girls' || s.gender === 'Girl';
       const genderLabel = isGirl ? 'Girl' : 'Boy';
@@ -860,13 +951,15 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
 
       return `
-        <div class="attendance-compact-card ${isPresent ? 'is-present' : 'is-absent'} ${isLatePresent ? 'is-late' : ''}" 
+        <div class="attendance-compact-card ${onLeave ? 'is-on-leave is-faded' : (isPresent ? 'is-present' : 'is-absent')} ${isLatePresent ? 'is-late' : ''}" 
              id="att-card-${s.id}" 
              data-student-id="${s.id}"
-             data-student-name="${(s.full_name || '').toLowerCase()}">
+             data-student-name="${(s.full_name || '').toLowerCase()}"
+             data-is-on-leave="${onLeave ? 'true' : 'false'}"
+             ${onLeave ? 'style="opacity: 0.55; background: #F8FAFC; border-color: #CBD5E1;"' : ''}>
           
           <!-- Left: Photo / Avatar -->
-          <div class="att-compact-avatar" style="background: ${isGirl ? '#FDF2F8' : '#EFF6FF'}; color: ${isGirl ? '#DB2777' : '#2563EB'};">
+          <div class="att-compact-avatar" style="background: ${onLeave ? '#F1F5F9' : (isGirl ? '#FDF2F8' : '#EFF6FF')}; color: ${onLeave ? '#64748B' : (isGirl ? '#DB2777' : '#2563EB')};">
             ${s.photo_url ? `
               <img src="${s.photo_url}" alt="${s.full_name}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
               <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">${initials}</div>
@@ -877,8 +970,16 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
           <!-- Middle: Name on top, Gender & Class below + Admin visibility of minutes late -->
           <div class="att-compact-info">
-            <span class="att-compact-name">${s.full_name}</span>
-            <span class="att-compact-sub">${genderLabel} • ${normalizedCls}</span>
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+              <span class="att-compact-name" style="${onLeave ? 'color: #475569;' : ''}">${s.full_name}</span>
+              ${onLeave ? `
+                <span class="badge att-on-leave-pill" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 3px;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+                  On Leave
+                </span>
+              ` : ''}
+            </div>
+            <span class="att-compact-sub">${genderLabel} • ${normalizedCls} ${onLeave ? '• (Approved Hostel Leave)' : ''}</span>
             ${isLatePresent && isAdmin ? `
               <div class="att-late-admin-note" id="att-late-note-${s.id}">
                 ⏱️ ${lateMins} min late (Class: ${formatTime(activeCls?.start_time || '06:30')})
@@ -886,21 +987,40 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             ` : ''}
           </div>
 
-          <!-- Right: 2-Way Adjustable Switch (Green = Present, Red = Absent, Yellow = Late) -->
+          <!-- Right: 2-Way Adjustable Switch or Locked Leave Badge -->
           <div class="att-compact-action">
-            ${isLatePresent ? `
-              <span class="att-late-badge" id="att-late-badge-${s.id}" title="Late arrival by ${lateMins} min after class started">${lateMins}m late</span>
-            ` : ''}
-            <button type="button" 
-                    class="att-2way-switch ${isPresent ? 'sw-present' : 'sw-absent'} ${isLatePresent ? 'sw-late' : ''}" 
-                    data-student-id="${s.id}"
-                    role="switch" 
-                    aria-checked="${isPresent ? 'true' : 'false'}"
-                    ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}
-                    title="${isLatePresent ? 'Late Present (L) - tap to mark Absent' : isPresent ? 'Present (P) - tap to mark Late' : 'Absent (A) - tap to mark Present'}">
-              <span class="att-switch-label">${isLatePresent ? 'L' : isPresent ? 'P' : 'A'}</span>
-              <span class="att-switch-thumb"></span>
-            </button>
+            ${onLeave ? `
+              <div class="att-leave-locked-badge" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 9999px; color: #64748B; font-size: 0.72rem; font-weight: 800; cursor: not-allowed;" title="Student is on approved hostel leave. Teachers cannot record attendance.">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>On Leave</span>
+              </div>
+              <button type="button" 
+                      class="att-2way-switch sw-leave" 
+                      data-student-id="${s.id}"
+                      role="switch" 
+                      aria-checked="false"
+                      aria-disabled="true"
+                      disabled
+                      style="display: none; opacity: 0.6; cursor: not-allowed;"
+                      title="Student is on approved leave. Attendance cannot be recorded.">
+                <span class="att-switch-label">LV</span>
+                <span class="att-switch-thumb"></span>
+              </button>
+            ` : `
+              ${isLatePresent ? `
+                <span class="att-late-badge" id="att-late-badge-${s.id}" title="Late arrival by ${lateMins} min after class started">${lateMins}m late</span>
+              ` : ''}
+              <button type="button" 
+                      class="att-2way-switch ${isPresent ? 'sw-present' : 'sw-absent'} ${isLatePresent ? 'sw-late' : ''}" 
+                      data-student-id="${s.id}"
+                      role="switch" 
+                      aria-checked="${isPresent ? 'true' : 'false'}"
+                      ${!canInteract ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}
+                      title="${isLatePresent ? 'Late Present (L) - tap to mark Absent' : isPresent ? 'Present (P) - tap to mark Late' : 'Absent (A) - tap to mark Present'}">
+                <span class="att-switch-label">${isLatePresent ? 'L' : isPresent ? 'P' : 'A'}</span>
+                <span class="att-switch-thumb"></span>
+              </button>
+            `}
           </div>
         </div>
       `;
@@ -908,8 +1028,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   }
 
   function toggleStudentSwitch(sid, activeList = getEligibleStudents(activeClassroomId)) {
-    const currentStatus = attendanceState[sid] || 'Absent';
     const s = students.find(item => item.id === sid);
+    if (isStudentOnLeave(s, sessionDate)) {
+      toast.warning(`${s?.full_name || 'This student'} is on approved hostel leave. Teachers cannot record attendance.`);
+      return;
+    }
+
+    const currentStatus = attendanceState[sid] || 'Absent';
     const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
@@ -940,59 +1065,79 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const card = container.querySelector(`#att-card-${sid}`);
     if (!card) return;
 
+    const s = students.find(item => item.id === sid);
+    const onLeave = isStudentOnLeave(s, sessionDate);
+    if (onLeave) {
+      card.classList.add('is-on-leave', 'is-faded');
+      card.classList.remove('is-present', 'is-absent', 'is-late');
+      return;
+    }
+
     const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const currentStatus = attendanceState[sid] || 'Absent';
     const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
     const isLatePresent = currentStatus === 'Late Present';
     const lateMins = studentLateMinutes[sid] || 15;
 
-    card.classList.toggle('is-present', isPresent);
-    card.classList.toggle('is-absent', !isPresent);
-    card.classList.toggle('is-late', isLatePresent);
+    if (typeof card.classList?.toggle === 'function') {
+      card.classList.toggle('is-present', isPresent);
+      card.classList.toggle('is-absent', !isPresent);
+      card.classList.toggle('is-late', isLatePresent);
+    } else {
+      if (isPresent) card.classList?.add?.('is-present'); else card.classList?.remove?.('is-present');
+      if (!isPresent) card.classList?.add?.('is-absent'); else card.classList?.remove?.('is-absent');
+      if (isLatePresent) card.classList?.add?.('is-late'); else card.classList?.remove?.('is-late');
+    }
 
-    const sw = card.querySelector('.att-2way-switch');
+    const sw = typeof card.querySelector === 'function' ? card.querySelector('.att-2way-switch') : null;
     if (sw) {
-      sw.classList.toggle('sw-present', isPresent && !isLatePresent);
-      sw.classList.toggle('sw-absent', !isPresent);
-      sw.classList.toggle('sw-late', isLatePresent);
+      if (typeof sw.classList?.toggle === 'function') {
+        sw.classList.toggle('sw-present', isPresent && !isLatePresent);
+        sw.classList.toggle('sw-absent', !isPresent);
+        sw.classList.toggle('sw-late', isLatePresent);
+      }
       sw.setAttribute('aria-checked', isPresent ? 'true' : 'false');
-      const lbl = sw.querySelector('.att-switch-label');
+      const lbl = typeof sw.querySelector === 'function' ? sw.querySelector('.att-switch-label') : null;
       if (lbl) {
         lbl.textContent = isLatePresent ? 'L' : isPresent ? 'P' : 'A';
       }
       sw.setAttribute('title', isLatePresent ? 'Late Present (L) - tap to mark Absent' : isPresent ? 'Present (P) - tap to mark Late' : 'Absent (A) - tap to mark Present');
     }
 
-    const actionWrap = card.querySelector('.att-compact-action');
+    const actionWrap = typeof card.querySelector === 'function' ? card.querySelector('.att-compact-action') : null;
     if (actionWrap) {
-      let lateBadge = actionWrap.querySelector('.att-late-badge');
+      let lateBadge = typeof actionWrap.querySelector === 'function' ? actionWrap.querySelector('.att-late-badge') : null;
       if (isLatePresent) {
-        if (!lateBadge) {
+        if (!lateBadge && typeof document !== 'undefined') {
           lateBadge = document.createElement('span');
           lateBadge.className = 'att-late-badge';
           lateBadge.id = `att-late-badge-${sid}`;
           actionWrap.insertBefore(lateBadge, sw);
         }
-        lateBadge.textContent = `${lateMins}m late`;
-        lateBadge.setAttribute('title', `Late arrival by ${lateMins} min after class started`);
+        if (lateBadge) {
+          lateBadge.textContent = `${lateMins}m late`;
+          lateBadge.setAttribute('title', `Late arrival by ${lateMins} min after class started`);
+        }
       } else {
-        lateBadge?.remove();
+        lateBadge?.remove?.();
       }
     }
 
-    const infoWrap = card.querySelector('.att-compact-info');
+    const infoWrap = typeof card.querySelector === 'function' ? card.querySelector('.att-compact-info') : null;
     if (infoWrap && isAdmin) {
-      let adminNote = infoWrap.querySelector('.att-late-admin-note');
+      let adminNote = typeof infoWrap.querySelector === 'function' ? infoWrap.querySelector('.att-late-admin-note') : null;
       if (isLatePresent) {
-        if (!adminNote) {
+        if (!adminNote && typeof document !== 'undefined') {
           adminNote = document.createElement('div');
           adminNote.className = 'att-late-admin-note';
           adminNote.id = `att-late-note-${sid}`;
           infoWrap.appendChild(adminNote);
         }
-        adminNote.innerHTML = `⏱️ ${lateMins} min late (Class: ${formatTime(activeCls?.start_time || '06:30')})`;
+        if (adminNote) {
+          adminNote.innerHTML = `⏱️ ${lateMins} min late (Class: ${formatTime(activeCls?.start_time || '06:30')})`;
+        }
       } else {
-        adminNote?.remove();
+        adminNote?.remove?.();
       }
     }
   }
@@ -1007,8 +1152,16 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     container.querySelectorAll('.attendance-compact-card').forEach(card => {
       const name = card.getAttribute('data-student-name') || '';
-      const matches = !query || name.includes(query);
-      if (matches) {
+      const isOnLeave = card.getAttribute('data-is-on-leave') === 'true';
+
+      let matchesFilter = true;
+      if (rosterFilterMode === 'in_class' && isOnLeave) matchesFilter = false;
+      if (rosterFilterMode === 'on_leave' && !isOnLeave) matchesFilter = false;
+
+      const matchesQuery = !query || name.includes(query);
+      const visible = matchesFilter && matchesQuery;
+
+      if (visible) {
         card.style.display = 'flex';
         matchCount++;
       } else {
@@ -1043,6 +1196,30 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     // Search filter
     container.querySelector('#att-search-input')?.addEventListener('input', filterCards);
+
+    // Roster filter pills (All / In Class / On Leave)
+    container.querySelectorAll('.att-roster-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        rosterFilterMode = btn.getAttribute('data-roster-filter') || 'all';
+        container.querySelectorAll('.att-roster-tab').forEach(b => {
+          b.classList.remove('btn-primary');
+          b.classList.add('btn-outline');
+        });
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-outline');
+        filterCards();
+      });
+    });
+
+    // Guard clicks on leave cards to inform teachers
+    container.querySelectorAll('.attendance-compact-card.is-on-leave').forEach(card => {
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sid = card.getAttribute('data-student-id');
+        const s = students.find(item => item.id === sid);
+        toast.warning(`${s?.full_name || 'This student'} is on approved hostel leave. Teachers cannot record attendance.`);
+      });
+    });
 
     // Admin unlock listener
     container.querySelector('#btn-admin-unlock-window')?.addEventListener('click', async () => {
@@ -1081,14 +1258,16 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         });
       });
 
-      // Mark All Present
+      // Mark All Present (Skips students on approved leave)
       container.querySelector('#btn-mark-all-present')?.addEventListener('click', () => {
         const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
         const clsStartMin = parseMinutes(activeCls?.start_time || '06:30');
         const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
         const minutesLate = Math.max(1, nowMin - clsStartMin);
 
+        let markedCount = 0;
         activeList.forEach(s => {
+          if (isStudentOnLeave(s, sessionDate)) return; // Strictly skip students on leave
           const wasInitiallyAbsent = hasExistingSession && initialAbsentStudentIds.has(s.id);
           if (wasInitiallyAbsent) {
             attendanceState[s.id] = 'Late Present';
@@ -1096,20 +1275,24 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           } else {
             attendanceState[s.id] = 'Present';
           }
+          markedCount++;
         });
         updateAllCardsVisual(activeList);
         updateCounters(activeList);
-        toast.info('Marked all students Present.');
+        toast.info(`Marked in-class students (${markedCount}) Present.`);
       });
 
-      // Mark All Absent
+      // Mark All Absent (Skips students on approved leave)
       container.querySelector('#btn-mark-all-absent')?.addEventListener('click', () => {
+        let markedCount = 0;
         activeList.forEach(s => {
+          if (isStudentOnLeave(s, sessionDate)) return; // Strictly skip students on leave
           attendanceState[s.id] = 'Absent';
+          markedCount++;
         });
         updateAllCardsVisual(activeList);
         updateCounters(activeList);
-        toast.info('Marked all students Absent.');
+        toast.info(`Marked in-class students (${markedCount}) Absent.`);
       });
 
       // Submit attendance
@@ -1126,7 +1309,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
           const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isTeacher ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
 
-          const records = Object.entries(attendanceState).map(([sid, status]) => {
+          const records = activeList.map(s => {
+            const sid = s.id;
+            const onLeave = isStudentOnLeave(s, sessionDate);
+            const status = onLeave ? 'Leave' : (attendanceState[sid] || 'Absent');
             return { 
               student_id: sid, 
               status,
