@@ -599,7 +599,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
     const { modal, close } = openModal({
       title: 'Request Hostel Leave Pass',
       contentHtml: `
-        <form id="parent-leave-form" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <form id="parent-leave-form" novalidate style="display: flex; flex-direction: column; gap: 0.85rem;">
           ${myChildren.length > 1 ? `
             <div class="form-group" style="margin: 0;">
               <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Select Child *</label>
@@ -690,26 +690,41 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
     modal.querySelector('#btn-cancel-p-leave')?.addEventListener('click', close);
 
-    modal.querySelector('#parent-leave-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const childId = modal.querySelector('#p-leave-child')?.value || selectedChild.id;
-      const leaveType = modal.querySelector('#p-leave-type')?.value;
-      const depDate = modal.querySelector('#p-leave-dep-date')?.value;
-      const depTime = modal.querySelector('#p-leave-dep-time')?.value;
-      const retDate = modal.querySelector('#p-leave-ret-date')?.value;
-      const retTime = modal.querySelector('#p-leave-ret-time')?.value;
-      const reason = modal.querySelector('#p-leave-reason')?.value.trim();
-      const escort = modal.querySelector('#p-leave-escort')?.value;
-      const phone = modal.querySelector('#p-leave-phone')?.value.trim();
+    let isSubmitting = false;
+    const submitLeaveHandler = async (e) => {
+      if (e) e.preventDefault();
+      if (isSubmitting) return;
 
-      if (!childId || !depDate || !retDate || !reason) {
+      const childId = modal.querySelector('#p-leave-child')?.value || selectedChild.id;
+      const leaveType = modal.querySelector('#p-leave-type')?.value || 'hostel_leave';
+      const depDate = modal.querySelector('#p-leave-dep-date')?.getAttribute('data-date-raw') || modal.querySelector('#p-leave-dep-date')?.value || defaultDate;
+      const depTime = modal.querySelector('#p-leave-dep-time')?.value || '16:00';
+      const retDate = modal.querySelector('#p-leave-ret-date')?.getAttribute('data-date-raw') || modal.querySelector('#p-leave-ret-date')?.value || tomorrow;
+      const retTime = modal.querySelector('#p-leave-ret-time')?.value || '18:00';
+      const reason = modal.querySelector('#p-leave-reason')?.value?.trim();
+      const escort = modal.querySelector('#p-leave-escort')?.value || 'Parent / Guardian';
+      const phone = modal.querySelector('#p-leave-phone')?.value?.trim() || user?.phone || '+91 98470 11223';
+
+      if (!reason) {
+        toast.error('Please enter the reason/purpose for leave.');
+        modal.querySelector('#p-leave-reason')?.focus();
+        return;
+      }
+      if (!childId || !depDate || !retDate) {
         toast.error('Please complete all required fields.');
         return;
       }
 
       const targetStudent = myChildren.find(c => c.id === childId) || selectedChild;
+      const submitBtn = modal.querySelector('#btn-submit-p-leave');
 
       try {
+        isSubmitting = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Submitting...';
+        }
+
         await db.createLeaveRecord({
           student_ids: [targetStudent.id],
           student_name: targetStudent.full_name,
@@ -733,8 +748,21 @@ export async function renderParentDashboard(container, { onNavigate }) {
         close();
         renderParentDashboard(container, { onNavigate });
       } catch (err) {
+        console.error('Error submitting parent leave request:', err);
         toast.error(err.message || 'Error submitting leave request');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Leave Request';
+        }
+      } finally {
+        isSubmitting = false;
       }
+    };
+
+    modal.querySelector('#parent-leave-form')?.addEventListener('submit', submitLeaveHandler);
+    modal.querySelector('#btn-submit-p-leave')?.addEventListener('click', (e) => {
+      // Direct click backup trigger
+      submitLeaveHandler(e);
     });
   }
 
