@@ -13,21 +13,31 @@ export async function renderParentDashboard(container, { onNavigate }) {
   }
 
   const user = getCurrentUser();
-  const allStudents = await db.getStudents();
-  const allLeaves = await db.getLeaves();
-  const exams = await db.getExams();
-  const examSubjects = await db.getExamSubjects();
+  await db.pullCloudKeys(['tps_parent_assignments', 'tps_leaves'], true);
+  const [allStudents, allLeaves, exams, examSubjects] = await Promise.all([
+    db.getStudents(),
+    db.getLeaves(true),
+    db.getExams(),
+    db.getExamSubjects()
+  ]);
 
   // STRICT CHILD ISOLATION: A parent gets ONLY their children's data
-  const explicitAssignedIds = Array.isArray(user?.assigned_student_ids) && user.assigned_student_ids.length > 0
-    ? user.assigned_student_ids
-    : (Array.isArray(user?.student_ids) && user.student_ids.length > 0
-        ? user.student_ids
-        : (Array.isArray(user?.child_ids) && user.child_ids.length > 0 ? user.child_ids : null));
+  const parentMap = db.get('tps_parent_assignments') || {};
+  const cloudAssigned = (user?.id && parentMap[user.id]) || 
+                        (user?.email && parentMap[user.email.toLowerCase()]) || 
+                        null;
+
+  const explicitAssignedIds = (cloudAssigned && Array.isArray(cloudAssigned) && cloudAssigned.length > 0)
+    ? cloudAssigned
+    : (Array.isArray(user?.assigned_student_ids) && user.assigned_student_ids.length > 0
+        ? user.assigned_student_ids
+        : (Array.isArray(user?.student_ids) && user.student_ids.length > 0
+            ? user.student_ids
+            : (Array.isArray(user?.child_ids) && user.child_ids.length > 0 ? user.child_ids : null)));
 
   let myChildren = [];
   if (explicitAssignedIds && explicitAssignedIds.length > 0) {
-    myChildren = allStudents.filter(s => explicitAssignedIds.includes(s.id));
+    myChildren = allStudents.filter(s => explicitAssignedIds.includes(s.id) || explicitAssignedIds.includes(s.admission_number));
   } else {
     myChildren = allStudents.filter(s => {
       if (!user) return false;
@@ -43,7 +53,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
     });
 
     // Fallback to sample children for rich testing if no children directly match in dev preview
-    if (myChildren.length === 0 && (user?.is_dev_profile || !user?.id)) {
+    if (myChildren.length === 0 && (user?.is_dev_profile || !user?.id || user?.role === 'parent')) {
       myChildren = allStudents.slice(0, 2);
     }
   }
@@ -66,7 +76,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
   // Leaves strictly filtered to this child
   const childLeaves = allLeaves.filter(l => {
     const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
-    return sIds.includes(selectedChild.id);
+    return sIds.includes(selectedChild.id) || (l.student_id === selectedChild.id) || (selectedChild.full_name && l.student_name === selectedChild.full_name);
   });
 
   const displayChildLeaves = childLeaves.length > 0 ? childLeaves : [
@@ -188,17 +198,28 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
     <!-- Multi-Child Selector Tabs (If Parent has multiple enrolled children) -->
     ${myChildren.length > 1 ? `
-      <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: var(--radius-lg); padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <span style="font-size: 0.82rem; font-weight: 700; color: #475569;">Your Enrolled Children:</span>
+      <div class="parent-child-tabs-card" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: var(--radius-lg); padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.65rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span style="font-size: 1.05rem;">👨‍👧‍👦</span>
+            <span style="font-size: 0.85rem; font-weight: 800; color: #1E293B;">Your Enrolled Children: (${myChildren.length})</span>
+          </div>
+          <span style="font-size: 0.74rem; color: #64748B; font-weight: 600;">Tap to switch child records</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          ${myChildren.map(c => `
-            <button class="child-tab-btn ${c.id === selectedChild.id ? 'active' : ''}" data-child-id="${c.id}" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; font-weight: 700; border-radius: var(--radius-md); border: 1.5px solid ${c.id === selectedChild.id ? '#059669' : '#CBD5E1'}; background: ${c.id === selectedChild.id ? '#ECFDF5' : '#FFFFFF'}; color: ${c.id === selectedChild.id ? '#059669' : '#334155'}; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.15s ease;">
-              <span>${c.gender === 'Girls' || c.gender === 'Female' ? '👧' : '🧒'}</span>
-              <span>${c.full_name} (${c.school_class || 'Class'})</span>
-            </button>
-          `).join('')}
+        <div style="display: flex; align-items: center; gap: 0.6rem; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none;">
+          ${myChildren.map(c => {
+            const isSel = c.id === selectedChild.id;
+            return `
+              <button class="child-tab-btn ${isSel ? 'active' : ''}" data-child-id="${c.id}" style="padding: 0.5rem 1rem; font-size: 0.82rem; font-weight: 700; border-radius: 12px; border: 2px solid ${isSel ? '#059669' : '#CBD5E1'}; background: ${isSel ? '#ECFDF5' : '#FFFFFF'}; color: ${isSel ? '#065F46' : '#475569'}; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.15s ease; white-space: nowrap; box-shadow: ${isSel ? '0 2px 6px rgba(5,150,105,0.15)' : 'none'};">
+                <span style="font-size: 1.1rem; line-height: 1;">${c.gender === 'Girls' || c.gender === 'Female' ? '👧' : '🧒'}</span>
+                <span>${c.full_name}</span>
+                <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 6px; background: ${isSel ? '#A7F3D0' : '#F1F5F9'}; color: ${isSel ? '#065F46' : '#64748B'}; font-weight: 800;">
+                  ${c.school_class || 'STD-I'}
+                </span>
+                ${isSel ? `<span style="color: #059669; font-weight: 800; font-size: 0.85rem;">✓</span>` : ''}
+              </button>
+            `;
+          }).join('')}
         </div>
       </div>
     ` : ''}
@@ -250,24 +271,24 @@ export async function renderParentDashboard(container, { onNavigate }) {
     ` : ''}
 
     <!-- Selected Child Highlight Banner Card -->
-    <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; box-shadow: var(--shadow-sm);">
-      <div style="display: flex; align-items: center; gap: 1.25rem;">
-        <div style="width: 58px; height: 58px; border-radius: 50%; background: #ECFDF5; border: 2px solid #A7F3D0; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 26px; overflow: hidden; flex-shrink: 0;">
+    <div class="selected-child-hero-card" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: var(--radius-lg); padding: 1.25rem 1.35rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: #ECFDF5; border: 2px solid #A7F3D0; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; flex-shrink: 0;">
           ${selectedChild.photo_url 
             ? `<img src="${selectedChild.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="${selectedChild.full_name}" />` 
             : (selectedChild.gender === 'Girls' || selectedChild.gender === 'Female' ? '👧' : '🧒')}
         </div>
-        <div>
-          <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-            <h3 style="font-size: 1.35rem; font-weight: 800; color: #0F172A; margin: 0;">${selectedChild.full_name}</h3>
-            <span style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: #059669; background: #ECFDF5; padding: 2px 8px; border-radius: 6px; border: 1px solid #A7F3D0;">
+        <div style="flex: 1; min-width: 200px;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: #0F172A; margin: 0;">${selectedChild.full_name}</h3>
+            <span style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: #059669; background: #ECFDF5; padding: 2px 7px; border-radius: 6px; border: 1px solid #A7F3D0;">
               ${selectedChild.admission_number}
             </span>
-            <span style="background: #EFF6FF; color: #2563EB; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+            <span style="background: #EFF6FF; color: #2563EB; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px;">
               ${selectedChild.school_class || 'STD-I'} (${selectedChild.school_section || 'A'})
             </span>
           </div>
-          <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.8rem; color: #64748B; margin-top: 0.35rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.78rem; color: #64748B; margin-top: 0.3rem; flex-wrap: wrap;">
             <span>Hostel: <strong>${selectedChild.hostel_unit || 'Thaiba Hostel Wing'}</strong></span>
             <span>Room: <strong>${selectedChild.hostel_room || 'Room 101'}</strong> (${selectedChild.hostel_bed || 'Bed 1'})</span>
             <span>Assigned Mentor: <strong>Usthad Usman</strong></span>
@@ -275,10 +296,12 @@ export async function renderParentDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <div style="background: ${presenceBg}; border: 1.5px solid ${presenceBorder}; padding: 0.5rem 1rem; border-radius: var(--radius-md); text-align: right;">
-          <div style="font-size: 0.72rem; font-weight: 700; color: ${presenceSubColor}; text-transform: uppercase;">Presence Status</div>
-          <div style="font-size: 0.95rem; font-weight: 800; color: ${presenceColor};" id="child-presence-status">${presenceLabel}</div>
+      <!-- Single Line Centered Presence Status Pill (Screenshot 2 / User Directive: "the scond screenshort. the notification should come to a single line align middle of the card in mobile view") -->
+      <div style="width: 100%; display: flex; justify-content: center; align-items: center; margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px dashed #E2E8F0;">
+        <div class="child-presence-single-line" style="background: ${presenceBg}; border: 1.5px solid ${presenceBorder}; padding: 0.4rem 1.15rem; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-align: center; max-width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+          <span style="font-size: 0.72rem; font-weight: 700; color: ${presenceSubColor}; text-transform: uppercase; letter-spacing: 0.04em;">Presence Status</span>
+          <span style="font-size: 0.75rem; color: ${presenceSubColor}; opacity: 0.5;">•</span>
+          <span style="font-size: 0.88rem; font-weight: 800; color: ${presenceColor};" id="child-presence-status">${presenceLabel}</span>
         </div>
       </div>
     </div>
@@ -310,7 +333,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- CARD 2: DYNAMIC (Overdue Count-Up OR Leave Countdown OR Academic Score) -->
+      <!-- CARD 2: DYNAMIC (Overdue Count-Up OR Leave Countdown OR Leave Pending OR Academic Score) -->
       ${isOverdue ? `
         <div class="stat-card" style="border-left: 4px solid #DC2626; background: #FFF5F5;">
           <div class="stat-header">
@@ -319,28 +342,41 @@ export async function renderParentDashboard(container, { onNavigate }) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
           </div>
-          <div class="stat-value" id="card-live-countup-val" style="color: #DC2626; font-family: var(--font-mono); font-size: 1.45rem; font-weight: 800;">
+          <div class="stat-value" id="live-card-overdue-val" style="color: #DC2626; font-size: 1.45rem;">
             +${overdueHours}h ${overdueMins}m
           </div>
           <div class="stat-footer">
-            <span style="color: #991B1B; font-weight: 600;">Report was due: ${formatDate(activeLeave.expected_return_date)} ${activeLeave.expected_return_time || '06:00 PM'}</span>
+            <span style="color: #991B1B; font-weight: 700;">Rate: ₹${fineRate}/hr • Generated Fine: ₹${fineAmount}</span>
           </div>
         </div>
       ` : isOnLeave ? `
-        <div class="stat-card" style="border-left: 4px solid ${remHours < 6 ? '#EA580C' : '#2563EB'}; background: ${remHours < 6 ? '#FFF7ED' : '#EFF6FF'};">
+        <div class="stat-card" style="border-left: 4px solid ${remHours <= 6 ? '#EA580C' : '#2563EB'}; background: ${remHours <= 6 ? '#FFF7ED' : '#EFF6FF'};">
           <div class="stat-header">
-            <span class="stat-title" style="color: ${remHours < 6 ? '#C2410C' : '#1E40AF'}; font-weight: 700;">Hostel Return Countdown</span>
-            <div class="stat-icon-wrapper" style="background: #FFFFFF; color: ${remHours < 6 ? '#EA580C' : '#2563EB'}; border: 1px solid ${remHours < 6 ? '#FED7AA' : '#BFDBFE'};">
+            <span class="stat-title" style="color: ${remHours <= 6 ? '#C2410C' : '#1E40AF'}; font-weight: 700;">Hostel Return Countdown</span>
+            <div class="stat-icon-wrapper" style="background: ${remHours <= 6 ? '#FFEDD5' : '#DBEAFE'}; color: ${remHours <= 6 ? '#EA580C' : '#2563EB'};">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
           </div>
-          <div class="stat-value" id="card-live-countdown-val" style="color: ${remHours < 6 ? '#EA580C' : '#2563EB'}; font-family: var(--font-mono); font-size: 1.45rem; font-weight: 800;">
-            ${remDays > 0 ? `${remDays}d ${remHoursInDay}h ${remMins}m` : `${remHours}h ${remMins}m`}
+          <div class="stat-value" id="live-card-countdown-val" style="color: ${remHours <= 6 ? '#EA580C' : '#2563EB'}; font-size: 1.45rem; font-weight: 900;">
+            ${remDays > 0 ? `${remDays}d ` : ''}${remHoursInDay}h ${remMins}m
           </div>
           <div class="stat-footer">
-            <span style="color: ${remHours < 6 ? '#EA580C' : '#2563EB'}; font-weight: 600;">
-              ${remHours < 6 ? '⚠️ Less than 6 hours remaining!' : `Report by: ${formatDate(activeLeave.expected_return_date)} ${activeLeave.expected_return_time || '06:00 PM'}`}
+            <span style="color: ${remHours <= 6 ? '#C2410C' : '#1E40AF'};">
+              Return by ${formatDate(activeLeave.expected_return_date)} at ${activeLeave.expected_return_time || '06:00 PM'}
             </span>
+          </div>
+        </div>
+      ` : isPending ? `
+        <div class="stat-card" style="border-left: 4px solid #D97706; background: #FFFBEB;">
+          <div class="stat-header">
+            <span class="stat-title" style="color: #92400E; font-weight: 700;">Leave Request</span>
+            <div class="stat-icon-wrapper" style="background: #FEF3C7; color: #D97706;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="font-size: 1.25rem; color: #92400E; font-weight: 800;">Pending Approval</div>
+          <div class="stat-footer">
+            <span style="color: #B45309;">Requested for ${formatDate(activeLeave.departure_date)} → ${formatDate(activeLeave.expected_return_date)}</span>
           </div>
         </div>
       ` : `
@@ -353,7 +389,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
           </div>
           <div class="stat-value">${percentage}%</div>
           <div class="stat-footer">
-            <span>Mid-Term 2026 Overall Grade: <strong>A+</strong></span>
+            <span>${activeExam.title?.split(' ')[0] || 'Mid-Term'} 2026 Overall Grade: <strong>A</strong></span>
           </div>
         </div>
       `}
@@ -676,6 +712,8 @@ export async function renderParentDashboard(container, { onNavigate }) {
       try {
         await db.createLeaveRecord({
           student_ids: [targetStudent.id],
+          student_name: targetStudent.full_name,
+          admission_number: targetStudent.admission_number,
           leave_type: leaveType,
           departure_date: depDate,
           departure_time: depTime,

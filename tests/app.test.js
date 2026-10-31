@@ -2946,9 +2946,9 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('THAIBASCHOOL CAMPUS');
     expect(container.innerHTML).toContain('TOTAL RESIDENTS ENROLLED');
 
-    // 3. Verify 2x2 Bento quick actions
+    // 3. Verify 2x2 Bento quick actions (with Parent Leave Request replacing legacy admissions card)
     expect(container.innerHTML).toContain('m-actions-grid');
-    expect(container.innerHTML).toContain('data-route="admissions"');
+    expect(container.innerHTML).toContain('id="m-action-parent-leave"');
     expect(container.innerHTML).toContain('data-route="attendance"');
     expect(container.innerHTML).toContain('data-route="leaves"');
     expect(container.innerHTML).toContain('data-route="timetable"');
@@ -4719,7 +4719,12 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await renderLeavesModule(container, { onNavigate: () => {} });
 
       // Create a batch leave using db.createLeaveRecord with fine_per_hour
-      const allStudents = await db.getStudents();
+      let allStudents = await db.getStudents();
+      if (!allStudents || allStudents.length < 2) {
+        const s1New = await db.createStudent({ full_name: 'Test Child One', admission_number: 'TPS-TC1', gender: 'Boys', status: 'Active' });
+        const s2New = await db.createStudent({ full_name: 'Test Child Two', admission_number: 'TPS-TC2', gender: 'Boys', status: 'Active' });
+        allStudents = [s1New, s2New];
+      }
       const s1 = allStudents[0];
       const s2 = allStudents[1];
 
@@ -4866,6 +4871,187 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // 5. Clean up test parent user and profile
       db.set('tps_users', initialUsers);
+    });
+
+    it('2506: Parent Dashboard multi-child switcher, single-line centered presence pill, and cross-account sync', async () => {
+      let students = await db.getStudents();
+      if (!students || students.length < 2) {
+        const st1New = await db.createStudent({ full_name: 'Test Child Alpha', admission_number: 'TPS-TCA', gender: 'Boys', status: 'Active' });
+        const st2New = await db.createStudent({ full_name: 'Test Child Beta', admission_number: 'TPS-TCB', gender: 'Boys', status: 'Active' });
+        students = [st1New, st2New];
+      }
+      const st1 = students[0];
+      const st2 = students[1];
+
+      // Simulate admin assigning 2 students to parent
+      const parentUser = {
+        id: 'u-parent-multi-test',
+        email: 'parent.multi@test.com',
+        full_name: 'Test Parent Multiple',
+        role: 'parent',
+        approval_status: 'approved'
+      };
+
+      await db.setParentAssignedStudents(parentUser.id, [st1.id, st2.id], parentUser.email);
+      const assignedFromDb = await db.getParentAssignedStudents(parentUser.id, parentUser.email);
+      expect(assignedFromDb).toContain(st1.id);
+      expect(assignedFromDb).toContain(st2.id);
+
+      // Now simulate parent logging in on a separate device where local profile has no assigned_student_ids
+      updateCurrentUserProfile({
+        id: parentUser.id,
+        email: parentUser.email,
+        full_name: parentUser.full_name,
+        role: 'parent',
+        approval_status: 'approved'
+      });
+
+      const parentContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderParentDashboard(parentContainer, { onNavigate: () => {} });
+
+      // Verify multi-child selector tabs rendered
+      expect(parentContainer.innerHTML).toContain('parent-child-tabs-card');
+      expect(parentContainer.innerHTML).toContain(st1.full_name);
+      expect(parentContainer.innerHTML).toContain(st2.full_name);
+      expect(parentContainer.innerHTML).toContain('child-tab-btn');
+
+      // Verify presence status is in a single line centered pill
+      expect(parentContainer.innerHTML).toContain('child-presence-single-line');
+      expect(parentContainer.innerHTML).toContain('Presence Status');
+      expect(parentContainer.innerHTML).toMatch(/● (Present in Hostel|On Approved Leave|Overdue)/);
+
+      // Clean up
+      const pMap = db.get('tps_parent_assignments') || {};
+      delete pMap[parentUser.id];
+      delete pMap[parentUser.email];
+      db.set('tps_parent_assignments', pMap);
+    });
+
+    it('2507: Admin Dashboard replaces New Admission with Parent Leave Request and alerts on pending parent leaves', async () => {
+      const initialLeaves = await db.getLeaves();
+      let students = await db.getStudents();
+      if (!students || students.length < 1) {
+        const sNew = await db.createStudent({ full_name: 'Test Child Gamma', admission_number: 'TPS-TCG', gender: 'Boys', status: 'Active' });
+        students = [sNew];
+      }
+      const targetStudent = students[0];
+
+      // 1. Submit a pending leave request from parent
+      await db.createLeaveRecord({
+        student_ids: [targetStudent.id],
+        student_name: targetStudent.full_name,
+        admission_number: targetStudent.admission_number,
+        leave_type: 'hostel_leave',
+        departure_date: '2026-10-31',
+        departure_time: '16:00',
+        expected_return_date: '2026-11-02',
+        expected_return_time: '18:00',
+        reason: 'Family Gathering',
+        requested_by: 'Parent User',
+        requester_role: 'parent',
+        status: 'Pending',
+        fine_unit: 'hour',
+        fine_per_hour: 50
+      });
+
+      // 2. Render Admin Dashboard
+      updateCurrentUserProfile({
+        id: 'd0000000-0000-0000-0000-000000000001',
+        email: 'abdulhaseebkt2@gmail.com',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      });
+
+      const adminContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAdminDashboard(adminContainer, { onNavigate: () => {} });
+
+      // Verify Quick Actions replaces "New Admission" with "Parent Leave Request"
+      expect(adminContainer.innerHTML).not.toContain('m-action-tile" data-route="admissions"');
+      expect(adminContainer.innerHTML).toContain('id="m-action-parent-leave"');
+      expect(adminContainer.innerHTML).toContain('Parent Leave Request');
+      expect(adminContainer.innerHTML).toContain('awaiting approval');
+
+      // Verify Hero Brand Pill alerts with student requested leave
+      expect(adminContainer.innerHTML).toContain('has-leave-request');
+      expect(adminContainer.innerHTML).toContain('requested leave');
+
+      // Clean up leaves
+      db.set('tps_leaves', initialLeaves);
+    });
+
+    it('2508: Faculty Leave Edit, Adjust Dates and Early Return Duty Restoration', async () => {
+      const facultyLeaves = await db.getFacultyLeaves();
+      const testFacultyLeave = {
+        id: 'fl-test-edit-' + Date.now(),
+        faculty_id: 'u-2',
+        faculty_name: 'Rashid Sir',
+        faculty_email: 'teacher@thaibaschool.edu.in',
+        is_multiple_days: true,
+        start_date: '2026-10-30',
+        end_date: '2026-11-03',
+        departure_time: '08:00',
+        return_time: '16:30',
+        leave_type: 'Casual Leave',
+        reason: 'Outstation Personal Work',
+        status: 'Approved',
+        applied_at: new Date().toISOString()
+      };
+
+      facultyLeaves.unshift(testFacultyLeave);
+      db.set('tps_faculty_leaves', facultyLeaves);
+
+      // Verify on 2026-10-31, faculty is on approved leave
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-10-31', facultyLeaves)).toBeTruthy();
+
+      // Admin edits the leave because faculty returned early on 2026-10-31 at 12:00
+      const updated = await db.updateFacultyLeave(testFacultyLeave.id, {
+        actual_return_date: '2026-10-31',
+        actual_return_time: '12:00',
+        admin_notes: 'Faculty returned early from outstation trip'
+      }, { full_name: 'Admin User', role: 'admin' });
+
+      expect(updated.actual_return_date).toBe('2026-10-31');
+      expect(updated.admin_notes).toContain('returned early');
+
+      const freshLeaves = await db.getFacultyLeaves();
+
+      // For dates after actual return date (e.g. 2026-11-01), faculty is NO LONGER on leave (duty resumed)
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-11-01', freshLeaves)).toBeNull();
+      // On actual return date after return time, duty is resumed
+      expect(db.isFacultyOnApprovedLeave('u-2', '2026-10-31', freshLeaves, '14:00')).toBeNull();
+
+      // Verify Faculty Leaves Module renders Edit button
+      updateCurrentUserProfile({
+        id: 'd0000000-0000-0000-0000-000000000001',
+        email: 'abdulhaseebkt2@gmail.com',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      });
+
+      const facultyContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderFacultyLeavesModule(facultyContainer, { onNavigate: () => {} });
+      expect(facultyContainer.innerHTML).toContain('btn-edit-leave');
+      expect(facultyContainer.innerHTML).toContain('Edit');
+
+      // Clean up
+      db.set('tps_faculty_leaves', facultyLeaves.filter(l => l.id !== testFacultyLeave.id));
     });
   });
 });

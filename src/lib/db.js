@@ -415,8 +415,13 @@ class DatabaseService {
   get(key) {
     try {
       const item = this.getStorageItem(key);
-      return item ? JSON.parse(item) : [];
+      if (!item) {
+        if (key === 'tps_parent_assignments') return {};
+        return [];
+      }
+      return JSON.parse(item);
     } catch {
+      if (key === 'tps_parent_assignments') return {};
       return [];
     }
   }
@@ -454,7 +459,8 @@ class DatabaseService {
     'tps_hostel_beds',
     'tps_discipline',
     'tps_fines',
-    'tps_black_marks'
+    'tps_black_marks',
+    'tps_parent_assignments'
   ], force = false) {
     if (!supabase || isTestEnv) return;
     const now = Date.now();
@@ -1650,6 +1656,25 @@ class DatabaseService {
     return target;
   }
 
+  async updateFacultyLeave(leaveId, updates = {}, editorUser = null) {
+    const leaves = await this.getFacultyLeaves();
+    const target = leaves.find(l => l.id === leaveId);
+    if (!target) return null;
+
+    Object.assign(target, updates);
+    target.updated_at = new Date().toISOString();
+    if (editorUser) {
+      target.last_edited_by = {
+        id: editorUser.id,
+        name: editorUser.full_name || editorUser.name || 'Admin',
+        role: editorUser.role || 'admin'
+      };
+    }
+    this.set('tps_faculty_leaves', leaves);
+    this.logAudit('FACULTY_LEAVE_EDITED', 'faculty_leaves', leaveId, `Leave modified/adjusted by ${editorUser?.name || editorUser?.full_name || 'Admin'}`);
+    return target;
+  }
+
   async deleteFacultyLeave(leaveId) {
     let leaves = await this.getFacultyLeaves();
     const initialLen = leaves.length;
@@ -1702,6 +1727,16 @@ class DatabaseService {
                              (targetEmail && isMatch(l.faculty_email, targetEmail)) ||
                              (targetName && isMatch(l.faculty_name, targetName));
       if (!matchesFaculty) return false;
+
+      // Early / Actual Return Check:
+      // If faculty reported back early, duty resumes from the return point
+      if (l.actual_return_date) {
+        if (dateStr > l.actual_return_date) return false;
+        if (dateStr === l.actual_return_date && l.actual_return_time && timeStr && timeStr >= l.actual_return_time) {
+          return false;
+        }
+      }
+
       const start = l.start_date;
       const end = l.end_date || l.start_date;
       const inDateRange = dateStr >= start && dateStr <= end;
@@ -1915,8 +1950,9 @@ class DatabaseService {
   }
 
   // --- HOSTEL LEAVES & RETURNS ---
-  async getLeaves() {
-    return this.get('tps_leaves');
+  async getLeaves(force = false) {
+    await this.pullCloudKeys(['tps_leaves'], force);
+    return this.get('tps_leaves') || [];
   }
 
   calculateReturnLate(expectedDateStr, expectedTimeStr, actualDateStr, actualTimeStr, fineRate = 50, rateType = 'daily') {
@@ -2004,6 +2040,8 @@ class DatabaseService {
 
   async createLeaveRecord({
     student_ids,
+    student_name = '',
+    admission_number = '',
     leave_type,
     departure_date,
     departure_time,
@@ -2026,6 +2064,18 @@ class DatabaseService {
     const randomSeq = Math.floor(100 + Math.random() * 900);
     const leaveCode = `LV-${year}-${randomSeq}`;
     const regNo = 'LR-2026-' + String(leaves.length + 1).padStart(3, '0');
+
+    // Auto-resolve student name and admission number if not provided
+    let sName = student_name;
+    let sAdm = admission_number;
+    if (!sName && sIds.length > 0) {
+      const allStudents = this.get('tps_students') || [];
+      const st = allStudents.find(s => s.id === sIds[0]);
+      if (st) {
+        sName = st.full_name;
+        sAdm = st.admission_number;
+      }
+    }
 
     const effectiveStatus = status || (requester_role === 'parent' ? 'Pending' : 'Away');
     const effectiveUnit = fine_unit || (fine_per_day !== null ? 'daily' : 'hour');
@@ -2069,6 +2119,8 @@ class DatabaseService {
       total_students: sIds.length,
       student_ids: sIds,
       student_id: sIds[0], // backward compatibility
+      student_name: sName,
+      admission_number: sAdm,
       students: studentEntries,
       actual_return_date: null,
       actual_return_time: null,
@@ -2755,9 +2807,23 @@ class DatabaseService {
         });
         if (extra && Object.keys(extra).length > 0) {
           try {
+            // First attempt direct column update
             await supabase.from('profiles').update(extra).eq('id', user_id);
           } catch (e) {
-            console.warn('Supabase profile extra fields update:', e);
+            console.warn('Supabase profile direct fields update fallback:', e);
+          }
+          try {
+            // Also store in metadata JSONB on profiles table to guarantee cross-device persistence
+            const { data: prof } = await supabase.from('profiles').select('metadata').eq('id', user_id).maybeSingle();
+            const prevMeta = prof?.metadata || {};
+            await supabase.from('profiles').update({
+              metadata: {
+                ...prevMeta,
+                ...extra
+              }
+            }).eq('id', user_id);
+          } catch (e) {
+            console.warn('Supabase profile metadata update error:', e);
           }
         }
         if (!error && data) {
@@ -2767,6 +2833,13 @@ class DatabaseService {
           if (idx >= 0) {
             users[idx] = { ...users[idx], ...updates };
             this.set('tps_users', users);
+          }
+          const assigned = extra.assigned_student_ids || extra.student_ids || extra.child_ids;
+          if (assigned && Array.isArray(assigned)) {
+            const pMap = this.get('tps_parent_assignments') || {};
+            pMap[user_id] = assigned;
+            if (updates.email) pMap[updates.email.toLowerCase()] = assigned;
+            this.set('tps_parent_assignments', pMap);
           }
           this._usersCache = null;
           this._usersCacheTime = 0;
@@ -2784,13 +2857,66 @@ class DatabaseService {
     if (idx >= 0) {
       users[idx] = { ...users[idx], ...updates };
       this.set('tps_users', users);
-      this._usersCache = null;
-      this._usersCacheTime = 0;
-      this._usersInFlightPromise = null;
-      this.logAudit('USER_APPROVAL_UPDATE', 'profiles', user_id, `Approval: ${approval_status}, Role: ${role}`);
-      return users[idx];
     }
-    return null;
+    const assigned = extra.assigned_student_ids || extra.student_ids || extra.child_ids;
+    if (assigned && Array.isArray(assigned)) {
+      const pMap = this.get('tps_parent_assignments') || {};
+      pMap[user_id] = assigned;
+      if (updates.email) pMap[updates.email.toLowerCase()] = assigned;
+      this.set('tps_parent_assignments', pMap);
+    }
+    this._usersCache = null;
+    this._usersCacheTime = 0;
+    this._usersInFlightPromise = null;
+    this.logAudit('USER_APPROVAL_UPDATE', 'profiles', user_id, `Approval: ${approval_status}, Role: ${role}`);
+    return idx >= 0 ? users[idx] : { id: user_id, ...updates };
+  }
+
+  async setParentAssignedStudents(user_id, student_ids = [], email = '') {
+    const pMap = this.get('tps_parent_assignments') || {};
+    pMap[user_id] = student_ids;
+    if (email) pMap[email.toLowerCase()] = student_ids;
+    this.set('tps_parent_assignments', pMap);
+
+    // Keep tps_users up to date locally
+    const users = this.get('tps_users') || [];
+    const idx = users.findIndex(u => u.id === user_id || (email && (u.email || '').toLowerCase() === email.toLowerCase()));
+    if (idx >= 0) {
+      users[idx] = {
+        ...users[idx],
+        assigned_student_ids: student_ids,
+        student_ids,
+        child_ids: student_ids
+      };
+      this.set('tps_users', users);
+    }
+
+    // Persist to profiles.metadata if Supabase is active
+    if (supabase && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id)) {
+      try {
+        const { data: prof } = await supabase.from('profiles').select('metadata').eq('id', user_id).maybeSingle();
+        const prevMeta = prof?.metadata || {};
+        await supabase.from('profiles').update({
+          metadata: {
+            ...prevMeta,
+            assigned_student_ids: student_ids,
+            student_ids,
+            child_ids: student_ids
+          }
+        }).eq('id', user_id);
+      } catch (e) {
+        console.warn('Supabase setParentAssignedStudents error:', e);
+      }
+    }
+    return student_ids;
+  }
+
+  async getParentAssignedStudents(user_id, email = '') {
+    await this.pullCloudKeys(['tps_parent_assignments']);
+    const pMap = this.get('tps_parent_assignments') || {};
+    if (user_id && pMap[user_id]) return pMap[user_id];
+    if (email && pMap[email.toLowerCase()]) return pMap[email.toLowerCase()];
+    return [];
   }
 
   async updateProfile(user_id, { full_name, phone, avatar_url, blood_group, tps_id }) {

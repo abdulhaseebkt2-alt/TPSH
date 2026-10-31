@@ -143,8 +143,16 @@ export async function loadUserProfile(user) {
       .maybeSingle();
 
     if (profile) {
+      const meta = profile.metadata || {};
       currentProfile = {
         ...profile,
+        ...meta,
+        assigned_student_ids: profile.assigned_student_ids || meta.assigned_student_ids || [],
+        student_ids: profile.student_ids || meta.student_ids || meta.assigned_student_ids || [],
+        child_ids: profile.child_ids || meta.child_ids || meta.assigned_student_ids || [],
+        mentor_type: profile.mentor_type || meta.mentor_type || null,
+        hostel_unit: profile.hostel_unit || meta.hostel_unit || null,
+        gender: profile.gender || meta.gender || null,
         // Ensure photo falls back to Google OAuth picture if not explicitly overridden
         avatar_url: profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
         // Enforce Super Admin attributes for the designated initial super admin email
@@ -519,11 +527,20 @@ export function getDevProfile(role) {
 export function getCurrentUser() {
   if (currentProfile) {
     try {
-      if (typeof localStorage !== 'undefined' && currentProfile.id) {
-        const localUsers = JSON.parse(localStorage.getItem('tps_users') || '[]');
-        const matched = localUsers.find(u => u.id === currentProfile.id || (u.email && (currentProfile.email || '').toLowerCase() === (u.email || '').toLowerCase()));
-        if (matched) {
-          return { ...currentProfile, ...matched };
+      if (typeof localStorage !== 'undefined') {
+        if (currentProfile.id || currentProfile.email) {
+          const localUsers = JSON.parse(localStorage.getItem('tps_users') || '[]');
+          const matched = localUsers.find(u => (currentProfile.id && u.id === currentProfile.id) || (u.email && (currentProfile.email || '').toLowerCase() === (u.email || '').toLowerCase()));
+          if (matched) {
+            currentProfile = { ...currentProfile, ...matched };
+          }
+        }
+        const parentMap = JSON.parse(localStorage.getItem('tps_parent_assignments') || '{}');
+        const assigned = (currentProfile.id && parentMap[currentProfile.id]) || (currentProfile.email && parentMap[currentProfile.email.toLowerCase()]);
+        if (assigned && Array.isArray(assigned) && assigned.length > 0) {
+          currentProfile.assigned_student_ids = assigned;
+          currentProfile.student_ids = assigned;
+          currentProfile.child_ids = assigned;
         }
       }
     } catch {}

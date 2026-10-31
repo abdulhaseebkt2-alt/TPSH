@@ -366,6 +366,13 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
                       </button>
                     ` : ''}
 
+                    ${isAdmin ? `
+                      <button class="btn btn-sm btn-outline btn-edit-leave" data-id="${leave.id}" style="padding: 0.35rem 0.75rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; border-color: #CBD5E1; color: #334155; background: #FFFFFF;" title="Edit leave dates, timings, or record early/late return">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        Edit
+                      </button>
+                    ` : ''}
+
                     ${(isAdmin || leave.faculty_id === user?.id || (user?.email && leave.faculty_email === user.email)) ? `
                       <button class="btn btn-sm btn-ghost btn-delete-leave" data-id="${leave.id}" title="Remove leave application" style="color: #94A3B8; padding: 0.35rem 0.6rem;">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -448,6 +455,17 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
         await db.updateFacultyLeaveStatus(leaveId, 'Rejected', user, note || 'Application rejected by Administrator');
         toast.info('Faculty leave application marked as rejected.');
         renderView();
+      });
+    });
+
+    // Edit / Adjust Leave Button
+    container.querySelectorAll('.btn-edit-leave').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const leaveId = btn.getAttribute('data-id');
+        const targetLeave = (db.get('tps_faculty_leaves') || []).find(l => l.id === leaveId);
+        if (targetLeave) {
+          openEditFacultyLeaveModal(targetLeave);
+        }
       });
     });
 
@@ -730,6 +748,224 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
           submitBtn.textContent = 'Submit Leave Application';
         }
       }
+    });
+  }
+
+  // Open Edit & Adjust Faculty Leave Modal
+  function openEditFacultyLeaveModal(leave) {
+    let isMultiDayMode = Boolean(leave.is_multiple_days || (leave.end_date && leave.end_date !== leave.start_date));
+    const startDate = leave.start_date || todayIso;
+    const endDate = leave.end_date || leave.start_date || todayIso;
+
+    openModal({
+      title: 'Edit Faculty Leave & Adjust Return',
+      contentHtml: `
+        <div style="margin-bottom: 0.85rem; max-width: 540px;">
+          
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <div>
+              <div style="font-size: 0.95rem; font-weight: 800; color: #0F172A;">${leave.faculty_name}</div>
+              <div style="font-size: 0.78rem; color: #64748B;">${leave.faculty_email || 'Faculty Account'}</div>
+            </div>
+            <span class="badge" style="font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: ${leave.status === 'Approved' ? '#DCFCE7' : '#FEF3C7'}; color: ${leave.status === 'Approved' ? '#15803D' : '#92400E'};">
+              ${leave.status}
+            </span>
+          </div>
+
+          <!-- Single Day vs Multiple Days Switcher Pill -->
+          <div style="display: flex; gap: 0.4rem; background: #F1F5F9; padding: 4px; border-radius: 8px; margin-bottom: 1rem;">
+            <button type="button" class="btn btn-xs ${!isMultiDayMode ? 'btn-primary' : 'btn-ghost'}" id="edit-tab-single" style="flex: 1; font-weight: 700; border-radius: 6px;">
+              Single Day
+            </button>
+            <button type="button" class="btn btn-xs ${isMultiDayMode ? 'btn-primary' : 'btn-ghost'}" id="edit-tab-multi" style="flex: 1; font-weight: 700; border-radius: 6px;">
+              Multiple Days (Date Range)
+            </button>
+          </div>
+
+          <form id="modal-form-edit-faculty-leave" style="display: flex; flex-direction: column; gap: 0.85rem;">
+            
+            <!-- Single Day Input Container -->
+            <div id="edit-single-day-box" style="display: ${isMultiDayMode ? 'none' : 'block'}; width: 100%; box-sizing: border-box;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Leave Date</label>
+              <input type="date" id="edit-leave-date" class="form-control" value="${startDate}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" />
+            </div>
+
+            <!-- Multiple Days Inputs Container -->
+            <div id="edit-multi-day-box" style="display: ${isMultiDayMode ? 'block' : 'none'}; width: 100%; box-sizing: border-box;">
+              <div class="cal-modal-date-range-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; width: 100%; box-sizing: border-box;">
+                <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Start Date</label>
+                  <input type="date" id="edit-leave-start-date" class="form-control" value="${startDate}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" />
+                </div>
+                <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">End Date</label>
+                  <input type="date" id="edit-leave-end-date" class="form-control" value="${endDate}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Going Time and Expected Coming Back Time -->
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; width: 100%; box-sizing: border-box;">
+              <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                  Departure Time
+                </label>
+                <input type="time" id="edit-departure-time" class="form-control" value="${leave.departure_time || '08:00'}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" required />
+              </div>
+              <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                  Expected Return Time
+                </label>
+                <input type="time" id="edit-return-time" class="form-control" value="${leave.return_time || '16:30'}" style="height: 38px; width: 100%; min-width: 0; box-sizing: border-box;" required />
+              </div>
+            </div>
+
+            <!-- Actual Return (Early / Late Return Tracking) -->
+            <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 10px; padding: 0.75rem 0.95rem;">
+              <div style="display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.45rem;">
+                <span style="font-size: 1rem;">🏁</span>
+                <span style="font-size: 0.82rem; font-weight: 800; color: #166534;">Record Early or Late Return (Back on Duty)</span>
+              </div>
+              <p style="font-size: 0.74rem; color: #15803D; margin: 0 0 0.6rem 0; line-height: 1.4;">
+                If faculty returned before or after the permitted leave dates, recording their actual return date & time automatically updates their leave record and resumes teaching duty.
+              </p>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem;">
+                <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                  <label style="font-size: 0.78rem; font-weight: 700; color: #166534; display: block; margin-bottom: 0.25rem;">Actual Return Date</label>
+                  <input type="date" id="edit-actual-return-date" class="form-control" value="${leave.actual_return_date || ''}" style="height: 36px; width: 100%; min-width: 0; box-sizing: border-box;" />
+                </div>
+                <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                  <label style="font-size: 0.78rem; font-weight: 700; color: #166534; display: block; margin-bottom: 0.25rem;">Actual Return Time</label>
+                  <input type="time" id="edit-actual-return-time" class="form-control" value="${leave.actual_return_time || ''}" style="height: 36px; width: 100%; min-width: 0; box-sizing: border-box;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Leave Type and Status Row -->
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; width: 100%; box-sizing: border-box;">
+              <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Leave Type</label>
+                <select id="edit-leave-type" class="form-control" style="height: 38px; width: 100%; box-sizing: border-box;">
+                  <option value="Casual Leave" ${leave.leave_type === 'Casual Leave' ? 'selected' : ''}>Casual Leave (CL)</option>
+                  <option value="Sick / Medical Leave" ${leave.leave_type === 'Sick / Medical Leave' ? 'selected' : ''}>Sick / Medical Leave</option>
+                  <option value="Academic Seminar / Duty Leave" ${leave.leave_type === 'Academic Seminar / Duty Leave' ? 'selected' : ''}>Academic Seminar / Duty Leave</option>
+                  <option value="Personal Emergency" ${leave.leave_type === 'Personal Emergency' ? 'selected' : ''}>Personal Emergency</option>
+                  <option value="Official Work / Tour" ${leave.leave_type === 'Official Work / Tour' ? 'selected' : ''}>Official Work / Tour</option>
+                </select>
+              </div>
+
+              <div style="min-width: 0; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Approval Status</label>
+                <select id="edit-leave-status" class="form-control" style="height: 38px; width: 100%; box-sizing: border-box;">
+                  <option value="Approved" ${leave.status === 'Approved' ? 'selected' : ''}>Approved (Waive Attendance)</option>
+                  <option value="Completed" ${leave.status === 'Completed' ? 'selected' : ''}>Completed / Returned</option>
+                  <option value="Pending" ${leave.status === 'Pending' ? 'selected' : ''}>Pending Approval</option>
+                  <option value="Rejected" ${leave.status === 'Rejected' ? 'selected' : ''}>Rejected (Attendance Missed)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Reason -->
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Reason for Leave *</label>
+              <textarea id="edit-leave-reason" class="form-control" rows="2" style="width: 100%; box-sizing: border-box; resize: vertical;" required>${leave.reason || ''}</textarea>
+            </div>
+
+            <!-- Admin Remarks / Audit Note -->
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Administrator Remark / Audit Note</label>
+              <input type="text" id="edit-admin-notes" class="form-control" value="${leave.admin_notes || ''}" placeholder="e.g. Returned early, leave dates amended by Warden" style="height: 38px; width: 100%; box-sizing: border-box;" />
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
+              <button type="button" class="btn btn-outline" id="edit-btn-cancel" style="padding: 0.45rem 1rem;">Cancel</button>
+              <button type="submit" class="btn btn-primary" id="edit-btn-submit" style="background: #059669; border-color: #059669; font-weight: 700; padding: 0.45rem 1.25rem;">
+                Save Changes
+              </button>
+            </div>
+
+          </form>
+        </div>
+      `
+    });
+
+    // Toggle handlers
+    const singleTab = document.getElementById('edit-tab-single');
+    const multiTab = document.getElementById('edit-tab-multi');
+    const singleBox = document.getElementById('edit-single-day-box');
+    const multiBox = document.getElementById('edit-multi-day-box');
+
+    singleTab?.addEventListener('click', () => {
+      isMultiDayMode = false;
+      singleTab.className = 'btn btn-xs btn-primary';
+      multiTab.className = 'btn btn-xs btn-ghost';
+      if (singleBox) singleBox.style.display = 'block';
+      if (multiBox) multiBox.style.display = 'none';
+    });
+
+    multiTab?.addEventListener('click', () => {
+      isMultiDayMode = true;
+      singleTab.className = 'btn btn-xs btn-ghost';
+      multiTab.className = 'btn btn-xs btn-primary';
+      if (singleBox) singleBox.style.display = 'none';
+      if (multiBox) multiBox.style.display = 'block';
+    });
+
+    document.getElementById('edit-btn-cancel')?.addEventListener('click', () => {
+      const closeBtn = document.querySelector('.modal-close-btn') || document.querySelector('#modal-close');
+      if (closeBtn) closeBtn.click();
+    });
+
+    // Submit handler
+    document.getElementById('modal-form-edit-faculty-leave')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let start = '';
+      let end = '';
+      if (!isMultiDayMode) {
+        start = document.getElementById('edit-leave-date')?.value;
+        end = start;
+      } else {
+        start = document.getElementById('edit-leave-start-date')?.value;
+        end = document.getElementById('edit-leave-end-date')?.value;
+      }
+
+      const depTime = document.getElementById('edit-departure-time')?.value || '08:00';
+      const retTime = document.getElementById('edit-return-time')?.value || '16:30';
+      const actDate = document.getElementById('edit-actual-return-date')?.value || null;
+      const actTime = document.getElementById('edit-actual-return-time')?.value || null;
+      const lType = document.getElementById('edit-leave-type')?.value;
+      const status = document.getElementById('edit-leave-status')?.value;
+      const reason = document.getElementById('edit-leave-reason')?.value.trim();
+      const adminNotes = document.getElementById('edit-admin-notes')?.value.trim();
+
+      const updates = {
+        is_multiple_days: isMultiDayMode,
+        start_date: start,
+        end_date: end,
+        departure_time: depTime,
+        return_time: retTime,
+        actual_return_date: actDate,
+        actual_return_time: actTime,
+        leave_type: lType,
+        status,
+        reason,
+        admin_notes: adminNotes
+      };
+
+      if (status === 'Approved' && !leave.approved_by) {
+        updates.approved_by = {
+          id: user?.id || 'u-1',
+          name: user?.full_name || 'Admin',
+          role: user?.role || 'admin'
+        };
+        updates.approved_at = new Date().toISOString();
+      }
+
+      await db.updateFacultyLeave(leave.id, updates, user);
+      toast.success('Faculty leave record updated & attendance duty status synchronized.');
+      const closeBtn = document.querySelector('.modal-close-btn') || document.querySelector('#modal-close');
+      if (closeBtn) closeBtn.click();
+      renderView();
     });
   }
 

@@ -1715,6 +1715,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           }
 
           await db.updateUserApproval(userId, payload);
+          if (role === 'parent' && payload.assigned_student_ids) {
+            await db.setParentAssignedStudents(userId, payload.assigned_student_ids, email);
+          }
 
           // If the approved user is currently simulated or authenticated in this session, keep profile updated
           const sessionUser = getCurrentUser();

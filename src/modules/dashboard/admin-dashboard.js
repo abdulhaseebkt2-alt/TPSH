@@ -319,16 +319,23 @@ export async function renderAdminDashboard(container, { onNavigate }) {
         </div>
 
         <div class="m-actions-grid">
-          <div class="m-action-tile" data-route="admissions">
-            <div class="m-action-icon-wrap mint">
+          <div class="m-action-tile" data-route="leaves" id="m-action-parent-leave">
+            <div class="m-action-icon-wrap ${pendingStudentCount > 0 ? 'amber' : 'mint'}" style="${pendingStudentCount > 0 ? 'background: #FEF3C7; color: #D97706;' : ''}">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
             </div>
             <div class="m-action-meta">
-              <span class="m-action-name">New Admission</span>
-              <span class="m-action-desc">Enroll student</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <span class="m-action-name">Parent Leave Request</span>
+                ${pendingStudentCount > 0 ? `
+                  <span style="font-size: 0.68rem; font-weight: 800; color: #FFFFFF; background: #EA580C; padding: 1px 6px; border-radius: 9999px; line-height: 1.2;">
+                    ${pendingStudentCount}
+                  </span>
+                ` : ''}
+              </div>
+              <span class="m-action-desc">${pendingStudentCount > 0 ? `${pendingStudentCount} awaiting approval` : 'Gate pass requests'}</span>
             </div>
           </div>
 
