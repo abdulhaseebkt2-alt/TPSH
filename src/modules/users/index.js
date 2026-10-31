@@ -11,6 +11,9 @@ import {
   getUserCustomPermissions,
   saveUserCustomPermissions,
   clearUserCustomPermissions,
+  canAccessModule,
+  canPerformAction,
+  isViewOnlyModule,
   MODULE_DEFINITIONS 
 } from '../../lib/permissions.js';
 
@@ -176,6 +179,12 @@ export const RBAC_WINDOW_GROUPS = [
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     modules: [
       {
+        key: 'users',
+        label: 'User & Permissions',
+        desc: 'Manage institutional accounts, role approvals, and window permissions',
+        icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`
+      },
+      {
         key: 'notices',
         label: 'Notices & WhatsApp',
         desc: 'Send school notifications, reminders and circulars',
@@ -205,16 +214,19 @@ export const RBAC_WINDOW_GROUPS = [
 
 export async function renderUsersModule(container, { onNavigate, initialTab } = {}) {
   const currentUser = getCurrentUser();
-  if (!currentUser?.is_super_admin && currentUser?.role !== 'super_admin') {
+  const hasAccess = currentUser?.is_super_admin || currentUser?.role === 'super_admin' || canAccessModule(currentUser, 'users');
+  if (!hasAccess) {
     container.innerHTML = `
       <div class="empty-state" style="margin-top: 4rem;">
         <div class="empty-icon" style="color: #DC2626;">✕</div>
         <h4>Access Restricted</h4>
-        <p>Only the verified Initial Super Admin has institutional authorization to access User & Permission Management.</p>
+        <p>Institutional authorization is required to access User & Permission Management.</p>
       </div>
     `;
     return;
   }
+
+  const isViewOnly = isViewOnlyModule(currentUser, 'users');
 
   const users = await db.getUsers();
   const allStudents = await db.getStudents();
@@ -233,10 +245,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         <p>Institutional identity governance, pending approval queue, and role window assignment</p>
       </div>
       <div class="page-actions">
-        <button class="btn btn-primary" id="btn-create-invitation">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x1="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
-          Pre-Authorize Email
-        </button>
+        ${!isViewOnly ? `
+          <button class="btn btn-primary" id="btn-create-invitation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x1="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+            Pre-Authorize Email
+          </button>
+        ` : ''}
       </div>
     </div>
 
@@ -340,12 +354,16 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <td>${u.email}</td>
                   <td><span class="badge badge-leave">Pending Approval</span></td>
                   <td>
-                    <div style="display: flex; gap: 0.5rem;">
-                      <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}">
-                        ${isParentReq ? 'Approve & Assign Children' : 'Approve & Assign Role'}
-                      </button>
-                      <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Reject</button>
-                    </div>
+                    ${!isViewOnly ? `
+                      <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}">
+                          ${isParentReq ? 'Approve & Assign Children' : 'Approve & Assign Role'}
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Reject</button>
+                      </div>
+                    ` : `
+                      <span class="badge badge-leave" style="font-size: 0.72rem;">View Only</span>
+                    `}
                   </td>
                 </tr>
               `;
@@ -396,16 +414,18 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 `}
               </div>
 
-              <div class="user-card-actions" style="grid-template-columns: 1fr 1fr;">
-                <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}" style="font-weight: 700;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  ${isParentReq ? 'Approve & Assign' : 'Approve & Role'}
-                </button>
-                <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  Reject
-                </button>
-              </div>
+              ${!isViewOnly ? `
+                <div class="user-card-actions" style="grid-template-columns: 1fr 1fr;">
+                  <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}" style="font-weight: 700;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    ${isParentReq ? 'Approve & Assign' : 'Approve & Role'}
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Reject
+                  </button>
+                </div>
+              ` : ''}
             </div>
           `;
           }).join('')}
@@ -622,7 +642,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <td><span class="badge badge-present">Active</span></td>
                   <td>
                     <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
-                      ${!u.is_super_admin ? `
+                      ${!u.is_super_admin && !isViewOnly ? `
                         <button class="btn btn-sm btn-outline btn-change-role" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}">Role</button>
                         ${u.role === 'parent' ? `
                           <button class="btn btn-sm btn-outline btn-assign-children" data-id="${u.id}" data-email="${u.email}" style="color: #059669; border-color: #A7F3D0; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Assign or edit linked students for this parent">
@@ -636,7 +656,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                         </button>
                       ` : ''}
                       <button class="btn btn-sm btn-outline btn-profile" data-id="${u.id}">Profile</button>
-                      ${!u.is_super_admin ? `
+                      ${!u.is_super_admin && !isViewOnly ? `
                         <button class="btn btn-sm btn-outline btn-suspend" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Suspend</button>
                       ` : ''}
                     </div>
@@ -704,7 +724,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               </div>
 
               <div class="user-card-actions ${u.is_super_admin ? 'user-card-actions-single' : ''}">
-                ${!u.is_super_admin ? `
+                ${!u.is_super_admin && !isViewOnly ? `
                   <button class="btn btn-sm btn-outline btn-change-role" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || 'teacher'}">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
                     Role
@@ -724,7 +744,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   Profile
                 </button>
-                ${!u.is_super_admin ? `
+                ${!u.is_super_admin && !isViewOnly ? `
                   <button class="btn btn-sm btn-outline btn-suspend" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                     Suspend
@@ -780,8 +800,16 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
       tabContent.querySelectorAll('.btn-suspend').forEach(btn => {
         btn.addEventListener('click', async () => {
+          if (isViewOnly) {
+            toast.warning('View-only access: suspending accounts is disabled.');
+            return;
+          }
           const id = btn.getAttribute('data-id');
           const u = activeUsers.find(item => item.id === id);
+          if (u?.is_super_admin) {
+            toast.error('The Initial Super Admin account cannot be suspended.');
+            return;
+          }
           const confirmed = await confirmDialog({
             title: 'Suspend User Account',
             message: `Suspending this account will immediately revoke all access to student and academic records for ${u?.full_name || u?.email || 'this user'}.`,
@@ -847,6 +875,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
       tabContent.innerHTML = `
         <div class="rbac-container">
+          ${isViewOnly ? `
+            <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.65rem; color: #92400E; font-size: 0.82rem; font-weight: 600;">
+              <span style="font-size: 1.1rem;">🔒</span>
+              <span>View-Only Mode: You have read-only access to inspect institutional window assignments. Modifying permissions requires Full Access authorization.</span>
+            </div>
+          ` : ''}
           <!-- 1. DESKTOP HEADER (Previous horizontal pills + large active role card with badges, legend & full controls) -->
           <div class="rbac-desktop-header">
             <!-- Top Role Selection Pills -->
@@ -1099,6 +1133,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       // Then tap -> comes to Left (Off, Gray)
       tabContent.querySelectorAll('.perm-item').forEach(item => {
         item.addEventListener('click', () => {
+          if (isViewOnly) {
+            toast.warning('View-only access: modifying window permissions is disabled.');
+            return;
+          }
           const modKey = item.getAttribute('data-mod-key');
           if (!modKey) return;
 
@@ -1129,6 +1167,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       // Full Access All for this role (both desktop & mobile)
       tabContent.querySelectorAll('.btn-role-full-all').forEach(btn => {
         btn.addEventListener('click', () => {
+          if (isViewOnly) return;
           for (const grp of WINDOW_GROUPS) {
             for (const mod of grp.modules) {
               setLevel(selectedRoleKey, mod.key, 'full');
@@ -1141,6 +1180,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       // View Only All for this role (both desktop & mobile)
       tabContent.querySelectorAll('.btn-role-view-all').forEach(btn => {
         btn.addEventListener('click', () => {
+          if (isViewOnly) return;
           for (const grp of WINDOW_GROUPS) {
             for (const mod of grp.modules) {
               setLevel(selectedRoleKey, mod.key, 'view');
@@ -1153,6 +1193,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       // Turn Off All for this role (both desktop & mobile)
       tabContent.querySelectorAll('.btn-role-off-all').forEach(btn => {
         btn.addEventListener('click', () => {
+          if (isViewOnly) return;
           for (const grp of WINDOW_GROUPS) {
             for (const mod of grp.modules) {
               setLevel(selectedRoleKey, mod.key, 'off');
@@ -1165,6 +1206,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       // Reset Defaults for this role (both desktop & mobile)
       tabContent.querySelectorAll('.btn-role-reset').forEach(btn => {
         btn.addEventListener('click', async () => {
+          if (isViewOnly) return;
           const confirmed = await confirmDialog({
             title: 'Reset Role Windows',
             message: `Restore default institutional window assignments for ${activeRoleObj.label}?`,
@@ -1181,6 +1223,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
       // Save handlers (both desktop & mobile)
       const handleSave = () => {
+        if (isViewOnly) {
+          toast.warning('View-only access: saving window permissions is disabled.');
+          return;
+        }
         saveRBACMatrix(localMatrix);
         db.logAudit('UPDATE_RBAC_MATRIX', 'permissions', selectedRoleKey, `Updated window permissions for ${activeRoleObj.label}`);
         toast.success(`Saved! Window permissions updated for ${activeRoleObj.label}.`);
@@ -1198,6 +1244,14 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
   }
 
   function showUserCustomPermissionsModal(targetUser) {
+    if (isViewOnly) {
+      toast.warning('View-only access: modifying permissions is disabled.');
+      return;
+    }
+    if (targetUser.is_super_admin) {
+      toast.error('The Initial Super Admin account has unrestricted full access.');
+      return;
+    }
     const roleKey = targetUser.role || 'teacher';
     const roleObj = RBAC_ROLES.find(r => r.key === roleKey) || RBAC_ROLES[1];
     const roleMatrix = (getRBACMatrix()[roleKey]) || {};
@@ -1402,8 +1456,16 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
   }
 
   async function showApprovalModal(userId, email, currentRole = 'teacher') {
+    if (isViewOnly) {
+      toast.warning('View-only access: modifying accounts is disabled.');
+      return;
+    }
     const allUsers = (db.get('tps_users') || []);
     const targetUser = allUsers.find(u => u.id === userId) || {};
+    if (targetUser.is_super_admin) {
+      toast.error('The Initial Super Admin account cannot be modified.');
+      return;
+    }
     const allStudents = await db.getStudents();
 
     // Determine existing assigned children

@@ -6,7 +6,7 @@
 
 export const MODULE_DEFINITIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
-  { key: 'users', label: 'User & Permissions', icon: 'shield-check', roles: ['super_admin'] },
+  { key: 'users', label: 'User & Permissions', icon: 'shield-check', roles: ['super_admin', 'admin'] },
   { key: 'admissions', label: 'Student Admissions', icon: 'user-plus', roles: ['super_admin', 'admin'] },
   { key: 'students', label: 'Student Directory', icon: 'users', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
   { key: 'sections', label: 'Sections & Classrooms', icon: 'folder-tree', roles: ['super_admin', 'admin'] },
@@ -35,6 +35,7 @@ export const MODULE_DEFINITIONS = [
 export const DEFAULT_RBAC_MATRIX = {
   admin: {
     dashboard: 'full',
+    users: 'full',
     admissions: 'full',
     students: 'full',
     sections: 'full',
@@ -290,8 +291,8 @@ export function getModuleAccessLevel(profile, moduleKey) {
   // Dashboard is common to all approved roles
   if (moduleKey === 'dashboard') return 'full';
 
-  // Core administrative security modules reserved for Super Admin
-  if (['users', 'audit'].includes(moduleKey)) return 'off';
+  // Core administrative security modules reserved strictly for Super Admin
+  if (moduleKey === 'audit') return 'off';
 
   // Custom user-level assigned modules override (if present on profile or in user custom storage)
   let userCustom = profile.custom_modules;
@@ -341,7 +342,7 @@ export function canAccessModule(profile, moduleKey) {
   if (profile.approval_status !== 'approved') return false;
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
   if (moduleKey === 'dashboard') return true; // Common to all categories
-  if (['users', 'audit'].includes(moduleKey)) return false;
+  if (moduleKey === 'audit') return false;
 
   const level = getModuleAccessLevel(profile, moduleKey);
   return level === 'view' || level === 'full';
@@ -357,7 +358,7 @@ export function canPerformAction(profile, moduleKey, action) {
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
 
   // Root modules strictly reserved for Super Admin
-  if (['users', 'audit'].includes(moduleKey)) {
+  if (moduleKey === 'audit') {
     return false;
   }
 

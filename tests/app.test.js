@@ -5160,5 +5160,80 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await renderParentDashboard(parentContainer, { onNavigate: () => {} });
       expect(clickHandler).toBeTypeOf('function');
     });
+
+    it('2511: User & Permissions window is included in Administration & Communication group and assignable to admins and custom users', async () => {
+      const { RBAC_WINDOW_GROUPS } = await import('../src/modules/users/index.js');
+
+      // 1. Verify 'users' is included in Administration & Communication Windows group
+      const adminCommGroup = RBAC_WINDOW_GROUPS.find(g => g.title === 'Administration & Communication Windows');
+      expect(adminCommGroup).toBeDefined();
+      const usersWindow = adminCommGroup.modules.find(m => m.key === 'users');
+      expect(usersWindow).toBeDefined();
+      expect(usersWindow.label).toBe('User & Permissions');
+
+      // 2. Verify MODULE_DEFINITIONS includes admin
+      const usersDef = MODULE_DEFINITIONS.find(m => m.key === 'users');
+      expect(usersDef).toBeDefined();
+      expect(usersDef.roles).toContain('admin');
+
+      // 3. Verify Admin with 'full' access can access and perform actions
+      const testAdmin = {
+        id: 'admin-test-2511',
+        email: 'admin.test@thaiba.edu',
+        role: 'admin',
+        approval_status: 'approved',
+        is_super_admin: false
+      };
+
+      const matrix = getRBACMatrix();
+      matrix.admin.users = 'full';
+      saveRBACMatrix(matrix);
+
+      expect(canAccessModule(testAdmin, 'users')).toBe(true);
+      expect(canPerformAction(testAdmin, 'users', 'view')).toBe(true);
+      expect(canPerformAction(testAdmin, 'users', 'edit')).toBe(true);
+
+      // Security barrier: non-super-admin cannot change super admin or override
+      expect(canPerformAction(testAdmin, 'users', 'change_super_admin')).toBe(false);
+      expect(canPerformAction(testAdmin, 'users', 'override')).toBe(false);
+
+      // Audit remains strictly reserved for Super Admin
+      expect(canAccessModule(testAdmin, 'audit')).toBe(false);
+
+      // 4. Verify Admin with 'view' access has read-only exploration
+      matrix.admin.users = 'view';
+      saveRBACMatrix(matrix);
+
+      expect(canAccessModule(testAdmin, 'users')).toBe(true);
+      expect(canPerformAction(testAdmin, 'users', 'view')).toBe(true);
+      expect(canPerformAction(testAdmin, 'users', 'edit')).toBe(false);
+
+      // 5. Verify setting to 'off' completely disables window
+      matrix.admin.users = 'off';
+      saveRBACMatrix(matrix);
+
+      expect(canAccessModule(testAdmin, 'users')).toBe(false);
+      expect(canPerformAction(testAdmin, 'users', 'view')).toBe(false);
+
+      // 6. Verify custom user permissions can grant 'users' to specific user
+      const customStaff = {
+        id: 'staff-custom-2511',
+        email: 'special.staff@thaiba.edu',
+        role: 'teacher',
+        approval_status: 'approved',
+        is_super_admin: false
+      };
+
+      expect(canAccessModule(customStaff, 'users')).toBe(false);
+      saveUserCustomPermissions(customStaff.id, { users: 'full' });
+      expect(canAccessModule(customStaff, 'users')).toBe(true);
+      expect(canPerformAction(customStaff, 'users', 'edit')).toBe(true);
+
+      clearUserCustomPermissions(customStaff.id);
+      expect(canAccessModule(customStaff, 'users')).toBe(false);
+
+      // Reset matrix back to default
+      resetRBACMatrix();
+    });
   });
 });
