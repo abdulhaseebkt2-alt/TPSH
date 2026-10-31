@@ -269,7 +269,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
       <div class="m-hero-card">
         <div class="m-hero-top-row">
           <div class="m-hero-brand-pill ${isLeaveRequestPill ? 'has-leave-request' : ''}" id="m-hero-brand-pill" title="${isLeaveRequestPill ? 'Click to review faculty leave applications' : 'Thaiba Public School Campus'}" style="cursor: ${isLeaveRequestPill ? 'pointer' : 'default'};">
-            <span class="m-hero-live-indicator">●</span>
+            <span class="m-hero-live-indicator"></span>
             <span class="m-hero-brand-text">${heroPillText}</span>
           </div>
           <button class="m-hero-eye-btn" id="m-hero-eye-toggle" title="Toggle metrics display" aria-label="Toggle metrics display">
@@ -570,7 +570,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
       ${isLeaveRequestPill ? `
         <div class="dash-faculty-leave-banner" id="dash-desktop-leave-alert" style="margin-bottom: 1.25rem; padding: 0.85rem 1.25rem; border-radius: 12px; background: #FFFBEB; border: 1.5px solid #FDE68A; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.9); animation: tpsPulseAmber 1.6s infinite ease-in-out;"></span>
+            <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #10B981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.9); animation: tpsGreenRadarPulse 2s infinite ease-in-out;"></span>
             <strong style="color: #92400E; font-size: 0.92rem;">${heroPillText}</strong>
             <span style="font-size: 0.8rem; color: #B45309;">${leaveAlertSubtext}</span>
           </div>

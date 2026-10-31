@@ -5235,5 +5235,25 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Reset matrix back to default
       resetRBACMatrix();
     });
+
+    it('2512: Admin dashboard 1st card renders live green dot with pulsing animation and no orange bar', async () => {
+      const fs = await import('fs');
+      const css = fs.readFileSync('src/styles/main.css', 'utf8');
+
+      // Verify .m-hero-live-indicator is styled as a green dot with green radar pulse animation
+      expect(css).toContain('.m-hero-live-indicator');
+      expect(css).toContain('background: #10B981');
+      expect(css).toContain('animation: tpsGreenRadarPulse');
+      expect(css).toContain('@keyframes tpsGreenRadarPulse');
+
+      // Verify no orange bar on the live dot indicator
+      expect(css).not.toContain('tpsPulseAmber');
+
+      // Verify dashboard rendering contains m-hero-live-indicator inside m-hero-card
+      const adminContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(adminContainer, { onNavigate: () => {} });
+      expect(adminContainer.innerHTML).toContain('m-hero-card');
+      expect(adminContainer.innerHTML).toContain('m-hero-live-indicator');
+    });
   });
 });

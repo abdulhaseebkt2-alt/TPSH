@@ -7877,9 +7877,9 @@ body.tps-wheel-open {
   }
 
   .m-hero-brand-pill.has-leave-request {
-    background: rgba(245, 158, 11, 0.22) !important;
-    border-color: rgba(245, 158, 11, 0.45) !important;
-    color: #FEF3C7 !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
+    color: #F8FAFC !important;
     text-transform: none !important;
     letter-spacing: 0.02em !important;
     font-weight: 700 !important;
@@ -7889,26 +7889,48 @@ body.tps-wheel-open {
 
   .m-hero-brand-pill.has-leave-request:hover,
   .m-hero-brand-pill.has-leave-request:active {
-    background: rgba(245, 158, 11, 0.35) !important;
-    border-color: rgba(245, 158, 11, 0.7) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
     transform: scale(0.98);
   }
 
-  .m-hero-brand-pill.has-leave-request .m-hero-live-indicator {
-    background: #F59E0B !important;
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.9) !important;
-    animation: tpsPulseAmber 1.6s infinite ease-in-out !important;
+  .m-hero-live-indicator,
+  .m-hero-live-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    min-width: 8px;
+    min-height: 8px;
+    border-radius: 50% !important;
+    background: #10B981 !important;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.9) !important;
+    animation: tpsGreenRadarPulse 2s infinite ease-in-out !important;
+    flex-shrink: 0;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    vertical-align: middle;
   }
 
-  @keyframes tpsPulseAmber {
-    0% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-    70% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
-    100% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  .m-hero-brand-pill.has-leave-request .m-hero-live-indicator,
+  .m-hero-brand-pill.has-leave-request .m-hero-live-dot {
+    background: #10B981 !important;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.9) !important;
+    animation: tpsGreenRadarPulse 2s infinite ease-in-out !important;
   }
 
-  .m-hero-live-indicator {
-    color: #34D399;
-    font-size: 0.75rem;
+  @keyframes tpsGreenRadarPulse {
+    0% {
+      transform: scale(0.9);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.85);
+    }
+    70% {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+      transform: scale(0.9);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
   }
 
   .m-hero-eye-btn {

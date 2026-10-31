@@ -1,5 +1,5 @@
 // TPS Hostel IRP Service Worker
-const CACHE_NAME = 'tps-irp-v1.9.24';
+const CACHE_NAME = 'tps-irp-v1.9.25';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
