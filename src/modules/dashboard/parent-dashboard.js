@@ -597,13 +597,13 @@ export async function renderParentDashboard(container, { onNavigate }) {
     const defaultDate = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
-    const { modal, close } = openModal({
+    openModal({
       title: 'Request Hostel Leave Pass',
       contentHtml: `
         <form id="parent-leave-form" novalidate style="display: flex; flex-direction: column; gap: 0.85rem;">
           ${myChildren.length > 1 ? `
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Select Child *</label>
+              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Select Child</label>
               <select id="p-leave-child" class="form-control" style="height: 38px; font-size: 0.85rem;">
                 ${myChildren.map(c => `
                   <option value="${c.id}" ${c.id === selectedChild.id ? 'selected' : ''}>
@@ -615,7 +615,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
           ` : `<input type="hidden" id="p-leave-child" value="${selectedChild.id}" />`}
 
           <div class="form-group" style="margin: 0;">
-            <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Leave Type *</label>
+            <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Leave Type</label>
             <select id="p-leave-type" class="form-control" style="height: 38px; font-size: 0.85rem;">
               <option value="hostel_leave">Hostel Weekend Outing</option>
               <option value="personal_leave">Family Function / Personal Event</option>
@@ -628,37 +628,37 @@ export async function renderParentDashboard(container, { onNavigate }) {
           <!-- Departure Date & Time -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Departure Date *</label>
-              <input type="date" id="p-leave-dep-date" class="form-control" required value="${defaultDate}" style="height: 38px; font-size: 0.85rem;" />
+              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Departure Date</label>
+              <input type="date" id="p-leave-dep-date" class="form-control" value="${defaultDate}" style="height: 38px; font-size: 0.85rem;" />
             </div>
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Departure Time *</label>
-              <input type="time" id="p-leave-dep-time" class="form-control" required value="16:00" style="height: 38px; font-size: 0.85rem;" />
+              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Departure Time</label>
+              <input type="time" id="p-leave-dep-time" class="form-control" value="16:00" style="height: 38px; font-size: 0.85rem;" />
             </div>
           </div>
 
           <!-- Return Date & Time -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Expected Return Date *</label>
-              <input type="date" id="p-leave-ret-date" class="form-control" required value="${tomorrow}" style="height: 38px; font-size: 0.85rem;" />
+              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Expected Return Date</label>
+              <input type="date" id="p-leave-ret-date" class="form-control" value="${tomorrow}" style="height: 38px; font-size: 0.85rem;" />
             </div>
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Expected Return Time *</label>
-              <input type="time" id="p-leave-ret-time" class="form-control" required value="18:00" style="height: 38px; font-size: 0.85rem;" />
+              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Expected Return Time</label>
+              <input type="time" id="p-leave-ret-time" class="form-control" value="18:00" style="height: 38px; font-size: 0.85rem;" />
             </div>
           </div>
 
           <!-- Reason -->
           <div class="form-group" style="margin: 0;">
-            <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Purpose / Reason for Leave *</label>
-            <input type="text" id="p-leave-reason" class="form-control" placeholder="e.g. Attending family function, medical appointment" required style="height: 38px; font-size: 0.85rem;" />
+            <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Purpose / Reason for Leave</label>
+            <input type="text" id="p-leave-reason" class="form-control" placeholder="e.g. Attending family function, medical appointment" style="height: 38px; font-size: 0.85rem;" />
           </div>
 
           <!-- Escort & Phone -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Accompanying Person *</label>
+              <label class="form-label" style="font-size: 0.8rem; font-weight: 700;">Accompanying Person</label>
               <select id="p-leave-escort" class="form-control" style="height: 38px; font-size: 0.85rem;">
                 <option value="Father">Father</option>
                 <option value="Mother">Mother</option>
@@ -668,8 +668,8 @@ export async function renderParentDashboard(container, { onNavigate }) {
               </select>
             </div>
             <div class="form-group" style="margin: 0;">
-              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Contact Phone *</label>
-              <input type="tel" id="p-leave-phone" class="form-control" required value="${selectedChild.father_phone || selectedChild.mother_phone || user?.phone || '+91 98470 11223'}" style="height: 38px; font-size: 0.85rem;" />
+              <label class="form-label" style="font-size: 0.8rem; font-weight: 700;">Contact Phone</label>
+              <input type="tel" id="p-leave-phone" class="form-control" value="${selectedChild.father_phone || selectedChild.mother_phone || user?.phone || '+91 98470 11223'}" style="height: 38px; font-size: 0.85rem;" />
             </div>
           </div>
 
@@ -679,91 +679,91 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
           <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
             <button type="button" class="btn btn-outline" id="btn-cancel-p-leave">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="btn-submit-p-leave" style="background: #059669; border-color: #059669; font-weight: 700;">
+            <button type="button" class="btn btn-primary" id="btn-submit-p-leave" style="background: #059669; border-color: #059669; font-weight: 700;">
               Submit Leave Request
             </button>
           </div>
         </form>
-      `
-    });
+      `,
+      onMount: ({ container: modal, close }) => {
+        enhanceModalInputs(modal);
 
-    enhanceModalInputs(modal);
+        modal.querySelector('#btn-cancel-p-leave')?.addEventListener('click', close);
 
-    modal.querySelector('#btn-cancel-p-leave')?.addEventListener('click', close);
+        let isSubmitting = false;
+        const submitLeaveHandler = async (e) => {
+          if (e) e.preventDefault();
+          if (isSubmitting) return;
 
-    let isSubmitting = false;
-    const submitLeaveHandler = async (e) => {
-      if (e) e.preventDefault();
-      if (isSubmitting) return;
+          const childId = modal.querySelector('#p-leave-child')?.value || selectedChild.id;
+          const leaveType = modal.querySelector('#p-leave-type')?.value || 'hostel_leave';
+          const depDate = modal.querySelector('#p-leave-dep-date')?.getAttribute('data-date-raw') || modal.querySelector('#p-leave-dep-date')?.value || defaultDate;
+          const depTime = modal.querySelector('#p-leave-dep-time')?.value || '16:00';
+          const retDate = modal.querySelector('#p-leave-ret-date')?.getAttribute('data-date-raw') || modal.querySelector('#p-leave-ret-date')?.value || tomorrow;
+          const retTime = modal.querySelector('#p-leave-ret-time')?.value || '18:00';
+          const reason = modal.querySelector('#p-leave-reason')?.value?.trim() || 'Hostel Leave';
+          const escort = modal.querySelector('#p-leave-escort')?.value || 'Parent / Guardian';
+          const phone = modal.querySelector('#p-leave-phone')?.value?.trim() || user?.phone || '+91 98470 11223';
 
-      const childId = modal.querySelector('#p-leave-child')?.value || selectedChild.id;
-      const leaveType = modal.querySelector('#p-leave-type')?.value || 'hostel_leave';
-      const depDate = modal.querySelector('#p-leave-dep-date')?.getAttribute('data-date-raw') || modal.querySelector('#p-leave-dep-date')?.value || defaultDate;
-      const depTime = modal.querySelector('#p-leave-dep-time')?.value || '16:00';
-      const retDate = modal.querySelector('#p-leave-ret-date')?.getAttribute('data-date-raw') || modal.querySelector('#p-leave-ret-date')?.value || tomorrow;
-      const retTime = modal.querySelector('#p-leave-ret-time')?.value || '18:00';
-      const reason = modal.querySelector('#p-leave-reason')?.value?.trim();
-      const escort = modal.querySelector('#p-leave-escort')?.value || 'Parent / Guardian';
-      const phone = modal.querySelector('#p-leave-phone')?.value?.trim() || user?.phone || '+91 98470 11223';
+          if (!childId || !depDate || !retDate) {
+            toast.error('Please complete all required fields.');
+            return;
+          }
 
-      if (!reason) {
-        toast.error('Please enter the reason/purpose for leave.');
-        modal.querySelector('#p-leave-reason')?.focus();
-        return;
-      }
-      if (!childId || !depDate || !retDate) {
-        toast.error('Please complete all required fields.');
-        return;
-      }
+          const targetStudent = myChildren.find(c => c.id === childId) || selectedChild;
+          if (!targetStudent || !targetStudent.id) {
+            toast.error('No valid child selected. Please refresh and try again.');
+            return;
+          }
 
-      const targetStudent = myChildren.find(c => c.id === childId) || selectedChild;
-      const submitBtn = modal.querySelector('#btn-submit-p-leave');
+          const submitBtn = modal.querySelector('#btn-submit-p-leave');
 
-      try {
-        isSubmitting = true;
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Submitting...';
-        }
+          try {
+            isSubmitting = true;
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'Submitting...';
+            }
 
-        await db.createLeaveRecord({
-          student_ids: [targetStudent.id],
-          student_name: targetStudent.full_name,
-          admission_number: targetStudent.admission_number,
-          leave_type: leaveType,
-          departure_date: depDate,
-          departure_time: depTime,
-          expected_return_date: retDate,
-          expected_return_time: retTime,
-          reason,
-          escort_type: escort,
-          parent_phone: phone,
-          requested_by: user?.full_name || 'Parent / Guardian',
-          requester_role: 'parent',
-          status: 'Pending',
-          fine_unit: 'hour',
-          fine_per_hour: 50
+            await db.createLeaveRecord({
+              student_ids: [targetStudent.id],
+              student_name: targetStudent.full_name,
+              admission_number: targetStudent.admission_number,
+              leave_type: leaveType,
+              departure_date: depDate,
+              departure_time: depTime,
+              expected_return_date: retDate,
+              expected_return_time: retTime,
+              reason,
+              escort_type: escort,
+              parent_phone: phone,
+              requested_by: user?.full_name || 'Parent / Guardian',
+              requester_role: 'parent',
+              status: 'Pending',
+              fine_unit: 'hour',
+              fine_per_hour: 50
+            });
+
+            toast.success(`Hostel leave request submitted for ${targetStudent.full_name}. Awaiting warden approval.`);
+            close();
+            renderParentDashboard(container, { onNavigate });
+          } catch (err) {
+            console.error('Error submitting parent leave request:', err);
+            toast.error(err.message || 'Error submitting leave request');
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Submit Leave Request';
+            }
+          } finally {
+            isSubmitting = false;
+          }
+        };
+
+        modal.querySelector('#parent-leave-form')?.addEventListener('submit', submitLeaveHandler);
+        modal.querySelector('#btn-submit-p-leave')?.addEventListener('click', (e) => {
+          submitLeaveHandler(e);
         });
-
-        toast.success(`Hostel leave request submitted for ${targetStudent.full_name}. Awaiting warden approval.`);
-        close();
-        renderParentDashboard(container, { onNavigate });
-      } catch (err) {
-        console.error('Error submitting parent leave request:', err);
-        toast.error(err.message || 'Error submitting leave request');
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Submit Leave Request';
-        }
-      } finally {
-        isSubmitting = false;
       }
-    };
-
-    modal.querySelector('#parent-leave-form')?.addEventListener('submit', submitLeaveHandler);
-    modal.querySelector('#btn-submit-p-leave')?.addEventListener('click', (e) => {
-      // Direct click backup trigger
-      submitLeaveHandler(e);
     });
   }
 

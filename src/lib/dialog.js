@@ -40,7 +40,16 @@ export function confirmDialog({ title, message, confirmText = 'Confirm', cancelT
 }
 
 export function openModal({ title, contentHtml, size = 'md', modalClass = '', onMount, onClose }) {
-  if (typeof document === 'undefined') return { close: () => {} };
+  if (typeof document === 'undefined') {
+    return {
+      close: () => {},
+      container: null,
+      modal: null,
+      overlay: null,
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+  }
   const overlay = document.createElement('div');
   const overlayClass = modalClass ? `modal-overlay open has-${modalClass}` : 'modal-overlay open';
   overlay.className = overlayClass;
@@ -96,5 +105,12 @@ export function openModal({ title, contentHtml, size = 'md', modalClass = '', on
     }
   }
 
-  return { close };
+  return {
+    close,
+    container: contentContainer,
+    modal: contentContainer,
+    overlay,
+    querySelector: (...args) => contentContainer.querySelector(...args),
+    querySelectorAll: (...args) => contentContainer.querySelectorAll(...args)
+  };
 }

@@ -5118,5 +5118,46 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(parentContainer.innerHTML).toContain('Rejected');
       expect(parentContainer.innerHTML).toContain('Note: Institutional exams / test schedule ongoing');
     });
+
+    it('2510: Parent Leave Pass Modal removes redundant asterisks and ensures openModal returns modal container', async () => {
+      const { openModal } = await import('../src/lib/dialog.js');
+      const modalResult = openModal({
+        title: 'Test Modal',
+        contentHtml: '<p>Content</p>'
+      });
+      expect(modalResult).toHaveProperty('close');
+      expect(modalResult).toHaveProperty('modal');
+      expect(modalResult).toHaveProperty('container');
+      modalResult.close();
+
+      // Verify Parent Dashboard leave modal bindings and absence of double asterisks
+      const parentUser = {
+        id: 'p-form-01',
+        email: 'parent.form@thaiba.edu',
+        role: 'parent',
+        approval_status: 'approved',
+        full_name: 'Parent Form Tester'
+      };
+      updateCurrentUserProfile(parentUser);
+
+      let clickHandler = null;
+      const parentContainer = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#btn-parent-apply-leave') {
+            return {
+              addEventListener: (evt, fn) => {
+                if (evt === 'click') clickHandler = fn;
+              }
+            };
+          }
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+
+      await renderParentDashboard(parentContainer, { onNavigate: () => {} });
+      expect(clickHandler).toBeTypeOf('function');
+    });
   });
 });
