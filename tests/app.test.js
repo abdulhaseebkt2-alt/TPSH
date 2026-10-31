@@ -4041,13 +4041,13 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(teacherContainer.innerHTML).not.toContain('btn-reject-leave');
       expect(teacherContainer.innerHTML).not.toContain('data-tab="my"');
 
-      // Pending card has distinct light orange styling:
+      // Pending card has distinct minimal clean styling:
       expect(teacherContainer.innerHTML).toContain('faculty-leave-card is-pending');
-      expect(teacherContainer.innerHTML).toContain('background: #FFF7ED');
-      expect(teacherContainer.innerHTML).toContain('border: 1.5px solid #FED7AA');
-      expect(teacherContainer.innerHTML).toContain('border-left: 5px solid #EA580C');
-      expect(teacherContainer.innerHTML).toContain('border-radius: 16px');
-      expect(teacherContainer.innerHTML).toContain('margin-bottom: 1rem');
+      expect(teacherContainer.innerHTML).toContain('background: #FFFFFF');
+      expect(teacherContainer.innerHTML).toContain('border: 1.5px solid #F59E0B');
+      expect(teacherContainer.innerHTML).toContain('border-radius: 14px');
+      expect(teacherContainer.innerHTML).toContain('margin-bottom: 0.75rem');
+      expect(teacherContainer.innerHTML).not.toContain('width: 48px; height: 48px');
 
       // 2. Admin View (u-1: Abdul Haseeb)
       updateCurrentUserProfile({
@@ -4075,11 +4075,12 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(adminContainer.innerHTML).toContain('btn-reject-leave');
       expect(adminContainer.innerHTML).toContain('data-tab="my"');
 
-      // Approved card has distinct light green styling:
+      // Approved card has minimal clean styling with thin green stroke:
       expect(adminContainer.innerHTML).toContain('faculty-leave-card is-approved');
-      expect(adminContainer.innerHTML).toContain('background: #F0FDF4');
-      expect(adminContainer.innerHTML).toContain('border: 1.5px solid #BBF7D0');
-      expect(adminContainer.innerHTML).toContain('border-left: 5px solid #059669');
+      expect(adminContainer.innerHTML).toContain('background: #FFFFFF');
+      expect(adminContainer.innerHTML).toContain('border: 1.5px solid #10B981');
+      expect(adminContainer.innerHTML).not.toContain('border-left: 5px solid #059669');
+      expect(adminContainer.innerHTML).not.toContain('width: 48px; height: 48px');
 
       // Clean up test leaves
       await db.deleteFacultyLeave(l1.id);

@@ -265,117 +265,93 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
             const isApproved = leave.status === 'Approved';
             const isRejected = leave.status === 'Rejected';
 
-            // Distinct status styles: Light orange for pending, Light green for approved
+            // Minimal clean styling: Normal white card with thin status stroke
             const cardClass = isPending ? 'is-pending' : isApproved ? 'is-approved' : 'is-rejected';
-            const cardBg = isPending ? '#FFF7ED' : isApproved ? '#F0FDF4' : '#FEF2F2';
-            const cardBorder = isPending ? '1.5px solid #FED7AA' : isApproved ? '1.5px solid #BBF7D0' : '1.5px solid #FECACA';
-            const cardBorderLeft = isPending ? '5px solid #EA580C' : isApproved ? '5px solid #059669' : '5px solid #DC2626';
+            const cardBg = '#FFFFFF';
+            const cardBorder = isApproved ? '1.5px solid #10B981' : isPending ? '1.5px solid #F59E0B' : '1.5px solid #EF4444';
 
-            const statusBadgeBg = isPending ? '#FFEDD5' : isApproved ? '#DCFCE7' : '#FEE2E2';
-            const statusBadgeColor = isPending ? '#C2410C' : isApproved ? '#15803D' : '#DC2626';
-            const statusBadgeBorder = isPending ? '#FDBA74' : isApproved ? '#86EFAC' : '#FECACA';
-
-            const avatarBg = '#FFFFFF';
-            const avatarBorder = isPending ? '1.5px solid #FDBA74' : isApproved ? '1.5px solid #86EFAC' : '1.5px solid #FCA5A5';
-            const avatarColor = isPending ? '#EA580C' : isApproved ? '#059669' : '#DC2626';
-
-            const reasonBoxBg = 'rgba(255, 255, 255, 0.85)';
-            const reasonBoxBorder = isPending ? '1px solid #FED7AA' : isApproved ? '1px solid #BBF7D0' : '1px solid #FECACA';
-            const dateIconStroke = isPending ? '#EA580C' : isApproved ? '#059669' : '#DC2626';
+            const statusBadgeBg = isApproved ? '#ECFDF5' : isPending ? '#FFFBEB' : '#FEF2F2';
+            const statusBadgeColor = isApproved ? '#059669' : isPending ? '#D97706' : '#DC2626';
+            const statusBadgeBorder = isApproved ? '#A7F3D0' : isPending ? '#FDE68A' : '#FECACA';
 
             return `
-              <div class="card faculty-leave-card ${cardClass}" data-leave-id="${leave.id}" style="background: ${cardBg}; border: ${cardBorder}; border-left: ${cardBorderLeft}; border-radius: 16px; margin-bottom: 1rem; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: transform 0.15s ease, box-shadow 0.15s ease;">
-                <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+              <div class="card faculty-leave-card ${cardClass}" data-leave-id="${leave.id}" style="background: ${cardBg}; border: ${cardBorder}; border-radius: 14px; margin-bottom: 0.75rem; padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: transform 0.15s ease, box-shadow 0.15s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;">
                   
-                  <!-- Left Info Column -->
-                  <div style="display: flex; gap: 1rem; flex: 1; min-width: 280px;">
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background: ${avatarBg}; border: ${avatarBorder}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: ${avatarColor}; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
-                      ${leave.faculty_name ? leave.faculty_name.slice(0, 2).toUpperCase() : 'FC'}
+                  <!-- Main Info Column -->
+                  <div style="flex: 1; min-width: 0;">
+                    <!-- Row 1: Faculty Name, Leave Type & Status -->
+                    <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.25rem;">
+                      <h4 style="font-size: 0.96rem; font-weight: 800; color: #0F172A; margin: 0;">${leave.faculty_name || 'Faculty Member'}</h4>
+                      
+                      <span class="badge" style="background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; font-weight: 600; font-size: 0.7rem; padding: 1px 6px; border-radius: 9999px;">
+                        ${leave.leave_type || 'Casual Leave'}
+                      </span>
+
+                      <span class="badge" style="background: ${statusBadgeBg}; color: ${statusBadgeColor}; border: 1px solid ${statusBadgeBorder}; font-weight: 700; font-size: 0.72rem; padding: 1px 7px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.25rem;">
+                        ${isApproved ? '✓ Approved' : isPending ? '⏱ Pending' : '✕ Rejected'}
+                      </span>
+
+                      ${isLeaveActiveToday(leave) ? `
+                        <span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; font-weight: 700; font-size: 0.7rem; padding: 1px 6px; border-radius: 9999px;">
+                          Active Today
+                        </span>
+                      ` : ''}
                     </div>
 
-                    <div style="flex: 1;">
-                      <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
-                        <h4 style="font-size: 1.05rem; font-weight: 800; color: #0F172A; margin: 0;">${leave.faculty_name || 'Faculty Member'}</h4>
-                        
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); color: #475569; border: 1px solid rgba(0,0,0,0.08); font-weight: 700; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px;">
-                          ${leave.leave_type || 'Casual Leave'}
-                        </span>
-
-                        <span class="badge" style="background: ${statusBadgeBg}; color: ${statusBadgeColor}; border: 1px solid ${statusBadgeBorder}; font-weight: 800; font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.3rem;">
-                          ${isApproved ? '✓ Approved' : isPending ? '⏱ Pending Approval' : '✕ Rejected'}
-                        </span>
-
-                        ${isLeaveActiveToday(leave) ? `
-                          <span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; font-weight: 800; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px;">
-                            Active Today
-                          </span>
-                        ` : ''}
+                    <!-- Row 2: Date & Time in a single compact line -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.35rem 0.65rem; align-items: center; font-size: 0.8rem; color: #475569; margin-bottom: 0.2rem;">
+                      <div style="display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; color: #0F172A;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${isApproved ? '#059669' : isPending ? '#D97706' : '#DC2626'}" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span>${isSingle ? startDateStr : `${startDateStr} ➔ ${endDateStr} (${daysCount} Days)`}</span>
                       </div>
 
-                      <!-- Dates & Timings Row -->
-                      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; font-size: 0.85rem; color: #475569; margin-bottom: 0.6rem;">
-                        <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 700; color: #0F172A;">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${dateIconStroke}" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                          ${isSingle ? startDateStr : `${startDateStr} ➔ ${endDateStr} (${daysCount} Days)`}
-                        </div>
-
-                        <div style="display: inline-flex; align-items: center; gap: 0.35rem; color: #64748B;">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          <span>Going: <strong style="color: #0F172A;">${formatTime(leave.departure_time || '08:00')}</strong></span>
-                          <span>•</span>
-                          <span>Return: <strong style="color: #0F172A;">${formatTime(leave.return_time || '16:30')}</strong></span>
-                        </div>
+                      <div style="display: inline-flex; align-items: center; gap: 0.3rem; color: #64748B;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span>${formatTime(leave.departure_time || '08:00')} – ${formatTime(leave.return_time || '16:30')}</span>
                       </div>
-
-                      <!-- Reason Section -->
-                      <div style="background: ${reasonBoxBg}; border-radius: 10px; padding: 0.65rem 0.9rem; margin-bottom: 0.5rem; border: ${reasonBoxBorder};">
-                        <p style="margin: 0; font-size: 0.88rem; color: #334155; line-height: 1.45;">
-                          ${leave.reason ? `"${leave.reason}"` : '<em style="color: #94A3B8;">No description provided.</em>'}
-                        </p>
-                      </div>
-
-                      <!-- Audit Notes & Application Footer -->
-                      <div style="font-size: 0.76rem; color: #64748B; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                        <span>Applied by ${leave.applied_by?.name || 'Staff'} on ${formatDate(leave.applied_at?.slice(0, 10))}</span>
-                        ${leave.approved_by ? `
-                          <span>•</span>
-                          <span style="color: ${statusBadgeColor}; font-weight: 700;">
-                            ${isApproved ? 'Approved' : 'Rejected'} by ${leave.approved_by?.name || 'Admin'} on ${formatDate(leave.approved_at?.slice(0, 10))}
-                          </span>
-                        ` : ''}
-                        ${leave.admin_notes ? `
-                          <span>•</span>
-                          <span style="color: #475569;">Admin Remark: <em>${leave.admin_notes}</em></span>
-                        ` : ''}
-                      </div>
-
                     </div>
+
+                    <!-- Row 3: Reason / Purpose -->
+                    ${leave.reason ? `
+                      <p style="margin: 0.2rem 0 0; font-size: 0.82rem; color: #334155; line-height: 1.35;">
+                        ${leave.reason}
+                      </p>
+                    ` : ''}
+
+                    <!-- Row 4: Remarks / Audit (if present) -->
+                    ${(leave.approved_by || leave.admin_notes) ? `
+                      <div style="font-size: 0.72rem; color: #64748B; margin-top: 0.25rem;">
+                        ${leave.approved_by ? `<span style="color: ${statusBadgeColor}; font-weight: 600;">${isApproved ? 'Approved' : 'Rejected'} by ${leave.approved_by?.name || 'Admin'}</span>` : ''}
+                        ${leave.admin_notes ? `<span style="color: #64748B;"> • Remark: ${leave.admin_notes}</span>` : ''}
+                      </div>
+                    ` : ''}
                   </div>
 
                   <!-- Right Action Buttons Column -->
-                  <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; align-self: center;">
+                  <div style="display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0;">
                     ${(isAdmin && isPending) ? `
-                      <button class="btn btn-sm btn-primary btn-approve-leave" data-id="${leave.id}" style="background: #059669; padding: 0.35rem 0.85rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${leave.id}" style="background: #059669; border-color: #059669; padding: 0.25rem 0.65rem; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 6px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         Approve
                       </button>
                       
-                      <button class="btn btn-sm btn-outline btn-reject-leave" data-id="${leave.id}" style="color: #DC2626; border-color: #FECACA; padding: 0.35rem 0.85rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; background: #FFFFFF;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${leave.id}" style="color: #DC2626; border-color: #FECACA; padding: 0.25rem 0.65rem; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem; background: #FFFFFF; border-radius: 6px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         Reject
                       </button>
                     ` : ''}
 
                     ${isAdmin ? `
-                      <button class="btn btn-sm btn-outline btn-edit-leave" data-id="${leave.id}" style="padding: 0.35rem 0.75rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; border-color: #CBD5E1; color: #334155; background: #FFFFFF;" title="Edit leave dates, timings, or record early/late return">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                      <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${leave.id}" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; border-color: #CBD5E1; color: #334155; background: #FFFFFF; border-radius: 6px;" title="Edit leave dates, timings, or record early/late return">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                         Edit
                       </button>
                     ` : ''}
 
                     ${(isAdmin || leave.faculty_id === user?.id || (user?.email && leave.faculty_email === user.email)) ? `
-                      <button class="btn btn-sm btn-ghost btn-delete-leave" data-id="${leave.id}" title="Remove leave application" style="color: #94A3B8; padding: 0.35rem 0.6rem;">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      <button class="btn btn-xs btn-ghost btn-delete-leave" data-id="${leave.id}" title="Remove leave application" style="color: #94A3B8; padding: 0.25rem 0.45rem; border-radius: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
                     ` : ''}
                   </div>
