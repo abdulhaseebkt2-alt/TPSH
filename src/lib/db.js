@@ -443,7 +443,27 @@ class DatabaseService {
         key,
         value: val,
         updated_at: new Date().toISOString()
-      }).then().catch(e => console.warn('Supabase app_settings sync warning:', e));
+      }).then(({ error }) => {
+        if (error) console.warn('Supabase app_settings sync error for ' + key + ':', error);
+      }).catch(e => console.warn('Supabase app_settings sync warning:', e));
+    }
+  }
+
+  async pushCloudKey(key, val) {
+    this.set(key, val);
+    if (supabase && !isTestEnv) {
+      try {
+        const { error } = await supabase.from('app_settings').upsert({
+          key,
+          value: val,
+          updated_at: new Date().toISOString()
+        });
+        if (error) {
+          console.warn('Supabase pushCloudKey error for ' + key + ':', error);
+        }
+      } catch (err) {
+        console.warn('Supabase pushCloudKey exception for ' + key + ':', err);
+      }
     }
   }
 
@@ -2058,7 +2078,8 @@ class DatabaseService {
     status = null,
     approved_by = 'Warden Office'
   }) {
-    const leaves = this.get('tps_leaves');
+    await this.pullCloudKeys(['tps_leaves'], true);
+    const leaves = this.get('tps_leaves') || [];
     const sIds = Array.isArray(student_ids) ? student_ids : [student_ids];
     const year = new Date().getFullYear();
     const randomSeq = Math.floor(100 + Math.random() * 900);
@@ -2142,12 +2163,13 @@ class DatabaseService {
     }
 
     leaves.unshift(primaryRec);
-    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('CREATE_LEAVE', 'student_leave_records', primaryRec.id, `Created leave ${leaveCode} for ${sIds.length} student(s) [${effectiveStatus}]`);
     return [primaryRec];
   }
 
   async approveLeaveRecord(leave_id, { approved_by = 'Hostel Warden', fine_per_hour = 50 } = {}) {
+    await this.pullCloudKeys(['tps_leaves'], true);
     const leaves = this.get('tps_leaves');
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
     if (idx === -1) throw new Error('Leave record not found');
@@ -2167,12 +2189,13 @@ class DatabaseService {
       await this.updateStudent(sid, { status: 'On Approved Leave' });
     }
 
-    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('APPROVE_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} approved by ${approved_by} at ₹${fine_per_hour}/hr fine rate`);
     return leave;
   }
 
   async rejectLeaveRecord(leave_id, { rejected_by = 'Hostel Warden', reason = 'Administrative grounds' } = {}) {
+    await this.pullCloudKeys(['tps_leaves'], true);
     const leaves = this.get('tps_leaves');
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
     if (idx === -1) throw new Error('Leave record not found');
@@ -2181,7 +2204,7 @@ class DatabaseService {
     leave.status = 'Rejected';
     leave.rejected_by = rejected_by || 'Hostel Warden';
     leave.rejected_reason = reason;
-    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('REJECT_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} rejected by ${rejected_by}`);
     return leave;
   }
@@ -2275,12 +2298,13 @@ class DatabaseService {
       }
     }
 
-    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('RECORD_RETURN', 'student_leave_records', leave_record_id, `Return recorded. Late days: ${calc.lateDays}, Fine: ₹${calc.fineAmount}`);
     return leave;
   }
 
   async recordBatchReturn({ leave_id, student_ids, actual_return_date, actual_return_time, remarks = '' }) {
+    await this.pullCloudKeys(['tps_leaves'], true);
     const leaves = this.get('tps_leaves');
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
     if (idx === -1) throw new Error('Leave record not found');
@@ -2357,7 +2381,7 @@ class DatabaseService {
       }
     }
 
-    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('RECORD_BATCH_RETURN', 'student_leave_records', leave_id, `Batch return recorded for ${student_ids.length} student(s)`);
     return leave;
   }

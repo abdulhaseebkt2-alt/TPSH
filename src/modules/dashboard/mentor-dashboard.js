@@ -6,7 +6,7 @@ import { getMentorGenderScope } from '../../lib/permissions.js';
 export async function renderMentorDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
   const allStudents = await db.getStudents();
-  const allLeaves = await db.getLeaves();
+  const allLeaves = await db.getLeaves(true);
   const allDiscipline = await db.getDisciplineIncidents();
 
   // Retrieve or determine active hostel unit scope based on Boys / Girls mentor role

@@ -17,14 +17,15 @@ export async function renderLeavesModule(container, { onNavigate }) {
   const isViewOnly = isViewOnlyModule(user, 'leaves');
 
   // Pull cloud keys to ensure latest state from Supabase
-  await db.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_hostel_rooms', 'tps_hostel_beds', 'tps_fines', 'tps_black_marks']);
+  await db.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_hostel_rooms', 'tps_hostel_beds', 'tps_fines', 'tps_black_marks'], true);
 
-  const [allStudents, rawLeaves, hostels, rooms, beds] = await Promise.all([
+  const [allStudents, rawLeaves, hostels, rooms, beds, assignedChildIdsList] = await Promise.all([
     db.getStudents(),
-    db.getLeaves(),
+    db.getLeaves(true),
     db.getHostels(),
     db.getHostelRooms(),
-    db.getHostelBeds()
+    db.getHostelBeds(),
+    db.getParentAssignedStudents(user?.id, user?.email)
   ]);
 
   const students = isGirlsMentor
@@ -34,22 +35,41 @@ export async function renderLeavesModule(container, { onNavigate }) {
       : allStudents;
 
   const scopedStudentIds = new Set(students.map(s => s.id));
-
   const isParent = user?.role === 'parent';
-  const leaves = isParent
-    ? rawLeaves.filter(l => {
-        const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+  const assignedChildIds = new Set([
+    ...(user?.assigned_student_ids || []),
+    ...(user?.student_ids || []),
+    ...(user?.child_ids || []),
+    ...(assignedChildIdsList || [])
+  ]);
+  const userPhone = (user?.phone || user?.phone_number || '').replace(/[^0-9]/g, '');
+
+  function filterLeavesForCurrentRole(list) {
+    if (isParent) {
+      return list.filter(l => {
+        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+        if (assignedChildIds.size > 0) {
+          return sIds.some(sid => assignedChildIds.has(sid));
+        }
         return sIds.some(sid => {
-          const st = students.find(s => s.id === sid);
+          const st = allStudents.find(s => s.id === sid);
+          if (!st) return false;
+          if (userPhone && ((st.father_phone || '').replace(/[^0-9]/g, '') === userPhone || (st.mother_phone || '').replace(/[^0-9]/g, '') === userPhone)) return true;
+          if (user?.full_name && st.father_name && st.father_name.toLowerCase().trim() === user.full_name.toLowerCase().trim()) return true;
           return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
         });
-      })
-    : (isGirlsMentor || isBoysMentor)
-      ? rawLeaves.filter(l => {
-          const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
-          return sIds.some(sid => scopedStudentIds.has(sid));
-        })
-      : rawLeaves;
+      });
+    }
+    if (isGirlsMentor || isBoysMentor) {
+      return list.filter(l => {
+        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+        return sIds.some(sid => scopedStudentIds.has(sid));
+      });
+    }
+    return list;
+  }
+
+  const leaves = filterLeavesForCurrentRole(rawLeaves);
 
   // Active filter state
   let searchQuery = '';
@@ -527,21 +547,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
             });
             toast.success(`Leave request approved at ₹${fineRateVal}/hr overdue fine rate.`);
             close();
-            const updatedLeaves = await db.getLeaves();
-            const reFiltered = isParent
-              ? updatedLeaves.filter(l => {
-                  const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                  return sIds.some(sid => {
-                    const st = allStudents.find(s => s.id === sid);
-                    return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
-                  });
-                })
-              : (isGirlsMentor || isBoysMentor)
-                ? updatedLeaves.filter(l => {
-                    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                    return sIds.some(sid => scopedStudentIds.has(sid));
-                  })
-                : updatedLeaves;
+            const updatedLeaves = await db.getLeaves(true);
+            const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
             leaves.length = 0;
             leaves.push(...reFiltered);
             renderView();
@@ -559,21 +566,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
         try {
           await db.rejectLeaveRecord(leaveId, { rejected_by: user?.full_name || 'Hostel Warden' });
           toast.success('Leave request rejected.');
-          const updatedLeaves = await db.getLeaves();
-          const reFiltered = isParent
-            ? updatedLeaves.filter(l => {
-                const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                return sIds.some(sid => {
-                  const st = allStudents.find(s => s.id === sid);
-                  return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
-                });
-              })
-            : (isGirlsMentor || isBoysMentor)
-              ? updatedLeaves.filter(l => {
-                  const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                  return sIds.some(sid => scopedStudentIds.has(sid));
-                })
-              : updatedLeaves;
+          const updatedLeaves = await db.getLeaves(true);
+          const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
           leaves.length = 0;
           leaves.push(...reFiltered);
           renderView();
@@ -1382,21 +1376,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
                 toast.success('Individual leave pass issued successfully.');
                 close();
-                const updatedLeaves = await db.getLeaves();
-                const reFiltered = isParent
-                  ? updatedLeaves.filter(l => {
-                      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                      return sIds.some(sid => {
-                        const st = allStudents.find(s => s.id === sid);
-                        return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
-                      });
-                    })
-                  : (isGirlsMentor || isBoysMentor)
-                    ? updatedLeaves.filter(l => {
-                        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                        return sIds.some(sid => scopedStudentIds.has(sid));
-                      })
-                    : updatedLeaves;
+                const updatedLeaves = await db.getLeaves(true);
+                const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
                 leaves.length = 0;
                 leaves.push(...reFiltered);
                 renderView();
@@ -1654,21 +1635,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
 
                 toast.success(`Batch leave card created for ${selectedBatchStudentIds.size} student(s) at ₹${fineRate}/hr.`);
                 close();
-                const updatedLeaves = await db.getLeaves();
-                const reFiltered = isParent
-                  ? updatedLeaves.filter(l => {
-                      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                      return sIds.some(sid => {
-                        const st = allStudents.find(s => s.id === sid);
-                        return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
-                      });
-                    })
-                  : (isGirlsMentor || isBoysMentor)
-                    ? updatedLeaves.filter(l => {
-                        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-                        return sIds.some(sid => scopedStudentIds.has(sid));
-                      })
-                    : updatedLeaves;
+                const updatedLeaves = await db.getLeaves(true);
+                const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
                 leaves.length = 0;
                 leaves.push(...reFiltered);
                 renderView();

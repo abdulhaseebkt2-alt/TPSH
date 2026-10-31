@@ -17,7 +17,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   ] = await Promise.all([
     db.getStudents(),
     db.getClassrooms(),
-    db.getLeaves(),
+    db.getLeaves(true),
     db.getDisciplineIncidents(),
     db.getExams(),
     db.getUsers(),
