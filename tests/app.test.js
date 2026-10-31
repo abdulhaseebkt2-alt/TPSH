@@ -4981,10 +4981,24 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(adminContainer.innerHTML).toContain('id="m-action-parent-leave"');
       expect(adminContainer.innerHTML).toContain('Parent Leave Request');
       expect(adminContainer.innerHTML).toContain('awaiting approval');
+      expect(adminContainer.innerHTML).toContain('1 Request</strong> awaiting approval');
 
       // Verify Hero Brand Pill alerts with student requested leave
       expect(adminContainer.innerHTML).toContain('has-leave-request');
       expect(adminContainer.innerHTML).toContain('requested leave');
+
+      // Verify bold 0 requests count when there are no pending leaves
+      db.set('tps_leaves', []);
+      const clearContainer = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#m-hero-count-residents') return { textContent: '' };
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+      await renderAdminDashboard(clearContainer, { onNavigate: () => {} });
+      expect(clearContainer.innerHTML).toContain('0 Requests</strong> • Gate passes');
 
       // Clean up leaves
       db.set('tps_leaves', initialLeaves);

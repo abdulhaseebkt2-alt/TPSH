@@ -335,7 +335,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
                   </span>
                 ` : ''}
               </div>
-              <span class="m-action-desc">${pendingStudentCount > 0 ? `${pendingStudentCount} awaiting approval` : 'Gate pass requests'}</span>
+              <span class="m-action-desc">${pendingStudentCount > 0 
+                ? `<strong style="font-weight: 800; color: #EA580C;">${pendingStudentCount} ${pendingStudentCount === 1 ? 'Request' : 'Requests'}</strong> awaiting approval` 
+                : `<strong style="font-weight: 800; color: #475569;">0 Requests</strong> • Gate passes`}</span>
             </div>
           </div>
 
