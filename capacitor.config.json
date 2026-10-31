@@ -1,0 +1,9 @@
+{
+  "appId": "in.edu.thaibaschool.tpsh",
+  "appName": "TPS ERP",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

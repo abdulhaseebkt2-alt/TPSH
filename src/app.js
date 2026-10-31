@@ -546,6 +546,17 @@ class App {
               <span>Sign in with Google</span>
             </button>
 
+            <div class="tps-apk-download-bar" style="margin-top: 14px; text-align: center;">
+              <a href="/TPS_Hostel_ERP.apk" download="TPS_Hostel_ERP.apk" class="tps-apk-download-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px 14px; background: #0F172A; color: #FFFFFF; border: 1px solid #334155; border-radius: 10px; font-size: 0.82rem; font-weight: 600; text-decoration: none; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Download Android App (.APK)</span>
+              </a>
+            </div>
+
             <div class="tps-login-footer-auth">
               Protected institutional portal • <a href="javascript:void(0)">Thaiba Public School</a>
             </div>

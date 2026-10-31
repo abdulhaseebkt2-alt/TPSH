@@ -29,3 +29,12 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Android build outputs & Gradle caches
+.gradle/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+TPS_Hostel_ERP_v1.*.apk

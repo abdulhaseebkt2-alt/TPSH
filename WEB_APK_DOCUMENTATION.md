@@ -3,8 +3,8 @@
 > **Tagline:** Modern Education with Morality  
 > **Initial Super Admin:** `abdulhaseebkt2@gmail.com`  
 > **Application Type:** Progressive Web App (PWA) & Native Android Web APK  
-> **Current Version:** `v1.9.25`  
-> **Last Updated:** 2026-10-31T12:26:00+05:30  
+> **Current Version:** `v1.9.26`  
+> **Last Updated:** 2026-10-31T16:05:00+05:30  
 > **Document Status:** LIVING DOCUMENT — MUST BE UPDATED ON EVERY CODE CHANGE
 
 ---
@@ -63,6 +63,36 @@ The application is engineered to run seamlessly as:
 - **Network-First Fallback**: Always queries live Supabase PostgreSQL first; transparently falls back to synchronized offline cache if offline.
 
 ### 2.3 Mobile Viewport & Touch Optimization
+
+### 2.4 Native Android APK Architecture & Build Pipeline (`android/`)
+- **Framework**: Built with Capacitor Android (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`).
+- **Package Identifier**: `in.edu.thaibaschool.tpsh`
+- **Application Name**: `TPS ERP`
+- **Android Target**: SDK 35 (Android 15), Minimum SDK 24 (Android 7.0 Nougat).
+- **Embedded Web Assets**: Fully compiled and bundled in `android/app/src/main/assets/public/` for instantaneous offline launch with zero network lag.
+- **Launcher Icons**: Custom Thaiba Public School circular and square high-resolution mipmap emblems generated across `mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, and `xxxhdpi`.
+- **Output Artifacts**:
+  - `E:\Web Apk\TPSH\TPS_Hostel_ERP_v1.9.26.apk` (Root distribution artifact)
+  - `E:\Web Apk\TPSH\public\TPS_Hostel_ERP.apk` (Browser one-click direct download)
+  - `android/app/build/outputs/apk/debug/app-debug.apk` (Gradle compiler output)
+- **One-Command Build Script**: `scripts/build-apk.bat` (automatically configures Temurin OpenJDK 21, links Android SDK, and builds the APK via Gradle).
+
+### 2.5 Android Installation Instructions for Users & Administrators
+#### Method 1: Installing the Sideloaded Standalone APK (.apk)
+1. **Download the APK**: Download `TPS_Hostel_ERP.apk` directly to your Android device (or copy `TPS_Hostel_ERP_v1.9.26.apk` via WhatsApp, USB, or drive).
+2. **Open Downloads**: Open the **Files** or **Downloads** app on your Android phone and tap `TPS_Hostel_ERP.apk`.
+3. **Allow Installation**:
+   - If prompted *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings**.
+   - Toggle **Allow from this source** to **ON**, then tap the Back button.
+4. **Confirm Install**: Tap **Install**.
+5. **Open TPS ERP**: Tap **Open** or launch `TPS ERP` from your phone's home screen or app drawer.
+
+#### Method 2: 1-Click Native WebAPK Install via Android Chrome (Recommended & Auto-Updating)
+1. Open Google Chrome on your Android smartphone and navigate to `https://tpsh.vercel.app`.
+2. Chrome will display a banner at the bottom: **"Add TPS ERP to Home screen"** or **"Install app"**. (Or tap the 3 vertical dots at the top right $\to$ tap **"Install App"** / **"Add to Home Screen"**).
+3. Tap **Install**.
+4. Android's native WebAPK minting service automatically packages and installs `TPS ERP` as a system application.
+5. **Benefit**: Automatically receives all cloud updates whenever deployed without requiring manual APK re-installations!
 - Touch target sizing $\ge 44 \times 44\text{ px}$ to conform to WCAG 2.1 touch accessibility.
 - Viewport configuration: `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover`.
 - Safe area insets: `padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);`.
@@ -575,6 +605,7 @@ The test suite in [`tests/app.test.js`](file:///e:/Web%20Apk/TPSH/tests/app.test
 
 | Version | Date & Time | Author / Agent | Files Modified | Summary of Changes |
 |---|---|---|---|---|
+| **v1.9.26** | 2026-10-31 16:05 | Antigravity AI | `android/`, `capacitor.config.json`, `scripts/build-apk.bat`, `src/app.js`, `public/sw.js`, `public/TPS_Hostel_ERP.apk`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Native Android APK Generation, Capacitor Architecture & 1-Click Installation Setup: (1) Addressed user request ("MAKE IT ANDROID APK, AND GIMME INSTRUCTIONS IF ANY THING NEED"): configured complete native Android project pipeline via Capacitor (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`) with package identifier `in.edu.thaibaschool.tpsh` and app name `TPS ERP`; (2) Installed Eclipse Adoptium Temurin OpenJDK 21 via winget to support Android compileSdk 35 and Capacitor 7; (3) Resolved Gradle AAR check metadata and Kotlin stdlib duplicate classes (`kotlin-stdlib-jdk7`, `kotlin-stdlib-jdk8`) by harmonizing dependencies in `android/variables.gradle` and `android/app/build.gradle`; (4) Built standalone Android Debug APK: compiled into `android/app/build/outputs/apk/debug/app-debug.apk` and copied to root as `TPS_Hostel_ERP_v1.9.26.apk` (22.5 MB) and `public/TPS_Hostel_ERP.apk`; (5) Custom Institutional Launcher Icons: generated high-resolution Thaiba Public School circular and square mipmap icons (`ic_launcher.png`, `ic_launcher_round.png`, `ic_launcher_foreground.png`) across all densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`); (6) One-Click Download Button: added sleek dark "Download Android App (.APK)" button with green arrow in the login portal footer in `src/app.js`; (7) Added comprehensive step-by-step installation instructions for users and admins; all 129 Vitest tests pass; verified clean Vite and Gradle builds; bumped Service Worker cache to `tps-irp-v1.9.26`. |
 | **v1.9.25** | 2026-10-31 12:26 | Antigravity AI | `src/styles/main.css`, `src/modules/dashboard/admin-dashboard.js`, `public/sw.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Executive Hero Card Live Dot Radar Pulse & Orange Bar Elimination: (1) Addressed user request ("the orange bar no need there in admin cash bord 1st card. but give the green dot the colour nad give the animation to the dot" with reference crop `media_1793429215475_7a3a9d1b.png`): completely eliminated the rectangular orange bar (`background: #F59E0B`) that was previously rendered behind the live indicator dot in `.m-hero-card`; (2) Frosted Glass Pill Styling: updated `.m-hero-brand-pill.has-leave-request` to clean frosted dark glass (`background: rgba(255, 255, 255, 0.12) !important; border: 1px solid rgba(255, 255, 255, 0.22) !important; color: #F8FAFC !important;`), harmonizing with the dark contrast executive hero card; (3) Perfectly Circular Emerald Green Live Dot: updated `.m-hero-live-indicator` to a geometric 8px circle (`border-radius: 50% !important; background: #10B981 !important; box-shadow: 0 0 6px rgba(16, 185, 129, 0.9);`); (4) Pulsing Green Radar Animation: implemented `@keyframes tpsGreenRadarPulse` radiating an expanding emerald sonar ring around the green dot; (5) Added Vitest unit test `2512` in `tests/app.test.js`; all 129/129 tests pass; clean Vite production build verified; bumped Service Worker cache to `tps-irp-v1.9.25`. |
 | **v1.9.24** | 2026-10-31 11:45 | Antigravity AI | `src/modules/users/index.js`, `src/lib/permissions.js`, `public/sw.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | User & Permissions Window in Administration & Communication RBAC Matrix for Admins: (1) Addressed user request ("the user and permisiion should come to here to assign others like admis." with screenshots `media_1793426104679_3ca1cdd2.png` showing User & Permissions in sidebar and `media_1793426184265_07157cd3.png` showing the Administration & Communication Windows group in the Permissions Matrix): added `User & Permissions` (`key: 'users'`) to `Administration & Communication Windows` in `RBAC_WINDOW_GROUPS` in `src/modules/users/index.js`; (2) Super Admin Assignment: Super Admin can now grant `users` window access to the `admin` role or any individual staff user via the Visual RBAC Matrix or Custom Permissions modal, choosing between Left (Off), Middle (View Only), and Right (Full Access); (3) Dynamic Permissions Architecture (`src/lib/permissions.js`): updated `MODULE_DEFINITIONS` with `roles: ['super_admin', 'admin']`; added `users: 'full'` to `DEFAULT_RBAC_MATRIX.admin`; removed hardcoded exclusions in `getModuleAccessLevel`, `canAccessModule`, and `canPerformAction`, allowing dynamic RBAC rules and custom user permissions to govern `users` access while keeping `audit` strictly reserved for Super Admin; (4) Non-Super-Admin Access & View-Only Protection (`src/modules/users/index.js`): updated `renderUsersModule` access check from Super Admin-only to `canAccessModule(currentUser, 'users')`; in View-Only mode, shows a banner, disables switch cycling and save buttons, and hides mutation controls; (5) Critical Security Barriers: non-super-admins cannot promote anyone to `super_admin`, cannot delete, suspend, or modify the Initial Super Admin (`abdulhaseebkt2@gmail.com`), and dangerous actions (`change_super_admin`, `override`, `delete_user`) remain strictly forbidden; (6) Added automated Vitest unit test `2511` in `tests/app.test.js`; all 128/128 tests passing; clean Vite production build verified; bumped Service Worker cache to `tps-irp-v1.9.24`. |
 | **v1.9.23** | 2026-10-31 10:59 | Antigravity AI | `src/modules/faculty-leaves/index.js`, `public/sw.js`, `tests/app.test.js`, `WEB_APK_DOCUMENTATION.md` | Minimal Compact Faculty Leave Card Redesign & Thin Stroke UI: (1) Addressed user request ("the card should be minimal and decres its hight, only nessosary conndents need there. there is no icon like RA. re design it UI, our normal card is inough, and give a thin green stroke when aproved, no need the green card here." with reference screenshot `media_1793424183991_e39f9222.png`): redesigned the faculty leave card to our normal clean white card (`background: #FFFFFF`) with minimal height (reduced by >60% from ~280px to ~95px); (2) Removed RA Avatar Box: completely eliminated the 48px square initials box (`RA`); (3) Thin Status Stroke Border: replaced green background (`#F0FDF4`) and heavy 5px left-border with clean white card and crisp 1.5px border (`border: 1.5px solid #10B981` when Approved, `#F59E0B` when Pending, `#EF4444` when Rejected); (4) Streamlined Content Layout: placed Faculty Name, Leave Type, and Status badge on row 1; Date and Time in a single concise line on row 2; clean Reason text without bulky nested boxes; aligned compact actions (Approve, Reject, Edit, Delete) to the top right; (5) Updated automated unit test 2305 in `tests/app.test.js`; all 127/127 tests pass; clean Vite production build verified; bumped Service Worker cache to `tps-irp-v1.9.23`. |
