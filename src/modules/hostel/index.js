@@ -1,6 +1,6 @@
 import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
-import { openModal } from '../../lib/dialog.js';
+import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
@@ -446,7 +446,14 @@ export async function renderHostelModule(container, { onNavigate }) {
       btn.addEventListener('click', async () => {
         const roomId = btn.dataset.roomId;
         const roomNo = btn.dataset.roomNo;
-        if (confirm(`Are you sure you want to delete Room ${roomNo} and all its bed spaces?`)) {
+        const confirmed = await confirmDialog({
+          title: 'Delete Room & Bed Spaces',
+          message: `Are you sure you want to delete Room ${roomNo} and all its bed spaces? This action cannot be undone.`,
+          confirmText: 'Delete Room',
+          cancelText: 'Cancel',
+          isDanger: true
+        });
+        if (confirmed) {
           await db.deleteRoom(roomId);
           toast.success(`Room ${roomNo} deleted.`);
           renderView();
@@ -798,7 +805,14 @@ export async function renderHostelModule(container, { onNavigate }) {
 
         // Vacate Bed
         modalBody.querySelector('#btn-vacate-bed')?.addEventListener('click', async () => {
-          if (confirm(`Are you sure you want to vacate ${student?.full_name || 'this resident'} from ${bed.bed_number}?`)) {
+          const confirmed = await confirmDialog({
+            title: 'Vacate Resident from Bed',
+            message: `Are you sure you want to vacate ${student?.full_name || 'this resident'} from ${bed.bed_number}?`,
+            confirmText: 'Vacate Bed',
+            cancelText: 'Cancel',
+            isDanger: true
+          });
+          if (confirmed) {
             await db.vacateBed(bedId);
             toast.success(`Bed ${bed.bed_number} vacated.`);
             close();

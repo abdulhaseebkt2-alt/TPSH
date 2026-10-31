@@ -560,20 +560,93 @@ export async function renderLeavesModule(container, { onNavigate }) {
     });
 
     container.querySelectorAll('.btn-reject-leave').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', () => {
         const leaveId = btn.dataset.id;
-        if (!confirm('Are you sure you want to reject this leave request?')) return;
-        try {
-          await db.rejectLeaveRecord(leaveId, { rejected_by: user?.full_name || 'Hostel Warden' });
-          toast.success('Leave request rejected.');
-          const updatedLeaves = await db.getLeaves(true);
-          const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
-          leaves.length = 0;
-          leaves.push(...reFiltered);
-          renderView();
-        } catch (err) {
-          toast.error(err.message || 'Error rejecting leave');
-        }
+        const leave = leaves.find(l => l.id === leaveId);
+        if (!leave) return;
+
+        const sIds = Array.isArray(leave.student_ids) && leave.student_ids.length > 0 ? leave.student_ids : [leave.student_id];
+        const studentNames = sIds.map(sid => (allStudents || students || []).find(s => s.id === sid)?.full_name).filter(Boolean).join(', ') || leave.student_name || 'Student';
+
+        const { container: modal, close } = openModal({
+          title: 'Reject Leave Request',
+          size: 'md',
+          contentHtml: `
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+              <div style="display: flex; align-items: flex-start; gap: 0.75rem; background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 12px; padding: 0.85rem 1rem;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; font-size: 1.1rem;">
+                  ✕
+                </div>
+                <div>
+                  <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #991B1B;">Decline Student Leave Pass</h4>
+                  <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: #B91C1C; line-height: 1.35;">
+                    Are you sure you want to decline this leave application? The parent will see the pass marked as Rejected.
+                  </p>
+                </div>
+              </div>
+
+              <div class="card-panel" style="margin: 0; padding: 0.85rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 0.85rem; line-height: 1.6;">
+                <div><span style="color: #64748B;">Student:</span> <strong>${studentNames}</strong></div>
+                <div><span style="color: #64748B;">Pass Code:</span> <code>${leave.leave_code || leave.leave_register_number}</code></div>
+                <div><span style="color: #64748B;">Leave Period:</span> ${formatDate(leave.departure_date)} ${leave.departure_time || ''} → ${formatDate(leave.expected_return_date)} ${leave.expected_return_time || ''}</div>
+                <div><span style="color: #64748B;">Reason:</span> ${leave.reason}</div>
+                ${leave.requested_by ? `<div><span style="color: #64748B;">Requested By:</span> ${leave.requested_by} ${leave.parent_phone ? `(${leave.parent_phone})` : ''}</div>` : ''}
+              </div>
+
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" style="font-weight: 700; font-size: 0.82rem; color: #0F172A;">
+                  Rejection Reason / Administrative Note (Optional)
+                </label>
+                <select id="reject-preset-reason" class="form-control" style="margin-bottom: 0.5rem; height: 38px; font-size: 0.85rem; border-color: #CBD5E1;">
+                  <option value="">Quick select reason (optional)...</option>
+                  <option value="Institutional exams / test schedule ongoing">Institutional exams / test schedule ongoing</option>
+                  <option value="Incomplete parent verification / Unreachable phone">Incomplete parent verification / Unreachable phone</option>
+                  <option value="Disciplinary restriction / Curfew active">Disciplinary restriction / Curfew active</option>
+                  <option value="Exceeded permissible monthly hostel leave quota">Exceeded permissible monthly hostel leave quota</option>
+                  <option value="Administrative grounds">Administrative grounds</option>
+                </select>
+                <textarea id="reject-leave-reason" class="form-control" rows="2" placeholder="Specify administrative reason for rejection..." style="font-size: 0.85rem; resize: vertical;">Administrative grounds</textarea>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-reject">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-reject" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF; display: inline-flex; align-items: center; gap: 0.4rem;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  Reject Request
+                </button>
+              </div>
+            </div>
+          `
+        });
+
+        // Wire preset reason selector
+        const presetSelect = modal.querySelector('#reject-preset-reason');
+        const reasonTextarea = modal.querySelector('#reject-leave-reason');
+        presetSelect?.addEventListener('change', () => {
+          if (presetSelect.value) {
+            reasonTextarea.value = presetSelect.value;
+          }
+        });
+
+        modal.querySelector('#btn-cancel-reject')?.addEventListener('click', close);
+        modal.querySelector('#btn-confirm-reject')?.addEventListener('click', async () => {
+          const reasonVal = reasonTextarea?.value?.trim() || 'Administrative grounds';
+          try {
+            await db.rejectLeaveRecord(leave.id, {
+              rejected_by: user?.full_name || 'Hostel Warden',
+              reason: reasonVal
+            });
+            toast.success('Leave request rejected.');
+            close();
+            const updatedLeaves = await db.getLeaves(true);
+            const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
+            leaves.length = 0;
+            leaves.push(...reFiltered);
+            renderView();
+          } catch (err) {
+            toast.error(err.message || 'Error rejecting leave');
+          }
+        });
       });
     });
 

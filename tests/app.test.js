@@ -5067,5 +5067,56 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up
       db.set('tps_faculty_leaves', facultyLeaves.filter(l => l.id !== testFacultyLeave.id));
     });
+
+    it('2509: Leave Rejection Modal replaces native confirm() with in-app rejection dialog and reason logging', async () => {
+      const student = await db.addStudent({
+        full_name: 'Reject Test Resident',
+        admission_number: 'TPS-REJ-01',
+        gender: 'Boys',
+        status: 'Active'
+      });
+
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-08',
+        expected_return_date: '2026-11-09',
+        reason: 'Family gathering',
+        status: 'Pending'
+      });
+
+      // Reject using db.rejectLeaveRecord with administrative reason
+      const rejected = await db.rejectLeaveRecord(leave.id, {
+        rejected_by: 'Hostel Chief Warden',
+        reason: 'Institutional exams / test schedule ongoing'
+      });
+
+      expect(rejected.status).toBe('Rejected');
+      expect(rejected.rejected_reason).toBe('Institutional exams / test schedule ongoing');
+      expect(rejected.rejected_by).toBe('Hostel Chief Warden');
+
+      // Student remains Active and not stranded in On Approved Leave
+      const students = await db.getStudents();
+      const updatedStudent = students.find(s => s.id === student.id);
+      expect(updatedStudent.status).toBe('Active');
+
+      // Parent dashboard table recognizes Rejected status badge and note
+      const parentUser = {
+        id: 'p-rej-01',
+        email: 'parent.rej@thaiba.edu',
+        role: 'parent',
+        approval_status: 'approved',
+        assigned_student_ids: [student.id]
+      };
+      updateCurrentUserProfile(parentUser);
+      const parentContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderParentDashboard(parentContainer, { onNavigate: () => {} });
+      expect(parentContainer.innerHTML).toContain('Rejected');
+      expect(parentContainer.innerHTML).toContain('Note: Institutional exams / test schedule ongoing');
+    });
   });
 });

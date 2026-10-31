@@ -493,9 +493,9 @@ export async function renderParentDashboard(container, { onNavigate }) {
               </thead>
               <tbody>
                 ${displayChildLeaves.map(l => {
-                  const isPassOverdue = l.status !== 'Returned' && l.expected_return_date && new Date(l.expected_return_date + 'T' + (l.expected_return_time || '18:00')) < new Date();
-                  const badgeClass = l.status === 'Returned' ? 'badge-present' : isPassOverdue ? 'badge-danger' : l.status === 'Pending' ? 'badge-warning' : 'badge-leave';
-                  const statusText = isPassOverdue ? 'Overdue Return' : l.status;
+                  const isPassOverdue = l.status !== 'Returned' && l.status !== 'Rejected' && l.expected_return_date && new Date(l.expected_return_date + 'T' + (l.expected_return_time || '18:00')) < new Date();
+                  const badgeClass = l.status === 'Returned' ? 'badge-present' : l.status === 'Rejected' ? 'badge-danger' : isPassOverdue ? 'badge-danger' : l.status === 'Pending' ? 'badge-warning' : 'badge-leave';
+                  const statusText = l.status === 'Rejected' ? 'Rejected' : isPassOverdue ? 'Overdue Return' : l.status;
 
                   return `
                     <tr>
@@ -503,6 +503,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
                       <td>
                         <span style="font-size: 0.85rem; font-weight: 600;">${l.reason}</span>
                         ${l.fine_per_hour ? `<div style="font-size: 0.7rem; color: #64748B;">Rate: ₹${l.fine_per_hour}/hr</div>` : ''}
+                        ${l.status === 'Rejected' && l.rejected_reason ? `<div style="font-size: 0.72rem; color: #DC2626; font-weight: 600; margin-top: 2px;">Note: ${l.rejected_reason}</div>` : ''}
                       </td>
                       <td>
                         <div style="font-size: 0.75rem; color: #475569;">

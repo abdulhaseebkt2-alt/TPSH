@@ -2195,8 +2195,8 @@ class DatabaseService {
   }
 
   async rejectLeaveRecord(leave_id, { rejected_by = 'Hostel Warden', reason = 'Administrative grounds' } = {}) {
-    await this.pullCloudKeys(['tps_leaves'], true);
-    const leaves = this.get('tps_leaves');
+    await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
+    const leaves = this.get('tps_leaves') || [];
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
     if (idx === -1) throw new Error('Leave record not found');
 
@@ -2204,8 +2204,20 @@ class DatabaseService {
     leave.status = 'Rejected';
     leave.rejected_by = rejected_by || 'Hostel Warden';
     leave.rejected_reason = reason;
+    leave.rejected_at = new Date().toISOString();
+
+    const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
+    for (const sid of sIds) {
+      if (sid) {
+        const student = (this.get('tps_students') || []).find(s => s.id === sid);
+        if (student && student.status === 'On Approved Leave') {
+          await this.updateStudent(sid, { status: 'Active' });
+        }
+      }
+    }
+
     await this.pushCloudKey('tps_leaves', leaves);
-    this.logAudit('REJECT_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} rejected by ${rejected_by}`);
+    this.logAudit('REJECT_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} rejected by ${rejected_by}: ${reason}`);
     return leave;
   }
 

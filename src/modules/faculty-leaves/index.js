@@ -1,7 +1,7 @@
 import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
-import { openModal } from '../../lib/dialog.js';
+import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { formatDate, formatTime } from '../../lib/utils.js';
 
 export async function renderFacultyLeavesModule(container, { onNavigate }) {
@@ -474,7 +474,14 @@ export async function renderFacultyLeavesModule(container, { onNavigate }) {
       btn.addEventListener('click', async () => {
         const leaveId = btn.getAttribute('data-id');
         if (!leaveId) return;
-        if (confirm('Are you sure you want to delete this faculty leave record?')) {
+        const confirmed = await confirmDialog({
+          title: 'Delete Faculty Leave Record',
+          message: 'Are you sure you want to delete this faculty leave record? This action cannot be undone.',
+          confirmText: 'Delete Record',
+          cancelText: 'Cancel',
+          isDanger: true
+        });
+        if (confirmed) {
           await db.deleteFacultyLeave(leaveId);
           toast.success('Faculty leave record removed.');
           renderView();
