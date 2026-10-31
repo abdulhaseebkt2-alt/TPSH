@@ -31,8 +31,8 @@ async function configureGoogleProvider() {
         external_google_enabled: true,
         external_google_client_id: clientId.trim(),
         external_google_secret: clientSecret.trim(),
-        site_url: 'http://localhost:5173',
-        uri_allow_list: 'http://localhost:5173/**,http://localhost:5173,http://127.0.0.1:5173'
+        site_url: 'https://tpsh.vercel.app',
+        uri_allow_list: 'https://tpsh.vercel.app/**,https://tpsh.vercel.app,https://*.vercel.app/**,https://*.vercel.app,in.edu.thaibaschool.tpsh://**,in.edu.thaibaschool.tpsh://*,https://localhost/**,https://localhost,capacitor://localhost/**,capacitor://localhost,http://localhost:5173/**,http://localhost:5173'
       })
     });
 

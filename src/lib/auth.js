@@ -1,4 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 
 const SUPER_ADMIN_EMAIL = (import.meta.env.VITE_SUPER_ADMIN_EMAIL || 'abdulhaseebkt2@gmail.com').toLowerCase();
 
@@ -25,7 +28,74 @@ function notifyListeners() {
   }
 }
 
+export async function handleOAuthUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  try {
+    // 1. Handle hash fragment (#access_token=...&refresh_token=...)
+    if (rawUrl.includes('#')) {
+      const hashPart = rawUrl.substring(rawUrl.indexOf('#') + 1);
+      const params = new URLSearchParams(hashPart);
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (access_token && refresh_token && supabase) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token,
+          refresh_token
+        });
+        if (data?.session?.user) {
+          currentSession = data.session;
+          realAuthenticatedSession = data.session;
+          await loadUserProfile(data.session.user);
+          notifyListeners();
+          return true;
+        }
+      }
+    }
+
+    // 2. Handle PKCE code flow (?code=...)
+    if (rawUrl.includes('code=')) {
+      const queryPart = rawUrl.includes('?') ? rawUrl.substring(rawUrl.indexOf('?') + 1).split('#')[0] : '';
+      const params = new URLSearchParams(queryPart);
+      const code = params.get('code');
+      if (code && supabase) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (data?.session?.user) {
+          currentSession = data.session;
+          realAuthenticatedSession = data.session;
+          await loadUserProfile(data.session.user);
+          notifyListeners();
+          return true;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('handleOAuthUrl exception:', err);
+  }
+  return false;
+}
+
 export async function initAuth() {
+  // Handle Capacitor native deep-link callback for OAuth on Android/iOS
+  if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+    try {
+      App.addListener('appUrlOpen', async (event) => {
+        try {
+          await Browser.close().catch(() => {});
+        } catch {}
+        if (event?.url) {
+          await handleOAuthUrl(event.url);
+        }
+      });
+
+      App.getLaunchUrl().then(async (launchUrl) => {
+        if (launchUrl?.url) {
+          await handleOAuthUrl(launchUrl.url);
+        }
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('Capacitor native auth listener error:', e);
+    }
+  }
   // 0. Handle OAuth callback errors (e.g. bad_oauth_state due to browser iframe or partitioned storage)
   if (typeof window !== 'undefined' && window.location.search) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -230,11 +300,37 @@ export async function signInWithGoogle() {
     return { provider: 'google', simulated: true };
   }
 
-  // Top-level browser window (Desktop tab or physical mobile phone):
+  const isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+
+  if (isNative) {
+    // In Native Android APK, use custom scheme callback and open system browser safely
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'in.edu.thaibaschool.tpsh://callback',
+        skipBrowserRedirect: true,
+        queryParams: {
+          prompt: 'select_account'
+        }
+      }
+    });
+
+    if (error) throw error;
+    if (data?.url) {
+      await Browser.open({ url: data.url, windowName: '_system' });
+    }
+    return data;
+  }
+
+  // Top-level browser window (Desktop tab, Vercel web or PWA):
+  const redirectTarget = (typeof window !== 'undefined' && window.location.origin.includes('localhost') && !window.location.origin.includes('5173'))
+    ? 'https://tpsh.vercel.app'
+    : (typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://tpsh.vercel.app');
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin,
+      redirectTo: redirectTarget,
       skipBrowserRedirect: false,
       queryParams: {
         prompt: 'select_account'

@@ -71,6 +71,11 @@ The application is engineered to run seamlessly as:
 - **Android Target**: SDK 35 (Android 15), Minimum SDK 24 (Android 7.0 Nougat).
 - **Embedded Web Assets**: Fully compiled and bundled in `android/app/src/main/assets/public/` for instantaneous offline launch with zero network lag.
 - **Launcher Icons**: Custom Thaiba Public School circular and square high-resolution mipmap emblems generated across `mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, and `xxxhdpi`.
+- **Google OAuth Deep-Linking Pipeline**:
+  - Registered custom scheme `in.edu.thaibaschool.tpsh://` in `android/app/src/main/AndroidManifest.xml`.
+  - Updated Supabase project `site_url` from local dev `http://localhost:5173` to `https://tpsh.vercel.app`.
+  - Added `in.edu.thaibaschool.tpsh://**`, `https://tpsh.vercel.app/**`, `https://localhost/**`, and `capacitor://localhost/**` to Supabase `uri_allow_list`.
+  - Integrated `@capacitor/app` and `@capacitor/browser` so "Sign in with Google" securely launches the system browser, receives the OAuth tokens via `App.addListener('appUrlOpen')` and `App.getLaunchUrl()`, and auto-closes the browser, resolving `localhost:5173 ERR_CONNECTION_REFUSED`.
 - **Output Artifacts**:
   - `E:\Web Apk\TPSH\TPS_Hostel_ERP_v1.9.26.apk` (Root distribution artifact)
   - `E:\Web Apk\TPSH\public\TPS_Hostel_ERP.apk` (Browser one-click direct download)
