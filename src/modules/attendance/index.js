@@ -306,18 +306,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
           // If student has already returned:
           if (isReturned && actualReturn) {
-            if (dateStr > actualReturn) return false;
+            // Once returned on actualReturn date or later, student is back on campus, NEVER on leave
+            if (dateStr >= actualReturn) return false;
             if (dateStr < departs) return false;
-            if (dateStr >= departs && dateStr < actualReturn) return true;
-            if (dateStr === actualReturn) {
-              const retTime = studentEntry?.actual_return_time || l.actual_return_time;
-              const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
-              const sessionStartTime = activeCls?.start_time;
-              if (sessionStartTime && retTime) {
-                return sessionStartTime < retTime;
-              }
-              return false;
-            }
+            return true;
           }
 
           // If not returned yet (Approved, Away, Overdue)

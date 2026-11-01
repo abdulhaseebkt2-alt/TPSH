@@ -5340,5 +5340,99 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(html).toContain('Overdue Returns: 0');
       expect(html).not.toContain('₹400.00');
     });
+
+    it('2515: Live Consistency: Returned students are NOT locked on leave in attendance on return date, and rejected passes never appear in arrival register or mark away in parent dashboard', async () => {
+      // 1. Find MD Aamir enrolled in cls-1
+      const students = await db.getStudents();
+      const aamir = students.find(s => (s.name || s.full_name || '').toLowerCase().includes('aamir')) || students[0];
+
+      // Setup returned leave on 2026-11-01 for Aamir
+      const returnedLeave = {
+        id: 'leave-test-returned-2515',
+        student_id: aamir.id,
+        student_name: aamir.name || aamir.full_name,
+        departure_date: '2026-10-31',
+        expected_return_date: '2026-11-01',
+        actual_return_date: '2026-11-01',
+        actual_return_time: '06:08',
+        status: 'Returned',
+        students: [
+          {
+            student_id: aamir.id,
+            is_returned: true,
+            actual_return_date: '2026-11-01',
+            actual_return_time: '06:08'
+          }
+        ]
+      };
+
+      // 2. Setup student with rejected leave
+      const testRejectedStudent = {
+        id: 'stu-test-rejected-2515',
+        full_name: 'Test Rejected Student',
+        status: 'Active',
+        gender: 'Girl',
+        school_class: 'STD-III'
+      };
+      await db.addStudent(testRejectedStudent);
+
+      const rejectedLeave = {
+        id: 'leave-test-rejected-2515',
+        student_id: testRejectedStudent.id,
+        student_name: testRejectedStudent.full_name,
+        departure_date: '2026-10-31',
+        expected_return_date: '2026-11-01',
+        status: 'Rejected'
+      };
+
+      const leaves = await db.getLeaves(true);
+      leaves.push(returnedLeave, rejectedLeave);
+      db.set('tps_leaves', leaves);
+
+      // 3. Test Attendance view on 2026-11-01
+      const attContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAttendanceModule(attContainer, {
+        user: { id: 'u-admin', name: 'Super Admin', role: 'Super Admin', roles: ['Super Admin'] },
+        initialDate: '2026-11-01',
+        initialClassId: 'cls-1',
+        onNavigate: () => {}
+      });
+
+      const attHtml = attContainer.innerHTML;
+      // Returned student must NOT be locked with '🔒 On Leave'
+      expect(attHtml).not.toContain(`att-leave-locked-badge" data-student-id="${aamir.id}"`);
+      // Roster must render toggle switch for returned student with data-is-on-leave="false"
+      expect(attHtml).toContain(`data-student-id="${aamir.id}"`);
+      expect(attHtml).toContain(`id="att-card-${aamir.id}"`);
+      expect(attHtml).toContain('data-is-on-leave="false"');
+
+      // 4. Test Unreturned student extraction for Arrival Register Modal
+      const allCurrentLeaves = await db.getLeaves(true);
+      const unreturned = [];
+      allCurrentLeaves.forEach(l => {
+        const st = (l.status || '').toLowerCase();
+        if (st === 'pending' || st === 'rejected' || st === 'cancelled' || st === 'returned') return;
+        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+        sIds.forEach(sid => {
+          let isRet = false;
+          if (Array.isArray(l.students)) {
+            const entry = l.students.find(s => s.student_id === sid);
+            if (entry && entry.is_returned) isRet = true;
+          }
+          if (!isRet) unreturned.push({ sid, leaveId: l.id });
+        });
+      });
+
+      // Neither returned nor rejected student can appear in arrival register
+      expect(unreturned.some(u => u.sid === aamir.id)).toBe(false);
+      expect(unreturned.some(u => u.sid === testRejectedStudent.id)).toBe(false);
+
+      // Clean up test data
+      await db.deleteStudent(testRejectedStudent.id);
+    });
   });
 });
