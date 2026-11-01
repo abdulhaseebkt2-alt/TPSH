@@ -264,18 +264,10 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
           <!-- UNDER STUDENT DATA: LEAVE & ARRIVAL TABLE -->
           <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
-            <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center; background: #FAFAFA;">
-              <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #0F172A;">
-                  Leave & Arrival Register History
-                </h4>
-                <span class="badge" style="background: #E2E8F0; color: #334155; font-weight: 700; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px;">
-                  ${studentLeaves.length} Records
-                </span>
-              </div>
-              <span style="font-size: 0.74rem; color: #64748B; font-style: italic;">
-                💡 Click any row to view complete details ${isMentor ? 'or clear late fines' : ''}
-              </span>
+            <div style="padding: 0.85rem 1.15rem; background: #059669; display: flex; align-items: center; justify-content: center; text-align: center;">
+              <h4 style="margin: 0; font-size: 0.98rem; font-weight: 800; color: #FFFFFF; letter-spacing: 0.01em;">
+                Leave & Arrival Register History
+              </h4>
             </div>
 
             ${studentLeaves.length === 0 ? `
@@ -289,11 +281,11 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                 <table class="data-table student-leave-card-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left;">
                   <thead>
                     <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
-                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 8%; text-align: center;">SL</th>
-                      <th style="padding: 0.65rem 0.35rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 44%;">Schedule</th>
-                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 22%; text-align: center;">Status</th>
-                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 14%; text-align: right;">Fine</th>
-                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 12%; text-align: center;">F.Paid</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 7%; text-align: center;">SL</th>
+                      <th style="padding: 0.65rem 0.35rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 45%;">Schedule</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 16%; text-align: center;">Status</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 16%; text-align: center;">Fine</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 16%; text-align: center;">F.Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -418,23 +410,27 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                         }
                       }
 
-                      // Dates formatting - Leaving & Arrival in single column
+                      // Dates formatting - Leaving & Arrival in single column with 12-hour AM/PM format
                       const leavingDate = l.departure_date || l.leaving_date || '-';
                       const leavingTime = l.departure_time || l.leaving_time || '16:00';
+                      const formattedLeavingTime = formatTime(leavingTime);
 
                       let arrivalLineHtml = '';
+                      // Rejected leaves need NO second date line: single date space is enough
                       if (isRej) {
-                        arrivalLineHtml = `<div style="font-size: 0.72rem; color: #94A3B8; line-height: 1.25;">-</div>`;
+                        arrivalLineHtml = '';
                       } else if (isRet && actualRetDate) {
+                        const formattedActualRetTime = actualRetTime ? formatTime(actualRetTime) : '';
                         arrivalLineHtml = `
                           <div style="font-size: 0.74rem; font-weight: 700; color: #059669; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
-                            ${actualRetDate} <span style="font-size: 0.66rem; font-weight: 600; color: #059669;">${actualRetTime || ''}</span>
+                            ${actualRetDate} <span style="font-size: 0.66rem; font-weight: 600; color: #059669;">${formattedActualRetTime}</span>
                           </div>
                         `;
                       } else {
+                        const formattedExpRetTime = l.expected_return_time ? formatTime(l.expected_return_time) : '06:00 PM';
                         arrivalLineHtml = `
                           <div style="font-size: 0.73rem; font-weight: 600; color: ${isLate ? '#DC2626' : '#64748B'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
-                            ${l.expected_return_date || '-'} <span style="font-size: 0.65rem; color: #94A3B8;">${l.expected_return_time || '18:00'}${l.expected_return_date ? ' (Exp)' : ''}</span>
+                            ${l.expected_return_date || '-'} <span style="font-size: 0.65rem; color: #94A3B8;">${formattedExpRetTime}${l.expected_return_date ? ' (Exp)' : ''}</span>
                           </div>
                         `;
                       }
@@ -449,24 +445,22 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                           <!-- Schedule: Leaving & Arrival stacked in single column -->
                           <td style="padding: 0.6rem 0.35rem; min-width: 0; overflow: hidden;">
                             <div style="font-size: 0.76rem; font-weight: 700; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
-                              ${leavingDate} <span style="font-size: 0.66rem; font-weight: 600; color: #64748B;">${leavingTime}</span>
+                              ${leavingDate} <span style="font-size: 0.66rem; font-weight: 600; color: #64748B;">${formattedLeavingTime}</span>
                             </div>
-                            <div style="margin-top: 2px;">
-                              ${arrivalLineHtml}
-                            </div>
+                            ${arrivalLineHtml ? `<div style="margin-top: 2px;">${arrivalLineHtml}</div>` : ''}
                           </td>
 
-                          <!-- Status -->
+                          <!-- Status (16% equal width, center) -->
                           <td style="padding: 0.6rem 0.25rem; text-align: center; white-space: nowrap;">
                             ${statusBadgeHtml}
                           </td>
 
-                          <!-- Fine -->
-                          <td style="padding: 0.6rem 0.25rem; text-align: right; font-size: 0.76rem; white-space: nowrap;">
+                          <!-- Fine (16% equal width, center) -->
+                          <td style="padding: 0.6rem 0.25rem; text-align: center; font-size: 0.76rem; white-space: nowrap;">
                             ${fineDisplay}
                           </td>
 
-                          <!-- F.Paid -->
+                          <!-- F.Paid (16% equal width, center) -->
                           <td style="padding: 0.6rem 0.25rem; text-align: center; font-size: 0.85rem; white-space: nowrap;">
                             ${finePaidDisplay}
                           </td>

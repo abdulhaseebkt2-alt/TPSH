@@ -5661,7 +5661,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Check Table Data
       expect(container.innerHTML).toContain('2026-10-25');
-      expect(container.innerHTML).toContain('14:00');
+      expect(container.innerHTML).toContain('02:00 PM');
       expect(container.innerHTML).toContain('2026-10-26');
       expect(container.innerHTML).toContain('Late');
       expect(container.innerHTML).toContain('₹150');
