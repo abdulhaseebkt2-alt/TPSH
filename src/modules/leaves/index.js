@@ -442,33 +442,40 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     </div>
 
                     <!-- Footer Action Row -->
-                    <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                      <span style="font-size: 0.76rem; font-weight: 600; color: #475569;">
-                        👥 ${studentLabel}
-                      </span>
-                      <div style="display: flex; gap: 0.35rem;">
+                    <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; flex-direction: column; gap: 0.45rem;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; min-width: 0;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          👥 ${studentLabel}
+                        </span>
+                        ${unretCount > 0 && !isRet && !isRej ? `
+                          <span style="font-size: 0.72rem; color: #D97706; font-weight: 700; background: #FEF3C7; padding: 2px 7px; border-radius: 9999px; flex-shrink: 0;">
+                            Away (${unretCount})
+                          </span>
+                        ` : ''}
+                      </div>
+                      <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.35rem; width: 100%;">
                         ${(isPend || (!isRet && !isRej)) && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
                           ${isPend ? `
-                            <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                            <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;">
                               Approve
                             </button>
                           ` : ''}
-                          <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                          <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;">
                             Reject
                           </button>
-                          <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Edit requested date & time schedule">
+                          <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Edit requested date & time schedule">
                             Edit
                           </button>
                         ` : ''}
                         ${!isPend && !isRej && !isUpcoming && unretCount > 0 && canRecordReturn ? `
-                          <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.3rem 0.7rem; font-weight: 700; font-size: 0.75rem;">
+                          <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.28rem 0.65rem; font-weight: 700; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 3px;">
                             Arrival (${unretCount})
                           </button>
                         ` : ''}
-                        <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.65rem; font-size: 0.75rem;">
+                        <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">
                           Details
                         </button>
-                        <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.6rem; font-size: 0.75rem; font-weight: 600; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Permanently delete this leave record">
+                        <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.6rem; font-size: 0.74rem; font-weight: 600; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Permanently delete this leave record">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
                         </button>
                       </div>

@@ -145,7 +145,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     leaveAlertSubtext = '• Student and faculty leave requests awaiting authorization';
   }
 
-  const activeStudents = students.filter(s => s.status === 'Active');
+  // All actively enrolled residents in hostel (includes active residents on campus and residents on approved leave)
+  const activeStudents = students.filter(s => s.status !== 'Inactive' && s.status !== 'Graduated' && s.status !== 'Withdrawn');
   const boysCount = students.filter(s => s.gender === 'Male' || s.gender === 'Boys').length;
   const girlsCount = students.filter(s => s.gender === 'Female' || s.gender === 'Girls').length;
   const hostelResidents = students.filter(s => s.hostel_status === 'resident' || s.hostel_status === 'hostel');

@@ -6538,5 +6538,68 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up
       await db.deleteStudent(student.id);
     });
+
+    it('25.28 Dashboard Student Counts & Mobile Leave Card Layout: preserves full enrolled count when resident is on leave and wraps mobile card actions', async () => {
+      const adminUser = {
+        id: 'u-admin-counts-test',
+        full_name: 'Warden Admin',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      // Add two students: one active on campus, one on approved leave
+      const s1 = await db.addStudent({
+        full_name: 'Resident In Hostel',
+        admission_number: 'TPS-2026-950',
+        gender: 'Boy',
+        school_class: 'STD-IV',
+        status: 'Active'
+      });
+      const s2 = await db.addStudent({
+        full_name: 'Resident On Leave',
+        admission_number: 'TPS-2026-951',
+        gender: 'Girl',
+        school_class: 'STD-IV',
+        status: 'On Approved Leave'
+      });
+
+      const [activeLeave] = await db.createLeaveRecord({
+        student_ids: [s2.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-01',
+        departure_time: '10:00',
+        expected_return_date: '2026-11-02',
+        expected_return_time: '18:00',
+        reason: 'Weekend Visit',
+        fine_per_hour: 50,
+        approved_by: 'Hostel Office'
+      });
+
+      // 1. Render Admin Dashboard
+      const dashContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(dashContainer, { onNavigate: () => {} });
+      const dashHtml = dashContainer.innerHTML;
+
+      // Both students must be counted in enrolled residents
+      const allStudents = await db.getStudents();
+      const enrolledCount = allStudents.filter(s => s.status !== 'Inactive' && s.status !== 'Graduated' && s.status !== 'Withdrawn').length;
+      expect(dashHtml).toContain(String(enrolledCount));
+
+      // 2. Render Leaves Module & inspect mobile cards layout
+      const leavesContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(leavesContainer, { onNavigate: () => {} });
+      const leavesHtml = leavesContainer.innerHTML;
+
+      // Mobile cards must have separate student row and flex-wrap action button row
+      expect(leavesHtml).toContain('flex-wrap: wrap');
+      expect(leavesHtml).toContain('btn-delete-leave');
+
+      // Clean up
+      await db.deleteLeaveRecord(activeLeave.id);
+      await db.deleteStudent(s1.id);
+      await db.deleteStudent(s2.id);
+    });
   });
 });
