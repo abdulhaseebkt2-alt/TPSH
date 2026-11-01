@@ -266,110 +266,110 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
     <!-- DYNAMIC LIFECYCLE LEAVE & PASS BANNER -->
     ${isOverdue ? `
-      <!-- 5. OVERDUE RETURN & LATE FINE CARD (Minimal, Replaces Separate Fine Card) -->
-      <div class="card-panel parent-overdue-alert" style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-left: 6px solid #DC2626; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08); display: flex; align-items: stretch; gap: 0.95rem;">
-        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #FECACA; border-radius: 12px; padding: 0.75rem 0.45rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(220,38,38,0.08); display: flex; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
-          <span style="font-size: 0.65rem; font-weight: 800; color: #991B1B; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">Late Fine</span>
-          <span style="font-size: 0.85rem; font-weight: 900; color: #DC2626; font-family: var(--font-mono); white-space: nowrap;" id="live-overdue-fine-val">₹${fineAmount}</span>
+      <!-- 5. OVERDUE RETURN & LATE FINE CARD (Compact, Replaces Separate Fine Card) -->
+      <div class="card-panel parent-overdue-alert" style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-left: 5px solid #DC2626; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1.15rem; box-shadow: 0 3px 8px rgba(220, 38, 38, 0.06); display: flex; align-items: center; gap: 0.75rem;">
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #FECACA; border-radius: 10px; padding: 0.45rem 0.35rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(220,38,38,0.06); text-align: center; line-height: 1.15;">
+          <div style="font-size: 0.62rem; font-weight: 800; color: #991B1B; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">Late Fine</div>
+          <div style="font-size: 0.78rem; font-weight: 900; color: #DC2626; font-family: var(--font-mono); white-space: nowrap;" id="live-overdue-fine-val">₹${fineAmount}</div>
         </div>
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <h4 style="font-size: 0.98rem; font-weight: 800; color: #991B1B; margin: 0;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <h4 style="font-size: 0.92rem; font-weight: 800; color: #991B1B; margin: 0;">
               ${selectedChild.full_name} is Overdue to Hostel
             </h4>
-            <span class="badge" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">Overdue</span>
+            <span class="badge" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 9999px;">Overdue</span>
           </div>
-          <p style="font-size: 0.8rem; color: #7F1D1D; margin: 0.25rem 0 0 0;">
-            Curfew was <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong> • Late by <strong id="live-overdue-time-text" style="font-family: var(--font-mono); font-size: 0.88rem; color: #DC2626;">+${overdueHours}h ${overdueMins}m</strong>
+          <p style="font-size: 0.76rem; color: #7F1D1D; margin: 0.15rem 0 0 0; line-height: 1.35;">
+            Curfew was <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong> • Late by <strong id="live-overdue-time-text" style="font-family: var(--font-mono); font-size: 0.82rem; color: #DC2626;">+${overdueHours}h ${overdueMins}m</strong>
           </p>
-          <div style="font-size: 0.74rem; color: #B91C1C; margin-top: 0.25rem; font-weight: 600;">
+          <div style="font-size: 0.72rem; color: #B91C1C; margin-top: 0.15rem; font-weight: 600;">
             Fine Rate: <strong>₹${fineRate}/hr</strong> • Pay overdue amount to hostel administration on reporting
           </div>
         </div>
       </div>
     ` : isEntryGatePass ? `
-      <!-- 4. RETURN DAY HOSTEL ENTRY PASS (Active to bring student back to campus) -->
-      <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-left: 6px solid #2563EB; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(37,99,235,0.06); display: flex; align-items: stretch; gap: 0.95rem;">
-        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #BFDBFE; border-radius: 12px; padding: 0.75rem 0.45rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(37,99,235,0.08); display: flex; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
-          <span style="font-size: 0.65rem; font-weight: 800; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">Campus Re-Entry</span>
-          <span style="font-size: 0.78rem; font-weight: 800; color: #2563EB; white-space: nowrap;">Ready for Gate Check</span>
+      <!-- 4. RETURN DAY HOSTEL ENTRY PASS (Compact 2-Line Ticket Stub) -->
+      <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-left: 5px solid #2563EB; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1.15rem; box-shadow: 0 3px 8px rgba(37,99,235,0.05); display: flex; align-items: center; gap: 0.75rem;">
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #BFDBFE; border-radius: 10px; padding: 0.45rem 0.35rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(37,99,235,0.06); text-align: center; line-height: 1.15;">
+          <div style="font-size: 0.62rem; font-weight: 800; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">Campus Re-Entry</div>
+          <div style="font-size: 0.74rem; font-weight: 800; color: #2563EB; white-space: nowrap;">Ready for Gate Check</div>
         </div>
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <h4 style="font-size: 0.98rem; font-weight: 800; color: #1E40AF; margin: 0;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <h4 style="font-size: 0.92rem; font-weight: 800; color: #1E40AF; margin: 0;">
               Hostel Campus Re-Entry Pass • ${selectedChild.full_name}
             </h4>
-            <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">Entry Pass Active</span>
+            <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 9999px;">Entry Pass Active</span>
           </div>
-          <p style="font-size: 0.8rem; color: #1E3A8A; margin: 0.25rem 0 0 0;">
+          <p style="font-size: 0.76rem; color: #1E3A8A; margin: 0.15rem 0 0 0; line-height: 1.35;">
             Valid for return to campus all day • Expected reporting by <strong>${formatTime(activeLeave.expected_return_time || '18:00')} today</strong>
           </p>
-          <div style="font-size: 0.74rem; color: #3B82F6; margin-top: 0.25rem; font-weight: 600;">
+          <div style="font-size: 0.72rem; color: #3B82F6; margin-top: 0.15rem; font-weight: 600;">
             Pass Code: <strong>${activeLeave.leave_code || 'LV-2026'}</strong> • Present at security gate on arrival
           </div>
         </div>
       </div>
     ` : isExitGatePass ? `
-      <!-- 3. DEPARTURE DAY OUTING GATE PASS (Active to take student home) -->
-      <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-left: 6px solid #059669; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(5,150,105,0.06); display: flex; align-items: stretch; gap: 0.95rem;">
-        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #A7F3D0; border-radius: 12px; padding: 0.75rem 0.45rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(5,150,105,0.08); display: flex; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
-          <span style="font-size: 0.65rem; font-weight: 800; color: #065F46; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">Security Outing</span>
-          <span style="font-size: 0.78rem; font-weight: 800; color: #059669; white-space: nowrap;">Verified Gate Pass</span>
+      <!-- 3. DEPARTURE DAY OUTING GATE PASS (Compact 2-Line Ticket Stub: Security Outing / Verified Gate Pass) -->
+      <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-left: 5px solid #059669; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1.15rem; box-shadow: 0 3px 8px rgba(5,150,105,0.05); display: flex; align-items: center; gap: 0.75rem;">
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #A7F3D0; border-radius: 10px; padding: 0.45rem 0.35rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(5,150,105,0.06); text-align: center; line-height: 1.15;">
+          <div style="font-size: 0.62rem; font-weight: 800; color: #065F46; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">Security Outing</div>
+          <div style="font-size: 0.74rem; font-weight: 800; color: #059669; white-space: nowrap;">Verified Gate Pass</div>
         </div>
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <h4 style="font-size: 0.98rem; font-weight: 800; color: #065F46; margin: 0;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <h4 style="font-size: 0.92rem; font-weight: 800; color: #065F46; margin: 0;">
               Official Exit Gate Pass • ${selectedChild.full_name}
             </h4>
-            <span class="badge" style="background: #D1FAE5; color: #065F46; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">✓ Exit Authorized</span>
+            <span class="badge" style="background: #D1FAE5; color: #065F46; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 9999px;">✓ Exit Authorized</span>
           </div>
-          <p style="font-size: 0.8rem; color: #064E3B; margin: 0.25rem 0 0 0;">
+          <p style="font-size: 0.76rem; color: #064E3B; margin: 0.15rem 0 0 0; line-height: 1.35;">
             ${isSameDay 
               ? `Allotted departure: <strong>${formatTime(activeLeave.departure_time || '16:00')} today</strong> • Exit pass valid until <strong>${formatTime(exitExpiryTime)}</strong>`
               : `Allotted departure: <strong>${formatTime(activeLeave.departure_time || '16:00')} today</strong> • Valid for campus exit until 11:59 PM tonight`}
           </p>
-          <div style="font-size: 0.74rem; color: #059669; margin-top: 0.25rem; font-weight: 600;">
+          <div style="font-size: 0.72rem; color: #059669; margin-top: 0.15rem; font-weight: 600;">
             Pass Code: <strong>${activeLeave.leave_code || 'LV-2026'}</strong> • Escort: <strong>${activeLeave.escort_type || 'Father'} (${activeLeave.requested_by || 'Parent'})</strong>
           </div>
         </div>
       </div>
     ` : isApprovedAdvance ? `
-      <!-- 2. ADVANCE LEAVE APPROVED (Accepted Permission, but before departure time) -->
-      <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-left: 6px solid #10B981; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(16,185,129,0.06); display: flex; align-items: stretch; gap: 0.95rem;">
-        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #BBF7D0; border-radius: 12px; padding: 0.75rem 0.45rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(16,185,129,0.08); display: flex; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
-          <span style="font-size: 0.65rem; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">Hostel Permission</span>
-          <span style="font-size: 0.78rem; font-weight: 800; color: #10B981; white-space: nowrap;">Permission Accepted</span>
+      <!-- 2. ADVANCE LEAVE APPROVED (Compact 2-Line Ticket Stub: Hostel Permission / Permission Accepted) -->
+      <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-left: 5px solid #10B981; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1.15rem; box-shadow: 0 3px 8px rgba(16,185,129,0.05); display: flex; align-items: center; gap: 0.75rem;">
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #BBF7D0; border-radius: 10px; padding: 0.45rem 0.35rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(16,185,129,0.06); text-align: center; line-height: 1.15;">
+          <div style="font-size: 0.62rem; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">Hostel Permission</div>
+          <div style="font-size: 0.74rem; font-weight: 800; color: #10B981; white-space: nowrap;">Permission Accepted</div>
         </div>
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <strong style="color: #166534; font-size: 0.94rem;">Leave Permission Approved (Permission Accepted)</strong>
-            <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 800; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <strong style="color: #166534; font-size: 0.90rem;">Leave Permission Approved (Permission Accepted)</strong>
+            <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 800; font-size: 0.68rem; padding: 1px 7px; border-radius: 9999px;">
               Approved
             </span>
           </div>
-          <div style="font-size: 0.78rem; color: #15803D; margin-top: 0.25rem;">
-            Scheduled for: <strong>${formatDate(activeLeave.departure_date)} at ${formatTime(activeLeave.departure_time || '16:00')}</strong> → Return by <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong>
+          <div style="font-size: 0.76rem; color: #15803D; margin-top: 0.15rem; line-height: 1.35;">
+            Scheduled: <strong>${formatDate(activeLeave.departure_date)} at ${formatTime(activeLeave.departure_time || '16:00')}</strong> → Return: <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong>
           </div>
-          <div style="font-size: 0.74rem; color: #4B5563; margin-top: 0.25rem;">
+          <div style="font-size: 0.72rem; color: #4B5563; margin-top: 0.15rem;">
             * Official Outing Gate Pass will activate automatically on departure day at <strong>${formatTime(activeLeave.departure_time || '16:00')}</strong>.
           </div>
         </div>
       </div>
     ` : isInBetweenLeave ? `
-      <!-- IN-BETWEEN DAYS (Multi-day leave while student is away) -->
-      <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-left: 6px solid #64748B; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; display: flex; align-items: stretch; gap: 0.95rem;">
-        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 0.75rem 0.45rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(100,116,139,0.08); display: flex; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
-          <span style="font-size: 0.65rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">Home Leave</span>
-          <span style="font-size: 0.78rem; font-weight: 800; color: #334155; white-space: nowrap;">Currently Away</span>
+      <!-- IN-BETWEEN DAYS (Compact 2-Line Ticket Stub: Home Leave / Currently Away) -->
+      <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-left: 5px solid #64748B; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1.15rem; display: flex; align-items: center; gap: 0.75rem;">
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 0.45rem 0.35rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(100,116,139,0.06); text-align: center; line-height: 1.15;">
+          <div style="font-size: 0.62rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">Home Leave</div>
+          <div style="font-size: 0.74rem; font-weight: 800; color: #334155; white-space: nowrap;">Currently Away</div>
         </div>
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <strong style="color: #334155; font-size: 0.94rem;">${selectedChild.full_name} is on Authorized Home Leave</strong>
-            <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 800; font-size: 0.72rem; padding: 3px 8px; border-radius: 9999px;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <strong style="color: #334155; font-size: 0.90rem;">${selectedChild.full_name} is on Authorized Home Leave</strong>
+            <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 800; font-size: 0.68rem; padding: 2px 7px; border-radius: 9999px;">
               On Leave
             </span>
           </div>
-          <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.25rem;">
+          <div style="font-size: 0.76rem; color: #64748B; margin-top: 0.15rem; line-height: 1.35;">
             Expected return to hostel on <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong>. Campus entry pass will activate on return day.
           </div>
         </div>
