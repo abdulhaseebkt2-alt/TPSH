@@ -159,22 +159,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     return (h || 0) * 60 + (m || 0);
   }
 
-  // Helper: Detect if date has hostel leave
-  function isHostelLeaveDate(dateStr) {
-    if (!Array.isArray(leaves) || leaves.length === 0) return false;
-    return leaves.some(l => {
-      const status = (l.status || '').toLowerCase();
-      if (status === 'pending' || status === 'rejected' || status === 'cancelled') return false;
-      const departs = l.departure_date || l.leaving_date;
-      if (!departs) return false;
-      const returns = (status === 'returned' && l.actual_return_date) ? l.actual_return_date : l.expected_return_date;
-      if (!returns) return status === 'away' || status === 'approved' || status === 'overdue';
-      if (status === 'returned' && l.actual_return_date) {
-        return dateStr >= departs && dateStr < l.actual_return_date;
-      }
-      return dateStr >= departs && dateStr <= returns;
-    });
-  }
+
 
   // Helper: Month days breakdown for calendar grid (Monday - Sunday)
   function getCalendarGridDays(year, month, selectedClass) {
@@ -212,13 +197,17 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       // 1. Timetable working day check for this specific classroom
       const isClassScheduledDay = classDays.includes(dayKey);
 
-      // 2. Academic calendar holiday & hostel leave off-time check
-      const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
-      const offInfo = db.isClassSessionOffDueToHoliday(selectedClass, dateStr, calendar);
-      const isHoliday = offInfo.isOff || dayInfo.isHoliday;
+      // 2. Academic calendar holiday & hostel leave check
+      // Strictly from academic calendar events (no general weekend or student leave fallbacks)
+      const calEvents = Array.isArray(calendar?.events) ? calendar.events : [];
+      const calEventOnDate = calEvents.find(e => e.date === dateStr);
+      const isCalHoliday = Boolean(calEventOnDate && calEventOnDate.type === 'holiday');
+      const isCalHostelLeave = Boolean(calEventOnDate && calEventOnDate.type === 'hostel_leave');
 
-      // 3. Hostel leave check (Text only)
-      const isHostelLeave = isHostelLeaveDate(dateStr);
+      const offInfo = db.isClassSessionOffDueToHoliday(selectedClass, dateStr, calendar);
+      const isHoliday = (offInfo.isOff && offInfo.type === 'holiday') || isCalHoliday;
+      const isHostelLeave = (offInfo.isOff && offInfo.type === 'hostel_leave') || isCalHostelLeave;
+      const holidayTitle = calEventOnDate?.name || offInfo.reason || (isHoliday ? 'Official Holiday' : isHostelLeave ? 'Hostel Leave' : '');
 
       // 4. Attendance session check
       const hasAttendanceSession = attendanceSessions.some(s => 
@@ -242,7 +231,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       const isPastDate = dateStr < todayStr;
       const isTodayAfter = dateStr === todayStr && currentMinutes > classEndMin;
       const isElapsed = isPastDate || isTodayAfter;
-      const isMissedAttendance = isTeacherAssigned && isClassScheduledDay && !isHoliday && isElapsed && !hasAttendanceSession && !isFacultyApprovedLeave;
+      const isMissedAttendance = isTeacherAssigned && isClassScheduledDay && !isHoliday && !isHostelLeave && isElapsed && !hasAttendanceSession && !isFacultyApprovedLeave;
 
       grid.push({
         dayNumber: d,
@@ -251,7 +240,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
         dayKey,
         isClassScheduledDay,
         isHoliday,
-        holidayTitle: isHoliday ? (dayInfo.title || 'Official Holiday') : '',
+        holidayTitle,
         isHostelLeave,
         isFacultyApprovedLeave,
         facultyLeaveInfo: facultyApprovedLeave,
@@ -698,10 +687,14 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const isClassScheduledDay = classDays.includes(dayKey);
 
-    const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
+    const calEvents = Array.isArray(calendar?.events) ? calendar.events : [];
+    const calEventOnDate = calEvents.find(e => e.date === dateStr);
+    const isCalHoliday = Boolean(calEventOnDate && calEventOnDate.type === 'holiday');
+    const isCalHostelLeave = Boolean(calEventOnDate && calEventOnDate.type === 'hostel_leave');
+
     const offInfo = db.isClassSessionOffDueToHoliday(activeClass, dateStr, calendar);
-    const isHoliday = offInfo.isOff || dayInfo.isHoliday;
-    const isHostelLeave = offInfo.type === 'hostel_leave' || isHostelLeaveDate(dateStr);
+    const isHoliday = (offInfo.isOff && offInfo.type === 'holiday') || isCalHoliday;
+    const isHostelLeave = (offInfo.isOff && offInfo.type === 'hostel_leave') || isCalHostelLeave;
 
     const session = attendanceSessions.find(s => 
       s.classroom_id === activeClass?.id && s.session_date === dateStr

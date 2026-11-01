@@ -6346,5 +6346,66 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Cleanup
       await db.removeCalendarHoliday(sundayDate);
     });
+
+    it('25.27 Academic Calendar Isolation in Attendance Report: Excludes student leaves from calendar dates and shows zero yellow rounds or red text when academic calendar has no events', async () => {
+      // 1. Save and clear academic calendar events to simulate empty calendar for testing
+      const origCal = await db.getAcademicCalendar();
+      await db.saveAcademicCalendar({
+        ...origCal,
+        events: []
+      });
+
+      // Add a student personal leave record (e.g. Sultana Sarkar on leave Oct 14-25)
+      const leaves = await db.getLeaves(true);
+      leaves.push({
+        id: 'leave-student-personal-test',
+        student_id: 's-student-1',
+        departure_date: '2026-10-14',
+        expected_return_date: '2026-10-25',
+        status: 'Away'
+      });
+      db.set('tps_leaves', leaves);
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceReportModule(container, { onNavigate: () => {} });
+      const html = container.innerHTML;
+
+      // With academic calendar empty:
+      // A. Student leave must NOT turn dates 14-25 into red text (is-hostel-leave-text)
+      expect(html).not.toContain('is-hostel-leave-text');
+
+      // B. Sundays must NOT turn into yellow round circles (is-holiday-single)
+      expect(html).not.toContain('is-holiday-single');
+
+      // C. Timetable unworking days must be clean class off days
+      expect(html).toContain('is-class-off-day');
+
+      // 2. Now add an institutional Hostel Leave to Academic Calendar
+      await db.addCalendarHoliday({
+        date: '2026-10-20',
+        name: 'Term Hostel Break',
+        type: 'hostel_leave',
+        is_all_day: true
+      });
+
+      const updatedContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAttendanceReportModule(updatedContainer, { onNavigate: () => {} });
+      const updatedHtml = updatedContainer.innerHTML;
+
+      // Now date 2026-10-20 MUST reflect the institutional hostel leave from academic calendar
+      expect(updatedHtml).toContain('is-hostel-leave-text');
+
+      // Restore original academic calendar
+      await db.saveAcademicCalendar(origCal);
+    });
   });
 });
