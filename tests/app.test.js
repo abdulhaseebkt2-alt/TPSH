@@ -5652,21 +5652,20 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('Room 204');
       expect(container.innerHTML).toContain('Present in Hostel');
 
-      // Check Table Headers
-      expect(container.innerHTML).toContain('SL NO');
-      expect(container.innerHTML).toContain('Leaving Date & Time');
-      expect(container.innerHTML).toContain('Arrival Date & Time');
-      expect(container.innerHTML).toContain('Arrival Status');
-      expect(container.innerHTML).toContain('Fine Amount');
-      expect(container.innerHTML).toContain('Fine Paid Status');
+      // Check Table Headers (Mobile Compact Single Display: SL, Schedule, Status, Fine, F.Paid)
+      expect(container.innerHTML).toContain('SL');
+      expect(container.innerHTML).toContain('Schedule');
+      expect(container.innerHTML).toContain('Status');
+      expect(container.innerHTML).toContain('Fine');
+      expect(container.innerHTML).toContain('F.Paid');
 
       // Check Table Data
       expect(container.innerHTML).toContain('2026-10-25');
       expect(container.innerHTML).toContain('14:00');
       expect(container.innerHTML).toContain('2026-10-26');
-      expect(container.innerHTML).toContain('Late Return');
-      expect(container.innerHTML).toContain('₹150.00');
-      expect(container.innerHTML).toContain('Unpaid');
+      expect(container.innerHTML).toContain('Late');
+      expect(container.innerHTML).toContain('₹150');
+      expect(container.innerHTML).toContain('title="Unpaid"');
 
       // 3. Clear fine via db helper
       await db.recordFinePayment(fineLeave.id, 150, 'Cash', 'Cleared via test', adminUser.full_name);

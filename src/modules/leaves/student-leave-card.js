@@ -285,16 +285,15 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                 <p style="font-size: 0.8rem; margin: 0.25rem 0 0; color: #94A3B8;">This student does not have any residential gate passes or leaves yet.</p>
               </div>
             ` : `
-              <div class="table-responsive" style="overflow-x: auto;">
-                <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+              <div class="table-responsive" style="overflow-x: hidden; width: 100%;">
+                <table class="data-table student-leave-card-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left;">
                   <thead>
                     <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
-                      <th style="padding: 0.75rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B; width: 55px; text-align: center;">SL NO</th>
-                      <th style="padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Leaving Date & Time</th>
-                      <th style="padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Arrival Date & Time</th>
-                      <th style="padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Arrival Status</th>
-                      <th style="padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B; text-align: right;">Fine Amount</th>
-                      <th style="padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B; text-align: center;">Fine Paid Status</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 8%; text-align: center;">SL</th>
+                      <th style="padding: 0.65rem 0.35rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 44%;">Schedule</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 22%; text-align: center;">Status</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 14%; text-align: right;">Fine</th>
+                      <th style="padding: 0.65rem 0.25rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #64748B; width: 12%; text-align: center;">F.Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -324,22 +323,31 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
                       const isRej = (l.status || '').toLowerCase() === 'rejected';
                       const isPend = (l.status || '').toLowerCase() === 'pending';
+                      const departs = l.departure_date || l.leaving_date;
+                      const todayIso = new Date().toISOString().split('T')[0];
+                      const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
 
-                      // Determine arrival status pill
+                      // Determine arrival status pill (Single Word concise labels)
                       let statusBadgeHtml = '';
                       let isLate = false;
                       const fineAmt = Number(l.calculated_fine) || 0;
 
                       if (isRej) {
                         statusBadgeHtml = `
-                          <span class="badge badge-danger" style="background: #FEE2F2; color: #DC2626; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
+                          <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                             Rejected
                           </span>
                         `;
                       } else if (isPend) {
                         statusBadgeHtml = `
-                          <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                            Pending Approval
+                          <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                            Pending
+                          </span>
+                        `;
+                      } else if (isUpcoming) {
+                        statusBadgeHtml = `
+                          <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                            Upcoming
                           </span>
                         `;
                       } else if (isRet) {
@@ -352,20 +360,20 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                         if (fineAmt > 0 || (actMs && expMs && actMs > expMs + 15 * 60 * 1000)) {
                           isLate = true;
                           statusBadgeHtml = `
-                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                              Late Return
+                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                              Late
                             </span>
                           `;
                         } else if (actMs && expMs && actMs < expMs - 30 * 60 * 1000) {
                           statusBadgeHtml = `
-                            <span class="badge badge-info" style="background: #E0F2FE; color: #0284C7; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                              Early Return
+                            <span class="badge badge-info" style="background: #E0F2FE; color: #0284C7; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                              Early
                             </span>
                           `;
                         } else {
                           statusBadgeHtml = `
-                            <span class="badge badge-success" style="background: #ECFDF5; color: #059669; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                              On Time
+                            <span class="badge badge-success" style="background: #ECFDF5; color: #059669; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                              Ontime
                             </span>
                           `;
                         }
@@ -377,14 +385,14 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                         if (expMs && nowMs > expMs) {
                           isLate = true;
                           statusBadgeHtml = `
-                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                              Overdue Return
+                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                              Overdue
                             </span>
                           `;
                         } else {
                           statusBadgeHtml = `
-                            <span class="badge badge-warning" style="background: #FEF3C7; color: #D97706; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                              Currently Away
+                            <span class="badge badge-warning" style="background: #FEF3C7; color: #D97706; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                              Away
                             </span>
                           `;
                         }
@@ -392,79 +400,74 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
                       // Fine amount column
                       const fineDisplay = (fineAmt > 0) 
-                        ? `<span style="font-weight: 700; color: #DC2626;">₹${fineAmt.toFixed(2)}</span>` 
-                        : `<span style="color: #94A3B8;">-</span>`;
+                        ? `<span style="font-weight: 800; font-family: monospace; color: #DC2626; font-size: 0.76rem;">₹${fineAmt}</span>` 
+                        : `<span style="color: #94A3B8; font-size: 0.76rem;">-</span>`;
 
-                      // Fine paid status column
-                      let finePaidDisplay = '<span style="color: #94A3B8;">-</span>';
+                      // Fine paid status column (Clean tick ✓ or cross ✕ icon)
+                      let finePaidDisplay = '<span style="color: #94A3B8; font-size: 0.76rem;">-</span>';
                       if (fineAmt > 0) {
                         const isPaid = l.fine_status === 'paid';
                         if (isPaid) {
                           finePaidDisplay = `
-                            <span style="color: #059669; font-weight: 800; display: inline-flex; align-items: center; gap: 3px;" title="Fine Paid">
-                              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                              <small style="font-size: 0.72rem; font-weight: 700;">Paid</small>
-                            </span>
+                            <span style="color: #059669; font-weight: 900; font-size: 0.95rem; line-height: 1;" title="Paid">✓</span>
                           `;
                         } else {
                           finePaidDisplay = `
-                            <span style="color: #DC2626; font-weight: 800; display: inline-flex; align-items: center; gap: 3px;" title="Fine Unpaid">
-                              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                              <small style="font-size: 0.72rem; font-weight: 700;">Unpaid</small>
-                            </span>
+                            <span style="color: #DC2626; font-weight: 900; font-size: 0.88rem; line-height: 1;" title="Unpaid">✕</span>
                           `;
                         }
                       }
 
-                      // Dates formatting
+                      // Dates formatting - Leaving & Arrival in single column
                       const leavingDate = l.departure_date || l.leaving_date || '-';
                       const leavingTime = l.departure_time || l.leaving_time || '16:00';
 
-                      let arrivalDateHtml = '';
+                      let arrivalLineHtml = '';
                       if (isRej) {
-                        arrivalDateHtml = `<span style="color: #94A3B8;">-</span>`;
+                        arrivalLineHtml = `<div style="font-size: 0.72rem; color: #94A3B8; line-height: 1.25;">-</div>`;
                       } else if (isRet && actualRetDate) {
-                        arrivalDateHtml = `
-                          <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A;">${actualRetDate}</div>
-                          <div style="font-size: 0.72rem; color: #059669; font-weight: 600;">${actualRetTime || 'Recorded'}</div>
+                        arrivalLineHtml = `
+                          <div style="font-size: 0.74rem; font-weight: 700; color: #059669; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
+                            ${actualRetDate} <span style="font-size: 0.66rem; font-weight: 600; color: #059669;">${actualRetTime || ''}</span>
+                          </div>
                         `;
                       } else {
-                        arrivalDateHtml = `
-                          <div style="font-size: 0.82rem; font-weight: 700; color: ${isLate ? '#DC2626' : '#64748B'};">${l.expected_return_date || '-'}</div>
-                          <div style="font-size: 0.72rem; color: #94A3B8;">${l.expected_return_time || '18:00'} (Exp)</div>
+                        arrivalLineHtml = `
+                          <div style="font-size: 0.73rem; font-weight: 600; color: ${isLate ? '#DC2626' : '#64748B'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
+                            ${l.expected_return_date || '-'} <span style="font-size: 0.65rem; color: #94A3B8;">${l.expected_return_time || '18:00'}${l.expected_return_date ? ' (Exp)' : ''}</span>
+                          </div>
                         `;
                       }
 
                       return `
                         <tr class="student-leave-card-row" data-id="${l.id}" style="border-bottom: 1px solid #F1F5F9; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='transparent'">
                           <!-- SL No -->
-                          <td style="padding: 0.85rem 0.85rem; text-align: center; font-size: 0.82rem; font-weight: 700; color: #64748B;">
+                          <td style="padding: 0.6rem 0.25rem; text-align: center; font-size: 0.76rem; font-weight: 700; color: #64748B;">
                             ${idx + 1}
                           </td>
 
-                          <!-- Leaving Date & Time -->
-                          <td style="padding: 0.85rem 1rem;">
-                            <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A;">${leavingDate}</div>
-                            <div style="font-size: 0.72rem; color: #64748B;">${leavingTime}</div>
+                          <!-- Schedule: Leaving & Arrival stacked in single column -->
+                          <td style="padding: 0.6rem 0.35rem; min-width: 0; overflow: hidden;">
+                            <div style="font-size: 0.76rem; font-weight: 700; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
+                              ${leavingDate} <span style="font-size: 0.66rem; font-weight: 600; color: #64748B;">${leavingTime}</span>
+                            </div>
+                            <div style="margin-top: 2px;">
+                              ${arrivalLineHtml}
+                            </div>
                           </td>
 
-                          <!-- Arrival Date & Time -->
-                          <td style="padding: 0.85rem 1rem;">
-                            ${arrivalDateHtml}
-                          </td>
-
-                          <!-- Arrival Status -->
-                          <td style="padding: 0.85rem 1rem;">
+                          <!-- Status -->
+                          <td style="padding: 0.6rem 0.25rem; text-align: center; white-space: nowrap;">
                             ${statusBadgeHtml}
                           </td>
 
-                          <!-- Fine Amount -->
-                          <td style="padding: 0.85rem 1rem; text-align: right; font-size: 0.82rem;">
+                          <!-- Fine -->
+                          <td style="padding: 0.6rem 0.25rem; text-align: right; font-size: 0.76rem; white-space: nowrap;">
                             ${fineDisplay}
                           </td>
 
-                          <!-- Fine Paid Status -->
-                          <td style="padding: 0.85rem 1rem; text-align: center; font-size: 0.82rem;">
+                          <!-- F.Paid -->
+                          <td style="padding: 0.6rem 0.25rem; text-align: center; font-size: 0.85rem; white-space: nowrap;">
                             ${finePaidDisplay}
                           </td>
                         </tr>
