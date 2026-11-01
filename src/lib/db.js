@@ -2657,30 +2657,41 @@ class DatabaseService {
     return studentId ? marks.filter(m => m.student_id === studentId) : marks;
   }
 
-  async recordFinePayment(leave_record_id, amount, payment_method = 'Cash', reference_number = '') {
-    const leaves = this.get('tps_leaves');
-    const idx = leaves.findIndex(l => l.id === leave_record_id);
+  async recordFinePayment(leave_record_id, amount, payment_method = 'Cash', reference_number = '', recorded_by = 'Hostel Office') {
+    await this.pullCloudKeys(['tps_leaves', 'tps_fine_payments'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_record_id || l.leave_code === leave_record_id);
     if (idx === -1) throw new Error('Leave record not found');
 
     const leave = leaves[idx];
     leave.fine_status = 'paid';
+    leave.fine_paid_at = new Date().toISOString();
+    leave.fine_paid_amount = Number(amount) || Number(leave.calculated_fine) || 0;
+    leave.fine_cleared_by = recorded_by;
     this.set('tps_leaves', leaves);
 
-    const payments = this.get('tps_fine_payments');
+    const payments = this.get('tps_fine_payments') || [];
     const newPayment = {
       id: 'fp-' + Date.now(),
-      leave_record_id,
-      student_id: leave.student_id,
-      amount: Number(amount),
+      leave_record_id: leave.id,
+      student_id: leave.student_id || (Array.isArray(leave.student_ids) ? leave.student_ids[0] : null),
+      amount: Number(amount) || Number(leave.calculated_fine) || 0,
       payment_date: new Date().toISOString().split('T')[0],
       payment_method,
       reference_number,
-      receipt_number: 'RCPT-' + Date.now().toString().slice(-6)
+      receipt_number: 'RCPT-' + Date.now().toString().slice(-6),
+      recorded_by
     };
     payments.push(newPayment);
     this.set('tps_fine_payments', payments);
-    this.logAudit('FINE_PAYMENT', 'fine_payments', newPayment.id, `Fine payment of ₹${amount} received`);
+    await this.pushCloudKey('tps_leaves', leaves);
+    await this.pushCloudKey('tps_fine_payments', payments);
+    this.logAudit('FINE_PAYMENT', 'fine_payments', newPayment.id, `Fine payment of ₹${newPayment.amount} received by ${recorded_by}`);
     return newPayment;
+  }
+
+  async clearFineRecord(leave_record_id, { cleared_by = 'Hostel Administrator', remarks = 'Cleared by Admin' } = {}) {
+    return this.recordFinePayment(leave_record_id, null, 'Cash', remarks, cleared_by);
   }
 
   // --- DISCIPLINE & BLACK MARKS ---

@@ -7,7 +7,7 @@ import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole 
 import { initAllWheelTimePickers } from '../../lib/wheelTimePicker.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
 
-export async function renderLeavesModule(container, { onNavigate }) {
+export async function renderLeavesModule(container, { onNavigate = () => {} } = {}) {
   const user = getCurrentUser();
   const mentorGender = getMentorGenderScope(user);
   const isGirlsMentor = mentorGender === 'Girls';
@@ -100,11 +100,13 @@ export async function renderLeavesModule(container, { onNavigate }) {
     let overdueCount = 0;
     let returnedCount = 0;
     const pendingCount = leaves.filter(l => (l.status || '').toLowerCase() === 'pending').length;
+    const rejectedCount = leaves.filter(l => (l.status || '').toLowerCase() === 'rejected').length;
 
     leaves.forEach(l => {
       const isPend = (l.status || '').toLowerCase() === 'pending';
+      const isRej = (l.status || '').toLowerCase() === 'rejected';
       const unret = getUnreturnedCount(l);
-      if (!isPend) {
+      if (!isPend && !isRej) {
         awayStudentsCount += unret;
         if (isLeaveOverdue(l) && unret > 0) overdueCount += unret;
       }
@@ -114,14 +116,16 @@ export async function renderLeavesModule(container, { onNavigate }) {
     // Filter leaves
     const filteredLeaves = leaves.filter(l => {
       const isPend = (l.status || '').toLowerCase() === 'pending';
+      const isRej = (l.status || '').toLowerCase() === 'rejected';
       const unret = getUnreturnedCount(l);
       const isOverdue = isLeaveOverdue(l);
-      const isRet = l.status === 'Returned' || (!isPend && unret === 0);
+      const isRet = l.status === 'Returned' || (!isPend && !isRej && unret === 0);
 
       if (statusFilter === 'pending' && !isPend) return false;
-      if (statusFilter === 'away' && (isPend || isRet || unret === 0)) return false;
-      if (statusFilter === 'overdue' && (isPend || !isOverdue || unret === 0)) return false;
-      if (statusFilter === 'returned' && (isPend || !isRet)) return false;
+      if (statusFilter === 'away' && (isPend || isRej || isRet || unret === 0)) return false;
+      if (statusFilter === 'overdue' && (isPend || isRej || !isOverdue || unret === 0)) return false;
+      if (statusFilter === 'returned' && (isPend || isRej || !isRet)) return false;
+      if (statusFilter === 'rejected' && !isRej) return false;
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -248,6 +252,9 @@ export async function renderLeavesModule(container, { onNavigate }) {
           <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'returned' ? 'btn-primary' : 'btn-ghost'}" data-status="returned" style="border-radius: 9999px; font-weight: 600; font-size: 0.78rem;">
             Returned (${returnedCount})
           </button>
+          <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'rejected' ? 'btn-danger' : 'btn-ghost'}" data-status="rejected" style="border-radius: 9999px; font-weight: 600; font-size: 0.78rem; ${statusFilter === 'rejected' ? 'background: #DC2626; color: #FFFFFF; border: 1px solid #DC2626;' : (rejectedCount > 0 ? 'background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;' : '')}">
+            Rejected (${rejectedCount})
+          </button>
         </div>
       </div>
 
@@ -285,6 +292,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                     const unretCount = getUnreturnedCount(l);
                     const isOverdue = isLeaveOverdue(l);
                     const isRet = l.status === 'Returned' || unretCount === 0;
+                    const isRej = (l.status || '').toLowerCase() === 'rejected';
                     const code = l.leave_code || l.leave_register_number || 'LV-2026';
                     const typeDisplay = (l.leave_type || 'Hostel Leave').replace(/_/g, ' ');
                     const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
@@ -319,6 +327,10 @@ export async function renderLeavesModule(container, { onNavigate }) {
                             <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
                               Pending Approval
                             </span>
+                          ` : isRej ? `
+                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
+                              Rejected
+                            </span>
                           ` : `
                             <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
                               ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
@@ -335,7 +347,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                                 Reject
                               </button>
                             ` : ''}
-                            ${l.status !== 'Pending' && unretCount > 0 && canRecordReturn ? `
+                            ${l.status !== 'Pending' && !isRej && unretCount > 0 && canRecordReturn ? `
                               <button class="btn btn-xs btn-outline-success btn-record-arrival-action btn-checkin-return" data-id="${l.id}" title="Record arrival for students on this pass" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; color: #059669; border-color: #A7F3D0; background: #ECFDF5;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
                                 Arrival (${unretCount})
@@ -344,9 +356,11 @@ export async function renderLeavesModule(container, { onNavigate }) {
                             <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
                               Details
                             </button>
-                            <button class="btn btn-xs btn-outline btn-print-leave-pass" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem;" title="Print Official Leave Slip">
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: text-top; margin-right: 2px;"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Pass
-                            </button>
+                            ${!isRej ? `
+                              <button class="btn btn-xs btn-outline btn-print-leave-pass" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem;" title="Print Official Leave Slip">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: text-top; margin-right: 2px;"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Pass
+                              </button>
+                            ` : ''}
                           </div>
                         </td>
                       </tr>
@@ -362,6 +376,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 const unretCount = getUnreturnedCount(l);
                 const isOverdue = isLeaveOverdue(l);
                 const isRet = l.status === 'Returned' || unretCount === 0;
+                const isRej = (l.status || '').toLowerCase() === 'rejected';
                 const code = l.leave_code || l.leave_register_number || 'LV-2026';
                 const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
                 const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
@@ -369,13 +384,17 @@ export async function renderLeavesModule(container, { onNavigate }) {
                 const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                 return `
-                  <div style="background: #FFFFFF; border: 1.5px solid ${isOverdue ? '#FCA5A5' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                  <div style="background: #FFFFFF; border: 1.5px solid ${isOverdue ? '#FCA5A5' : isRej ? '#FECACA' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                       <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #0F172A;">${code}</span>
                       ${l.status === 'Pending' ? `
                         <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
                           Pending Approval
+                        </span>
+                      ` : isRej ? `
+                        <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
+                          Rejected
                         </span>
                       ` : `
                         <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
@@ -415,7 +434,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
                             Reject
                           </button>
                         ` : ''}
-                        ${l.status !== 'Pending' && unretCount > 0 && canRecordReturn ? `
+                        ${l.status !== 'Pending' && !isRej && unretCount > 0 && canRecordReturn ? `
                           <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.3rem 0.7rem; font-weight: 700; font-size: 0.75rem;">
                             Arrival (${unretCount})
                           </button>
@@ -423,9 +442,11 @@ export async function renderLeavesModule(container, { onNavigate }) {
                         <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.65rem; font-size: 0.75rem;">
                           Details
                         </button>
-                        <button class="btn btn-xs btn-outline btn-print-leave-pass" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.55rem; font-size: 0.75rem;">
-                          Pass
-                        </button>
+                        ${!isRej ? `
+                          <button class="btn btn-xs btn-outline btn-print-leave-pass" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.55rem; font-size: 0.75rem;">
+                            Pass
+                          </button>
+                        ` : ''}
                       </div>
                     </div>
                   </div>
@@ -1787,11 +1808,22 @@ export async function renderLeavesModule(container, { onNavigate }) {
         <div style="display: flex; flex-direction: column; gap: 1rem;">
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; font-size: 0.82rem;">
             <div>Leave Type: <strong>${(leave.leave_type || 'Hostel Leave').replace(/_/g, ' ')}</strong></div>
-            <div>Status: <strong style="color: ${leave.status === 'Returned' ? '#059669' : '#D97706'};">${leave.status}</strong></div>
+            <div>Status: <strong style="color: ${leave.status === 'Returned' ? '#059669' : (leave.status || '').toLowerCase() === 'rejected' ? '#DC2626' : '#D97706'};">${leave.status}</strong></div>
             <div>Departure: <strong>${leave.departure_date} ${leave.departure_time || '16:00'}</strong></div>
             <div>Expected Return: <strong>${leave.expected_return_date} ${leave.expected_return_time || '17:00'}</strong></div>
             <div style="grid-column: span 2;">Reason: <em>"${leave.reason || 'General leave'}"</em></div>
           </div>
+
+          ${(leave.status || '').toLowerCase() === 'rejected' ? `
+            <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.7rem 0.85rem; color: #991B1B; font-size: 0.82rem;">
+              <div style="font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Pass Request Declined
+              </div>
+              <div style="margin-top: 3px;"><strong>Reason:</strong> ${leave.rejected_reason || 'Administrative grounds'}</div>
+              ${leave.rejected_by ? `<div style="font-size: 0.74rem; color: #B91C1C; margin-top: 2px;">Reviewed by: ${leave.rejected_by}</div>` : ''}
+            </div>
+          ` : ''}
 
           <div>
             <h4 style="font-size: 0.88rem; font-weight: 700; color: #0F172A; margin-bottom: 0.4rem;">
@@ -1799,6 +1831,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
             </h4>
             <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem;">
               ${roster.map(r => {
+                const isRej = (leave.status || '').toLowerCase() === 'rejected';
                 const isRet = r.returnEntry?.is_returned || leave.status === 'Returned';
                 return `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.65rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px;">
@@ -1806,8 +1839,8 @@ export async function renderLeavesModule(container, { onNavigate }) {
                       <strong style="font-size: 0.85rem; color: #0F172A;">${r.student.full_name}</strong>
                       <div style="font-size: 0.72rem; color: #64748B;">${r.student.admission_number} • Class ${r.student.school_class || '-'}</div>
                     </div>
-                    <span class="badge ${isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px;">
-                      ${isRet ? 'Returned' : 'Away'}
+                    <span class="badge ${isRej ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; ${isRej ? 'background: #FEE2E2; color: #DC2626;' : ''}">
+                      ${isRej ? 'Rejected' : isRet ? 'Returned' : 'Away'}
                     </span>
                   </div>
                 `;

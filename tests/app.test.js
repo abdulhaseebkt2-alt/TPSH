@@ -23,6 +23,7 @@ import { applyInstitutionalAppIcon } from '../src/app.js';
 import { enhanceSelect } from '../src/components/custom-select.js';
 import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
 import { renderLeavesModule } from '../src/modules/leaves/index.js';
+import { renderStudentLeaveCardModule } from '../src/modules/leaves/student-leave-card.js';
 import { renderHostelModule } from '../src/modules/hostel/index.js';
 import { renderDisciplineModule } from '../src/modules/discipline/index.js';
 import { renderFinesModule } from '../src/modules/fines/index.js';
@@ -5533,6 +5534,152 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // 7. Clean up test data
       await db.deleteStudent(student2516.id);
+    });
+
+    it('2517. Rejected leaves display explicitly with "Rejected" badge, exclude arrival button, and filter into Rejected tab', async () => {
+      const adminUser = {
+        id: 'u-admin-2517',
+        full_name: 'Admin User',
+        role: 'admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      // Create student and a rejected leave
+      const student = await db.addStudent({
+        admission_number: 'TPS-2026-999',
+        full_name: 'Test Rejected Student',
+        gender: 'Boy',
+        school_class: 'STD-V',
+        status: 'Active'
+      });
+
+      const rejectedLeave = {
+        id: 'lv-rej-2517',
+        leave_code: 'LV-2026-999',
+        leave_type: 'hostel_leave',
+        reason: 'Family visit declined',
+        departure_date: '2026-11-02',
+        departure_time: '16:00',
+        expected_return_date: '2026-11-03',
+        expected_return_time: '18:00',
+        student_id: student.id,
+        student_name: student.full_name,
+        status: 'Rejected',
+        rejected_by: 'Hostel Warden',
+        rejected_reason: 'Administrative grounds',
+        total_students: 1
+      };
+
+      const existingLeaves = db.get('tps_leaves') || [];
+      db.set('tps_leaves', [...existingLeaves, rejectedLeave]);
+
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(container, { onNavigate: () => {} });
+
+      // 1. Should display Rejected tab filter pill
+      expect(container.innerHTML).toContain('Rejected (');
+
+      // 2. The rejected leave row must show "Rejected" badge
+      expect(container.innerHTML).toContain('Rejected');
+      expect(container.innerHTML).toContain('LV-2026-999');
+
+      // 3. Must NOT show "Arrival (1)" button for rejected leaves
+      expect(container.innerHTML).not.toMatch(/Arrival\s*\(\d+\)[^<]*<\/button>[^<]*<button[^>]*data-id="lv-rej-2517"/);
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
+    });
+
+    it('2518. Student Leave Card sidebar window renders top student card, tabular records, row-click popup, and fine clearance', async () => {
+      const adminUser = {
+        id: 'u-admin-2518',
+        full_name: 'Super Admin',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      const student = await db.addStudent({
+        admission_number: 'TPS-2026-888',
+        full_name: 'Leave Card Test Student',
+        gender: 'Girl',
+        school_class: 'STD-IV',
+        school_section: 'B',
+        hostel_room: 'Room 204',
+        hostel_bed: 'Bed 2',
+        status: 'Active'
+      });
+
+      const fineLeave = {
+        id: 'lv-fine-2518',
+        leave_code: 'LV-2026-888',
+        leave_type: 'hostel_leave',
+        reason: 'Medical checkup',
+        departure_date: '2026-10-25',
+        departure_time: '14:00',
+        expected_return_date: '2026-10-26',
+        expected_return_time: '16:00',
+        actual_return_date: '2026-10-26',
+        actual_return_time: '18:30',
+        student_id: student.id,
+        student_name: student.full_name,
+        status: 'Returned',
+        calculated_fine: 150,
+        fine_status: 'unpaid',
+        total_students: 1
+      };
+
+      const existingLeaves = db.get('tps_leaves') || [];
+      db.set('tps_leaves', [...existingLeaves, fineLeave]);
+
+      // 1. Module accessibility and permissions check
+      expect(canAccessModule(adminUser, 'leave_card')).toBe(true);
+      expect(canAccessModule({ role: 'mentor', approval_status: 'approved' }, 'leave_card')).toBe(true);
+      expect(canAccessModule({ role: 'parent', approval_status: 'approved' }, 'leave_card')).toBe(true);
+
+      // 2. Render student leave card module
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(container, { studentId: student.id });
+
+      // Check Top Student Details
+      expect(container.innerHTML).toContain('Student Leave Card');
+      expect(container.innerHTML).toContain('Leave Card Test Student');
+      expect(container.innerHTML).toContain('TPS-2026-888');
+      expect(container.innerHTML).toContain('Room 204');
+      expect(container.innerHTML).toContain('Present in Hostel');
+
+      // Check Table Headers
+      expect(container.innerHTML).toContain('SL NO');
+      expect(container.innerHTML).toContain('Leaving Date & Time');
+      expect(container.innerHTML).toContain('Arrival Date & Time');
+      expect(container.innerHTML).toContain('Arrival Status');
+      expect(container.innerHTML).toContain('Fine Amount');
+      expect(container.innerHTML).toContain('Fine Paid Status');
+
+      // Check Table Data
+      expect(container.innerHTML).toContain('2026-10-25');
+      expect(container.innerHTML).toContain('14:00');
+      expect(container.innerHTML).toContain('2026-10-26');
+      expect(container.innerHTML).toContain('Late Return');
+      expect(container.innerHTML).toContain('₹150.00');
+      expect(container.innerHTML).toContain('Unpaid');
+
+      // 3. Clear fine via db helper
+      await db.recordFinePayment(fineLeave.id, 150, 'Cash', 'Cleared via test', adminUser.full_name);
+      const updatedLeave = (db.get('tps_leaves') || []).find(l => l.id === fineLeave.id);
+      expect(updatedLeave.fine_status).toBe('paid');
+
+      // Re-render to verify paid status display
+      await renderStudentLeaveCardModule(container, { studentId: student.id });
+      expect(container.innerHTML).toContain('Paid');
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
     });
   });
 });

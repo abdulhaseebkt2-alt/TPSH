@@ -16,6 +16,7 @@ import { renderAssignmentsModule } from './modules/assignments/index.js';
 import { renderTimetableModule } from './modules/timetable/index.js';
 import { renderAttendanceModule } from './modules/attendance/index.js';
 import { renderLeavesModule } from './modules/leaves/index.js';
+import { renderStudentLeaveCardModule } from './modules/leaves/student-leave-card.js';
 import { renderFinesModule } from './modules/fines/index.js';
 import { renderDisciplineModule } from './modules/discipline/index.js';
 import { renderExamsModule } from './modules/exams/index.js';
@@ -44,6 +45,8 @@ const MODULE_ROUTERS = {
   attendance_report: renderAttendanceReportModule,
   faculty_leaves: renderFacultyLeavesModule,
   leaves: renderLeavesModule,
+  leave_card: renderStudentLeaveCardModule,
+  student_leave_card: renderStudentLeaveCardModule,
   fines: renderFinesModule,
   discipline: renderDisciplineModule,
   exams: renderExamsModule,
