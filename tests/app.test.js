@@ -5883,5 +5883,107 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', existingLeaves);
       await db.deleteStudent(student.id);
     });
+
+    it('2522. Overdue Arrival Fine Assessment, Fix Early Return Status Bug, and Centered Presence Badge', async () => {
+      const adminUser = {
+        id: 'u-admin-2522',
+        full_name: 'Super Admin',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      const student = await db.addStudent({
+        admission_number: 'TPS-2026-999',
+        full_name: 'Overdue Settlement Student',
+        gender: 'Girl',
+        school_class: 'STD-VII',
+        status: 'Active'
+      });
+
+      const existingLeaves = db.get('tps_leaves') || [];
+
+      // 1. Leave returned late on the same day: expected 12:00, returned 14:30
+      const lateReturnedLeave = {
+        id: 'leave-late-2522',
+        leave_code: 'LV-2026-999',
+        student_id: student.id,
+        student_name: student.full_name,
+        departure_date: '2026-11-01',
+        departure_time: '09:00',
+        expected_return_date: '2026-11-01',
+        expected_return_time: '12:00',
+        actual_return_date: '2026-11-01',
+        actual_return_time: '14:30',
+        status: 'Returned',
+        is_returned: true,
+        late_hours: 3,
+        calculated_fine: 150,
+        fine_status: 'unpaid',
+        students: [{
+          student_id: student.id,
+          is_returned: true,
+          actual_return_date: '2026-11-01',
+          actual_return_time: '14:30',
+          late_hours: 3,
+          fine_amount: 150,
+          fine_status: 'unpaid'
+        }]
+      };
+
+      db.set('tps_leaves', [lateReturnedLeave]);
+
+      // Verify Student Leave Card Module UI:
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(container, { studentId: student.id });
+      const html = container.innerHTML;
+
+      // User directive 1: Total Passes badge removed
+      expect(html).not.toContain('Total Passes:');
+
+      // User directive 2: Presence badge is center-aligned
+      expect(html).toContain('justify-content: center');
+      expect(html).toContain('Present in Hostel');
+
+      // User directive 3: Must show "Late" badge, NOT "Early" badge
+      expect(html).toContain('Late');
+      expect(html).not.toContain('Early');
+
+      // 2. Test recordReturn with fine payment settlement options ('paid' vs 'unpaid')
+      const activeLeave = {
+        id: 'leave-pay-2522',
+        leave_code: 'LV-2026-1000',
+        student_ids: [student.id],
+        student_id: student.id,
+        leave_type: 'outing',
+        fine_unit: 'hour',
+        fine_per_hour: 50,
+        departure_date: '2026-11-01',
+        departure_time: '10:00',
+        expected_return_date: '2026-11-01',
+        expected_return_time: '12:00',
+        status: 'Away'
+      };
+      db.set('tps_leaves', [activeLeave]);
+
+      // Return late with 'paid' status
+      const returnedPaid = await db.recordReturn(
+        activeLeave.id,
+        '2026-11-01',
+        '14:00',
+        'Paid immediately at gate',
+        student.id,
+        'paid',
+        100
+      );
+      expect(returnedPaid.status).toBe('Returned');
+      expect(returnedPaid.fine_status).toBe('paid');
+      expect(returnedPaid.calculated_fine).toBe(100);
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
+    });
   });
 });

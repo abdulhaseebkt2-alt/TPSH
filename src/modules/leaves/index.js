@@ -859,6 +859,104 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
   }
 
   // -------------------------------------------------------------
+  // FINE SETTLEMENT CARD POPUP: Overdue Return with Pay Now / Pay Later / Cancel
+  // -------------------------------------------------------------
+  function openFineSettlementModal({ student, leave, retDate, retTime, remarks, fineAmount, lateHours, rate, onSettled }) {
+    const { container: fineModal, close: closeFineModal } = openModal({
+      title: 'Late Return Fine Assessment',
+      size: 'sm',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+          <!-- Header Warning Banner -->
+          <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 12px; padding: 0.75rem 0.9rem; display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">
+              ⚠️
+            </div>
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-size: 0.95rem; font-weight: 800; color: #991B1B;">Overdue Hostel Return Detected</div>
+              <div style="font-size: 0.76rem; color: #B91C1C; margin-top: 1px;">
+                ${student.full_name} (${student.admission_number || 'TPS'}) • Class ${student.school_class || '-'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Fine Breakdown Card -->
+          <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.85rem 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Curfew Schedule</span>
+              <span style="font-size: 0.8rem; font-weight: 700; color: #0F172A;">
+                ${leave.expected_return_date} at ${formatTime(leave.expected_return_time || '18:00')}
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Actual Arrival</span>
+              <span style="font-size: 0.8rem; font-weight: 800; color: #DC2626;">
+                ${retDate} at ${formatTime(retTime)}
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Delay Duration</span>
+              <span style="font-size: 0.82rem; font-weight: 800; color: #DC2626; font-family: monospace;">
+                +${lateHours} hour(s) late
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Fine Rate</span>
+              <span style="font-size: 0.8rem; font-weight: 700; color: #475569;">
+                ₹${rate}/hr
+              </span>
+            </div>
+
+            <!-- Total Accrued Fine Highlight -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.25rem;">
+              <span style="font-size: 0.85rem; font-weight: 800; color: #0F172A;">Total Late Fine</span>
+              <span style="font-size: 1.45rem; font-weight: 900; color: #DC2626; font-family: monospace;">
+                ₹${fineAmount}
+              </span>
+            </div>
+          </div>
+
+          <p style="font-size: 0.75rem; color: #64748B; margin: 0; line-height: 1.4;">
+            * If parent is paying the fine now, select <strong>Pay Fine Now</strong>. If they cannot pay now, select <strong>Pay Later</strong> to register the unpaid fine.
+          </p>
+
+          <!-- Action Buttons -->
+          <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-primary" id="btn-fine-pay-now" style="background: #059669; border-color: #059669; font-weight: 800; padding: 0.6rem;">
+              ✓ Pay Fine Now (₹${fineAmount})
+            </button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
+              <button type="button" class="btn btn-outline" id="btn-fine-pay-later" style="font-weight: 700; border-color: #F59E0B; color: #D97706; background: #FFFBEB;">
+                Pay Later (Unpaid)
+              </button>
+              <button type="button" class="btn btn-outline" id="btn-fine-cancel" style="font-weight: 600;">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      `
+    });
+
+    fineModal.querySelector('#btn-fine-pay-now')?.addEventListener('click', () => {
+      closeFineModal();
+      if (onSettled) onSettled('paid');
+    });
+
+    fineModal.querySelector('#btn-fine-pay-later')?.addEventListener('click', () => {
+      closeFineModal();
+      if (onSettled) onSettled('unpaid');
+    });
+
+    fineModal.querySelector('#btn-fine-cancel')?.addEventListener('click', () => {
+      closeFineModal();
+    });
+  }
+
+  // -------------------------------------------------------------
   // MODAL 1: HOSTEL ARRIVAL & RETURN REGISTER (INDIVIDUAL / BATCH)
   // -------------------------------------------------------------
   function openRecordArrivalModal(defaultMode = 'individual', preselectedLeaveId = null) {
@@ -1002,6 +1100,19 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
             contentEl.innerHTML = `
               <div class="hostel-modal-flow-wrap">
+                <!-- Curfew Info Banner for Selected Student -->
+                ${activeTarget ? `
+                  <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 0.4rem 0.65rem; font-size: 0.75rem; color: #1E40AF; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.35rem; flex-shrink: 0;">
+                    <div>
+                      Curfew: <strong>${activeTarget.leave.expected_return_date} at ${formatTime(activeTarget.leave.expected_return_time || '18:00')}</strong>
+                      <span style="color: #64748B; font-size: 0.7rem; margin-left: 4px;">(${activeTarget.student.full_name})</span>
+                    </div>
+                    <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-weight: 700; font-size: 0.68rem; padding: 2px 7px;">
+                      Rate: ₹${activeTarget.leave.fine_per_hour || 50}/hr
+                    </span>
+                  </div>
+                ` : ''}
+
                 <!-- Top Return Inputs -->
                 <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4rem;">
                   <!-- Return Date & Time Row -->
@@ -1156,8 +1267,56 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 return;
               }
 
+              const targetLeave = activeTarget.leave;
+              const isHourly = targetLeave.fine_unit === 'hour' || targetLeave.fine_unit === 'hourly' || (targetLeave.fine_unit !== 'daily' && !targetLeave.fine_per_day);
+              const rate = isHourly
+                ? Number(targetLeave.fine_per_hour_applied || targetLeave.fine_per_hour || 50)
+                : Number(targetLeave.fine_per_day_applied || targetLeave.fine_per_day || 100);
+
+              const calc = db.calculateReturnLate(
+                targetLeave.expected_return_date,
+                targetLeave.expected_return_time || '18:00',
+                retDate,
+                retTime,
+                rate,
+                isHourly ? 'hour' : 'daily'
+              );
+
+              if (calc.fineAmount > 0) {
+                // User directive: "when a student's record arrival if she has fine, should pop up as a card, with details, it should contains fine details, there is need fine pay option and cancel button, if they not paying mony ontime."
+                openFineSettlementModal({
+                  student: activeTarget.student,
+                  leave: targetLeave,
+                  retDate,
+                  retTime,
+                  remarks,
+                  fineAmount: calc.fineAmount,
+                  lateHours: calc.lateHours || 1,
+                  lateDays: calc.lateDays,
+                  rate,
+                  onSettled: async (fineStatus) => {
+                    try {
+                      await db.recordReturn(targetLeave.id, retDate, retTime, remarks, activeTarget.student.id, fineStatus, calc.fineAmount);
+                      if (fineStatus === 'paid') {
+                        toast.success(`Arrival recorded & fine of ₹${calc.fineAmount} marked as Paid.`);
+                      } else {
+                        toast.success(`Arrival recorded. Late fine of ₹${calc.fineAmount} registered as Unpaid.`);
+                      }
+                      close();
+                      const updatedLeaves = await db.getLeaves();
+                      leaves.length = 0;
+                      leaves.push(...updatedLeaves);
+                      renderView();
+                    } catch (err) {
+                      toast.error(err.message || 'Error recording return');
+                    }
+                  }
+                });
+                return;
+              }
+
               try {
-                await db.recordReturn(activeTarget.leave.id, retDate, retTime, remarks, activeTarget.student.id);
+                await db.recordReturn(targetLeave.id, retDate, retTime, remarks, activeTarget.student.id, 'no_fine');
                 toast.success(`Arrival recorded successfully for ${activeTarget.student.full_name}.`);
                 close();
                 const updatedLeaves = await db.getLeaves();

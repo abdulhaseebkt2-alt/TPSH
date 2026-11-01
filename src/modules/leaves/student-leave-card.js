@@ -4,6 +4,29 @@ import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { formatDate, formatTime } from '../../lib/utils.js';
 
+function parseDateTimeSafe(dateStr, timeStr) {
+  if (!dateStr) return null;
+  let t = (timeStr || '18:00').trim();
+  const ampmMatch = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let h = parseInt(ampmMatch[1], 10);
+    const m = ampmMatch[2];
+    const isPM = ampmMatch[4].toUpperCase() === 'PM';
+    if (isPM && h < 12) h += 12;
+    if (!isPM && h === 12) h = 0;
+    t = `${String(h).padStart(2, '0')}:${m}:00`;
+  } else if (/^\d{1,2}:\d{2}$/.test(t)) {
+    const [h, m] = t.split(':');
+    t = `${String(h).padStart(2, '0')}:${m}:00`;
+  } else if (/^\d{1,2}:\d{2}:\d{2}$/.test(t)) {
+    const parts = t.split(':');
+    t = `${String(parts[0]).padStart(2, '0')}:${parts[1]}:${parts[2]}`;
+  }
+  const cleanDate = dateStr.trim().split('T')[0];
+  const dt = new Date(`${cleanDate}T${t}`);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 export async function renderStudentLeaveCardModule(container, options = {}) {
   container.innerHTML = `
     <div style="display: flex; align-items: center; justify-content: center; min-height: 280px;">
@@ -198,62 +221,61 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
           <!-- TOP STUDENT DETAILS CARD (MINIMAL HEIGHT & COMPACT) -->
           ${selectedStudent ? `
-            <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 0.85rem 1rem; display: flex; flex-direction: column; gap: 0.65rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <!-- Photo + Core Identity -->
-              <div style="display: flex; align-items: center; gap: 0.85rem;">
-                <!-- Student Photo -->
-                <div style="width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: #F1F5F9; border: 1.5px solid #CBD5E1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                  ${selectedStudent.photo_url ? `
-                    <img src="${selectedStudent.photo_url}" alt="${selectedStudent.full_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                    <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: #475569; font-size: 1.15rem; background: #E2E8F0;">
-                      ${(selectedStudent.full_name || 'S').charAt(0).toUpperCase()}
-                    </div>
-                  ` : `
-                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #059669; font-size: 1.2rem; background: #ECFDF5;">
-                      ${(selectedStudent.full_name || 'S').charAt(0).toUpperCase()}
-                    </div>
-                  `}
-                </div>
-
-                <!-- Text Details -->
-                <div>
-                  <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
-                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A;">
-                      ${selectedStudent.full_name}
-                    </h3>
-                    <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.72rem; padding: 2px 7px; border-radius: 6px; font-family: monospace;">
-                      ${selectedStudent.admission_number || 'TPS-ADM'}
-                    </span>
-                    <span class="badge" style="background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 0.72rem; padding: 2px 7px; border-radius: 6px;">
-                      ${selectedStudent.school_class || selectedStudent.class_name || 'STD-I'} ${selectedStudent.school_section ? `(${selectedStudent.school_section})` : ''}
-                    </span>
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 0.85rem;">
+                  <!-- Student Photo -->
+                  <div style="width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: #F1F5F9; border: 1.5px solid #CBD5E1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    ${selectedStudent.photo_url ? `
+                      <img src="${selectedStudent.photo_url}" alt="${selectedStudent.full_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                      <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: #475569; font-size: 1.15rem; background: #E2E8F0;">
+                        ${(selectedStudent.full_name || 'S').charAt(0).toUpperCase()}
+                      </div>
+                    ` : `
+                      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #059669; font-size: 1.2rem; background: #ECFDF5;">
+                        ${(selectedStudent.full_name || 'S').charAt(0).toUpperCase()}
+                      </div>
+                    `}
                   </div>
-                  <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 3px; font-size: 0.78rem; color: #64748B;">
-                    <span>📍 <strong>${selectedStudent.hostel_room || 'Room 101'}</strong> ${selectedStudent.hostel_bed ? `(${selectedStudent.hostel_bed})` : ''}</span>
-                    <span>•</span>
-                    <span>${selectedStudent.hostel_unit || 'Hostel Campus'}</span>
-                    <span>•</span>
-                    <span>Mentor: <strong>${selectedStudent.assigned_mentor_name || 'Ustad Assigned'}</strong></span>
+
+                  <!-- Text Details -->
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                      <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A;">
+                        ${selectedStudent.full_name}
+                      </h3>
+                      <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.72rem; padding: 2px 7px; border-radius: 6px; font-family: monospace;">
+                        ${selectedStudent.admission_number || 'TPS-ADM'}
+                      </span>
+                      <span class="badge" style="background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 0.72rem; padding: 2px 7px; border-radius: 6px;">
+                        ${selectedStudent.school_class || selectedStudent.class_name || 'STD-I'} ${selectedStudent.school_section ? `(${selectedStudent.school_section})` : ''}
+                      </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 3px; font-size: 0.78rem; color: #64748B;">
+                      <span>📍 <strong>${selectedStudent.hostel_room || 'Room 101'}</strong> ${selectedStudent.hostel_bed ? `(${selectedStudent.hostel_bed})` : ''}</span>
+                      <span>•</span>
+                      <span>${selectedStudent.hostel_unit || 'Hostel Campus'}</span>
+                      <span>•</span>
+                      <span>Mentor: <strong>${selectedStudent.assigned_mentor_name || 'Ustad Assigned'}</strong></span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Presence Status Badge & Micro Stats -->
-              <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <!-- Center-Aligned Presence Status Pill (Total Passes Removed as Requested) -->
+              <div style="display: flex; justify-content: center; align-items: center; padding-top: 0.45rem; border-top: 1px solid #F1F5F9; width: 100%;">
                 ${selectedStudent.status === 'On Approved Leave' ? `
-                  <span class="badge" style="background: #FEF3C7; color: #92400E; font-weight: 700; font-size: 0.78rem; padding: 4px 10px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 5px;">
+                  <span class="badge" style="background: #FEF3C7; color: #92400E; font-weight: 700; font-size: 0.8rem; padding: 4px 14px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(217,119,6,0.1);">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #D97706; display: inline-block;"></span>
                     On Approved Leave
                   </span>
                 ` : `
-                  <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.78rem; padding: 4px 10px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 5px;">
+                  <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.8rem; padding: 4px 14px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(16,185,129,0.1);">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
                     Present in Hostel
                   </span>
                 `}
-                <span style="font-size: 0.76rem; font-weight: 600; color: #64748B; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 3px 8px; border-radius: 8px;">
-                  Total Passes: <strong>${studentLeaves.length}</strong>
-                </span>
               </div>
             </div>
           ` : `
@@ -322,7 +344,11 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                       // Determine arrival status pill (Single Word concise labels)
                       let statusBadgeHtml = '';
                       let isLate = false;
-                      const fineAmt = Number(l.calculated_fine) || 0;
+                      let isEarly = false;
+
+                      const studentEntry = Array.isArray(l.students) ? l.students.find(e => e.student_id === selectedStudent.id) : null;
+                      const fineAmt = Number(l.calculated_fine) || Number(studentEntry?.fine_amount) || 0;
+                      const isRecordedLate = (l.late_hours > 0) || (l.late_days > 0) || (studentEntry && (studentEntry.late_hours > 0 || studentEntry.late_days > 0)) || (fineAmt > 0) || l.return_status === 'late';
 
                       if (isRej) {
                         statusBadgeHtml = `
@@ -343,20 +369,25 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                           </span>
                         `;
                       } else if (isRet) {
-                        // Compare actual vs expected
-                        const expIso = `${l.expected_return_date || ''}T${l.expected_return_time || '18:00'}`;
-                        const actIso = `${actualRetDate || ''}T${actualRetTime || '18:00'}`;
-                        const expMs = new Date(expIso).getTime();
-                        const actMs = new Date(actIso).getTime();
+                        const expDt = parseDateTimeSafe(l.expected_return_date, l.expected_return_time || '18:00');
+                        const actDt = parseDateTimeSafe(actualRetDate, actualRetTime || '18:00');
 
-                        if (fineAmt > 0 || (actMs && expMs && actMs > expMs + 15 * 60 * 1000)) {
+                        if (isRecordedLate || (actDt && expDt && actDt.getTime() > expDt.getTime())) {
                           isLate = true;
                           statusBadgeHtml = `
                             <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
                               Late
                             </span>
                           `;
-                        } else if (actMs && expMs && actMs < expMs - 30 * 60 * 1000) {
+                        } else if (actualRetDate && l.expected_return_date && actualRetDate < l.expected_return_date) {
+                          isEarly = true;
+                          statusBadgeHtml = `
+                            <span class="badge badge-info" style="background: #E0F2FE; color: #0284C7; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
+                              Early
+                            </span>
+                          `;
+                        } else if (actDt && expDt && (expDt.getTime() - actDt.getTime() > 60 * 60 * 1000)) {
+                          isEarly = true;
                           statusBadgeHtml = `
                             <span class="badge badge-info" style="background: #E0F2FE; color: #0284C7; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
                               Early
@@ -371,10 +402,9 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                         }
                       } else {
                         // Not returned yet
-                        const expIso = `${l.expected_return_date || ''}T${l.expected_return_time || '18:00'}`;
-                        const expMs = new Date(expIso).getTime();
+                        const expDt = parseDateTimeSafe(l.expected_return_date, l.expected_return_time || '18:00');
                         const nowMs = Date.now();
-                        if (expMs && nowMs > expMs) {
+                        if (expDt && nowMs > expDt.getTime()) {
                           isLate = true;
                           statusBadgeHtml = `
                             <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
@@ -398,7 +428,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                       // Fine paid status column (Clean tick ✓ or cross ✕ icon)
                       let finePaidDisplay = '<span style="color: #94A3B8; font-size: 0.76rem;">-</span>';
                       if (fineAmt > 0) {
-                        const isPaid = l.fine_status === 'paid';
+                        const isPaid = l.fine_status === 'paid' || studentEntry?.fine_status === 'paid';
                         if (isPaid) {
                           finePaidDisplay = `
                             <span style="color: #059669; font-weight: 900; font-size: 0.95rem; line-height: 1;" title="Paid">✓</span>

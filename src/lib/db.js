@@ -2295,14 +2295,14 @@ class DatabaseService {
     return leave;
   }
 
-  async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null) {
+  async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null, fine_payment_status = null, custom_fine_amount = null) {
     await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
     const leaves = this.get('tps_leaves') || [];
     const idx = leaves.findIndex(l => l.id === leave_record_id || l.leave_code === leave_record_id);
     if (idx === -1) throw new Error('Leave record not found');
 
     const leave = leaves[idx];
-    const isHourly = leave.fine_unit === 'hour';
+    const isHourly = leave.fine_unit === 'hour' || leave.fine_unit === 'hourly' || (leave.fine_unit !== 'daily' && !leave.fine_per_day);
     const rate = isHourly
       ? (leave.fine_per_hour_applied || leave.fine_per_hour || 50)
       : (leave.fine_per_day_applied || leave.fine_per_day || 100);
@@ -2315,6 +2315,17 @@ class DatabaseService {
       rate,
       isHourly ? 'hour' : 'daily'
     );
+
+    if (custom_fine_amount !== null && !isNaN(custom_fine_amount) && Number(custom_fine_amount) >= 0) {
+      calc.fineAmount = Number(custom_fine_amount);
+      if (calc.fineAmount > 0 && calc.lateHours === 0) {
+        calc.lateHours = Math.ceil(calc.fineAmount / rate) || 1;
+      }
+    }
+
+    const determinedFineStatus = fine_payment_status === 'paid'
+      ? 'paid'
+      : (calc.fineAmount > 0 ? (fine_payment_status === 'unpaid' ? 'unpaid' : 'unpaid') : 'no_fine');
 
     const returningStudentIds = target_student_id
       ? [target_student_id]
@@ -2329,6 +2340,7 @@ class DatabaseService {
           s.late_hours = calc.lateHours;
           s.late_days = calc.lateDays;
           s.fine_amount = calc.fineAmount;
+          s.fine_status = determinedFineStatus;
           s.black_marks = calc.blackMarks;
           s.return_remarks = remarks;
         }
@@ -2348,7 +2360,11 @@ class DatabaseService {
         ? leave.students.reduce((sum, s) => sum + (s.fine_amount || 0), 0)
         : calc.fineAmount;
       leave.adjusted_fine = leave.calculated_fine;
-      leave.fine_status = leave.calculated_fine > 0 ? 'unpaid' : 'no_fine';
+      leave.fine_status = determinedFineStatus;
+      if (determinedFineStatus === 'paid') {
+        leave.fine_paid_date = actual_return_date;
+        leave.fine_paid_time = actual_return_time;
+      }
       leave.status = 'Returned';
       leave.remarks = remarks;
     } else {
@@ -2357,7 +2373,11 @@ class DatabaseService {
         ? leave.students.reduce((sum, s) => sum + (s.fine_amount || 0), 0)
         : 0;
       leave.adjusted_fine = leave.calculated_fine;
-      leave.fine_status = leave.calculated_fine > 0 ? 'unpaid' : 'no_fine';
+      leave.fine_status = determinedFineStatus;
+      if (determinedFineStatus === 'paid') {
+        leave.fine_paid_date = actual_return_date;
+        leave.fine_paid_time = actual_return_time;
+      }
     }
 
     // Reactivate returning students on this leave
@@ -2381,7 +2401,9 @@ class DatabaseService {
             black_marks: calc.blackMarks,
             reason: `${calc.lateHours > 0 ? calc.lateHours + ' hrs' : calc.lateDays + ' days'} late return from approved hostel leave (${leave.leave_code || leave.leave_register_number})`,
             issue_date: actual_return_date,
-            status: 'pending',
+            status: determinedFineStatus === 'paid' ? 'paid' : 'pending',
+            paid_at: determinedFineStatus === 'paid' ? new Date().toISOString() : null,
+            paid_amount: determinedFineStatus === 'paid' ? calc.fineAmount : 0,
             issued_by: 'Warden Office'
           });
           await this.pushCloudKey('tps_fines', fines);
