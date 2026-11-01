@@ -2221,8 +2221,9 @@ class DatabaseService {
     return leave;
   }
 
-  async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '') {
-    const leaves = this.get('tps_leaves');
+  async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
+    const leaves = this.get('tps_leaves') || [];
     const idx = leaves.findIndex(l => l.id === leave_record_id || l.leave_code === leave_record_id);
     if (idx === -1) throw new Error('Leave record not found');
 
@@ -2241,35 +2242,52 @@ class DatabaseService {
       isHourly ? 'hour' : 'daily'
     );
 
-    leave.actual_return_date = actual_return_date;
-    leave.actual_return_time = actual_return_time;
-    leave.late_hours = calc.lateHours;
-    leave.late_days = calc.lateDays;
-    leave.calculated_fine = calc.fineAmount;
-    leave.adjusted_fine = calc.fineAmount;
-    leave.fine_status = calc.fineAmount > 0 ? 'unpaid' : 'no_fine';
-    leave.status = 'Returned';
-    leave.remarks = remarks;
+    const returningStudentIds = target_student_id
+      ? [target_student_id]
+      : (Array.isArray(leave.student_ids) && leave.student_ids.length > 0 ? leave.student_ids : [leave.student_id]);
 
     if (Array.isArray(leave.students)) {
       leave.students.forEach(s => {
-        s.is_returned = true;
-        s.actual_return_date = actual_return_date;
-        s.actual_return_time = actual_return_time;
-        s.late_hours = calc.lateHours;
-        s.late_days = calc.lateDays;
-        s.fine_amount = calc.fineAmount;
-        s.black_marks = calc.blackMarks;
-        s.return_remarks = remarks;
+        if (!target_student_id || s.student_id === target_student_id) {
+          s.is_returned = true;
+          s.actual_return_date = actual_return_date;
+          s.actual_return_time = actual_return_time;
+          s.late_hours = calc.lateHours;
+          s.late_days = calc.lateDays;
+          s.fine_amount = calc.fineAmount;
+          s.black_marks = calc.blackMarks;
+          s.return_remarks = remarks;
+        }
       });
     }
 
-    // Reactivate all students on this leave
-    const sIds = Array.isArray(leave.student_ids) && leave.student_ids.length > 0
-      ? leave.student_ids
-      : [leave.student_id];
+    const allReturned = Array.isArray(leave.students) && leave.students.length > 0
+      ? leave.students.every(s => s.is_returned)
+      : true;
 
-    for (const sid of sIds) {
+    if (allReturned) {
+      leave.actual_return_date = actual_return_date;
+      leave.actual_return_time = actual_return_time;
+      leave.late_hours = calc.lateHours;
+      leave.late_days = calc.lateDays;
+      leave.calculated_fine = Array.isArray(leave.students)
+        ? leave.students.reduce((sum, s) => sum + (s.fine_amount || 0), 0)
+        : calc.fineAmount;
+      leave.adjusted_fine = leave.calculated_fine;
+      leave.fine_status = leave.calculated_fine > 0 ? 'unpaid' : 'no_fine';
+      leave.status = 'Returned';
+      leave.remarks = remarks;
+    } else {
+      leave.status = 'Away';
+      leave.calculated_fine = Array.isArray(leave.students)
+        ? leave.students.reduce((sum, s) => sum + (s.fine_amount || 0), 0)
+        : 0;
+      leave.adjusted_fine = leave.calculated_fine;
+      leave.fine_status = leave.calculated_fine > 0 ? 'unpaid' : 'no_fine';
+    }
+
+    // Reactivate returning students on this leave
+    for (const sid of returningStudentIds) {
       if (sid) {
         await this.updateStudent(sid, { status: 'Active', hostel_status: 'resident' });
 
@@ -2285,13 +2303,14 @@ class DatabaseService {
             category_name: 'Late Hostel Return',
             amount: calc.fineAmount,
             late_days: calc.lateDays,
+            late_hours: calc.lateHours,
             black_marks: calc.blackMarks,
-            reason: `${calc.lateDays} days late return from approved hostel leave (${leave.leave_code || leave.leave_register_number})`,
+            reason: `${calc.lateHours > 0 ? calc.lateHours + ' hrs' : calc.lateDays + ' days'} late return from approved hostel leave (${leave.leave_code || leave.leave_register_number})`,
             issue_date: actual_return_date,
             status: 'pending',
             issued_by: 'Warden Office'
           });
-          this.set('tps_fines', fines);
+          await this.pushCloudKey('tps_fines', fines);
         }
 
         if (calc.blackMarks > 0) {
@@ -2301,17 +2320,17 @@ class DatabaseService {
             student_id: sid,
             leave_id: leave.id,
             marks_count: calc.blackMarks,
-            reason: calc.lateDays > 0 ? `${calc.lateDays} days late return from hostel leave` : `Late return on scheduled date (${actual_return_time})`,
+            reason: calc.lateHours > 0 ? `${calc.lateHours} hours late return from hostel leave` : `Late return on scheduled date (${actual_return_time})`,
             issued_date: actual_return_date,
             issued_by: 'Warden Office'
           });
-          this.set('tps_black_marks', blackMarks);
+          await this.pushCloudKey('tps_black_marks', blackMarks);
         }
       }
     }
 
     await this.pushCloudKey('tps_leaves', leaves);
-    this.logAudit('RECORD_RETURN', 'student_leave_records', leave_record_id, `Return recorded. Late days: ${calc.lateDays}, Fine: ₹${calc.fineAmount}`);
+    this.logAudit('RECORD_RETURN', 'student_leave_records', leave_record_id, `Return recorded for ${returningStudentIds.length} student(s). Late: ${calc.lateHours}h, Fine: ₹${calc.fineAmount}`);
     return leave;
   }
 

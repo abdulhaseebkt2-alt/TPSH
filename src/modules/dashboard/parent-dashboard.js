@@ -79,16 +79,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
     return sIds.includes(selectedChild.id) || (l.student_id === selectedChild.id) || (selectedChild.full_name && l.student_name === selectedChild.full_name);
   });
 
-  const displayChildLeaves = childLeaves.length > 0 ? childLeaves : [
-    {
-      leave_register_number: 'LR-2026-042',
-      reason: 'Family Wedding & Weekend Outing',
-      departure_date: '2026-10-20',
-      expected_return_date: '2026-10-23',
-      actual_return_date: '2026-10-23',
-      status: 'Returned'
-    }
-  ];
+  const displayChildLeaves = childLeaves;
 
   // Evaluate Active Leave, Pending Requests, Overdue state, and Countdown/Countup
   const activeLeave = childLeaves.find(l => {
@@ -492,7 +483,9 @@ export async function renderParentDashboard(container, { onNavigate }) {
                 </tr>
               </thead>
               <tbody>
-                ${displayChildLeaves.map(l => {
+                ${displayChildLeaves.length === 0 ? `
+                  <tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: #94A3B8; font-size: 0.82rem;">No leave requests or gate passes on record for this child</td></tr>
+                ` : displayChildLeaves.map(l => {
                   const isPassOverdue = l.status !== 'Returned' && l.status !== 'Rejected' && l.expected_return_date && new Date(l.expected_return_date + 'T' + (l.expected_return_time || '18:00')) < new Date();
                   const badgeClass = l.status === 'Returned' ? 'badge-present' : l.status === 'Rejected' ? 'badge-danger' : isPassOverdue ? 'badge-danger' : l.status === 'Pending' ? 'badge-warning' : 'badge-leave';
                   const statusText = l.status === 'Rejected' ? 'Rejected' : isPassOverdue ? 'Overdue Return' : l.status;

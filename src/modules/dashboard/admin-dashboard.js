@@ -145,87 +145,85 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const boysCount = students.filter(s => s.gender === 'Male' || s.gender === 'Boys').length;
   const girlsCount = students.filter(s => s.gender === 'Female' || s.gender === 'Girls').length;
   const hostelResidents = students.filter(s => s.hostel_status === 'resident' || s.hostel_status === 'hostel');
-  const studentsOnLeave = students.filter(s => s.status === 'On Approved Leave').length;
-  const overdueReturns = leaves.filter(l => l.status === 'Overdue' || (l.status === 'Away' && new Date(l.expected_return_date) < new Date())).length;
-  const totalFines = leaves.reduce((sum, l) => sum + (l.calculated_fine || 0), 0);
-  const unpaidFines = leaves.filter(l => l.fine_status === 'unpaid').reduce((sum, l) => sum + (l.calculated_fine || 0), 0);
 
-  // If there are no leaves recorded yet, provide simulated mock overview for previewing
-  const displayLeaves = leaves.length > 0 ? leaves : [
-    {
-      leave_register_number: 'LR-2026-081',
-      student_id: students[0]?.id,
-      student_name: students[0]?.full_name || 'MD Aamir',
-      admission_number: students[0]?.admission_number || 'TPS-2026-001',
-      expected_return_date: '2026-10-28',
-      status: 'Away'
-    },
-    {
-      leave_register_number: 'LR-2026-079',
-      student_id: students[4]?.id,
-      student_name: students[4]?.full_name || 'Sultana Sarkar',
-      admission_number: students[4]?.admission_number || 'TPS-2026-005',
-      expected_return_date: '2026-10-26',
-      status: 'Overdue'
+  // Active unreturned leaves (Approved, Away, Overdue)
+  const activeUnreturnedLeaves = (leaves || []).filter(l => {
+    const status = (l.status || '').toLowerCase();
+    if (status === 'pending' || status === 'rejected' || status === 'cancelled' || status === 'returned') return false;
+    if (Array.isArray(l.students) && l.students.length > 0) {
+      return l.students.some(s => !s.is_returned);
     }
-  ];
+    return true;
+  });
 
-  const displayDiscipline = discipline.length > 0 ? discipline : [
-    {
-      student_id: students[1]?.id,
-      student_name: students[1]?.full_name || 'Rehan Islam',
-      school_class: students[1]?.school_class || 'STD-II',
-      category: 'Unapproved Dormitory Absence',
-      black_marks_awarded: 1,
-      resolution_status: 'Investigating'
+  const activeAwayStudentIds = new Set();
+  activeUnreturnedLeaves.forEach(l => {
+    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+    sIds.forEach(sid => {
+      if (sid) {
+        if (Array.isArray(l.students)) {
+          const entry = l.students.find(e => e.student_id === sid);
+          if (entry && entry.is_returned) return;
+        }
+        activeAwayStudentIds.add(sid);
+      }
+    });
+  });
+  students.filter(s => s.status === 'On Approved Leave').forEach(s => activeAwayStudentIds.add(s.id));
+  const studentsOnLeave = activeAwayStudentIds.size;
+
+  let overdueReturns = 0;
+  activeUnreturnedLeaves.forEach(l => {
+    const status = (l.status || '').toLowerCase();
+    const isOver = status === 'overdue' || (
+      l.expected_return_date && (
+        l.expected_return_date < todayIso ||
+        (l.expected_return_date === todayIso && l.expected_return_time && parseMinutes(l.expected_return_time) < currentMinutes)
+      )
+    );
+    if (isOver) {
+      if (Array.isArray(l.students) && l.students.length > 0) {
+        overdueReturns += l.students.filter(s => !s.is_returned).length;
+      } else {
+        overdueReturns += 1;
+      }
     }
-  ];
+  });
+
+  const totalFines = (leaves || []).reduce((sum, l) => sum + (Number(l.calculated_fine) || 0), 0);
+  const unpaidFines = (leaves || []).filter(l => l.fine_status === 'unpaid').reduce((sum, l) => sum + (Number(l.calculated_fine) || 0), 0);
+
+  const displayLeaves = leaves || [];
+  const displayDiscipline = discipline || [];
 
   // Compile list of students currently on leave for mobile quick status carousel
   const activeLeavesMap = new Map();
-  (leaves.length > 0 ? leaves : displayLeaves).forEach(l => {
-    if (l.status === 'Away' || l.status === 'Overdue' || (l.status && l.status !== 'Returned')) {
-      if (l.student_id) activeLeavesMap.set(l.student_id, l);
-      if (l.student_name) activeLeavesMap.set(l.student_name.toLowerCase(), l);
+  activeUnreturnedLeaves.forEach(l => {
+    if (l.student_id) activeLeavesMap.set(l.student_id, l);
+    if (l.student_name) activeLeavesMap.set(l.student_name.toLowerCase(), l);
+    if (Array.isArray(l.student_ids)) {
+      l.student_ids.forEach(sid => activeLeavesMap.set(sid, l));
     }
   });
 
   const studentsOnLeaveList = [];
-
-  // 1. Students marked 'On Approved Leave' in database
-  students.filter(s => s.status === 'On Approved Leave').forEach(s => {
-    const matchedLeave = activeLeavesMap.get(s.id) || activeLeavesMap.get((s.full_name || '').toLowerCase());
-    const isOverdue = matchedLeave?.status === 'Overdue' || (matchedLeave?.expected_return_date && new Date(matchedLeave.expected_return_date) < new Date());
+  activeAwayStudentIds.forEach(sid => {
+    const s = students.find(st => st.id === sid);
+    const matchedLeave = activeLeavesMap.get(sid) || (s ? activeLeavesMap.get((s.full_name || '').toLowerCase()) : null);
+    const isOverdue = matchedLeave?.status === 'Overdue' || (
+      matchedLeave?.expected_return_date && (
+        matchedLeave.expected_return_date < todayIso ||
+        (matchedLeave.expected_return_date === todayIso && matchedLeave.expected_return_time && parseMinutes(matchedLeave.expected_return_time) < currentMinutes)
+      )
+    );
     studentsOnLeaveList.push({
-      id: s.id,
-      full_name: s.full_name,
-      school_class: s.school_class || 'STD',
-      photo_url: s.photo_url || null,
+      id: sid,
+      full_name: s?.full_name || matchedLeave?.student_name || 'Resident',
+      school_class: s?.school_class || 'STD',
+      photo_url: s?.photo_url || null,
       status: isOverdue ? 'Overdue' : 'On Leave',
       expected_return_date: matchedLeave?.expected_return_date || null
     });
-  });
-
-  // 2. Any active gate pass / leave records that might have Active student status or simulated data
-  (leaves.length > 0 ? leaves : displayLeaves).forEach(l => {
-    if (l.status === 'Away' || l.status === 'Overdue') {
-      const alreadyInList = studentsOnLeaveList.some(item => 
-        (l.student_id && item.id === l.student_id) || 
-        (l.student_name && item.full_name.toLowerCase() === l.student_name.toLowerCase())
-      );
-      if (!alreadyInList) {
-        const studentObj = students.find(s => s.id === l.student_id || (s.full_name && l.student_name && s.full_name.toLowerCase() === l.student_name.toLowerCase()));
-        const isOverdue = l.status === 'Overdue' || (l.expected_return_date && new Date(l.expected_return_date) < new Date());
-        studentsOnLeaveList.push({
-          id: l.student_id || studentObj?.id || 'leave-' + (l.leave_register_number || Math.random()),
-          full_name: l.student_name || studentObj?.full_name || 'Resident',
-          school_class: studentObj?.school_class || 'STD',
-          photo_url: studentObj?.photo_url || null,
-          status: isOverdue ? 'Overdue' : 'On Leave',
-          expected_return_date: l.expected_return_date || null
-        });
-      }
-    }
   });
 
   const displayName = user?.full_name || 'Haseeb Mubarak';
@@ -415,12 +413,12 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             <div class="m-gauge-leg-item">
               <span class="m-leg-dot blue"></span>
               <span class="m-leg-name">On Leave</span>
-              <span class="m-leg-count">${studentsOnLeave || displayLeaves.length}</span>
+              <span class="m-leg-count">${studentsOnLeave}</span>
             </div>
             <div class="m-gauge-leg-item">
               <span class="m-leg-dot red"></span>
               <span class="m-leg-name">Overdue</span>
-              <span class="m-leg-count">${overdueReturns || 1}</span>
+              <span class="m-leg-count">${overdueReturns}</span>
             </div>
           </div>
         </div>
@@ -470,7 +468,11 @@ export async function renderAdminDashboard(container, { onNavigate }) {
         </div>
 
         <div class="m-activity-feed">
-          ${displayLeaves.slice(0, 4).map(l => {
+          ${displayLeaves.length === 0 ? `
+            <div style="padding: 1.25rem; text-align: center; color: #94A3B8; font-size: 0.82rem;">
+              No gate pass activity recorded yet
+            </div>
+          ` : displayLeaves.slice(0, 4).map(l => {
             const isOver = l.status === 'Overdue';
             const isAway = l.status === 'Away';
             return `
@@ -490,7 +492,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
                     <span class="m-act-status ${isOver ? 'overdue' : 'away'}">${l.status}</span>
                   </div>
                   <div class="m-act-details">
-                    <span><code>${l.leave_register_number}</code></span>
+                    <span><code>${l.leave_register_number || l.leave_code}</code></span>
                     <span>• Expected: ${formatDate(l.expected_return_date)}</span>
                   </div>
                 </div>
@@ -679,9 +681,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M6.36 17.4 4 17l-2-4 1.1-.55a2 2 0 0 1 1.8 0l3.54 1.77L13 8l-1.5-3 2.5-1 3.5 7.5 4.5 2.25a2.5 2.5 0 0 1 0 4.5l-4.5.75L12 21l-2.5-.5 1-3.5z"/></svg>
             </div>
           </div>
-          <div class="stat-value">${studentsOnLeave || (leaves.length > 0 ? leaves.length : 1)}</div>
+          <div class="stat-value">${studentsOnLeave}</div>
           <div class="stat-footer">
-            <span style="color: #DC2626; font-weight: 600;">Overdue Returns: ${overdueReturns || 1}</span>
+            <span style="color: ${overdueReturns > 0 ? '#DC2626' : '#64748B'}; font-weight: 600;">Overdue Returns: ${overdueReturns}</span>
           </div>
         </div>
 
@@ -692,9 +694,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v.5"/><path d="M12 6v.5"/></svg>
             </div>
           </div>
-          <div class="stat-value">${formatCurrency(unpaidFines || 400)}</div>
+          <div class="stat-value">${formatCurrency(unpaidFines)}</div>
           <div class="stat-footer">
-            <span>Assessed: <strong>${formatCurrency(totalFines || 400)}</strong></span>
+            <span>Assessed: <strong>${formatCurrency(totalFines)}</strong></span>
           </div>
         </div>
 
@@ -731,7 +733,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
                   </tr>
                 </thead>
                 <tbody>
-                  ${displayLeaves.slice(0, 5).map(l => {
+                  ${displayLeaves.length === 0 ? `
+                    <tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: #94A3B8; font-size: 0.82rem;">No hostel leave passes recorded yet</td></tr>
+                  ` : displayLeaves.slice(0, 5).map(l => {
                     const isOver = l.status === 'Overdue';
                     return `
                       <tr>
@@ -739,7 +743,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
                           <strong>${l.student_name || 'Student'}</strong>
                           <div style="font-size: 0.75rem; color: var(--text-muted);">${l.admission_number || ''}</div>
                         </td>
-                        <td><code>${l.leave_register_number}</code></td>
+                        <td><code>${l.leave_register_number || l.leave_code}</code></td>
                         <td>${formatDate(l.expected_return_date)}</td>
                         <td>
                           <span class="badge ${isOver ? 'badge-absent' : 'badge-leave'}">${l.status}</span>

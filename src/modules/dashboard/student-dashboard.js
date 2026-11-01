@@ -27,14 +27,7 @@ export async function renderStudentDashboard(container, { onNavigate }) {
   };
 
   const studentLeaves = allLeaves.filter(l => l.student_id === student.id);
-  const displayLeaves = studentLeaves.length > 0 ? studentLeaves : [
-    {
-      leave_register_number: 'LR-2026-055',
-      reason: 'Weekend Home Visit',
-      expected_return_date: '2026-10-28',
-      status: 'Active Pass'
-    }
-  ];
+  const displayLeaves = studentLeaves;
 
   // Daily timetable schedule for the student
   const todayClasses = [

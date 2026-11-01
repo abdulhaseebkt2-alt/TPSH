@@ -86,41 +86,28 @@ export async function renderMentorDashboard(container, { onNavigate }) {
     return new Date(b.created_at || b.departure_date || 0) - new Date(a.created_at || a.departure_date || 0);
   });
 
-  const displayLeaves = sortedScopedLeaves.length > 0 ? sortedScopedLeaves : [
-    {
-      leave_register_number: isGirlsHostel ? 'GLR-2026-012' : 'BLR-2026-034',
-      student_name: scopedStudents[0]?.full_name || (isGirlsHostel ? 'Sultana Sarkar' : 'MD Aamir'),
-      admission_number: scopedStudents[0]?.admission_number || (isGirlsHostel ? 'TPS-2026-005' : 'TPS-2026-001'),
-      room: isGirlsHostel ? 'Room 201' : 'Room 101',
-      expected_return_date: '2026-10-28',
-      status: 'Away'
-    },
-    {
-      leave_register_number: isGirlsHostel ? 'GLR-2026-014' : 'BLR-2026-039',
-      student_name: scopedStudents[1]?.full_name || (isGirlsHostel ? 'Fathima Zehra' : 'Rehan Islam'),
-      admission_number: scopedStudents[1]?.admission_number || (isGirlsHostel ? 'TPS-2026-006' : 'TPS-2026-002'),
-      room: isGirlsHostel ? 'Room 202' : 'Room 102',
-      expected_return_date: '2026-10-26',
-      status: 'Overdue'
-    }
-  ];
+  const displayLeaves = sortedScopedLeaves;
 
   // Scoped discipline for residents of this hostel unit only
   const rawScopedDiscipline = allDiscipline.filter(d => scopedStudentIds.has(d.student_id));
-  const displayDiscipline = rawScopedDiscipline.length > 0 ? rawScopedDiscipline : [
-    {
-      student_name: scopedStudents[2]?.full_name || (isGirlsHostel ? 'Amina Begum' : 'Jakir Sarkar'),
-      room: isGirlsHostel ? 'Room 203' : 'Room 103',
-      category: 'Curfew Timing Violation',
-      black_marks_awarded: 1,
-      resolution_status: 'Investigating'
-    }
-  ];
+  const displayDiscipline = rawScopedDiscipline;
 
   // Scoped metrics
   const activeResidents = scopedStudents.filter(s => s.status === 'Active');
-  const onLeaveCount = displayLeaves.filter(l => l.status === 'Away' || l.status === 'On Approved Leave').length;
-  const overdueCount = displayLeaves.filter(l => l.status === 'Overdue').length;
+  const nowIso = new Date().toISOString().split('T')[0];
+  const activeAwayLeaves = sortedScopedLeaves.filter(l => {
+    const st = (l.status || '').toLowerCase();
+    if (st === 'pending' || st === 'rejected' || st === 'cancelled' || st === 'returned') return false;
+    if (Array.isArray(l.students) && l.students.length > 0) {
+      return l.students.some(s => !s.is_returned);
+    }
+    return true;
+  });
+  const onLeaveCount = activeAwayLeaves.length;
+  const overdueCount = activeAwayLeaves.filter(l => {
+    const st = (l.status || '').toLowerCase();
+    return st === 'overdue' || (l.expected_return_date && l.expected_return_date < nowIso);
+  }).length;
   const totalOccupied = scopedStudents.length;
 
   container.innerHTML = `
@@ -287,7 +274,9 @@ export async function renderMentorDashboard(container, { onNavigate }) {
                 </tr>
               </thead>
               <tbody>
-                ${displayLeaves.map(l => {
+                ${displayLeaves.length === 0 ? `
+                  <tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: #94A3B8; font-size: 0.82rem;">No hostel leave passes recorded yet</td></tr>
+                ` : displayLeaves.map(l => {
                   const isOver = l.status === 'Overdue';
                   const isPending = (l.status || '').toLowerCase() === 'pending';
                   const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];

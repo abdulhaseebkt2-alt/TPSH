@@ -230,13 +230,27 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
 
   // Helper: Check if student was on approved hostel leave on a given date
   function isStudentOnHostelLeave(studentId, dateStr) {
+    if (!Array.isArray(leaves) || leaves.length === 0) return false;
     return leaves.some(l => {
-      if (l.student_id !== studentId) return false;
-      const departs = l.departure_date;
-      const returns = l.actual_return_date || l.expected_return_date;
+      const status = (l.status || '').toLowerCase();
+      if (status === 'pending' || status === 'rejected' || status === 'cancelled') return false;
+      const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+      if (!sIds.includes(studentId)) return false;
+      const departs = l.departure_date || l.leaving_date;
       if (!departs) return false;
+      let actualRet = l.actual_return_date;
+      if (Array.isArray(l.students)) {
+        const entry = l.students.find(s => s.student_id === studentId);
+        if (entry && entry.is_returned && entry.actual_return_date) {
+          actualRet = entry.actual_return_date;
+        }
+      }
+      if (status === 'returned' && actualRet) {
+        return dateStr >= departs && dateStr < actualRet;
+      }
+      const returns = actualRet || l.expected_return_date;
       if (departs <= dateStr) {
-        if (!returns) return l.status === 'Away';
+        if (!returns) return status === 'away' || status === 'approved' || status === 'overdue';
         return dateStr <= returns;
       }
       return false;

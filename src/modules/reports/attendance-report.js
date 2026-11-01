@@ -78,6 +78,14 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
   let currentYear = now.getFullYear();
   let currentMonth = now.getMonth() + 1; // 1-based
 
+  // If opening on day 1 of a new month and no sessions are recorded in the new month yet,
+  // default to the previous completed academic month to give full report visibility
+  if (now.getDate() === 1 && !attendanceSessions.some(s => s.session_date && s.session_date.startsWith(`${currentYear}-${String(currentMonth).padStart(2, '0')}`))) {
+    const prevDate = new Date(currentYear, currentMonth - 2, 1);
+    currentYear = prevDate.getFullYear();
+    currentMonth = prevDate.getMonth() + 1;
+  }
+
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -154,12 +162,18 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
   // Helper: Detect if date has hostel leave
   function isHostelLeaveDate(dateStr) {
     if (!Array.isArray(leaves) || leaves.length === 0) return false;
-    return leaves.some(l => 
-      l.departure_date && 
-      l.expected_return_date && 
-      dateStr >= l.departure_date && 
-      dateStr <= l.expected_return_date
-    );
+    return leaves.some(l => {
+      const status = (l.status || '').toLowerCase();
+      if (status === 'pending' || status === 'rejected' || status === 'cancelled') return false;
+      const departs = l.departure_date || l.leaving_date;
+      if (!departs) return false;
+      const returns = (status === 'returned' && l.actual_return_date) ? l.actual_return_date : l.expected_return_date;
+      if (!returns) return status === 'away' || status === 'approved' || status === 'overdue';
+      if (status === 'returned' && l.actual_return_date) {
+        return dateStr >= departs && dateStr < l.actual_return_date;
+      }
+      return dateStr >= departs && dateStr <= returns;
+    });
   }
 
   // Helper: Month days breakdown for calendar grid (Monday - Sunday)

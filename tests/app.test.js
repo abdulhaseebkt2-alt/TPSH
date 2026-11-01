@@ -5255,5 +5255,90 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(adminContainer.innerHTML).toContain('m-hero-card');
       expect(adminContainer.innerHTML).toContain('m-hero-live-indicator');
     });
+
+    it('2513: Deep E2E Leave Lifecycle & Attendance Connectivity: parent request -> approval -> arrival -> attendance unlock', async () => {
+      // 1. Create a test student
+      const testStudent = await db.addStudent({
+        full_name: 'Zayan Test Resident',
+        gender: 'Boys',
+        school_class: 'STD-I',
+        admission_number: 'TPS-2026-T999'
+      });
+      expect(testStudent.status).toBe('Active');
+
+      // 2. Parent submits leave request (status: 'Pending')
+      const [pendingLeave] = await db.createLeaveRecord({
+        student_ids: [testStudent.id],
+        student_name: testStudent.full_name,
+        admission_number: testStudent.admission_number,
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-01',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-03',
+        expected_return_time: '18:00',
+        reason: 'Family Event',
+        requester_role: 'parent',
+        status: 'Pending'
+      });
+      expect(pendingLeave.status).toBe('Pending');
+
+      // Student is NOT on leave yet while request is Pending
+      let students = await db.getStudents();
+      let updatedSt = students.find(s => s.id === testStudent.id);
+      expect(updatedSt.status).toBe('Active');
+
+      // 3. Admin approves leave request with ₹50/hr overdue rate
+      const approvedLeave = await db.approveLeaveRecord(pendingLeave.id, {
+        approved_by: 'Hostel Warden',
+        fine_per_hour: 50
+      });
+      expect(approvedLeave.status).toBe('Approved');
+      expect(approvedLeave.fine_per_hour).toBe(50);
+
+      // Student profile updated to 'On Approved Leave'
+      students = await db.getStudents();
+      updatedSt = students.find(s => s.id === testStudent.id);
+      expect(updatedSt.status).toBe('On Approved Leave');
+
+      // 4. Admin records arrival on return
+      await db.recordReturn(approvedLeave.id, '2026-11-03', '17:30', 'Arrived safely on time', testStudent.id);
+
+      const allLeaves = await db.getLeaves(true);
+      const returnedLeave = allLeaves.find(l => l.id === approvedLeave.id);
+      expect(returnedLeave.status).toBe('Returned');
+
+      // Student profile reactivated back to Active
+      students = await db.getStudents();
+      updatedSt = students.find(s => s.id === testStudent.id);
+      expect(updatedSt.status).toBe('Active');
+
+      // 5. Clean up test student
+      await db.deleteStudent(testStudent.id);
+    });
+
+    it('2514: Admin Dashboard Zero-Fallbacks: renders 0 approved leave, 0 overdue returns, and ₹0.00 fines when clear', async () => {
+      // Clear active unreturned leaves and reset student statuses to Active
+      const students = await db.getStudents();
+      students.forEach(s => { s.status = 'Active'; });
+      db.set('tps_students', students);
+
+      const leaves = await db.getLeaves(true);
+      leaves.forEach(l => {
+        l.status = 'Returned';
+        if (Array.isArray(l.students)) {
+          l.students.forEach(s => s.is_returned = true);
+        }
+      });
+      db.set('tps_leaves', leaves);
+
+      const adminContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(adminContainer, { onNavigate: () => {} });
+
+      const html = adminContainer.innerHTML;
+      // On Approved Leave stat card must show 0, not 29 or 1
+      expect(html).toContain('<div class="stat-value">0</div>');
+      expect(html).toContain('Overdue Returns: 0');
+      expect(html).not.toContain('₹400.00');
+    });
   });
 });

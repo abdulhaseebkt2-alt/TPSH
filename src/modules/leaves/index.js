@@ -662,16 +662,22 @@ export async function renderLeavesModule(container, { onNavigate }) {
   // MODAL 1: HOSTEL ARRIVAL & RETURN REGISTER (INDIVIDUAL / BATCH)
   // -------------------------------------------------------------
   function openRecordArrivalModal(defaultMode = 'individual', preselectedLeaveId = null) {
-    // Extract unreturned students from leaves
+    // Extract unreturned students from active approved / away / overdue leaves
     const unreturnedStudents = [];
     leaves.forEach(l => {
-      const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
+      const status = (l.status || '').toLowerCase();
+      // Strictly ignore Pending, Rejected, Cancelled, and fully Returned passes
+      if (status === 'pending' || status === 'rejected' || status === 'cancelled' || status === 'returned') {
+        return;
+      }
+
+      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
       sIds.forEach(sid => {
-        const student = students.find(s => s.id === sid);
+        const student = (students || allStudents).find(s => s.id === sid);
         if (!student) return;
 
         // Check if student is returned in this leave
-        let isRet = l.status === 'Returned';
+        let isRet = false;
         if (Array.isArray(l.students)) {
           const stEntry = l.students.find(s => s.student_id === sid);
           if (stEntry && stEntry.is_returned) isRet = true;
@@ -942,7 +948,7 @@ export async function renderLeavesModule(container, { onNavigate }) {
               }
 
               try {
-                await db.recordReturn(activeTarget.leave.id, retDate, retTime, remarks);
+                await db.recordReturn(activeTarget.leave.id, retDate, retTime, remarks, activeTarget.student.id);
                 toast.success(`Arrival recorded successfully for ${activeTarget.student.full_name}.`);
                 close();
                 const updatedLeaves = await db.getLeaves();

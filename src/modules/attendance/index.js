@@ -97,7 +97,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   let activeClassroomId = preselectedClsId || availableClassrooms[0]?.id || 'cls-1';
   let currentView = preselectedClsId ? 'roster' : 'cards';
-  let timetableFilterTab = 'today'; // 'today' | 'weekly' | 'live'
+  let timetableFilterTab = (todayKey === 'Sun' || (sessionDate && sessionDate !== todayIso)) ? 'weekly' : 'today'; // 'today' | 'weekly' | 'live'
 
   // Time-Window Status Calculation for a classroom on targetDate
   async function checkWindowStatus(clsId, targetDate = sessionDate) {
@@ -271,60 +271,75 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const s = typeof studentOrId === 'object' ? studentOrId : students.find(item => item.id === studentOrId);
     if (!s) return false;
 
-    // 1. Direct student profile status flag
+    // Active leave records in tps_leaves covering dateStr
+    if (Array.isArray(leaves) && leaves.length > 0) {
+      const studentLeaves = leaves.filter(l => {
+        if (l.student_id === s.id) return true;
+        if (Array.isArray(l.student_ids) && l.student_ids.includes(s.id)) return true;
+        if (Array.isArray(l.student_entries) && l.student_entries.some(e => e.student_id === s.id)) return true;
+        if (Array.isArray(l.students) && l.students.some(e => e.student_id === s.id)) return true;
+        return false;
+      });
+
+      if (studentLeaves.length > 0) {
+        return studentLeaves.some(l => {
+          const status = (l.status || '').toLowerCase();
+          // Pending, Rejected, or Cancelled passes never place a student on authorized leave
+          if (status === 'pending' || status === 'rejected' || status === 'cancelled') {
+            return false;
+          }
+
+          const departs = l.departure_date || l.leaving_date;
+          if (!departs) return false;
+
+          let studentEntry = null;
+          if (Array.isArray(l.student_entries)) {
+            studentEntry = l.student_entries.find(e => e.student_id === s.id);
+          } else if (Array.isArray(l.students)) {
+            studentEntry = l.students.find(e => e.student_id === s.id);
+          }
+
+          const isEntryReturned = studentEntry ? Boolean(studentEntry.is_returned) : false;
+          const entryReturnDate = studentEntry?.actual_return_date;
+          const actualReturn = entryReturnDate || l.actual_return_date;
+          const isReturned = status === 'returned' || isEntryReturned;
+
+          // If student has already returned:
+          if (isReturned && actualReturn) {
+            if (dateStr > actualReturn) return false;
+            if (dateStr < departs) return false;
+            if (dateStr >= departs && dateStr < actualReturn) return true;
+            if (dateStr === actualReturn) {
+              const retTime = studentEntry?.actual_return_time || l.actual_return_time;
+              const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
+              const sessionStartTime = activeCls?.start_time;
+              if (sessionStartTime && retTime) {
+                return sessionStartTime < retTime;
+              }
+              return false;
+            }
+          }
+
+          // If not returned yet (Approved, Away, Overdue)
+          if (dateStr >= departs) {
+            const expectedReturn = l.expected_return_date;
+            if (expectedReturn && dateStr > expectedReturn && status !== 'overdue' && status !== 'away' && status !== 'approved') {
+              return false;
+            }
+            return true;
+          }
+
+          return false;
+        });
+      }
+    }
+
+    // Direct student profile status flag fallback (only if date matches today and profile specifically marked)
     if (s.status === 'On Approved Leave' && (dateStr === todayIso || !dateStr)) {
       return true;
     }
 
-    // 2. Active leave records in tps_leaves covering dateStr
-    if (Array.isArray(leaves) && leaves.length > 0) {
-      return leaves.some(l => {
-        let isAssociated = false;
-        let studentEntry = null;
-
-        if (l.student_id === s.id) {
-          isAssociated = true;
-        } else if (Array.isArray(l.student_ids) && l.student_ids.includes(s.id)) {
-          isAssociated = true;
-        }
-
-        if (Array.isArray(l.student_entries)) {
-          const entry = l.student_entries.find(e => e.student_id === s.id);
-          if (entry) {
-            isAssociated = true;
-            studentEntry = entry;
-          }
-        }
-
-        if (!isAssociated) return false;
-
-        const departs = l.departure_date;
-        if (!departs) return false;
-
-        const isEntryReturned = studentEntry ? Boolean(studentEntry.is_returned) : false;
-        const entryReturnDate = studentEntry?.actual_return_date;
-        const actualReturn = entryReturnDate || l.actual_return_date;
-        const expectedReturn = l.expected_return_date;
-        const isReturned = l.status === 'Returned' || isEntryReturned;
-
-        // If returned, leave was active between departure and actual return
-        if (isReturned && actualReturn) {
-          return dateStr >= departs && dateStr <= actualReturn;
-        }
-
-        // If not returned yet (Away or Overdue)
-        if (dateStr >= departs) {
-          if (expectedReturn && dateStr > expectedReturn && l.status !== 'Overdue' && l.status !== 'Away') {
-            return false;
-          }
-          return true;
-        }
-
-        return false;
-      });
-    }
-
-    return s.status === 'On Approved Leave';
+    return false;
   }
 
   async function loadExistingSessionState() {
@@ -351,7 +366,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         const onLeave = isStudentOnLeave(s, sessionDate);
         const rec = existingSession.records.find(r => r.student_id === s.id);
         if (rec) {
-          attendanceState[s.id] = onLeave ? 'Leave' : rec.status;
+          if (onLeave) {
+            attendanceState[s.id] = 'Leave';
+          } else if (rec.status === 'Leave') {
+            attendanceState[s.id] = 'Absent'; // Reactivated after returning from hostel leave
+          } else {
+            attendanceState[s.id] = rec.status;
+          }
           if (rec.status === 'Late Present' && !onLeave) {
             if (rec.late_minutes != null) {
               studentLateMinutes[s.id] = Number(rec.late_minutes);
