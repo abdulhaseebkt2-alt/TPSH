@@ -2748,7 +2748,7 @@ class DatabaseService {
     return studentId ? marks.filter(m => m.student_id === studentId) : marks;
   }
 
-  async recordFinePayment(leave_record_id, amount, payment_method = 'Cash', reference_number = '', recorded_by = 'Hostel Office') {
+  async recordFinePayment(leave_record_id, amount, payment_method = 'Cash', reference_number = '', recorded_by = 'Hostel Office', target_student_id = null) {
     await this.pullCloudKeys(['tps_leaves', 'tps_fine_payments'], true);
     const leaves = this.get('tps_leaves') || [];
     const idx = leaves.findIndex(l => l.id === leave_record_id || l.leave_code === leave_record_id);
@@ -2759,6 +2759,17 @@ class DatabaseService {
     leave.fine_paid_at = new Date().toISOString();
     leave.fine_paid_amount = Number(amount) || Number(leave.calculated_fine) || 0;
     leave.fine_cleared_by = recorded_by;
+
+    if (Array.isArray(leave.students)) {
+      leave.students.forEach(s => {
+        if (!target_student_id || s.student_id === target_student_id) {
+          s.fine_status = 'paid';
+          s.fine_paid_at = leave.fine_paid_at;
+          s.fine_cleared_by = recorded_by;
+        }
+      });
+    }
+
     this.set('tps_leaves', leaves);
 
     const payments = this.get('tps_fine_payments') || [];

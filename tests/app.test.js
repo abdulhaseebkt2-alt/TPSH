@@ -5992,5 +5992,75 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', existingLeaves);
       await db.deleteStudent(student.id);
     });
+
+    it('2523. Leave card row popup reflects exact student fine amount and settlement synchronization', async () => {
+      const adminUser = {
+        id: 'u-admin-2523',
+        full_name: 'Super Admin',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      const student = await db.addStudent({
+        admission_number: 'TPS-2026-005',
+        full_name: 'Sultana Sarkar',
+        gender: 'Girl',
+        school_class: 'STD-III',
+        status: 'Active'
+      });
+
+      const existingLeaves = db.get('tps_leaves') || [];
+
+      // Recreate user scenario from Screenshot 1 & 2: Pass LV-2026-342
+      const perStudentFineLeave = {
+        id: 'leave-popup-fine-2523',
+        leave_code: 'LV-2026-342',
+        student_id: student.id,
+        student_name: student.full_name,
+        departure_date: '2026-11-01',
+        departure_time: '12:10',
+        expected_return_date: '2026-11-01',
+        expected_return_time: '18:00',
+        actual_return_date: '2026-11-02',
+        actual_return_time: '12:55',
+        status: 'Returned',
+        is_returned: true,
+        calculated_fine: 0, // Root had 0 while student had 1200
+        fine_status: 'unpaid',
+        students: [{
+          student_id: student.id,
+          is_returned: true,
+          actual_return_date: '2026-11-02',
+          actual_return_time: '12:55',
+          fine_amount: 1200,
+          fine_status: 'unpaid'
+        }]
+      };
+
+      db.set('tps_leaves', [perStudentFineLeave]);
+
+      // 1. Verify Leave Card table reflects ₹1200 fine and Unpaid mark
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(container, { studentId: student.id });
+      const html = container.innerHTML;
+      expect(html).toContain('₹1200');
+      expect(html).toContain('Late');
+
+      // 2. Clear fine via db.recordFinePayment with target student
+      await db.recordFinePayment(perStudentFineLeave.id, 1200, 'Cash', 'Cleared via Leave Card', 'Hostel Office', student.id);
+      const clearedLeave = (db.get('tps_leaves') || []).find(l => l.id === perStudentFineLeave.id);
+      expect(clearedLeave.fine_status).toBe('paid');
+      expect(clearedLeave.students[0].fine_status).toBe('paid');
+
+      // Re-render to ensure paid status renders
+      await renderStudentLeaveCardModule(container, { studentId: student.id });
+      expect(container.innerHTML).toContain('title="Paid"');
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
+    });
   });
 });

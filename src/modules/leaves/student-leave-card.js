@@ -671,10 +671,14 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       const leave = allLeaves.find(l => l.id === leaveId);
       if (!leave) return;
 
-      const fineAmt = Number(leave.calculated_fine) || 0;
-      const isPaid = leave.fine_status === 'paid';
+      const studentEntry = Array.isArray(leave.students) ? leave.students.find(e => e.student_id === selectedStudent?.id) : null;
+      const fineAmt = Number(studentEntry?.fine_amount !== undefined ? studentEntry.fine_amount : leave.calculated_fine) || 0;
+      const isPaid = (studentEntry?.fine_status ? studentEntry.fine_status === 'paid' : leave.fine_status === 'paid');
       const isRej = (leave.status || '').toLowerCase() === 'rejected';
       const isPend = (leave.status || '').toLowerCase() === 'pending';
+
+      const actualRetDate = studentEntry?.actual_return_date || leave.actual_return_date || (leave.status === 'Returned' ? (leave.actual_return_date || leave.expected_return_date) : null);
+      const actualRetTime = studentEntry?.actual_return_time || leave.actual_return_time || (leave.status === 'Returned' ? (leave.actual_return_time || leave.expected_return_time) : null);
 
       const studentName = selectedStudent?.full_name || leave.student_name || 'Student';
       const admNo = selectedStudent?.admission_number || 'TPS-ADM';
@@ -724,11 +728,11 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               </div>
               <div>
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Actual Return Date</span>
-                <div style="font-weight: 700; color: #059669; margin-top: 2px;">${leave.actual_return_date || 'Not Returned Yet'}</div>
+                <div style="font-weight: 700; color: #059669; margin-top: 2px;">${actualRetDate || 'Not Returned Yet'}</div>
               </div>
               <div>
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Actual Return Time</span>
-                <div style="font-weight: 700; color: #059669; margin-top: 2px;">${leave.actual_return_time || '-'}</div>
+                <div style="font-weight: 700; color: #059669; margin-top: 2px;">${actualRetTime || '-'}</div>
               </div>
               <div style="grid-column: span 2;">
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Reason for Leave</span>
@@ -764,7 +768,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                   <span style="color: #64748B;">Settlement Status:</span>
                   ${isPaid ? `
                     <span style="color: #059669; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
-                      ✓ Paid ${leave.fine_paid_at ? `on ${leave.fine_paid_at.split('T')[0]}` : ''} ${leave.fine_cleared_by ? `(Cleared by: ${leave.fine_cleared_by})` : ''}
+                      ✓ Paid ${studentEntry?.fine_paid_at || leave.fine_paid_at ? `on ${(studentEntry?.fine_paid_at || leave.fine_paid_at).split('T')[0]}` : ''} ${leave.fine_cleared_by ? `(Cleared by: ${leave.fine_cleared_by})` : ''}
                     </span>
                   ` : `
                     <span style="color: #DC2626; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
@@ -798,7 +802,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       // Wire Clear Fine button
       modalBody.querySelector('#btn-popup-clear-fine')?.addEventListener('click', async () => {
         try {
-          await db.recordFinePayment(leave.id, fineAmt, 'Cash', 'Cleared via Student Leave Card', user?.full_name || 'Hostel Administrator');
+          await db.recordFinePayment(leave.id, fineAmt, 'Cash', 'Cleared via Student Leave Card', user?.full_name || 'Hostel Administrator', selectedStudent?.id);
           toast.success(`Fine of ₹${fineAmt} successfully marked as paid!`);
           close();
 
