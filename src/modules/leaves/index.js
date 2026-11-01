@@ -76,7 +76,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
   let statusFilter = 'all'; // 'all', 'pending', 'away', 'overdue', 'returned'
 
   function getUnreturnedCount(leave) {
-    if ((leave.status || '').toLowerCase() === 'pending') return 0;
+    const st = (leave.status || '').toLowerCase();
+    if (st === 'pending' || st === 'rejected') return 0;
     if (Array.isArray(leave.students) && leave.students.length > 0) {
       return leave.students.filter(s => !s.is_returned).length;
     }
@@ -84,7 +85,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
   }
 
   function isLeaveOverdue(leave) {
-    if ((leave.status || '').toLowerCase() === 'pending') return false;
+    const st = (leave.status || '').toLowerCase();
+    if (st === 'pending' || st === 'rejected') return false;
     if (leave.status === 'Returned') return false;
     if (leave.status === 'Overdue' || leave.status === 'overdue') return true;
     if (!leave.expected_return_date) return false;
@@ -290,9 +292,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 <tbody>
                   ${filteredLeaves.map(l => {
                     const unretCount = getUnreturnedCount(l);
-                    const isOverdue = isLeaveOverdue(l);
-                    const isRet = l.status === 'Returned' || unretCount === 0;
                     const isRej = (l.status || '').toLowerCase() === 'rejected';
+                    const isPend = (l.status || '').toLowerCase() === 'pending';
+                    const isOverdue = isLeaveOverdue(l);
+                    const isRet = !isRej && (l.status === 'Returned' || unretCount === 0);
                     const code = l.leave_code || l.leave_register_number || 'LV-2026';
                     const typeDisplay = (l.leave_type || 'Hostel Leave').replace(/_/g, ' ');
                     const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
@@ -323,7 +326,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           </span>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
-                          ${l.status === 'Pending' ? `
+                          ${isPend ? `
                             <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
                               Pending Approval
                             </span>
@@ -339,15 +342,17 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         </td>
                         <td style="padding: 0.85rem 1rem; text-align: right;">
                           <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
-                            ${l.status === 'Pending' && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
-                              <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
-                                Approve
-                              </button>
-                              <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                            ${(isPend || (!isRet && !isRej)) && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                              ${isPend ? `
+                                <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                                  Approve
+                                </button>
+                              ` : ''}
+                              <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Reject or cancel leave pass">
                                 Reject
                               </button>
                             ` : ''}
-                            ${l.status !== 'Pending' && !isRej && unretCount > 0 && canRecordReturn ? `
+                            ${!isPend && !isRej && unretCount > 0 && canRecordReturn ? `
                               <button class="btn btn-xs btn-outline-success btn-record-arrival-action btn-checkin-return" data-id="${l.id}" title="Record arrival for students on this pass" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; color: #059669; border-color: #A7F3D0; background: #ECFDF5;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
                                 Arrival (${unretCount})
@@ -374,9 +379,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             <div class="mobile-leave-cards" style="display: none; padding: 0.65rem; flex-direction: column; gap: 0.75rem;">
               ${filteredLeaves.map(l => {
                 const unretCount = getUnreturnedCount(l);
-                const isOverdue = isLeaveOverdue(l);
-                const isRet = l.status === 'Returned' || unretCount === 0;
                 const isRej = (l.status || '').toLowerCase() === 'rejected';
+                const isPend = (l.status || '').toLowerCase() === 'pending';
+                const isOverdue = isLeaveOverdue(l);
+                const isRet = !isRej && (l.status === 'Returned' || unretCount === 0);
                 const code = l.leave_code || l.leave_register_number || 'LV-2026';
                 const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
                 const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
@@ -388,7 +394,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                       <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #0F172A;">${code}</span>
-                      ${l.status === 'Pending' ? `
+                      ${isPend ? `
                         <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
                           Pending Approval
                         </span>
@@ -426,15 +432,17 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         👥 ${studentLabel}
                       </span>
                       <div style="display: flex; gap: 0.35rem;">
-                        ${l.status === 'Pending' && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
-                          <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
-                            Approve
-                          </button>
+                        ${(isPend || (!isRet && !isRej)) && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                          ${isPend ? `
+                            <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+                              Approve
+                            </button>
+                          ` : ''}
                           <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
                             Reject
                           </button>
                         ` : ''}
-                        ${l.status !== 'Pending' && !isRej && unretCount > 0 && canRecordReturn ? `
+                        ${!isPend && !isRej && unretCount > 0 && canRecordReturn ? `
                           <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.3rem 0.7rem; font-weight: 700; font-size: 0.75rem;">
                             Arrival (${unretCount})
                           </button>
@@ -1801,7 +1809,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       };
     }).filter(r => r.student);
 
-    openModal({
+    const { container: detailsModal, close: closeDetails } = openModal({
       title: `Leave Pass Details: ${leave.leave_code || leave.leave_register_number || 'Pass'}`,
       size: 'md',
       contentHtml: `
@@ -1847,8 +1855,26 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               }).join('')}
             </div>
           </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #E2E8F0; align-items: center;">
+            <button type="button" class="btn btn-outline" id="btn-details-close">Close</button>
+            ${!isRet && !isRej && (user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+              <button type="button" class="btn btn-danger" id="btn-details-reject-pass" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF; font-size: 0.8rem;">
+                Reject Pass
+              </button>
+            ` : ''}
+          </div>
         </div>
       `
+    });
+
+    detailsModal?.querySelector('#btn-details-close')?.addEventListener('click', closeDetails);
+    detailsModal?.querySelector('#btn-details-reject-pass')?.addEventListener('click', () => {
+      closeDetails();
+      const rejectTrigger = container.querySelector(`.btn-reject-leave[data-id="${leaveId}"]`);
+      if (rejectTrigger) {
+        rejectTrigger.click();
+      }
     });
   }
 
