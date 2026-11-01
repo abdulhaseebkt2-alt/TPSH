@@ -5,15 +5,16 @@ import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
-export async function renderDisciplineModule(container, { onNavigate }) {
+export async function renderDisciplineModule(container, { onNavigate } = {}) {
   const user = getCurrentUser();
-  const [students, incidents] = await Promise.all([
+  const [students, rawIncidents] = await Promise.all([
     db.getStudents(),
     db.getDisciplineIncidents()
   ]);
 
   const isMentor = isMentorRole(user?.role);
   const mentorGender = isMentor ? getMentorGenderScope(user) : null;
+  const canManage = Boolean(user?.is_super_admin || user?.role === 'admin' || isMentor);
 
   // Scope students if mentor
   const scopedStudents = mentorGender
@@ -21,104 +22,391 @@ export async function renderDisciplineModule(container, { onNavigate }) {
     : students;
 
   const isParent = user?.role === 'parent';
-  const displayIncidents = isParent
-    ? incidents.filter(d => {
+  const displayIncidents = (isParent
+    ? (rawIncidents || []).filter(d => {
         const st = students.find(s => s.id === d.student_id);
         return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
       })
     : mentorGender
-      ? incidents.filter(d => {
+      ? (rawIncidents || []).filter(d => {
           const st = students.find(s => s.id === d.student_id);
           return st && (st.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase();
         })
-      : incidents;
+      : (rawIncidents || [])) || [];
 
-  container.innerHTML = `
-    <div class="page-header">
-      <div class="page-title-group">
-        <h2>Student Discipline & Incident Register</h2>
-        <p>Institutional record of hostel rule violations, black marks ledger, property damage fines, and resolution</p>
-      </div>
-      <div class="page-actions">
-        ${user?.is_super_admin || user?.role === 'admin' || isMentor ? `
-          <button class="btn btn-primary" id="btn-log-incident">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Record Disciplinary Incident
-          </button>
-        ` : ''}
-      </div>
-    </div>
+  // Local filter states
+  let searchQuery = '';
+  let statusFilter = 'all'; // 'all', 'open', 'resolved'
 
-    <!-- Incident List Table -->
-    <div class="card-panel">
-      <div class="card-panel-header">
-        <h3>Hostel Misconduct & Disciplinary Records</h3>
-        <span class="badge badge-active">${displayIncidents.length} Recorded Incidents</span>
-      </div>
-      <div class="card-panel-body" style="padding: 0;">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Incident Date</th>
-                <th>Category</th>
-                <th>Severity</th>
-                <th>Description</th>
-                <th>Black Marks</th>
-                <th>Property Fine</th>
-                <th>Resolution Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${displayIncidents.map(d => {
-                const st = students.find(s => s.id === d.student_id);
-                const sevBadge = d.severity === 'Critical' ? 'badge-absent' : d.severity === 'Major' ? 'badge-late' : 'badge-leave';
-                const resBadge = d.resolution_status === 'Resolved' ? 'badge-present' : 'badge-pending';
+  async function reloadData() {
+    const updated = await db.getDisciplineIncidents();
+    rawIncidents.length = 0;
+    rawIncidents.push(...(updated || []));
+    displayIncidents.length = 0;
+    const reFiltered = isParent
+      ? rawIncidents.filter(d => {
+          const st = students.find(s => s.id === d.student_id);
+          return st?.father_phone === '+91 98470 11223' || st?.full_name === 'Muhammad Rayyan';
+        })
+      : mentorGender
+        ? rawIncidents.filter(d => {
+            const st = students.find(s => s.id === d.student_id);
+            return st && (st.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase();
+          })
+        : rawIncidents;
+    displayIncidents.push(...reFiltered);
+  }
 
-                return `
-                  <tr>
-                    <td>
-                      <strong>${st?.full_name || 'Student'}</strong>
-                      <div style="font-size: 0.75rem; color: var(--text-muted);">${st?.admission_number || ''} • ${st?.school_class || ''}</div>
-                    </td>
-                    <td>${formatDate(d.incident_date)}</td>
-                    <td><strong>${d.category}</strong></td>
-                    <td><span class="badge ${sevBadge}">${d.severity}</span></td>
-                    <td style="max-width: 220px; font-size: 0.8rem; color: var(--text-secondary);">${d.description}</td>
-                    <td><span class="badge badge-black-mark">+${d.black_marks_awarded} Mark(s)</span></td>
-                    <td>${d.monetary_fine > 0 ? formatCurrency(d.monetary_fine) : 'None'}</td>
-                    <td><span class="badge ${resBadge}">${d.resolution_status}</span></td>
-                    <td>
-                      <button class="btn btn-outline btn-sm btn-view-incident" data-id="${d.id}">Details</button>
-                    </td>
-                  </tr>
-                `;
-              }).join('') || '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">No disciplinary incidents recorded</td></tr>'}
-            </tbody>
-          </table>
+  function renderView() {
+    // Calculate metrics
+    const totalCount = displayIncidents.length;
+    const openCount = displayIncidents.filter(d => (d.resolution_status || 'Open').toLowerCase() === 'open').length;
+    const resolvedCount = displayIncidents.filter(d => (d.resolution_status || '').toLowerCase() === 'resolved').length;
+    const totalMarks = displayIncidents.reduce((sum, d) => sum + (Number(d.black_marks_awarded) || 0), 0);
+    const totalFines = displayIncidents.reduce((sum, d) => sum + (Number(d.monetary_fine) || 0), 0);
+
+    // Filter items
+    const filtered = displayIncidents.filter(d => {
+      const st = students.find(s => s.id === d.student_id);
+      const sName = (st?.full_name || '').toLowerCase();
+      const sAdm = (st?.admission_number || '').toLowerCase();
+      const sClass = (st?.school_class || '').toLowerCase();
+      const cat = (d.category || '').toLowerCase();
+      const desc = (d.description || '').toLowerCase();
+      const stStatus = (d.resolution_status || 'Open').toLowerCase();
+
+      // Status filter
+      if (statusFilter === 'open' && stStatus !== 'open') return false;
+      if (statusFilter === 'resolved' && stStatus !== 'resolved') return false;
+
+      // Search query
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase().trim();
+        const matches = sName.includes(q) || sAdm.includes(q) || sClass.includes(q) || cat.includes(q) || desc.includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    container.innerHTML = `
+      <!-- Page Header with compact responsive typography -->
+      <div class="page-header" style="margin-bottom: 1rem;">
+        <div class="page-title-group">
+          <h2 style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.35rem; font-weight: 800; color: #0F172A; margin: 0; line-height: 1.25;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            Discipline & Incident Register
+          </h2>
+          <p style="font-size: 0.8rem; color: #64748B; margin-top: 0.25rem; line-height: 1.4;">
+            Institutional record of hostel rule violations, black marks ledger, property damage fines, and resolution
+          </p>
+        </div>
+        <div class="page-actions" style="margin-top: 0.35rem;">
+          ${canManage ? `
+            <button class="btn btn-primary" id="btn-log-incident" style="background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Record Disciplinary Incident
+            </button>
+          ` : ''}
         </div>
       </div>
-    </div>
-  `;
 
-  // Log Incident Modal
-  container.querySelector('#btn-log-incident')?.addEventListener('click', () => {
+      <!-- KPI Bento Summary Cards -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0.65rem; margin-bottom: 1rem;">
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.9rem; cursor: pointer;" id="kpi-all-incidents" title="Filter All">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Total Recorded</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #0F172A; margin-top: 2px;">${totalCount}</div>
+          <div style="font-size: 0.7rem; color: #94A3B8; margin-top: 1px;">Documented file(s)</div>
+        </div>
+
+        <div style="background: ${openCount > 0 ? '#FFFBEB' : '#FFFFFF'}; border: 1px solid ${openCount > 0 ? '#FDE68A' : '#E2E8F0'}; border-radius: 12px; padding: 0.75rem 0.9rem; cursor: pointer;" id="kpi-open-incidents" title="Filter Open">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: ${openCount > 0 ? '#B45309' : '#64748B'};">Open Matters</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: ${openCount > 0 ? '#B45309' : '#0F172A'}; margin-top: 2px;">${openCount}</div>
+          <div style="font-size: 0.7rem; color: ${openCount > 0 ? '#D97706' : '#94A3B8'}; margin-top: 1px;">Awaiting resolution</div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.9rem; cursor: pointer;" id="kpi-resolved-incidents" title="Filter Resolved">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #059669;">Resolved</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #059669; margin-top: 2px;">${resolvedCount}</div>
+          <div style="font-size: 0.7rem; color: #94A3B8; margin-top: 1px;">Settled & closed</div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.9rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Black Marks / Fines</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: #DC2626; margin-top: 2px;">+${totalMarks} <span style="font-size: 0.8rem; font-weight: 600; color: #64748B;">marks</span></div>
+          <div style="font-size: 0.7rem; color: #64748B; margin-top: 1px;">${totalFines > 0 ? formatCurrency(totalFines) + ' damage fines' : 'No property fines'}</div>
+        </div>
+      </div>
+
+      <!-- Main Register Panel -->
+      <div class="card-panel" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+        <!-- Panel Header with Search & Filter Tabs -->
+        <div style="padding: 0.85rem 1rem; border-bottom: 1px solid #F1F5F9; display: flex; flex-direction: column; gap: 0.65rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <h3 style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin: 0;">Hostel Misconduct Records</h3>
+              <span class="badge" style="background: #E0E7FF; color: #4338CA; font-size: 0.7rem; font-weight: 800; padding: 2px 7px;">${filtered.length}</span>
+            </div>
+            <!-- Segmented Filter Pills -->
+            <div style="display: inline-flex; background: #F1F5F9; border-radius: 8px; padding: 2px; gap: 2px;">
+              <button type="button" class="btn-filter-status" data-filter="all" style="padding: 0.25rem 0.65rem; font-size: 0.74rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: ${statusFilter === 'all' ? '#FFFFFF' : 'transparent'}; color: ${statusFilter === 'all' ? '#0F172A' : '#64748B'}; box-shadow: ${statusFilter === 'all' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'};">
+                All (${totalCount})
+              </button>
+              <button type="button" class="btn-filter-status" data-filter="open" style="padding: 0.25rem 0.65rem; font-size: 0.74rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: ${statusFilter === 'open' ? '#FFFFFF' : 'transparent'}; color: ${statusFilter === 'open' ? '#B45309' : '#64748B'}; box-shadow: ${statusFilter === 'open' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'};">
+                Open (${openCount})
+              </button>
+              <button type="button" class="btn-filter-status" data-filter="resolved" style="padding: 0.25rem 0.65rem; font-size: 0.74rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: ${statusFilter === 'resolved' ? '#FFFFFF' : 'transparent'}; color: ${statusFilter === 'resolved' ? '#059669' : '#64748B'}; box-shadow: ${statusFilter === 'resolved' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'};">
+                Resolved (${resolvedCount})
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Input -->
+          <div style="position: relative; width: 100%;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none;">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="inc-search-input" value="${searchQuery}" placeholder="Search student name, admission no, class, category, reason..." style="width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.1rem; font-size: 0.8rem; border: 1px solid #E2E8F0; border-radius: 8px; background: #FFFFFF; outline: none; box-sizing: border-box;" />
+          </div>
+        </div>
+
+        <div class="card-panel-body" style="padding: 0;">
+          ${filtered.length === 0 ? `
+            <div style="padding: 2.5rem 1rem; text-align: center; color: #64748B;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              <div style="font-size: 0.92rem; font-weight: 700; color: #1E293B;">No Disciplinary Incidents Found</div>
+              <div style="font-size: 0.78rem; margin-top: 0.25rem;">No records match your active search or filter selection.</div>
+            </div>
+          ` : `
+            <!-- 1. DESKTOP TABLE VIEW (Visible on screens > 768px) -->
+            <div class="table-responsive desktop-table-view" style="overflow-x: auto;">
+              <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Student</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Incident Date</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Category</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Severity</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Description</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Black Marks</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Property Fine</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B;">Resolution Status</th>
+                    <th style="padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #64748B; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filtered.map(d => {
+                    const st = students.find(s => s.id === d.student_id);
+                    const isCrit = d.severity === 'Critical';
+                    const isMaj = d.severity === 'Major';
+                    const sevStyle = isCrit ? 'background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5;' : isMaj ? 'background: #FFF7ED; color: #C2410C; border: 1px solid #FDBA74;' : 'background: #F1F5F9; color: #475569;';
+                    const isRes = (d.resolution_status || '').toLowerCase() === 'resolved';
+                    const resStyle = isRes ? 'background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;' : 'background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A;';
+
+                    return `
+                      <tr style="border-bottom: 1px solid #F1F5F9;">
+                        <td style="padding: 0.75rem 0.85rem;">
+                          <strong style="color: #0F172A;">${st?.full_name || 'Student'}</strong>
+                          <div style="font-size: 0.74rem; color: #64748B;">${st?.admission_number ? st.admission_number + ' • ' : ''}${st?.school_class || ''}</div>
+                        </td>
+                        <td style="padding: 0.75rem 0.85rem; font-size: 0.8rem; color: #334155;">${formatDate(d.incident_date)}</td>
+                        <td style="padding: 0.75rem 0.85rem;"><strong style="font-size: 0.82rem; color: #1E293B;">${d.category}</strong></td>
+                        <td style="padding: 0.75rem 0.85rem;"><span class="badge" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; ${sevStyle}">${d.severity}</span></td>
+                        <td style="padding: 0.75rem 0.85rem; max-width: 220px; font-size: 0.78rem; color: #475569;">${d.description}</td>
+                        <td style="padding: 0.75rem 0.85rem;"><span class="badge badge-black-mark" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px;">+${d.black_marks_awarded} Mark(s)</span></td>
+                        <td style="padding: 0.75rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: ${d.monetary_fine > 0 ? '#DC2626' : '#64748B'};">${d.monetary_fine > 0 ? formatCurrency(d.monetary_fine) : 'None'}</td>
+                        <td style="padding: 0.75rem 0.85rem;"><span class="badge" style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; ${resStyle}">${d.resolution_status || 'Open'}</span></td>
+                        <td style="padding: 0.75rem 0.85rem; text-align: right;">
+                          <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
+                            <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.25rem 0.6rem; font-size: 0.74rem; font-weight: 600; border-radius: 6px;">Details</button>
+                            ${canManage && !isRes ? `
+                              <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.25rem 0.55rem; font-size: 0.74rem; font-weight: 600; border-radius: 6px; color: #059669; border-color: #A7F3D0;">Resolve</button>
+                            ` : ''}
+                            ${canManage ? `
+                              <button class="btn btn-xs btn-outline-danger btn-delete-incident" data-id="${d.id}" style="padding: 0.25rem 0.5rem; font-size: 0.74rem; font-weight: 600; border-radius: 6px; color: #DC2626; border-color: #FCA5A5;" title="Delete Record">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                              </button>
+                            ` : ''}
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 2. MOBILE TOUCH CARD FEED (Visible on mobile screens <= 768px, No Horizontal Scrolling) -->
+            <div class="mobile-card-feed" style="display: none; padding: 0.65rem; flex-direction: column; gap: 0.65rem;">
+              ${filtered.map(d => {
+                const st = students.find(s => s.id === d.student_id);
+                const isCrit = d.severity === 'Critical';
+                const isMaj = d.severity === 'Major';
+                const sevStyle = isCrit ? 'background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5;' : isMaj ? 'background: #FFF7ED; color: #C2410C; border: 1px solid #FDBA74;' : 'background: #F1F5F9; color: #475569;';
+                const isRes = (d.resolution_status || '').toLowerCase() === 'resolved';
+                const resStyle = isRes ? 'background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;' : 'background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A;';
+
+                return `
+                  <div style="background: #FFFFFF; border: 1.5px solid ${isCrit ? '#FECACA' : '#E2E8F0'}; border-radius: 12px; padding: 0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 0.55rem;">
+                    <!-- Top Row: Student & Resolution Badge -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                      <div>
+                        <div style="font-weight: 800; font-size: 0.95rem; color: #0F172A;">${st?.full_name || 'Student'}</div>
+                        <div style="font-size: 0.74rem; color: #64748B; margin-top: 1px;">
+                          ${st?.admission_number ? `<span style="font-family: monospace; font-weight: 600;">${st.admission_number}</span> • ` : ''}${st?.school_class || ''}
+                        </div>
+                      </div>
+                      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+                        <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; ${resStyle}">
+                          ${d.resolution_status || 'Open'}
+                        </span>
+                        <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 500;">${formatDate(d.incident_date)}</span>
+                      </div>
+                    </div>
+
+                    <!-- Category & Severity Badge -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                      <div style="font-weight: 700; font-size: 0.88rem; color: #1E293B;">${d.category}</div>
+                      <span class="badge" style="font-size: 0.7rem; padding: 2px 7px; border-radius: 6px; font-weight: 700; ${sevStyle}">${d.severity}</span>
+                    </div>
+
+                    <!-- Description Snippet -->
+                    ${d.description ? `
+                      <div style="font-size: 0.8rem; color: #475569; background: #F8FAFC; border-radius: 8px; padding: 0.5rem 0.65rem; border: 1px solid #F1F5F9; line-height: 1.45;">
+                        ${d.description}
+                      </div>
+                    ` : ''}
+
+                    <!-- Penalties Strip & Mobile Action Buttons -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.5rem; border-top: 1px solid #F1F5F9; gap: 0.4rem; flex-wrap: wrap;">
+                      <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                        <span class="badge badge-black-mark" style="font-size: 0.72rem; padding: 2px 7px; font-weight: 700;">
+                          +${d.black_marks_awarded} Mark(s)
+                        </span>
+                        ${d.monetary_fine > 0 ? `
+                          <span style="font-size: 0.75rem; font-weight: 700; color: #DC2626; background: #FEF2F2; padding: 2px 7px; border-radius: 6px; border: 1px solid #FCA5A5;">
+                            Fine: ${formatCurrency(d.monetary_fine)}
+                          </span>
+                        ` : ''}
+                      </div>
+
+                      <div style="display: flex; gap: 0.35rem; align-items: center; margin-left: auto;">
+                        <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px;">
+                          Details
+                        </button>
+                        ${canManage && !isRes ? `
+                          <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px; color: #059669; border-color: #A7F3D0;">
+                            Resolve
+                          </button>
+                        ` : ''}
+                        ${canManage ? `
+                          <button class="btn btn-xs btn-outline-danger btn-delete-incident" data-id="${d.id}" style="padding: 0.3rem 0.55rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px; color: #DC2626; border-color: #FCA5A5;" title="Delete Record">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          </button>
+                        ` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+
+    bindEvents();
+  }
+
+  function bindEvents() {
+    // Search input
+    const searchInput = container.querySelector('#inc-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderView();
+        const nextInput = container.querySelector('#inc-search-input');
+        if (nextInput) {
+          nextInput.focus();
+          nextInput.setSelectionRange(searchQuery.length, searchQuery.length);
+        }
+      });
+    }
+
+    // Filter pills
+    container.querySelectorAll('.btn-filter-status').forEach(btn => {
+      btn.addEventListener('click', () => {
+        statusFilter = btn.dataset.filter;
+        renderView();
+      });
+    });
+
+    // KPI card clicks
+    container.querySelector('#kpi-all-incidents')?.addEventListener('click', () => {
+      statusFilter = 'all';
+      renderView();
+    });
+    container.querySelector('#kpi-open-incidents')?.addEventListener('click', () => {
+      statusFilter = 'open';
+      renderView();
+    });
+    container.querySelector('#kpi-resolved-incidents')?.addEventListener('click', () => {
+      statusFilter = 'resolved';
+      renderView();
+    });
+
+    // Record Disciplinary Incident
+    container.querySelector('#btn-log-incident')?.addEventListener('click', () => {
+      openRecordIncidentModal();
+    });
+
+    // View Details
+    container.querySelectorAll('.btn-view-incident').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        openIncidentDetailsModal(id);
+      });
+    });
+
+    // Quick Resolve
+    container.querySelectorAll('.btn-resolve-incident').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        openResolveIncidentModal(id);
+      });
+    });
+
+    // Delete Incident
+    container.querySelectorAll('.btn-delete-incident').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        confirmDeleteIncident(id);
+      });
+    });
+  }
+
+  // -------------------------------------------------------------
+  // MODAL: RECORD DISCIPLINARY INCIDENT
+  // -------------------------------------------------------------
+  function openRecordIncidentModal() {
     openModal({
       title: 'Record Disciplinary Incident',
       size: 'lg',
       contentHtml: `
-        <div class="form-grid" style="margin-bottom: 1rem;">
+        <div class="form-grid" style="margin-bottom: 0.85rem;">
           <div class="form-group">
             <label class="form-label required">Student Involved</label>
-            <select id="inc-student" class="form-control">
-              ${scopedStudents.map(s => `<option value="${s.id}">${s.full_name} (${s.admission_number}) — ${s.school_class}</option>`).join('')}
+            <select id="inc-student" class="form-control" style="font-size: 0.85rem;">
+              ${scopedStudents.map(s => `<option value="${s.id}">${s.full_name} (${s.admission_number || 'No ID'}) — ${s.school_class || 'Hostel'}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label required">Violation Category</label>
-            <select id="inc-category" class="form-control">
+            <select id="inc-category" class="form-control" style="font-size: 0.85rem;">
               <option value="Leaving hostel without permission">Leaving hostel without permission (Major, 3 Marks)</option>
               <option value="Returning late without permission">Returning late without permission (Moderate, 2 Marks)</option>
               <option value="Breaking window glass">Breaking window glass (Property Damage, 2 Marks)</option>
@@ -131,7 +419,7 @@ export async function renderDisciplineModule(container, { onNavigate }) {
             </select>
           </div>
         </div>
-        <div class="form-grid" style="margin-bottom: 1rem;">
+        <div class="form-grid" style="margin-bottom: 0.85rem;">
           <div class="form-group">
             <label class="form-label required">Incident Date</label>
             <input type="date" id="inc-date" class="form-control" value="${new Date().toISOString().split('T')[0]}" required />
@@ -146,91 +434,263 @@ export async function renderDisciplineModule(container, { onNavigate }) {
             </select>
           </div>
         </div>
-        <div class="form-grid" style="margin-bottom: 1rem;">
+        <div class="form-grid" style="margin-bottom: 0.85rem;">
           <div class="form-group">
             <label class="form-label required">Black Marks to Award</label>
             <input type="number" id="inc-marks" class="form-control" value="2" min="1" max="10" required />
           </div>
           <div class="form-group">
             <label class="form-label">Property Damage Fine (₹) if applicable</label>
-            <input type="number" id="inc-fine" class="form-control" value="0" min="0" />
+            <input type="number" id="inc-fine" class="form-control" value="0" min="0" placeholder="0" />
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.85rem;">
           <label class="form-label required">Incident Description & Location</label>
           <textarea id="inc-desc" class="form-control" rows="2" placeholder="Describe the incident, exact location, and circumstances" required></textarea>
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
           <label class="form-label">Action Taken / Disciplinary Decision</label>
           <input type="text" id="inc-action" class="form-control" placeholder="e.g. Property repair cost levied, phone confiscated for 7 days" />
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-          <button class="btn btn-primary" id="btn-save-incident">Log Incident & Apply Black Marks</button>
+          <button class="btn btn-primary" id="btn-save-incident" style="background: #059669; border-color: #059669; font-weight: 700;">
+            Log Incident & Apply Black Marks
+          </button>
         </div>
       `,
       onMount: ({ container: modalBody, close }) => {
-        modalBody.querySelector('#btn-save-incident').addEventListener('click', async () => {
-          const sid = modalBody.querySelector('#inc-student').value;
-          const category = modalBody.querySelector('#inc-category').value;
-          const incident_date = modalBody.querySelector('#inc-date').value;
-          const severity = modalBody.querySelector('#inc-severity').value;
-          const marks = modalBody.querySelector('#inc-marks').value;
-          const fine = modalBody.querySelector('#inc-fine').value;
-          const desc = modalBody.querySelector('#inc-desc').value.trim();
-          const action = modalBody.querySelector('#inc-action').value.trim();
+        modalBody.querySelector('#btn-save-incident')?.addEventListener('click', async () => {
+          const sid = modalBody.querySelector('#inc-student')?.value;
+          const category = modalBody.querySelector('#inc-category')?.value;
+          const incident_date = modalBody.querySelector('#inc-date')?.value;
+          const severity = modalBody.querySelector('#inc-severity')?.value;
+          const marks = modalBody.querySelector('#inc-marks')?.value;
+          const fine = modalBody.querySelector('#inc-fine')?.value;
+          const desc = modalBody.querySelector('#inc-desc')?.value.trim();
+          const action = modalBody.querySelector('#inc-action')?.value.trim();
 
           if (!desc) {
             toast.error('Please enter an incident description.');
             return;
           }
 
-          await db.logDisciplineIncident({
-            student_id: sid,
-            category,
-            severity,
-            incident_date,
-            description: desc,
-            black_marks: marks,
-            fine,
-            action_taken: action || 'Documented on record',
-            reported_by: user?.full_name || 'Staff'
-          });
+          try {
+            await db.logDisciplineIncident({
+              student_id: sid,
+              category,
+              severity,
+              incident_date,
+              description: desc,
+              black_marks: marks,
+              fine,
+              action_taken: action || 'Documented on record',
+              reported_by: user?.full_name || 'Staff'
+            });
 
-          toast.success('Disciplinary incident recorded and black mark ledger updated.');
-          close();
-          renderDisciplineModule(container, { onNavigate });
+            toast.success('Disciplinary incident recorded and black mark ledger updated.');
+            close();
+            await reloadData();
+            renderView();
+          } catch (err) {
+            toast.error(err.message || 'Error recording incident');
+          }
         });
       }
     });
-  });
+  }
 
-  // Incident Details Modal
-  container.querySelectorAll('.btn-view-incident').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-id');
-      const d = displayIncidents.find(item => item.id === id);
-      const student = students.find(s => s.id === d?.student_id);
+  // -------------------------------------------------------------
+  // MODAL: INCIDENT DETAILS & ACTIONS
+  // -------------------------------------------------------------
+  function openIncidentDetailsModal(id) {
+    const d = displayIncidents.find(item => item.id === id);
+    if (!d) return;
+    const student = students.find(s => s.id === d.student_id);
+    const isRes = (d.resolution_status || '').toLowerCase() === 'resolved';
 
-      openModal({
-        title: `Disciplinary Incident Details — ${student?.full_name}`,
-        contentHtml: `
-          <div style="font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary);">
-            <div>Category: <strong style="color: var(--text-primary);">${d.category}</strong></div>
-            <div>Date: <strong>${formatDate(d.incident_date)}</strong> • Severity: <strong>${d.severity}</strong></div>
-            <div>Reported By: <strong>${d.reported_by || 'Staff'}</strong></div>
-            <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--bg-surface-subtle); border-radius: var(--radius-md);">
-              <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Description:</span>
-              <p style="color: var(--text-primary); margin-top: 0.25rem;">${d.description}</p>
+    openModal({
+      title: `Disciplinary Incident — ${student?.full_name || 'Student'}`,
+      contentHtml: `
+        <div style="font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.75rem;">
+          <!-- Student & Date Card -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <strong style="color: #0F172A; font-size: 1rem;">${student?.full_name || 'Student'}</strong>
+              <div style="font-size: 0.75rem; color: #64748B;">${student?.admission_number ? student.admission_number + ' • ' : ''}${student?.school_class || 'Hostel Student'}</div>
             </div>
-            <div style="margin-top: 0.75rem;">
-              <div>Black Marks Awarded: <span class="badge badge-black-mark">+${d.black_marks_awarded}</span></div>
-              <div>Property Fine: <strong>${d.monetary_fine > 0 ? formatCurrency(d.monetary_fine) : 'None'}</strong></div>
-              <div>Action Taken: <strong>${d.action_taken || 'Under review'}</strong></div>
-              <div>Resolution Status: <span class="badge badge-active">${d.resolution_status}</span></div>
+            <div style="text-align: right;">
+              <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; ${isRes ? 'background: #ECFDF5; color: #047857;' : 'background: #FFFBEB; color: #B45309;'}">
+                ${d.resolution_status || 'Open'}
+              </span>
+              <div style="font-size: 0.74rem; color: #94A3B8; margin-top: 2px;">${formatDate(d.incident_date)}</div>
             </div>
           </div>
-        `
-      });
+
+          <!-- Category & Severity Details -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.82rem;">
+            <div>Category: <strong style="color: #0F172A;">${d.category}</strong></div>
+            <div>Severity: <strong style="color: #0F172A;">${d.severity}</strong></div>
+            <div>Reported By: <strong>${d.reported_by || 'Staff'}</strong></div>
+            <div>Resolution: <strong>${d.resolution_status || 'Open'}</strong></div>
+          </div>
+
+          <!-- Description -->
+          <div style="padding: 0.75rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+            <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Description & Circumstances:</span>
+            <p style="color: #1E293B; margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.5;">${d.description || 'No description provided'}</p>
+          </div>
+
+          <!-- Penalties & Action Taken -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; display: flex; flex-direction: column; gap: 0.35rem;">
+            <div>Black Marks Awarded: <span class="badge badge-black-mark" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px;">+${d.black_marks_awarded}</span></div>
+            <div>Property Damage Fine: <strong style="color: ${d.monetary_fine > 0 ? '#DC2626' : '#64748B'};">${d.monetary_fine > 0 ? formatCurrency(d.monetary_fine) : 'None'}</strong></div>
+            <div>Action Taken: <strong style="color: #1E293B;">${d.action_taken || 'Documented on record'}</strong></div>
+            ${d.resolution_notes ? `<div>Resolution Notes: <em>"${d.resolution_notes}"</em></div>` : ''}
+          </div>
+
+          <!-- Actions Footer -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E2E8F0; padding-top: 0.75rem; margin-top: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              ${canManage ? `
+                <button type="button" class="btn btn-outline-danger btn-xs" id="btn-modal-delete-inc" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border-radius: 7px; padding: 0.35rem 0.65rem;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  Delete Incident
+                </button>
+              ` : ''}
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button type="button" class="btn btn-outline" id="btn-modal-close-inc">Close</button>
+              ${canManage && !isRes ? `
+                <button type="button" class="btn btn-success" id="btn-modal-resolve-inc" style="background: #059669; border-color: #059669; font-weight: 700; color: #FFFFFF;">
+                  Mark as Resolved
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        modalBody.querySelector('#btn-modal-close-inc')?.addEventListener('click', close);
+
+        modalBody.querySelector('#btn-modal-resolve-inc')?.addEventListener('click', () => {
+          close();
+          openResolveIncidentModal(id);
+        });
+
+        modalBody.querySelector('#btn-modal-delete-inc')?.addEventListener('click', () => {
+          close();
+          confirmDeleteIncident(id);
+        });
+      }
     });
-  });
+  }
+
+  // -------------------------------------------------------------
+  // MODAL: RESOLVE INCIDENT
+  // -------------------------------------------------------------
+  function openResolveIncidentModal(id) {
+    const d = displayIncidents.find(item => item.id === id);
+    if (!d) return;
+    const student = students.find(s => s.id === d.student_id);
+
+    openModal({
+      title: `Resolve Incident — ${student?.full_name || 'Student'}`,
+      size: 'sm',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <p style="font-size: 0.85rem; color: #475569; margin: 0;">
+            Mark violation <strong>"${d.category}"</strong> for <strong>${student?.full_name || 'Student'}</strong> as resolved.
+          </p>
+          <div class="form-group">
+            <label class="form-label">Resolution Notes / Corrective Outcome</label>
+            <textarea id="resolve-notes" class="form-control" rows="2" placeholder="e.g. Apology letter submitted, parental counseling completed, fine cleared."></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-outline" id="btn-cancel-resolve">Cancel</button>
+            <button type="button" class="btn btn-success" id="btn-confirm-resolve" style="background: #059669; border-color: #059669; font-weight: 700; color: #FFFFFF;">
+              Mark Resolved
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        modalBody.querySelector('#btn-cancel-resolve')?.addEventListener('click', close);
+        modalBody.querySelector('#btn-confirm-resolve')?.addEventListener('click', async () => {
+          const notes = modalBody.querySelector('#resolve-notes')?.value.trim();
+          close();
+          try {
+            await db.updateDisciplineIncident(id, {
+              resolution_status: 'Resolved',
+              resolution_notes: notes || 'Resolved by warden/admin',
+              resolved_at: new Date().toISOString(),
+              resolved_by: user?.full_name || 'Staff'
+            });
+            toast.success('Disciplinary incident marked as resolved.');
+            await reloadData();
+            renderView();
+          } catch (err) {
+            toast.error(err.message || 'Error resolving incident');
+          }
+        });
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // CONFIRM DELETE INCIDENT
+  // -------------------------------------------------------------
+  function confirmDeleteIncident(id) {
+    const d = displayIncidents.find(item => item.id === id);
+    if (!d) return;
+    const student = students.find(s => s.id === d.student_id);
+
+    const { container: deleteModal, close: closeDeleteModal } = openModal({
+      title: 'Delete Disciplinary Record',
+      size: 'sm',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+          <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
+            <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              Permanent Data Deletion
+            </div>
+            <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
+              Are you sure you want to permanently delete this disciplinary record for <strong>${student?.full_name || 'Student'}</strong>?
+            </p>
+            <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
+              This will completely wipe the incident, reverse the awarded black marks (${d.black_marks_awarded} marks) from the student ledger, and cancel any associated property damage fine.
+            </p>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-outline" id="btn-cancel-del-inc">Cancel</button>
+            <button type="button" class="btn btn-danger" id="btn-confirm-del-inc" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
+              Delete Permanently
+            </button>
+          </div>
+        </div>
+      `
+    });
+
+    deleteModal?.querySelector('#btn-cancel-del-inc')?.addEventListener('click', closeDeleteModal);
+    deleteModal?.querySelector('#btn-confirm-del-inc')?.addEventListener('click', async () => {
+      closeDeleteModal();
+      try {
+        await db.deleteDisciplineIncident(id);
+        toast.success('Incident deleted and penalties reversed successfully.');
+        await reloadData();
+        renderView();
+      } catch (err) {
+        if (err.message && err.message.toLowerCase().includes('not found')) {
+          await reloadData();
+          renderView();
+          return;
+        }
+        toast.error(err.message || 'Error deleting incident record');
+      }
+    });
+  }
+
+  // Initial render
+  renderView();
 }

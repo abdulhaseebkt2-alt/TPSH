@@ -2924,6 +2924,56 @@ class DatabaseService {
     return newInc;
   }
 
+
+  async updateDisciplineIncident(incident_id, updates = {}) {
+    const incidents = this.get('tps_discipline') || [];
+    const idx = incidents.findIndex(d => d.id === incident_id);
+    if (idx < 0) {
+      throw new Error('Discipline incident not found');
+    }
+    incidents[idx] = {
+      ...incidents[idx],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    this.set('tps_discipline', incidents);
+    this.logAudit('UPDATE_INCIDENT', 'discipline_incidents', incident_id, 'Updated incident status/details');
+    return incidents[idx];
+  }
+
+  async deleteDisciplineIncident(incident_id) {
+    const incidents = this.get('tps_discipline') || [];
+    const idx = incidents.findIndex(d => d.id === incident_id);
+    if (idx < 0) {
+      throw new Error('Discipline incident not found');
+    }
+    const [deleted] = incidents.splice(idx, 1);
+    this.set('tps_discipline', incidents);
+
+    // Roll back student black marks
+    if (deleted.student_id && deleted.black_marks_awarded > 0) {
+      const students = this.get('tps_students') || [];
+      const sidx = students.findIndex(s => s.id === deleted.student_id);
+      if (sidx >= 0) {
+        students[sidx].black_marks = Math.max(0, (students[sidx].black_marks || 0) - deleted.black_marks_awarded);
+        this.set('tps_students', students);
+      }
+    }
+
+    // Remove associated fine if any
+    const fines = this.get('tps_fines') || [];
+    const filteredFines = fines.filter(f => f.incident_id !== incident_id);
+    this.set('tps_fines', filteredFines);
+
+    // Remove associated black mark ledger entry
+    const blackMarks = this.get('tps_black_marks') || [];
+    const filteredBM = blackMarks.filter(bm => bm.incident_id !== incident_id);
+    this.set('tps_black_marks', filteredBM);
+
+    this.logAudit('DELETE_INCIDENT', 'discipline_incidents', incident_id, `Deleted incident ${incident_id} and reversed penalties`);
+    return deleted;
+  }
+
   // --- EXAMINATIONS & MARKS ---
   async getExams() {
     return this.get('tps_exams');

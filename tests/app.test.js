@@ -6648,5 +6648,61 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       await db.deleteStudent(student.id);
     });
+
+    it('renders responsive mobile card feed and desktop table in discipline module, and supports resolve/delete', async () => {
+      const student = await db.addStudent({
+        full_name: 'Discipline Test Resident',
+        gender: 'Boys',
+        school_class: 'STD-VII',
+        status: 'Active',
+        dob: '2012-05-10',
+        father_name: 'Father',
+        father_phone: '+91 97777 88888'
+      });
+
+      const incident = await db.logDisciplineIncident({
+        student_id: student.id,
+        category: 'Violating hostel silence hours',
+        severity: 'Minor',
+        incident_date: '2026-11-01',
+        description: 'Loud talking after lights out',
+        black_marks: 1,
+        fine: 20,
+        action_taken: 'Verbal warning',
+        reported_by: 'Night Warden'
+      });
+
+      expect(incident.id).toBeDefined();
+      expect(incident.resolution_status).toBe('Open');
+
+      // Render module
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderDisciplineModule(container, { onNavigate: () => {} });
+      const html = container.innerHTML;
+
+      // Must contain responsive desktop table and mobile card feed
+      expect(html).toContain('desktop-table-view');
+      expect(html).toContain('mobile-card-feed');
+      expect(html).toContain('Discipline & Incident Register');
+      expect(html).toContain('Discipline Test Resident');
+      expect(html).toContain('Violating hostel silence hours');
+      expect(html).toContain('+1 Mark(s)');
+
+      // Resolve incident
+      const resolved = await db.updateDisciplineIncident(incident.id, {
+        resolution_status: 'Resolved',
+        resolution_notes: 'Apology accepted'
+      });
+      expect(resolved.resolution_status).toBe('Resolved');
+
+      // Delete incident and ensure black marks are reversed
+      const deleted = await db.deleteDisciplineIncident(incident.id);
+      expect(deleted.id).toBe(incident.id);
+
+      const stAfter = (await db.getStudents()).find(s => s.id === student.id);
+      expect(stAfter.black_marks || 0).toBe(0);
+
+      await db.deleteStudent(student.id);
+    });
   });
 });

@@ -8814,19 +8814,23 @@ body.tps-wheel-open {
   #app-content {
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 8px) !important;
   }
-  .desktop-leave-table {
+  .desktop-leave-table,
+  .desktop-table-view {
     display: none !important;
   }
-  .mobile-leave-cards {
+  .mobile-leave-cards,
+  .mobile-card-feed {
     display: flex !important;
   }
 }
 
 @media (min-width: 769px) {
-  .desktop-leave-table {
+  .desktop-leave-table,
+  .desktop-table-view {
     display: block !important;
   }
-  .mobile-leave-cards {
+  .mobile-leave-cards,
+  .mobile-card-feed {
     display: none !important;
   }
 }
