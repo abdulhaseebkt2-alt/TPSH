@@ -314,6 +314,15 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
           // If not returned yet (Approved, Away, Overdue)
           if (dateStr >= departs) {
+            // If dateStr is today and equals departure date, check if departure time has arrived
+            if (dateStr === todayIso && dateStr === departs) {
+              const depTime = (l.departure_time || l.leaving_time || '16:00').substring(0, 5);
+              const departDateTime = new Date(`${departs}T${depTime}:00`);
+              const now = new Date();
+              if (departDateTime && !isNaN(departDateTime.getTime()) && now < departDateTime) {
+                return false; // Student is still on campus attending class until departure time
+              }
+            }
             const expectedReturn = l.expected_return_date;
             if (expectedReturn && dateStr > expectedReturn && status !== 'overdue' && status !== 'away' && status !== 'approved') {
               return false;
@@ -328,7 +337,11 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
     // Direct student profile status flag fallback (only if date matches today and profile specifically marked)
     if (s.status === 'On Approved Leave' && (dateStr === todayIso || !dateStr)) {
-      return true;
+      const studentLeaves = (Array.isArray(leaves) ? leaves : []).filter(l => 
+        l.student_id === s.id || (Array.isArray(l.student_ids) && l.student_ids.includes(s.id))
+      );
+      // If student has explicit leave records, let those records govern rather than a stale flag
+      if (studentLeaves.length === 0) return true;
     }
 
     return false;

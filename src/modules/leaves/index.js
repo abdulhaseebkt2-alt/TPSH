@@ -296,6 +296,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     const isPend = (l.status || '').toLowerCase() === 'pending';
                     const isOverdue = isLeaveOverdue(l);
                     const isRet = !isRej && (l.status === 'Returned' || unretCount === 0);
+                    const departs = l.departure_date || l.leaving_date;
+                    const todayIso = new Date().toISOString().split('T')[0];
+                    const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
                     const code = l.leave_code || l.leave_register_number || 'LV-2026';
                     const typeDisplay = (l.leave_type || 'Hostel Leave').replace(/_/g, ' ');
                     const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
@@ -334,6 +337,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                             <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                               Rejected
                             </span>
+                          ` : isUpcoming ? `
+                            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                              Approved (Upcoming)
+                            </span>
                           ` : `
                             <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
                               ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
@@ -351,8 +358,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                               <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Reject or cancel leave pass">
                                 Reject
                               </button>
+                              <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Edit requested date & time schedule">
+                                Edit
+                              </button>
                             ` : ''}
-                            ${!isPend && !isRej && unretCount > 0 && canRecordReturn ? `
+                            ${!isPend && !isRej && !isUpcoming && unretCount > 0 && canRecordReturn ? `
                               <button class="btn btn-xs btn-outline-success btn-record-arrival-action btn-checkin-return" data-id="${l.id}" title="Record arrival for students on this pass" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; color: #059669; border-color: #A7F3D0; background: #ECFDF5;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
                                 Arrival (${unretCount})
@@ -383,6 +393,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const isPend = (l.status || '').toLowerCase() === 'pending';
                 const isOverdue = isLeaveOverdue(l);
                 const isRet = !isRej && (l.status === 'Returned' || unretCount === 0);
+                const departs = l.departure_date || l.leaving_date;
+                const todayIso = new Date().toISOString().split('T')[0];
+                const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
                 const code = l.leave_code || l.leave_register_number || 'LV-2026';
                 const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
                 const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
@@ -401,6 +414,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       ` : isRej ? `
                         <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                           Rejected
+                        </span>
+                      ` : isUpcoming ? `
+                        <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+                          Approved (Upcoming)
                         </span>
                       ` : `
                         <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
@@ -441,8 +458,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
                             Reject
                           </button>
+                          <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Edit requested date & time schedule">
+                            Edit
+                          </button>
                         ` : ''}
-                        ${!isPend && !isRej && unretCount > 0 && canRecordReturn ? `
+                        ${!isPend && !isRej && !isUpcoming && unretCount > 0 && canRecordReturn ? `
                           <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.3rem 0.7rem; font-weight: 700; font-size: 0.75rem;">
                             Arrival (${unretCount})
                           </button>
@@ -537,9 +557,34 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             <div style="display: flex; flex-direction: column; gap: 0.85rem;">
               <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.85rem; font-size: 0.85rem; line-height: 1.5;">
                 <div><strong>Student:</strong> ${studentNames}</div>
-                <div><strong>Period:</strong> ${formatDate(leave.departure_date)} ${leave.departure_time || ''} → ${formatDate(leave.expected_return_date)} ${leave.expected_return_time || ''}</div>
                 <div><strong>Reason:</strong> ${leave.reason}</div>
                 ${leave.requested_by ? `<div><strong>Requested By:</strong> ${leave.requested_by} • Phone: ${leave.parent_phone || 'N/A'}</div>` : ''}
+              </div>
+
+              <!-- Editable Schedule Fields for Admin/Warden Approval -->
+              <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 12px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="font-weight: 700; color: #166534; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 5px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  Adjust Departure & Return Schedule (If Needed)
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 700; color: #374151;">Departure Date *</label>
+                    <input type="date" id="approve-dep-date" class="form-control" value="${leave.departure_date || leave.leaving_date || ''}" style="height: 36px; font-size: 0.85rem;" required />
+                  </div>
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 700; color: #374151;">Departure Time *</label>
+                    <input type="time" id="approve-dep-time" class="form-control" value="${leave.departure_time || leave.leaving_time || '16:00'}" style="height: 36px; font-size: 0.85rem;" required />
+                  </div>
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 700; color: #374151;">Expected Return Date *</label>
+                    <input type="date" id="approve-ret-date" class="form-control" value="${leave.expected_return_date || ''}" style="height: 36px; font-size: 0.85rem;" required />
+                  </div>
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 700; color: #374151;">Expected Return Time *</label>
+                    <input type="time" id="approve-ret-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 36px; font-size: 0.85rem;" required />
+                  </div>
+                </div>
               </div>
 
               <div class="form-group" style="margin: 0;">
@@ -552,7 +597,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <span style="font-size: 0.8rem; color: #64748B;">/ hour late</span>
                 </div>
                 <p style="font-size: 0.74rem; color: #64748B; margin-top: 0.25rem;">
-                  Late fine will be calculated hourly if student returns after ${leave.expected_return_date} ${leave.expected_return_time || '18:00'}.
+                  Late fine will be calculated hourly if student returns after expected return schedule.
                 </p>
               </div>
 
@@ -569,10 +614,19 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         modal.querySelector('#btn-cancel-approve')?.addEventListener('click', close);
         modal.querySelector('#btn-confirm-approve')?.addEventListener('click', async () => {
           const fineRateVal = Number(modal.querySelector('#approve-fine-rate')?.value) || 50;
+          const depDateVal = modal.querySelector('#approve-dep-date')?.value || leave.departure_date;
+          const depTimeVal = modal.querySelector('#approve-dep-time')?.value || leave.departure_time;
+          const retDateVal = modal.querySelector('#approve-ret-date')?.value || leave.expected_return_date;
+          const retTimeVal = modal.querySelector('#approve-ret-time')?.value || leave.expected_return_time;
+
           try {
             await db.approveLeaveRecord(leave.id, {
               approved_by: user?.full_name || 'Hostel Warden',
-              fine_per_hour: fineRateVal
+              fine_per_hour: fineRateVal,
+              departure_date: depDateVal,
+              departure_time: depTimeVal,
+              expected_return_date: retDateVal,
+              expected_return_time: retTimeVal
             });
             toast.success(`Leave request approved at ₹${fineRateVal}/hr overdue fine rate.`);
             close();
@@ -685,6 +739,123 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         printLeavePassSlip(leaveId);
       });
     });
+
+    container.querySelectorAll('.btn-edit-leave').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const leaveId = btn.dataset.id;
+        openEditLeaveScheduleModal(leaveId);
+      });
+    });
+  }
+
+  // -------------------------------------------------------------
+  // MODAL: EDIT LEAVE SCHEDULE (DATES, TIMES, REASON)
+  // -------------------------------------------------------------
+  function openEditLeaveScheduleModal(leaveId) {
+    const leave = leaves.find(l => l.id === leaveId);
+    if (!leave) return;
+
+    const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
+    const studentNames = sIds.map(sid => (allStudents || students || []).find(s => s.id === sid)?.full_name || 'Student').join(', ') || leave.student_name || 'Student';
+
+    const { container: modal, close } = openModal({
+      title: `Edit Leave Schedule — ${leave.leave_code || leave.leave_register_number || 'Pass'}`,
+      size: 'md',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.85rem; font-size: 0.85rem; line-height: 1.5;">
+            <div><strong>Student:</strong> ${studentNames}</div>
+            <div><strong>Pass Code:</strong> <code>${leave.leave_code || leave.leave_register_number}</code></div>
+            <div><strong>Status:</strong> <span class="badge ${leave.status === 'Approved' ? 'badge-success' : leave.status === 'Pending' ? 'badge-warning' : 'badge-secondary'}">${leave.status}</span></div>
+            ${leave.requested_by ? `<div><strong>Requested By:</strong> ${leave.requested_by} • Tel: ${leave.parent_phone || 'N/A'}</div>` : ''}
+          </div>
+
+          <!-- Schedule Edit Grid -->
+          <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 12px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.65rem;">
+            <div style="font-weight: 700; color: #1E40AF; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Modify Requested Dates & Times
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Date *</label>
+                <input type="date" id="edit-dep-date" class="form-control" value="${leave.departure_date || leave.leaving_date || ''}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Time *</label>
+                <input type="time" id="edit-dep-time" class="form-control" value="${leave.departure_time || leave.leaving_time || '16:00'}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Date *</label>
+                <input type="date" id="edit-ret-date" class="form-control" value="${leave.expected_return_date || ''}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Time *</label>
+                <input type="time" id="edit-ret-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.76rem; font-weight: 700; color: #0F172A;">Per-Hour Overdue Fine Rate (₹/hr)</label>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span style="font-weight: 700; color: #475569;">₹</span>
+              <input type="number" id="edit-fine-rate" class="form-control" value="${leave.fine_per_hour || 50}" min="0" step="5" style="height: 38px; font-size: 0.85rem; max-width: 120px;" />
+              <span style="font-size: 0.78rem; color: #64748B;">/ hour late</span>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.76rem; font-weight: 700; color: #0F172A;">Reason / Purpose of Leave</label>
+            <input type="text" id="edit-leave-reason" class="form-control" value="${leave.reason || ''}" placeholder="Specify purpose..." style="height: 38px; font-size: 0.85rem;" />
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-outline" id="btn-cancel-edit-leave">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-save-edit-leave" style="background: #2563EB; border-color: #2563EB; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Save Schedule Changes
+            </button>
+          </div>
+        </div>
+      `
+    });
+
+    modal.querySelector('#btn-cancel-edit-leave')?.addEventListener('click', close);
+    modal.querySelector('#btn-save-edit-leave')?.addEventListener('click', async () => {
+      const depDate = modal.querySelector('#edit-dep-date')?.value;
+      const depTime = modal.querySelector('#edit-dep-time')?.value;
+      const retDate = modal.querySelector('#edit-ret-date')?.value;
+      const retTime = modal.querySelector('#edit-ret-time')?.value;
+      const fineRate = Number(modal.querySelector('#edit-fine-rate')?.value) || 50;
+      const reasonVal = modal.querySelector('#edit-leave-reason')?.value?.trim();
+
+      if (!depDate || !retDate) {
+        toast.error('Departure and Expected Return dates are required.');
+        return;
+      }
+
+      try {
+        await db.updateLeaveRecord(leave.id, {
+          departure_date: depDate,
+          departure_time: depTime,
+          expected_return_date: retDate,
+          expected_return_time: retTime,
+          fine_per_hour: fineRate,
+          reason: reasonVal || leave.reason
+        });
+        toast.success(`Leave schedule updated successfully for ${leave.leave_code || 'pass'}.`);
+        close();
+        const updatedLeaves = await db.getLeaves(true);
+        const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
+        leaves.length = 0;
+        leaves.push(...reFiltered);
+        renderView();
+      } catch (err) {
+        toast.error(err.message || 'Error updating leave');
+      }
+    });
   }
 
   // -------------------------------------------------------------
@@ -702,8 +873,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
       // If leave departure is in the future, student has not departed yet (still in hostel)
       const departs = l.departure_date || l.leaving_date;
-      const todayIso = new Date().toISOString().split('T')[0];
-      if (departs && departs > todayIso) {
+      const depTime = (l.departure_time || l.leaving_time || '16:00').substring(0, 5);
+      const departDateTime = departs ? new Date(`${departs}T${depTime}:00`) : null;
+      const now = new Date();
+      if (departDateTime && !isNaN(departDateTime.getTime()) && now < departDateTime) {
         return;
       }
 

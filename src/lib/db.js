@@ -2155,10 +2155,16 @@ class DatabaseService {
       created_at: new Date().toISOString()
     };
 
-    // If already active/away, update each student status to On Approved Leave
+    // If already active/away, update each student status to On Approved Leave only if departure has arrived
     if (effectiveStatus !== 'Pending') {
-      for (const sid of sIds) {
-        await this.updateStudent(sid, { status: 'On Approved Leave' });
+      const depDate = departure_date || primaryRec.departure_date;
+      const depTime = (departure_time || primaryRec.departure_time || '16:00').substring(0, 5);
+      const departDateTime = depDate ? new Date(`${depDate}T${depTime}:00`) : null;
+      const now = new Date();
+      if (departDateTime && !isNaN(departDateTime.getTime()) && now >= departDateTime) {
+        for (const sid of sIds) {
+          await this.updateStudent(sid, { status: 'On Approved Leave' });
+        }
       }
     }
 
@@ -2168,7 +2174,7 @@ class DatabaseService {
     return [primaryRec];
   }
 
-  async approveLeaveRecord(leave_id, { approved_by = 'Hostel Warden', fine_per_hour = 50 } = {}) {
+  async approveLeaveRecord(leave_id, { approved_by = 'Hostel Warden', fine_per_hour = 50, departure_date, departure_time, expected_return_date, expected_return_time } = {}) {
     await this.pullCloudKeys(['tps_leaves'], true);
     const leaves = this.get('tps_leaves');
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
@@ -2184,18 +2190,81 @@ class DatabaseService {
     leave.fine_per_day = (Number(fine_per_hour) || 50) * 24;
     leave.fine_per_day_applied = (Number(fine_per_hour) || 50) * 24;
 
+    if (departure_date) {
+      leave.departure_date = departure_date;
+      leave.leaving_date = departure_date;
+    }
+    if (departure_time) {
+      leave.departure_time = departure_time;
+      leave.leaving_time = departure_time;
+    }
+    if (expected_return_date) leave.expected_return_date = expected_return_date;
+    if (expected_return_time) leave.expected_return_time = expected_return_time;
+
     const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
     const departs = leave.departure_date || leave.leaving_date;
     const todayIso = new Date().toISOString().split('T')[0];
     // Only mark student profile "On Approved Leave" if leave starts today or earlier; future leaves remain Active
     if (departs && departs <= todayIso) {
       for (const sid of sIds) {
-        await this.updateStudent(sid, { status: 'On Approved Leave' });
+        if (sid) await this.updateStudent(sid, { status: 'On Approved Leave' });
+      }
+    } else {
+      for (const sid of sIds) {
+        if (sid) await this.updateStudent(sid, { status: 'Active' });
       }
     }
 
     await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('APPROVE_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} approved by ${approved_by} at ₹${fine_per_hour}/hr fine rate`);
+    return leave;
+  }
+
+  async updateLeaveRecord(leave_id, updates = {}) {
+    await this.pullCloudKeys(['tps_leaves'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+
+    const leave = leaves[idx];
+    if (updates.departure_date !== undefined) {
+      leave.departure_date = updates.departure_date;
+      leave.leaving_date = updates.departure_date;
+    }
+    if (updates.departure_time !== undefined) {
+      leave.departure_time = updates.departure_time;
+      leave.leaving_time = updates.departure_time;
+    }
+    if (updates.expected_return_date !== undefined) leave.expected_return_date = updates.expected_return_date;
+    if (updates.expected_return_time !== undefined) leave.expected_return_time = updates.expected_return_time;
+    if (updates.fine_per_hour !== undefined) {
+      leave.fine_per_hour = Number(updates.fine_per_hour) || 50;
+      leave.fine_per_hour_applied = Number(updates.fine_per_hour) || 50;
+      leave.fine_per_day = (Number(updates.fine_per_hour) || 50) * 24;
+      leave.fine_per_day_applied = (Number(updates.fine_per_hour) || 50) * 24;
+    }
+    if (updates.reason !== undefined) leave.reason = updates.reason;
+    if (updates.leave_type !== undefined) leave.leave_type = updates.leave_type;
+    leave.updated_at = new Date().toISOString();
+
+    // If leave is approved, update student presence status based on modified dates
+    if (leave.status === 'Approved') {
+      const departs = leave.departure_date || leave.leaving_date;
+      const todayIso = new Date().toISOString().split('T')[0];
+      const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
+      if (departs && departs <= todayIso) {
+        for (const sid of sIds) {
+          if (sid) await this.updateStudent(sid, { status: 'On Approved Leave' });
+        }
+      } else {
+        for (const sid of sIds) {
+          if (sid) await this.updateStudent(sid, { status: 'Active' });
+        }
+      }
+    }
+
+    await this.pushCloudKey('tps_leaves', leaves);
+    this.logAudit('UPDATE_LEAVE', 'student_leave_records', leave_id, `Updated schedule for leave ${leave.leave_code}`);
     return leave;
   }
 

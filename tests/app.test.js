@@ -5681,5 +5681,130 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', existingLeaves);
       await db.deleteStudent(student.id);
     });
+
+    it('2519. Edit Leave Schedule: allows admins to edit requested departure/return dates and times, and adjust schedule during approval', async () => {
+      const adminUser = {
+        id: 'u-admin-2519',
+        full_name: 'Super Admin',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      const student = await db.addStudent({
+        admission_number: 'TPS-2026-777',
+        full_name: 'Edit Test Student',
+        gender: 'Boy',
+        school_class: 'STD-VI',
+        status: 'Active'
+      });
+
+      const pendingLeave = {
+        id: 'lv-edit-2519',
+        leave_code: 'LV-2026-777',
+        leave_type: 'hostel_leave',
+        reason: 'Wedding ceremony',
+        departure_date: '2026-11-05',
+        departure_time: '14:00',
+        expected_return_date: '2026-11-06',
+        expected_return_time: '17:00',
+        student_id: student.id,
+        student_name: student.full_name,
+        status: 'Pending',
+        total_students: 1
+      };
+
+      const existingLeaves = db.get('tps_leaves') || [];
+      db.set('tps_leaves', [...existingLeaves, pendingLeave]);
+
+      // 1. Verify "Edit" button renders in the leaves register table
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(container, { onNavigate: () => {} });
+      expect(container.innerHTML).toContain('btn-edit-leave');
+      expect(container.innerHTML).toContain('LV-2026-777');
+
+      // 2. Test direct schedule update via db.updateLeaveRecord
+      await db.updateLeaveRecord(pendingLeave.id, {
+        departure_date: '2026-11-06',
+        departure_time: '10:00',
+        expected_return_date: '2026-11-08',
+        expected_return_time: '19:00',
+        fine_per_hour: 75
+      });
+
+      let updated = (db.get('tps_leaves') || []).find(l => l.id === pendingLeave.id);
+      expect(updated.departure_date).toBe('2026-11-06');
+      expect(updated.departure_time).toBe('10:00');
+      expect(updated.expected_return_date).toBe('2026-11-08');
+      expect(updated.expected_return_time).toBe('19:00');
+      expect(updated.fine_per_hour).toBe(75);
+
+      // 3. Test approving with schedule adjustments
+      await db.approveLeaveRecord(pendingLeave.id, {
+        approved_by: 'Hostel Warden',
+        fine_per_hour: 100,
+        departure_date: '2026-11-07',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-09',
+        expected_return_time: '20:00'
+      });
+
+      updated = (db.get('tps_leaves') || []).find(l => l.id === pendingLeave.id);
+      expect(updated.status).toBe('Approved');
+      expect(updated.departure_date).toBe('2026-11-07');
+      expect(updated.departure_time).toBe('08:00');
+      expect(updated.expected_return_date).toBe('2026-11-09');
+      expect(updated.expected_return_time).toBe('20:00');
+      expect(updated.fine_per_hour).toBe(100);
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
+    });
+
+    it('2520. Future Leave Schedule Safety: approved leave with future departure displays Approved (Upcoming), excludes Arrival button, and excludes from arrival register', async () => {
+      const student = await db.addStudent({
+        full_name: 'Upcoming Test Student',
+        gender: 'Girls',
+        school_class: 'STD-III',
+        status: 'Active'
+      });
+
+      const today = new Date();
+      const futureDate = new Date(today.getTime() + 86400000 * 2).toISOString().split('T')[0];
+      const futureReturn = new Date(today.getTime() + 86400000 * 4).toISOString().split('T')[0];
+
+      const upcomingLeave = {
+        id: 'leave-upcoming-test-999',
+        leave_code: 'LV-2026-999',
+        status: 'Approved',
+        student_ids: [student.id],
+        student_id: student.id,
+        departure_date: futureDate,
+        departure_time: '16:00',
+        expected_return_date: futureReturn,
+        expected_return_time: '18:00',
+        reason: 'Future wedding event',
+        fine_per_hour: 50
+      };
+
+      const existingLeaves = db.get('tps_leaves') || [];
+      db.set('tps_leaves', [upcomingLeave]);
+
+      // 1. In Leaves register: Must show "Approved (Upcoming)", NOT "Away"
+      const leavesContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(leavesContainer, { onNavigate: () => {} });
+      expect(leavesContainer.innerHTML).toContain('Approved (Upcoming)');
+      expect(leavesContainer.innerHTML).not.toContain('Arrival (1)');
+
+      // 2. Student remains Active, not stranded in On Approved Leave
+      const st = (await db.getStudents()).find(s => s.id === student.id);
+      expect(st.status).toBe('Active');
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
+    });
   });
 });
