@@ -671,6 +671,13 @@ export async function renderLeavesModule(container, { onNavigate }) {
         return;
       }
 
+      // If leave departure is in the future, student has not departed yet (still in hostel)
+      const departs = l.departure_date || l.leaving_date;
+      const todayIso = new Date().toISOString().split('T')[0];
+      if (departs && departs > todayIso) {
+        return;
+      }
+
       const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
       sIds.forEach(sid => {
         const student = (students || allStudents).find(s => s.id === sid);

@@ -4594,7 +4594,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         student_ids: [boyStudent.id],
         student_id: boyStudent.id,
         leave_type: 'hostel_leave',
-        departure_date: '2026-11-10',
+        departure_date: new Date().toISOString().split('T')[0],
         departure_time: '16:00',
         expected_return_date: '2026-11-12',
         expected_return_time: '18:00',
@@ -5433,6 +5433,106 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Clean up test data
       await db.deleteStudent(testRejectedStudent.id);
+    });
+
+    it('2516: Parent Portal Gate Pass & Lifecycle Card: Advance approval keeps student Present in Hostel, activates Exit Pass on departure day and Entry Pass on return day', async () => {
+      // 1. Create student and parent
+      if (typeof localStorage !== 'undefined') {
+        localStorage.clear();
+      }
+
+      const student2516 = await db.addStudent({
+        full_name: 'Sultana Advance',
+        status: 'Active',
+        gender: 'Girl',
+        school_class: 'STD-III',
+        admission_number: 'TPS-2026-999'
+      });
+
+      const parentUser = {
+        id: 'u-parent-2516',
+        full_name: 'Test Parent 2516',
+        email: 'parent2516@test.com',
+        role: 'parent',
+        roles: ['parent'],
+        approval_status: 'approved',
+        assigned_student_ids: [student2516.id]
+      };
+      updateCurrentUserProfile(parentUser);
+      await db.setParentAssignedStudents(parentUser.id, [student2516.id], parentUser.email);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('tps_parent_active_child', student2516.id);
+      }
+
+      // 2. Setup future approved leave: Departure is tomorrow (2026-11-02), Return day after tomorrow (2026-11-03)
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      const dayAfter = new Date(Date.now() + 172800000).toISOString().split('T')[0];
+
+      const advanceLeave = {
+        id: 'leave-advance-2516',
+        student_id: student2516.id,
+        student_name: student2516.full_name,
+        departure_date: tomorrow,
+        departure_time: '16:00',
+        expected_return_date: dayAfter,
+        expected_return_time: '18:00',
+        status: 'Approved',
+        reason: 'Family visit',
+        requested_by: parentUser.full_name,
+        fine_per_hour: 50
+      };
+
+      const leaves = await db.getLeaves(true);
+      leaves.unshift(advanceLeave);
+      db.set('tps_leaves', leaves);
+
+      // 3. Render Parent Dashboard today: Must show "Present in Hostel", NOT "On Approved Leave"
+      const parentContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(parentContainer, { onNavigate: () => {} });
+
+      const html = parentContainer.innerHTML;
+      // Presence status must be Present in Hostel
+      expect(html).toContain('● Present in Hostel');
+      expect(html).not.toContain('● On Approved Leave');
+      // Card must show Permission Accepted / Approved
+      expect(html).toContain('Leave Permission Approved (Permission Accepted)');
+      expect(html).toContain('Official Outing Gate Pass will activate automatically on departure day');
+
+      // 4. Test Departure Day Exit Gate Pass: Today is departure date and time is past departure time
+      const todayIso = new Date().toISOString().split('T')[0];
+      advanceLeave.departure_date = todayIso;
+      advanceLeave.departure_time = '00:01';
+      advanceLeave.expected_return_date = dayAfter;
+      db.set('tps_leaves', [advanceLeave]);
+
+      const exitContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(exitContainer, { onNavigate: () => {} });
+      expect(exitContainer.innerHTML).toContain('Official Exit Gate Pass');
+      expect(exitContainer.innerHTML).toContain('Exit Authorized');
+      expect(exitContainer.innerHTML).toContain('● On Approved Leave');
+
+      // 5. Test Return Day Entry Pass: Today is return date
+      advanceLeave.departure_date = '2026-10-30';
+      advanceLeave.expected_return_date = todayIso;
+      advanceLeave.expected_return_time = '23:59';
+      db.set('tps_leaves', [advanceLeave]);
+
+      const entryContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(entryContainer, { onNavigate: () => {} });
+      expect(entryContainer.innerHTML).toContain('Hostel Campus Re-Entry Pass');
+      expect(entryContainer.innerHTML).toContain('Entry Pass Active');
+
+      // 6. Test Overdue & Late Fine
+      advanceLeave.expected_return_time = '00:01';
+      db.set('tps_leaves', [advanceLeave]);
+
+      const overdueContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(overdueContainer, { onNavigate: () => {} });
+      expect(overdueContainer.innerHTML).toContain('Overdue to Hostel');
+      expect(overdueContainer.innerHTML).toContain('Late Fine');
+
+      // 7. Clean up test data
+      await db.deleteStudent(student2516.id);
     });
   });
 });

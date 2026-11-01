@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatDate, formatCurrency } from '../../lib/utils.js';
+import { formatDate, formatTime, formatCurrency } from '../../lib/utils.js';
 import { openModal } from '../../lib/dialog.js';
 import { toast } from '../../lib/toast.js';
 import { enhanceModalInputs } from '../../lib/ui-enhancer.js';
@@ -92,10 +92,18 @@ export async function renderParentDashboard(container, { onNavigate }) {
   });
 
   const now = new Date();
+  const todayIso = now.toISOString().split('T')[0];
+
   let isPending = false;
+  let isApprovedAdvance = false;
+  let isExitGatePass = false;
+  let isEntryGatePass = false;
+  let isInBetweenLeave = false;
   let isOnLeave = false;
   let isOverdue = false;
+
   let returnDateTime = null;
+  let departDateTime = null;
   let remHours = 0;
   let remMins = 0;
   let remDays = 0;
@@ -107,29 +115,58 @@ export async function renderParentDashboard(container, { onNavigate }) {
   let fineAmount = 0;
 
   if (activeLeave) {
-    if (activeLeave.status === 'Pending') {
-      isPending = true;
-    } else {
-      isOnLeave = true;
-      fineRate = Number(activeLeave.fine_per_hour || activeLeave.fine_per_hour_applied || activeLeave.fine_per_day || 50);
-      const expTime = (activeLeave.expected_return_time && activeLeave.expected_return_time.length === 5)
-        ? `${activeLeave.expected_return_time}:00`
-        : (activeLeave.expected_return_time || '18:00:00');
-      returnDateTime = new Date(`${activeLeave.expected_return_date}T${expTime}`);
+    const status = (activeLeave.status || '').toLowerCase();
+    const departs = activeLeave.departure_date || activeLeave.leaving_date;
+    const depTime = (activeLeave.departure_time || activeLeave.leaving_time || '16:00').substring(0, 5);
+    const returns = activeLeave.expected_return_date;
+    const retTime = (activeLeave.expected_return_time || '18:00').substring(0, 5);
 
-      if (now > returnDateTime) {
+    departDateTime = new Date(`${departs}T${depTime}:00`);
+    returnDateTime = new Date(`${returns}T${retTime}:00`);
+
+    fineRate = Number(activeLeave.fine_per_hour || activeLeave.fine_per_hour_applied || activeLeave.fine_per_day || 50);
+
+    if (status === 'pending') {
+      isPending = true;
+    } else if (status === 'approved' || status === 'away' || status === 'overdue') {
+      // 1. Advance approval check: If current time is BEFORE allotted departure time, student is STILL IN HOSTEL
+      if (now < departDateTime) {
+        isApprovedAdvance = true;
+        isOnLeave = false;
+        isOverdue = false;
+      } else if (now > returnDateTime) {
+        // 2. Overdue check: Curfew time has elapsed and student has not returned
         isOverdue = true;
+        isOnLeave = false;
         const diffMs = now.getTime() - returnDateTime.getTime();
         overdueHours = Math.floor(diffMs / (1000 * 60 * 60));
         overdueMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         chargedHours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
         fineAmount = chargedHours * fineRate;
       } else {
+        // 3. Actively on approved leave
+        isOnLeave = true;
         const diffMs = returnDateTime.getTime() - now.getTime();
         remHours = Math.floor(diffMs / (1000 * 60 * 60));
         remMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         remDays = Math.floor(remHours / 24);
         remHoursInDay = remHours % 24;
+
+        if (todayIso === departs) {
+          // Departure day: Works as Outing Exit Gate Pass from allotted time to end of day (23:59:59)
+          isExitGatePass = true;
+        } else if (todayIso === returns) {
+          // Return day: Works as Hostel Entry Pass
+          isEntryGatePass = true;
+        } else {
+          // In-between leave days
+          isInBetweenLeave = true;
+        }
+      }
+
+      // Return day rule: "when the leave ending day the card also should come back to work as entry pass from the starting of the day not from the alloted time"
+      if (todayIso === returns && !isOverdue) {
+        isEntryGatePass = true;
       }
     }
   }
@@ -215,36 +252,139 @@ export async function renderParentDashboard(container, { onNavigate }) {
       </div>
     ` : ''}
 
-    <!-- TOP ALERT BANNER (If Overdue or Pending Approval) -->
+    <!-- DYNAMIC LIFECYCLE LEAVE & PASS BANNER -->
     ${isOverdue ? `
-      <div class="card-panel parent-overdue-alert" style="background: #FEF2F2; border: 2px solid #FCA5A5; border-left: 6px solid #DC2626; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-            <span style="font-size: 1.6rem; line-height: 1;">⚠️</span>
+      <!-- 5. OVERDUE RETURN & LATE FINE CARD (Minimal, Replaces Separate Fine Card) -->
+      <div class="card-panel parent-overdue-alert" style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-left: 6px solid #DC2626; border-radius: 14px; padding: 0.95rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+              ⚠️
+            </div>
             <div>
-              <h4 style="font-size: 1.05rem; font-weight: 800; color: #991B1B; margin: 0;">
-                ${selectedChild.full_name} is Overdue to Hostel!
-              </h4>
-              <p style="font-size: 0.82rem; color: #7F1D1D; margin: 0.25rem 0 0 0;">
-                Expected reporting time was <strong>${formatDate(activeLeave.expected_return_date)} at ${activeLeave.expected_return_time || '06:00 PM'}</strong>. Student has not checked in.
-              </p>
-              <div style="margin-top: 0.45rem; font-size: 0.82rem; color: #991B1B;">
-                Overdue Duration: <strong id="live-overdue-time-text" style="font-family: var(--font-mono); font-size: 0.95rem;">+${overdueHours}h ${overdueMins}m</strong>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <h4 style="font-size: 0.98rem; font-weight: 800; color: #991B1B; margin: 0;">
+                  ${selectedChild.full_name} is Overdue to Hostel
+                </h4>
+                <span class="badge" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">Overdue</span>
               </div>
+              <p style="font-size: 0.8rem; color: #7F1D1D; margin: 0.2rem 0 0 0;">
+                Curfew was <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong> • Late by <strong id="live-overdue-time-text" style="font-family: var(--font-mono); font-size: 0.88rem; color: #DC2626;">+${overdueHours}h ${overdueMins}m</strong>
+              </p>
             </div>
           </div>
-          <div style="background: #FFFFFF; border: 1.5px solid #F87171; border-radius: 12px; padding: 0.65rem 1rem; text-align: right; min-width: 160px; box-shadow: 0 2px 6px rgba(220,38,38,0.06);">
-            <div style="font-size: 0.72rem; font-weight: 700; color: #991B1B; text-transform: uppercase;">Generated Late Fine</div>
-            <div style="font-size: 1.45rem; font-weight: 900; color: #DC2626; font-family: var(--font-mono);" id="live-overdue-fine-val">
-              ₹${fineAmount}
-            </div>
-            <div style="font-size: 0.7rem; color: #64748B;">
-              Rate: ₹${fineRate}/hr • ${chargedHours} hr(s) overdue
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="background: #FFFFFF; border: 1.5px solid #FECACA; border-radius: 10px; padding: 0.45rem 0.85rem; text-align: right; box-shadow: 0 2px 4px rgba(220,38,38,0.04);">
+              <div style="font-size: 0.68rem; font-weight: 700; color: #991B1B; text-transform: uppercase;">Late Fine</div>
+              <div style="font-size: 1.25rem; font-weight: 900; color: #DC2626; font-family: var(--font-mono); line-height: 1.1;" id="live-overdue-fine-val">
+                ₹${fineAmount}
+              </div>
+              <div style="font-size: 0.68rem; color: #64748B;">₹${fineRate}/hr rate</div>
             </div>
           </div>
         </div>
       </div>
+    ` : isEntryGatePass ? `
+      <!-- 4. RETURN DAY HOSTEL ENTRY PASS (Active from 00:00 start of return day) -->
+      <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-left: 6px solid #2563EB; border-radius: 14px; padding: 0.95rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(37,99,235,0.06);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #DBEAFE; color: #1D4ED8; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+              🛂
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <h4 style="font-size: 0.98rem; font-weight: 800; color: #1E40AF; margin: 0;">
+                  Hostel Campus Re-Entry Pass • ${selectedChild.full_name}
+                </h4>
+                <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">Entry Pass Active</span>
+              </div>
+              <p style="font-size: 0.8rem; color: #1E3A8A; margin: 0.2rem 0 0 0;">
+                Valid for return to campus all day • Expected reporting by <strong>${formatTime(activeLeave.expected_return_time || '18:00')} today</strong>
+              </p>
+              <div style="font-size: 0.74rem; color: #3B82F6; margin-top: 0.2rem; font-weight: 600;">
+                Pass Code: <strong>${activeLeave.leave_code || 'LV-2026'}</strong> • Present at security gate on arrival
+              </div>
+            </div>
+          </div>
+          <div style="background: #FFFFFF; border: 1.5px solid #BFDBFE; border-radius: 10px; padding: 0.45rem 0.85rem; text-align: center;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: #1E40AF; text-transform: uppercase;">Campus Re-Entry</div>
+            <div style="font-size: 0.88rem; font-weight: 800; color: #2563EB;">Ready for Gate Check</div>
+          </div>
+        </div>
+      </div>
+    ` : isExitGatePass ? `
+      <!-- 3. DEPARTURE DAY OUTING GATE PASS (Active from allotted departure time until 23:59:59) -->
+      <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-left: 6px solid #059669; border-radius: 14px; padding: 0.95rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 12px rgba(5,150,105,0.06);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #D1FAE5; color: #047857; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+              🎫
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <h4 style="font-size: 0.98rem; font-weight: 800; color: #065F46; margin: 0;">
+                  Official Exit Gate Pass • ${selectedChild.full_name}
+                </h4>
+                <span class="badge" style="background: #D1FAE5; color: #065F46; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">✓ Exit Authorized</span>
+              </div>
+              <p style="font-size: 0.8rem; color: #064E3B; margin: 0.2rem 0 0 0;">
+                Allotted departure: <strong>${formatTime(activeLeave.departure_time || '16:00')} today</strong> • Valid for campus exit until 11:59 PM tonight
+              </p>
+              <div style="font-size: 0.74rem; color: #059669; margin-top: 0.2rem; font-weight: 600;">
+                Pass Code: <strong>${activeLeave.leave_code || 'LV-2026'}</strong> • Escort: <strong>${activeLeave.escort_type || 'Father'} (${activeLeave.requested_by || 'Parent'})</strong>
+              </div>
+            </div>
+          </div>
+          <div style="background: #FFFFFF; border: 1.5px solid #A7F3D0; border-radius: 10px; padding: 0.45rem 0.85rem; text-align: center;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: #065F46; text-transform: uppercase;">Security Outing</div>
+            <div style="font-size: 0.88rem; font-weight: 800; color: #059669;">Verified Gate Pass</div>
+          </div>
+        </div>
+      </div>
+    ` : isApprovedAdvance ? `
+      <!-- 2. ADVANCE LEAVE APPROVED (Accepted Permission, but before departure time) -->
+      <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-left: 6px solid #10B981; border-radius: 14px; padding: 0.95rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #DCFCE7; color: #15803D; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
+            ✓
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <strong style="color: #166534; font-size: 0.94rem;">Leave Permission Approved (Permission Accepted)</strong>
+              <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 800; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px;">
+                Approved
+              </span>
+            </div>
+            <div style="font-size: 0.78rem; color: #15803D; margin-top: 3px;">
+              Scheduled for: <strong>${formatDate(activeLeave.departure_date)} at ${formatTime(activeLeave.departure_time || '16:00')}</strong> → Return by <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong>
+            </div>
+            <div style="font-size: 0.74rem; color: #4B5563; margin-top: 3px;">
+              * Official Outing Gate Pass will activate automatically on departure day at <strong>${formatTime(activeLeave.departure_time || '16:00')}</strong>.
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : isInBetweenLeave ? `
+      <!-- IN-BETWEEN DAYS (Multi-day leave while student is away) -->
+      <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-left: 6px solid #64748B; border-radius: 14px; padding: 0.95rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #F1F5F9; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
+            🏡
+          </div>
+          <div>
+            <strong style="color: #334155; font-size: 0.94rem;">${selectedChild.full_name} is on Authorized Home Leave</strong>
+            <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">
+              Expected return to hostel on <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}</strong>. Campus entry pass will activate on return day.
+            </div>
+          </div>
+        </div>
+        <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 800; font-size: 0.72rem; padding: 3px 8px; border-radius: 9999px;">
+          On Leave
+        </span>
+      </div>
     ` : isPending ? `
+      <!-- 1. PENDING APPROVAL -->
       <div style="background: #FFFBEB; border: 1.5px solid #FCD34D; border-left: 6px solid #D97706; border-radius: 14px; padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 0.6rem;">
           <span style="font-size: 1.35rem;">⏳</span>
@@ -353,8 +493,21 @@ export async function renderParentDashboard(container, { onNavigate }) {
           </div>
           <div class="stat-footer">
             <span style="color: ${remHours <= 6 ? '#C2410C' : '#1E40AF'};">
-              Return by ${formatDate(activeLeave.expected_return_date)} at ${activeLeave.expected_return_time || '06:00 PM'}
+              Return by ${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time || '18:00')}
             </span>
+          </div>
+        </div>
+      ` : isApprovedAdvance ? `
+        <div class="stat-card" style="border-left: 4px solid #10B981; background: #F0FDF4;">
+          <div class="stat-header">
+            <span class="stat-title" style="color: #166534; font-weight: 700;">Approved Leave</span>
+            <div class="stat-icon-wrapper" style="background: #DCFCE7; color: #166534;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="font-size: 1.15rem; color: #166534; font-weight: 800;">Starts ${formatDate(activeLeave.departure_date)}</div>
+          <div class="stat-footer">
+            <span style="color: #15803D;">Departure: ${formatTime(activeLeave.departure_time || '16:00')} • Pass ready on departure day</span>
           </div>
         </div>
       ` : isPending ? `
@@ -547,8 +700,8 @@ export async function renderParentDashboard(container, { onNavigate }) {
     </div>
   `;
 
-  // Attach live countdown/countup timer if active leave exists
-  if (activeLeave && activeLeave.status !== 'Pending' && returnDateTime) {
+  // Attach live countdown/countup timer if active leave exists and student is away or overdue
+  if (activeLeave && activeLeave.status !== 'Pending' && returnDateTime && !isApprovedAdvance) {
     container._parentTimer = setInterval(() => {
       const currentNow = new Date();
       if (currentNow > returnDateTime) {

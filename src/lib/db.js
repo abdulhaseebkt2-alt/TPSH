@@ -2185,8 +2185,13 @@ class DatabaseService {
     leave.fine_per_day_applied = (Number(fine_per_hour) || 50) * 24;
 
     const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
-    for (const sid of sIds) {
-      await this.updateStudent(sid, { status: 'On Approved Leave' });
+    const departs = leave.departure_date || leave.leaving_date;
+    const todayIso = new Date().toISOString().split('T')[0];
+    // Only mark student profile "On Approved Leave" if leave starts today or earlier; future leaves remain Active
+    if (departs && departs <= todayIso) {
+      for (const sid of sIds) {
+        await this.updateStudent(sid, { status: 'On Approved Leave' });
+      }
     }
 
     await this.pushCloudKey('tps_leaves', leaves);

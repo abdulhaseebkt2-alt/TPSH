@@ -150,6 +150,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const activeUnreturnedLeaves = (leaves || []).filter(l => {
     const status = (l.status || '').toLowerCase();
     if (status === 'pending' || status === 'rejected' || status === 'cancelled' || status === 'returned') return false;
+    const departs = l.departure_date || l.leaving_date;
+    if (departs && departs > todayIso) return false; // Advance approved leave, resident has not departed yet
     if (Array.isArray(l.students) && l.students.length > 0) {
       return l.students.some(s => !s.is_returned);
     }
