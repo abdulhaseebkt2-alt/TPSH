@@ -6468,5 +6468,75 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(studentA.id);
       await db.deleteStudent(studentB.id);
     });
+
+    it('25.27 Leaves Module: Delete button replaces Pass button, wipes leave from entire project, Details button works, and active leave shows On Approved Leave', async () => {
+      const adminUser = {
+        id: 'u-admin-wipe-test',
+        full_name: 'Super Admin',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      // 1. Create a student
+      const student = await db.addStudent({
+        full_name: 'Sultana Leave Check',
+        admission_number: 'TPS-2026-905',
+        gender: 'Girl',
+        school_class: 'STD-III',
+        status: 'Active'
+      });
+
+      // 2. Create an active leave that departed yesterday/earlier today
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-01',
+        departure_time: '12:00',
+        expected_return_date: '2026-11-03',
+        expected_return_time: '18:00',
+        reason: 'Family Emergency',
+        fine_per_hour: 50,
+        approved_by: 'Hostel Office'
+      });
+
+      // 3. Render Leaves Module: verify Delete button exists, and Pass button is replaced
+      const leavesContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(leavesContainer, { onNavigate: () => {} });
+      const leavesHtml = leavesContainer.innerHTML;
+
+      expect(leavesHtml).toContain('btn-delete-leave');
+      expect(leavesHtml).toContain('btn-view-leave-details');
+      expect(leavesHtml).not.toContain('btn-print-leave-pass');
+
+      // 4. Render Student Leave Card: student with active unreturned leave MUST show 'On Approved Leave'
+      const cardContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(cardContainer, { studentId: student.id });
+      const cardHtml = cardContainer.innerHTML;
+
+      expect(cardHtml).toContain('On Approved Leave');
+      expect(cardHtml).not.toContain('● Present in Hostel');
+
+      // 5. Delete the leave record permanently via db.deleteLeaveRecord
+      await db.deleteLeaveRecord(leave.id);
+
+      // Verify leave is wiped from database
+      const allLeaves = await db.getLeaves(true);
+      expect(allLeaves.some(l => l.id === leave.id)).toBe(false);
+
+      // Verify student status is restored to Active
+      const updatedStudents = await db.getStudents();
+      const updatedStudent = updatedStudents.find(s => s.id === student.id);
+      expect(updatedStudent.status).toBe('Active');
+
+      // Re-render Student Leave Card: now that leave is wiped, should show Present in Hostel
+      const cardContainerAfter = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(cardContainerAfter, { studentId: student.id });
+      expect(cardContainerAfter.innerHTML).toContain('Present in Hostel');
+
+      // Clean up
+      await db.deleteStudent(student.id);
+    });
   });
 });

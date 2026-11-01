@@ -154,6 +154,39 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
       const studentLeaves = selectedStudent ? getStudentLeaves(selectedStudent.id) : [];
 
+      // Check if student is actively away on approved unreturned leave
+      const activeUnreturnedLeave = studentLeaves.find(l => {
+        const isRej = (l.status || '').toLowerCase() === 'rejected';
+        const isPend = (l.status || '').toLowerCase() === 'pending';
+        let isRet = false;
+        if (Array.isArray(l.students)) {
+          const sEntry = l.students.find(entry => entry.student_id === selectedStudent?.id);
+          if (sEntry) isRet = sEntry.is_returned === true;
+        } else {
+          isRet = l.status === 'Returned' || !!l.actual_return_date;
+        }
+        if (l.status === 'Returned') isRet = true;
+        if (isRej || isPend || isRet) return false;
+
+        const departs = l.departure_date || l.leaving_date;
+        const depTime = l.departure_time || l.leaving_time || '00:00';
+        const departDateTime = departs ? parseDateTimeSafe(departs, depTime) : null;
+        const now = new Date();
+        if (departDateTime && now < departDateTime) return false; // Future upcoming
+        return true;
+      });
+
+      const isStudentAway = !!activeUnreturnedLeave || (selectedStudent && (selectedStudent.status === 'On Approved Leave' || selectedStudent.status === 'Away'));
+
+      // Automatically keep student record status synced in DB
+      if (selectedStudent && isStudentAway && selectedStudent.status !== 'On Approved Leave') {
+        selectedStudent.status = 'On Approved Leave';
+        db.updateStudent(selectedStudent.id, { status: 'On Approved Leave' }).catch(() => {});
+      } else if (selectedStudent && !isStudentAway && selectedStudent.status === 'On Approved Leave') {
+        selectedStudent.status = 'Active';
+        db.updateStudent(selectedStudent.id, { status: 'Active' }).catch(() => {});
+      }
+
       container.innerHTML = `
         <div class="student-leave-card-module" style="display: flex; flex-direction: column; gap: 1rem; max-width: 1200px; margin: 0 auto; width: 100%;">
           
@@ -309,9 +342,9 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                 </div>
               </div>
 
-              <!-- Center-Aligned Presence Status Pill (Total Passes Removed as Requested) -->
+              <!-- Center-Aligned Presence Status Pill -->
               <div style="display: flex; justify-content: center; align-items: center; padding-top: 0.45rem; border-top: 1px solid #F1F5F9; width: 100%;">
-                ${selectedStudent.status === 'On Approved Leave' ? `
+                ${isStudentAway ? `
                   <span class="badge" style="background: #FEF3C7; color: #92400E; font-weight: 700; font-size: 0.8rem; padding: 4px 14px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(217,119,6,0.1);">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #D97706; display: inline-block;"></span>
                     On Approved Leave
@@ -760,22 +793,78 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
             </div>
 
             <!-- Actions Footer -->
-            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; align-items: center;">
-              <button type="button" class="btn btn-outline" id="btn-popup-close">Close</button>
-              
-              <!-- CLEAR FINE BUTTON (ONLY FOR ADMIN & MENTOR IF UNPAID FINE EXISTS) -->
-              ${fineAmt > 0 && !isPaid && isMentor ? `
-                <button type="button" class="btn btn-primary" id="btn-popup-clear-fine" style="background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  Clear / Mark Fine Paid (₹${fineAmt})
+            <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.5rem; align-items: center; flex-wrap: wrap;">
+              ${isMentor ? `
+                <button type="button" class="btn btn-xs btn-outline-danger" id="btn-popup-delete-leave" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.65rem; border-radius: 8px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  Delete Leave Record
                 </button>
-              ` : ''}
+              ` : '<div></div>'}
+
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button type="button" class="btn btn-outline" id="btn-popup-close">Close</button>
+                
+                <!-- CLEAR FINE BUTTON (ONLY FOR ADMIN & MENTOR IF UNPAID FINE EXISTS) -->
+                ${fineAmt > 0 && !isPaid && isMentor ? `
+                  <button type="button" class="btn btn-primary" id="btn-popup-clear-fine" style="background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Clear / Mark Fine Paid (₹${fineAmt})
+                  </button>
+                ` : ''}
+              </div>
             </div>
           </div>
         `
       });
 
       modalBody.querySelector('#btn-popup-close')?.addEventListener('click', close);
+
+      modalBody.querySelector('#btn-popup-delete-leave')?.addEventListener('click', () => {
+        close();
+        const code = leave.leave_code || leave.leave_register_number || 'Pass';
+        const { container: deleteModal, close: closeDeleteModal } = openModal({
+          title: `Delete Leave Record - ${code}`,
+          size: 'sm',
+          contentHtml: `
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+              <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
+                <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  Permanent Data Deletion
+                </div>
+                <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
+                  Are you sure you want to permanently delete this leave file (<strong>${code}</strong>)?
+                </p>
+                <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
+                  This will completely wipe all leave dates, arrival records, and associated fines from the entire database.
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-del-card">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-del-card" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
+                  Delete Permanently
+                </button>
+              </div>
+            </div>
+          `
+        });
+
+        deleteModal?.querySelector('#btn-cancel-del-card')?.addEventListener('click', closeDeleteModal);
+        deleteModal?.querySelector('#btn-confirm-del-card')?.addEventListener('click', async () => {
+          closeDeleteModal();
+          try {
+            await db.deleteLeaveRecord(leave.id);
+            toast.success(`Leave #${code} wiped permanently.`);
+            const updatedLeaves = await db.getLeaves(true);
+            allLeaves.length = 0;
+            allLeaves.push(...updatedLeaves);
+            renderModule();
+          } catch (err) {
+            toast.error(err.message || 'Error deleting leave record');
+          }
+        });
+      });
 
       // Wire Clear Fine button
       modalBody.querySelector('#btn-popup-clear-fine')?.addEventListener('click', async () => {

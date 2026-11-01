@@ -2295,6 +2295,63 @@ class DatabaseService {
     return leave;
   }
 
+  async deleteLeaveRecord(leave_id) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_fine_payments'], true);
+    let leaves = this.get('tps_leaves') || [];
+    const targetIdx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (targetIdx === -1) throw new Error('Leave record not found');
+
+    const targetLeave = leaves[targetIdx];
+    const sIds = Array.isArray(targetLeave.student_ids) ? targetLeave.student_ids : [targetLeave.student_id];
+
+    // 1. Remove leave from tps_leaves
+    leaves = leaves.filter(l => l.id !== targetLeave.id && l.leave_code !== targetLeave.leave_code);
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+
+    // 2. Remove associated fine payments
+    let finePayments = this.get('tps_fine_payments') || [];
+    const origFineCount = finePayments.length;
+    finePayments = finePayments.filter(fp => fp.leave_id !== targetLeave.id && fp.leave_code !== targetLeave.leave_code);
+    if (finePayments.length !== origFineCount) {
+      this.set('tps_fine_payments', finePayments);
+      await this.pushCloudKey('tps_fine_payments', finePayments);
+    }
+
+    // 3. Sync student status: if students were on this leave and have no other active leave, restore to Active
+    for (const sid of sIds) {
+      if (!sid) continue;
+      const otherActiveLeave = leaves.find(l => {
+        const isRej = (l.status || '').toLowerCase() === 'rejected';
+        const isRet = l.status === 'Returned';
+        if (isRej || isRet) return false;
+        const matchesStudent = l.student_id === sid || 
+          (Array.isArray(l.student_ids) && l.student_ids.includes(sid)) ||
+          (Array.isArray(l.students) && l.students.some(s => s.student_id === sid && !s.is_returned));
+        return matchesStudent;
+      });
+
+      if (!otherActiveLeave) {
+        const student = (this.get('tps_students') || []).find(s => s.id === sid);
+        if (student && (student.status === 'On Approved Leave' || student.status === 'Away')) {
+          await this.updateStudent(sid, { status: 'Active' });
+        }
+      }
+    }
+
+    // 4. Supabase sync if connected
+    if (this.supabase) {
+      try {
+        await this.supabase.from('student_leave_records').delete().match({ id: targetLeave.id });
+      } catch (sbErr) {
+        console.warn('Supabase deleteLeaveRecord warning:', sbErr);
+      }
+    }
+
+    this.logAudit('DELETE_LEAVE', 'student_leave_records', targetLeave.id, `Permanently deleted leave record ${targetLeave.leave_code || targetLeave.id}`);
+    return targetLeave;
+  }
+
   async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null, fine_payment_status = null, custom_fine_amount = null) {
     await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
     const leaves = this.get('tps_leaves') || [];

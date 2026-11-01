@@ -371,11 +371,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                             <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
                               Details
                             </button>
-                            ${!isRej ? `
-                              <button class="btn btn-xs btn-outline btn-print-leave-pass" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem;" title="Print Official Leave Slip">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: text-top; margin-right: 2px;"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Pass
-                              </button>
-                            ` : ''}
+                            <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Permanently delete this leave record">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -470,11 +468,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.65rem; font-size: 0.75rem;">
                           Details
                         </button>
-                        ${!isRej ? `
-                          <button class="btn btn-xs btn-outline btn-print-leave-pass" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.55rem; font-size: 0.75rem;">
-                            Pass
-                          </button>
-                        ` : ''}
+                        <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" style="border-radius: 9999px; padding: 0.3rem 0.6rem; font-size: 0.75rem; font-weight: 600; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Permanently delete this leave record">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -737,6 +733,61 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       btn.addEventListener('click', () => {
         const leaveId = btn.dataset.id;
         printLeavePassSlip(leaveId);
+      });
+    });
+
+    // Delete Leave Record button (Wipes data from entire project database)
+    container.querySelectorAll('.btn-delete-leave').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const leaveId = btn.dataset.id;
+        const leave = leaves.find(l => l.id === leaveId);
+        if (!leave) return;
+
+        const code = leave.leave_code || leave.leave_register_number || 'Pass';
+        const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
+        const studentNames = sIds.map(sid => students.find(s => s.id === sid)?.full_name || 'Student').join(', ');
+
+        const { container: deleteModal, close: closeDeleteModal } = openModal({
+          title: `Delete Leave Record - ${code}`,
+          size: 'sm',
+          contentHtml: `
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+              <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
+                <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  Permanent Data Deletion
+                </div>
+                <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
+                  Are you sure you want to permanently delete this leave file (<strong>${code}</strong>) for <strong>${studentNames}</strong>?
+                </p>
+                <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
+                  This will completely wipe all leave dates, arrival records, and associated fines from the entire database.
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-delete">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
+                  Delete Permanently
+                </button>
+              </div>
+            </div>
+          `
+        });
+
+        deleteModal?.querySelector('#btn-cancel-delete')?.addEventListener('click', closeDeleteModal);
+        deleteModal?.querySelector('#btn-confirm-delete')?.addEventListener('click', async () => {
+          closeDeleteModal();
+          try {
+            await db.deleteLeaveRecord(leaveId);
+            toast.success(`Leave record #${code} wiped permanently.`);
+            await loadData();
+            renderView();
+          } catch (err) {
+            console.error('Failed to delete leave:', err);
+            toast.error(err.message || 'Error deleting leave record');
+          }
+        });
       });
     });
 
@@ -2128,6 +2179,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
     const leave = leaves.find(l => l.id === leaveId);
     if (!leave) return;
 
+    const isRej = (leave.status || '').toLowerCase() === 'rejected';
+    const isRet = leave.status === 'Returned' || (Array.isArray(leave.students) && leave.students.length > 0 && leave.students.every(s => s.is_returned));
+
     const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
     const roster = sIds.map(sid => {
       const student = students.find(s => s.id === sid);
@@ -2188,13 +2242,21 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #E2E8F0; align-items: center;">
-            <button type="button" class="btn btn-outline" id="btn-details-close">Close</button>
-            ${!isRet && !isRej && (user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
-              <button type="button" class="btn btn-danger" id="btn-details-reject-pass" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF; font-size: 0.8rem;">
-                Reject Pass
+          <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #E2E8F0; align-items: center; flex-wrap: wrap;">
+            <div>
+              <button type="button" class="btn btn-xs btn-outline-danger" id="btn-details-delete-pass" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.65rem; border-radius: 8px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Delete Record
               </button>
-            ` : ''}
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button type="button" class="btn btn-outline" id="btn-details-close">Close</button>
+              ${!isRet && !isRej && (user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                <button type="button" class="btn btn-danger" id="btn-details-reject-pass" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF; font-size: 0.8rem;">
+                  Reject Pass
+                </button>
+              ` : ''}
+            </div>
           </div>
         </div>
       `
@@ -2206,6 +2268,13 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       const rejectTrigger = container.querySelector(`.btn-reject-leave[data-id="${leaveId}"]`);
       if (rejectTrigger) {
         rejectTrigger.click();
+      }
+    });
+    detailsModal?.querySelector('#btn-details-delete-pass')?.addEventListener('click', () => {
+      closeDetails();
+      const deleteTrigger = container.querySelector(`.btn-delete-leave[data-id="${leaveId}"]`);
+      if (deleteTrigger) {
+        deleteTrigger.click();
       }
     });
   }
