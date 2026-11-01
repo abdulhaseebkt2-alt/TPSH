@@ -5805,5 +5805,83 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', existingLeaves);
       await db.deleteStudent(student.id);
     });
+
+    it('2521: Single-Day Leave Gate Pass Lifecycle & Vertical Pill Ticket UI: 1hr departure window provides Exit Pass, transitions to Re-Entry Pass, and renders vertical pill layout', async () => {
+      const student = await db.addStudent({
+        full_name: 'Sultana SingleDay',
+        status: 'Active',
+        gender: 'Girl',
+        school_class: 'STD-III',
+        admission_number: 'TPS-2026-888'
+      });
+
+      const parentUser = {
+        id: 'u-parent-2521',
+        full_name: 'Parent 2521',
+        email: 'parent2521@test.com',
+        role: 'parent',
+        roles: ['parent'],
+        approval_status: 'approved',
+        assigned_student_ids: [student.id]
+      };
+      updateCurrentUserProfile(parentUser);
+      await db.setParentAssignedStudents(parentUser.id, [student.id], parentUser.email);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('tps_parent_active_child', student.id);
+      }
+
+      const todayIso = new Date().toISOString().split('T')[0];
+      const now = new Date();
+
+      // Case A: 30 minutes past departure time (within 1-hour window for single-day leave)
+      const dep30MinAgo = new Date(now.getTime() - 30 * 60 * 1000);
+      const depTimeStr = `${String(dep30MinAgo.getHours()).padStart(2, '0')}:${String(dep30MinAgo.getMinutes()).padStart(2, '0')}`;
+      const retTimeStr = '23:59';
+
+      const singleDayLeave = {
+        id: 'leave-single-2521',
+        student_id: student.id,
+        student_name: student.full_name,
+        departure_date: todayIso,
+        departure_time: depTimeStr,
+        expected_return_date: todayIso,
+        expected_return_time: retTimeStr,
+        status: 'Approved',
+        reason: 'Doctor Visit',
+        requested_by: parentUser.full_name,
+        fine_per_hour: 50
+      };
+
+      const existingLeaves = db.get('tps_leaves') || [];
+      db.set('tps_leaves', [singleDayLeave]);
+
+      // 1. Renders within 1hr departure window: Must show Exit Gate Pass with vertical pill
+      const exitContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(exitContainer, { onNavigate: () => {} });
+      const exitHtml = exitContainer.innerHTML;
+      expect(exitHtml).toContain('Official Exit Gate Pass');
+      expect(exitHtml).toContain('Exit Authorized');
+      expect(exitHtml).toContain('Security Outing');
+      expect(exitHtml).toContain('writing-mode: vertical-rl');
+      expect(exitHtml).toContain('transform: rotate(180deg)');
+
+      // Case B: 2 hours past departure time (after 1-hour departure window): Must transition to Campus Re-Entry Pass
+      const dep2HrAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+      singleDayLeave.departure_time = `${String(dep2HrAgo.getHours()).padStart(2, '0')}:${String(dep2HrAgo.getMinutes()).padStart(2, '0')}`;
+      db.set('tps_leaves', [singleDayLeave]);
+
+      const entryContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderParentDashboard(entryContainer, { onNavigate: () => {} });
+      const entryHtml = entryContainer.innerHTML;
+      expect(entryHtml).toContain('Hostel Campus Re-Entry Pass');
+      expect(entryHtml).toContain('Entry Pass Active');
+      expect(entryHtml).toContain('Campus Re-Entry');
+      expect(entryHtml).toContain('Ready for Gate Check');
+      expect(entryHtml).toContain('writing-mode: vertical-rl');
+
+      // Clean up
+      db.set('tps_leaves', existingLeaves);
+      await db.deleteStudent(student.id);
+    });
   });
 });
