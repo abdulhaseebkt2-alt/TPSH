@@ -255,7 +255,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
     }
 
     container.innerHTML = `
-      <div class="calendar-module-container" style="padding-bottom: 2rem;">
+      <div class="calendar-module-container">
         
         <!-- HEADER ROW: MINIMAL INSTITUTIONAL BRANDING (NO RANGE SELECTOR BUTTON) -->
         <div style="margin-bottom: 0.85rem;">

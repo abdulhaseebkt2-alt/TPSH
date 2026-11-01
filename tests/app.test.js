@@ -6191,7 +6191,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         // 3. Verify main.css contains mobile bottom nav clearance
         const fs = await import('fs');
         const css = fs.readFileSync('src/styles/main.css', 'utf8');
-        expect(css).toContain('calc(6.5rem + env(safe-area-inset-bottom');
+        expect(css).toContain('calc(56px + env(safe-area-inset-bottom');
       } finally {
         global.document = originalDocument;
         db.set('tps_leaves', existingLeaves);
