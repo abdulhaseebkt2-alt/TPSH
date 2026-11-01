@@ -221,78 +221,69 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               ` : ''}
             </div>
 
-            <!-- Admin & Mentor Student Selection Section (Matches Screenshot 3) -->
+            <!-- Admin & Mentor Filters Toolbar (Old version restored: Dropdowns first, search brought after dropdowns, and student list with ONLY name & class) -->
             ${!isParent ? `
-              <div class="student-select-section" style="border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.65rem 0.75rem; background: #F8FAFC; margin-top: 0.85rem; display: flex; flex-direction: column; gap: 0.45rem;">
-                <!-- Header: 'Select Student *' + selected indicator -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                  <span style="font-size: 0.82rem; font-weight: 700; color: #0F172A;">
-                    Select Student *
-                  </span>
-                  ${selectedStudent ? `
-                    <span class="badge" style="background: #ECFDF5; color: #059669; font-weight: 700; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px;">
-                      ✓ ${selectedStudent.full_name}
-                    </span>
-                  ` : `
-                    <span style="font-size: 0.74rem; color: #DC2626; font-weight: 600;">Tap student to select</span>
-                  `}
-                </div>
+              <div class="student-filter-capsule" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.65rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative;">
+                <!-- Row 1: Dropdown filters first -->
+                <div class="capsule-filters" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; width: 100%;">
+                  <!-- Gender Filter Dropdown -->
+                  <select id="leave-card-gender-filter" style="border: 1px solid #E2E8F0; background: #FFFFFF; color: #334155; font-size: 0.78rem; font-weight: 600; padding: 0.45rem 0.45rem; border-radius: 8px; cursor: pointer; outline: none; width: 100%; box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                    ${isGirlsMentor ? `<option value="Female" selected>Female</option>` : isBoysMentor ? `<option value="Male" selected>Male</option>` : `
+                      <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All</option>
+                      <option value="Male" ${genderFilter === 'Male' || genderFilter === 'boy' ? 'selected' : ''}>Male</option>
+                      <option value="Female" ${genderFilter === 'Female' || genderFilter === 'girl' ? 'selected' : ''}>Female</option>
+                    `}
+                  </select>
 
-                <!-- Row 1: Search bar spans full width -->
-                <div style="width: 100%;">
-                  <input 
-                    type="text" 
-                    id="leave-card-search-input" 
-                    class="form-control" 
-                    placeholder="Search student name..." 
-                    value="${searchFilter}" 
-                    style="width: 100%; height: 34px; font-size: 0.82rem; border: 1px solid #CBD5E1; border-radius: 8px; padding: 0.35rem 0.65rem; box-sizing: border-box; background: #FFFFFF;" 
-                  />
-                </div>
+                  <!-- Status Filter Dropdown -->
+                  <select id="leave-card-status-filter" style="border: 1px solid #E2E8F0; background: #FFFFFF; color: #334155; font-size: 0.78rem; font-weight: 600; padding: 0.45rem 0.45rem; border-radius: 8px; cursor: pointer; outline: none; width: 100%; box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                    <option value="all" ${statusFilter === 'all' ? 'selected' : ''}>All Statuses</option>
+                    <option value="active" ${statusFilter === 'active' ? 'selected' : ''}>Active</option>
+                    <option value="On Approved Leave" ${statusFilter === 'On Approved Leave' ? 'selected' : ''}>On Approved Leave</option>
+                    <option value="Temporary Break" ${statusFilter === 'Temporary Break' ? 'selected' : ''}>Temporary Break</option>
+                    <option value="inactive" ${statusFilter === 'inactive' ? 'selected' : ''}>Inactive</option>
+                  </select>
 
-                <!-- Row 2: 50% 50% dropdowns (All Classes / All Genders) -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; width: 100%;">
-                  <select id="leave-card-class-filter" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem; border: 1px solid #CBD5E1; border-radius: 8px; padding: 0.35rem 0.5rem; background: #FFFFFF; color: #334155; font-weight: 600;">
+                  <!-- Class Filter Dropdown -->
+                  <select id="leave-card-class-filter" style="border: 1px solid #E2E8F0; background: #FFFFFF; color: #334155; font-size: 0.78rem; font-weight: 600; padding: 0.45rem 0.45rem; border-radius: 8px; cursor: pointer; outline: none; width: 100%; box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
                     <option value="all" ${classFilter === 'all' ? 'selected' : ''}>All Classes</option>
                     ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
                   </select>
-                  <select id="leave-card-gender-filter" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem; border: 1px solid #CBD5E1; border-radius: 8px; padding: 0.35rem 0.5rem; background: #FFFFFF; color: #334155; font-weight: 600;">
-                    ${isGirlsMentor ? `<option value="Female" selected>Girls</option>` : isBoysMentor ? `<option value="Male" selected>Boys</option>` : `
-                      <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All Genders</option>
-                      <option value="Male" ${genderFilter === 'Male' || genderFilter === 'male' || genderFilter === 'boy' ? 'selected' : ''}>Boys</option>
-                      <option value="Female" ${genderFilter === 'Female' || genderFilter === 'female' || genderFilter === 'girl' ? 'selected' : ''}>Girls</option>
-                    `}
-                  </select>
                 </div>
 
-                <!-- Scrollable Radio List of Students -->
-                <div class="leave-card-student-scroll" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; padding-right: 2px;">
-                  ${filteredPickerStudents.length === 0 ? `
-                    <div style="padding: 1.5rem; text-align: center; color: #94A3B8; font-size: 0.82rem;">
-                      No students match current search / filters.
-                    </div>
-                  ` : filteredPickerStudents.map(s => {
-                    const isBoy = (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys' || s.gender === 'Boy');
-                    const isSelected = selectedStudent?.id === s.id;
-                    return `
-                      <label class="student-leave-card-tile" data-id="${s.id}" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: ${isSelected ? '#ECFDF5' : '#FFFFFF'}; border: 1.5px solid ${isSelected ? '#10B981' : '#E2E8F0'}; border-radius: 8px; cursor: pointer; user-select: none; transition: all 0.15s ease;">
-                        <input type="radio" name="leave-card-student-radio" class="radio-leave-card-student" value="${s.id}" ${isSelected ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #059669;" />
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                          ${s.photo_url ? `<img src="${s.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />` : ''}
-                          <span style="${s.photo_url ? 'display: none;' : ''}">${(s.full_name || 'S').charAt(0).toUpperCase()}</span>
+                <!-- Row 2: Search Input brought AFTER dropdowns -->
+                <div style="position: relative; width: 100%;">
+                  <div class="capsule-search" style="display: flex; align-items: center; gap: 0.65rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.55rem 0.75rem; width: 100%; box-sizing: border-box; cursor: text;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" style="flex-shrink: 0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input 
+                      type="text" 
+                      id="leave-card-search-input" 
+                      placeholder="Search student by name, ID, phone..." 
+                      value="${searchFilter}" 
+                      style="border: none; background: transparent; width: 100%; font-size: 0.85rem; color: #1E293B; outline: none; padding: 0;"
+                      autocomplete="off"
+                    />
+                    ${searchFilter ? `
+                      <button type="button" id="btn-clear-search" style="border: none; background: transparent; color: #94A3B8; cursor: pointer; padding: 0 4px; font-size: 0.95rem; line-height: 1;" title="Clear search">✕</button>
+                    ` : ''}
+                  </div>
+
+                  <!-- Dropdown List of Matching Students (Shows ONLY Name and Class, No Extra Detail) -->
+                  <div id="leave-card-student-dropdown" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #FFFFFF; border: 1.5px solid #059669; border-radius: 10px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.08); max-height: 240px; overflow-y: auto; z-index: 1000;">
+                    ${filteredPickerStudents.length === 0 ? `
+                      <div style="padding: 0.75rem 1rem; font-size: 0.8rem; color: #94A3B8; text-align: center;">
+                        No student found matching criteria
+                      </div>
+                    ` : filteredPickerStudents.map(s => `
+                      <div class="dropdown-student-item" data-id="${s.id}" style="padding: 0.65rem 0.9rem; border-bottom: 1px solid #F1F5F9; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; transition: background 0.15s ease; ${s.id === selectedStudent?.id ? 'background: #ECFDF5;' : ''}">
+                        <div style="min-width: 0;">
+                          <span style="font-weight: 700; font-size: 0.86rem; color: #0F172A;">${s.full_name}</span>
+                          <span style="font-size: 0.74rem; color: #64748B; margin-left: 6px;">Class ${s.school_class || s.class_name || '-'}</span>
                         </div>
-                        <div style="flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                          <div style="min-width: 0;">
-                            <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.full_name}</div>
-                            <div style="font-size: 0.72rem; color: #64748B; margin-top: 1px;">Class ${s.school_class || s.class_name || '-'}</div>
-                          </div>
-                          <span class="badge" style="font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 9999px; background: ${isBoy ? '#EFF6FF' : '#FDF2F8'}; color: ${isBoy ? '#1D4ED8' : '#BE185D'}; flex-shrink: 0;">
-                            ${isBoy ? 'Boy' : 'Girl'}
-                          </span>
-                        </div>
-                      </label>
-                    `;
-                  }).join('')}
+                        ${s.id === selectedStudent?.id ? '<span style="color: #059669; font-weight: 800; font-size: 0.85rem;">✓</span>' : ''}
+                      </div>
+                    `).join('')}
+                  </div>
                 </div>
               </div>
             ` : ''}
@@ -591,29 +582,75 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
     function attachModuleEvents() {
       const searchInput = container.querySelector('#leave-card-search-input');
-      const classSelect = container.querySelector('#leave-card-class-filter');
+      const studentDropdown = container.querySelector('#leave-card-student-dropdown');
       const genderSelect = container.querySelector('#leave-card-gender-filter');
+      const statusSelect = container.querySelector('#leave-card-status-filter');
+      const classSelect = container.querySelector('#leave-card-class-filter');
 
-      // Typing in search input dynamically filters student tiles in place
+      // Focus on search input reveals dropdown list of students
+      searchInput?.addEventListener('focus', () => {
+        if (studentDropdown) studentDropdown.style.display = 'block';
+      });
+
+      // Typing in search input dynamically filters dropdown items in place
       searchInput?.addEventListener('input', (e) => {
         searchFilter = e.target.value;
         const q = searchFilter.toLowerCase().trim();
-        container.querySelectorAll('.student-leave-card-tile').forEach(tile => {
-          const sid = tile.dataset.id;
-          const st = accessibleStudents.find(s => s.id === sid);
-          const matches = !q || 
-            st?.full_name?.toLowerCase().includes(q) || 
-            st?.admission_number?.toLowerCase().includes(q) ||
-            (st?.school_class || '').toLowerCase().includes(q);
-          tile.style.display = matches ? 'flex' : 'none';
+        if (studentDropdown) {
+          studentDropdown.style.display = 'block';
+          const items = studentDropdown.querySelectorAll('.dropdown-student-item');
+          items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (!q || text.includes(q)) {
+              item.style.display = 'flex';
+            } else {
+              item.style.display = 'none';
+            }
+          });
+        }
+      });
+
+      // Allow pressing Enter in search box to select top visible student
+      searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const firstVisible = studentDropdown?.querySelector('.dropdown-student-item:not([style*="display: none"])');
+          if (firstVisible) {
+            firstVisible.click();
+          }
+        }
+      });
+
+      // Clear search button
+      const clearBtn = container.querySelector('#btn-clear-search');
+      clearBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        searchFilter = '';
+        renderModule();
+      });
+
+      // Click on dropdown student item selects student & renders
+      studentDropdown?.querySelectorAll('.dropdown-student-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sid = item.dataset.id;
+          selectedStudent = accessibleStudents.find(s => s.id === sid) || selectedStudent;
+          if (typeof localStorage !== 'undefined') localStorage.setItem('tps_leave_card_active_student', sid);
+          if (studentDropdown) studentDropdown.style.display = 'none';
+          searchFilter = '';
+          renderModule();
         });
       });
 
-      // Class Filter dropdown
-      classSelect?.addEventListener('change', () => {
-        classFilter = classSelect.value;
-        renderModule();
-      });
+      // Close dropdown when tapping anywhere outside
+      const outsideClickHandler = (e) => {
+        if (!searchInput?.contains(e.target) && !studentDropdown?.contains(e.target)) {
+          if (studentDropdown) studentDropdown.style.display = 'none';
+        }
+      };
+      if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        document.addEventListener('click', outsideClickHandler);
+      }
 
       // Gender Filter dropdown
       genderSelect?.addEventListener('change', () => {
@@ -621,32 +658,16 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
         renderModule();
       });
 
-      // Student selection tile click
-      container.querySelectorAll('.student-leave-card-tile').forEach(tile => {
-        tile.addEventListener('click', () => {
-          const sid = tile.dataset.id;
-          if (sid && sid !== selectedStudent?.id) {
-            selectedStudent = accessibleStudents.find(s => s.id === sid) || selectedStudent;
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem('tps_leave_card_active_student', sid);
-            }
-            renderModule();
-          }
-        });
+      // Status Filter dropdown
+      statusSelect?.addEventListener('change', () => {
+        statusFilter = statusSelect.value;
+        renderModule();
       });
 
-      // Radio input change
-      container.querySelectorAll('.radio-leave-card-student').forEach(radio => {
-        radio.addEventListener('change', () => {
-          const sid = radio.value;
-          if (sid && sid !== selectedStudent?.id) {
-            selectedStudent = accessibleStudents.find(s => s.id === sid) || selectedStudent;
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem('tps_leave_card_active_student', sid);
-            }
-            renderModule();
-          }
-        });
+      // Class Filter dropdown
+      classSelect?.addEventListener('change', () => {
+        classFilter = classSelect.value;
+        renderModule();
       });
 
       // Admin / Mentor Student Select dropdown (backward compatibility)

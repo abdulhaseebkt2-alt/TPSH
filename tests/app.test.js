@@ -5660,12 +5660,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('Room 204');
       expect(container.innerHTML).toContain('Present in Hostel');
 
-      // Check Student Selection Section (Matching exact UI from Screenshot 3)
-      expect(container.innerHTML).toContain('Select Student *');
-      expect(container.innerHTML).toContain('Search student name...');
+      // Check Student Filter Capsule & Dropdowns
+      expect(container.innerHTML).toContain('student-filter-capsule');
+      expect(container.innerHTML).toContain('leave-card-search-input');
       expect(container.innerHTML).toContain('All Classes');
-      expect(container.innerHTML).toContain('All Genders');
-      expect(container.innerHTML).toContain('radio-leave-card-student');
 
       // Check Table Headers (Mobile Compact Single Display: SL, Schedule, Status, Fine, F.Paid)
       expect(container.innerHTML).toContain('SL');
@@ -6408,7 +6406,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.saveAcademicCalendar(origCal);
     });
 
-    it('25.26 Student Leave Card: student selection UI matches screenshot 3 with radio tiles, 50/50 classes and genders filter, and search input', async () => {
+    it('25.26 Student Leave Card: student selector restores compact capsule with dropdowns first, search brought after dropdowns, and student list with only name and class', async () => {
       const adminUser = {
         id: 'u-admin-sel-ui',
         full_name: 'Admin Inspector',
@@ -6438,31 +6436,23 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       const html = container.innerHTML;
 
-      // 1. Header with 'Select Student *' and checkmark badge
-      expect(html).toContain('Select Student *');
-      expect(html).toContain('✓ Zayn Malik');
+      // 1. Compact filter capsule
+      expect(html).toContain('student-filter-capsule');
 
-      // 2. Full-width search bar
-      expect(html).toContain('id="leave-card-search-input"');
-      expect(html).toContain('placeholder="Search student name..."');
-
-      // 3. 50/50 grid with All Classes and All Genders
-      expect(html).toContain('id="leave-card-class-filter"');
-      expect(html).toContain('All Classes');
+      // 2. Dropdowns placed first (capsule-filters)
+      expect(html).toContain('capsule-filters');
       expect(html).toContain('id="leave-card-gender-filter"');
-      expect(html).toContain('All Genders');
-      expect(html).toContain('Boys');
-      expect(html).toContain('Girls');
+      expect(html).toContain('id="leave-card-status-filter"');
+      expect(html).toContain('id="leave-card-class-filter"');
 
-      // 4. Scrollable list with student radio tiles
-      expect(html).toContain('leave-card-student-scroll');
-      expect(html).toContain('student-leave-card-tile');
-      expect(html).toContain('radio-leave-card-student');
+      // 3. Search input brought after dropdowns
+      expect(html).toContain('id="leave-card-search-input"');
+      expect(html).toContain('leave-card-student-dropdown');
+
+      // 4. Student dropdown list items provide ONLY name and class
       expect(html).toContain('Zayn Malik');
       expect(html).toContain('Amina Khatun');
       expect(html).toContain('STD-V');
-      expect(html).toContain('Boy');
-      expect(html).toContain('Girl');
 
       // Clean up
       await db.deleteStudent(studentA.id);
