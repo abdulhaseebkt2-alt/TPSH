@@ -71,6 +71,13 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
   const leaves = filterLeavesForCurrentRole(rawLeaves);
 
+  async function reloadLeavesData() {
+    const updatedLeaves = await db.getLeaves(true);
+    const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
+    leaves.length = 0;
+    leaves.push(...reFiltered);
+  }
+
   // Active filter state
   let searchQuery = '';
   let statusFilter = 'all'; // 'all', 'pending', 'away', 'overdue', 'returned'
@@ -788,10 +795,15 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           try {
             await db.deleteLeaveRecord(leaveId);
             toast.success(`Leave record #${code} wiped permanently.`);
-            await loadData();
+            await reloadLeavesData();
             renderView();
           } catch (err) {
             console.error('Failed to delete leave:', err);
+            if (err.message && err.message.toLowerCase().includes('not found')) {
+              await reloadLeavesData();
+              renderView();
+              return;
+            }
             toast.error(err.message || 'Error deleting leave record');
           }
         });

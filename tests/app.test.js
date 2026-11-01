@@ -6601,5 +6601,52 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(s1.id);
       await db.deleteStudent(s2.id);
     });
+
+    it('wipes leave permanently via deleteLeaveRecord and handles subsequent deletion gracefully', async () => {
+      const student = await db.addStudent({
+        full_name: 'Test Delete Leave Student',
+        gender: 'Boys',
+        school_class: 'STD-X',
+        status: 'Active',
+        dob: '2008-01-01',
+        father_name: 'Father',
+        father_phone: '+91 91111 22222'
+      });
+
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        student_name: student.full_name,
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-01',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-03',
+        expected_return_time: '18:00',
+        reason: 'Family Function'
+      });
+
+      // Record fine payment for this leave
+      await db.recordFinePayment(leave.id, 100, 'Cash', 'Advance receipt', 'Admin', student.id);
+
+      // Verify leave exists in db
+      let allLeaves = await db.getLeaves(true);
+      expect(allLeaves.some(l => l.id === leave.id)).toBe(true);
+
+      // Wipe leave permanently
+      const deleted = await db.deleteLeaveRecord(leave.id);
+      expect(deleted.id).toBe(leave.id);
+
+      // Verify leave no longer exists in db
+      allLeaves = await db.getLeaves(true);
+      expect(allLeaves.some(l => l.id === leave.id)).toBe(false);
+
+      // Verify fine payment record was wiped
+      const fines = db.get('tps_fine_payments') || [];
+      expect(fines.some(f => f.leave_id === leave.id)).toBe(false);
+
+      // Deleting again throws 'Leave record not found' which UI catches and re-renders
+      await expect(db.deleteLeaveRecord(leave.id)).rejects.toThrow('Leave record not found');
+
+      await db.deleteStudent(student.id);
+    });
   });
 });

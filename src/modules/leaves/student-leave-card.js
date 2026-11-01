@@ -861,6 +861,13 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
             allLeaves.push(...updatedLeaves);
             renderModule();
           } catch (err) {
+            if (err.message && err.message.toLowerCase().includes('not found')) {
+              const updatedLeaves = await db.getLeaves(true);
+              allLeaves.length = 0;
+              allLeaves.push(...updatedLeaves);
+              renderModule();
+              return;
+            }
             toast.error(err.message || 'Error deleting leave record');
           }
         });
