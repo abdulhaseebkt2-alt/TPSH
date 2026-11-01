@@ -155,7 +155,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       const studentLeaves = selectedStudent ? getStudentLeaves(selectedStudent.id) : [];
 
       container.innerHTML = `
-        <div class="student-leave-card-module" style="display: flex; flex-direction: column; gap: 1rem; max-width: 1200px; margin: 0 auto; width: 100%;">
+        <div class="student-leave-card-module" style="display: flex; flex-direction: column; gap: 1rem; max-width: 1200px; margin: 0 auto; width: 100%; padding-bottom: 2.5rem;">
           
           <!-- Module Title & Filter Toolbar -->
           <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">

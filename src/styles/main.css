@@ -2016,8 +2016,10 @@ textarea.form-control {
 }
 
 @media (max-width: 767px) {
-  .content-area {
-    padding: 1rem;
+  .content-area,
+  #app-content {
+    padding: 1rem 1rem calc(6.5rem + env(safe-area-inset-bottom, 24px)) !important;
+    box-sizing: border-box;
   }
   .navbar {
     padding: 0 1rem;
@@ -8808,6 +8810,15 @@ body.tps-wheel-open {
 
 /* Responsive Ergonomics for Hostel Leaves & Bedrooms */
 @media (max-width: 768px) {
+  .content-area,
+  #app-content {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 24px)) !important;
+  }
+  .student-leave-card-module,
+  .cal-workspace-layout,
+  .calendar-module-container {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 20px)) !important;
+  }
   .desktop-leave-table {
     display: none !important;
   }

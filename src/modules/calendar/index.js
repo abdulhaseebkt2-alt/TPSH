@@ -11,6 +11,18 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
   // Load institutional calendar database entity
   let calendar = await db.getAcademicCalendar();
+  let leaveRecords = [];
+  try {
+    leaveRecords = (await db.getLeaves?.()) || db.get('tps_leaves') || [];
+  } catch (e) {
+    leaveRecords = db.get('tps_leaves') || [];
+  }
+  let allStudents = [];
+  try {
+    allStudents = (await db.getStudents?.()) || db.get('tps_students') || [];
+  } catch (e) {
+    allStudents = db.get('tps_students') || [];
+  }
 
   // Active state
   let currentYear = 2026;
@@ -57,12 +69,15 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
   // Helper: Detect contiguous multi-day hostel leave sequences (Red Shade)
   function getHostelLeaveRangeRole(dateStr, events) {
-    const leaveRecords = db.get('tps_leaves') || [];
     const isLeave = (dStr) => {
       const hasEvent = events.some(e => e.date === dStr && e.type === 'hostel_leave');
       if (hasEvent) return true;
       if (Array.isArray(leaveRecords)) {
-        return leaveRecords.some(l => l.departure_date && l.expected_return_date && dStr >= l.departure_date && dStr <= l.expected_return_date);
+        return leaveRecords.some(l => {
+          const dep = l.departure_date || l.leaving_date;
+          const ret = l.expected_return_date || dep;
+          return dep && ret && dStr >= dep && dStr <= ret;
+        });
       }
       return false;
     };
@@ -218,6 +233,55 @@ export async function renderCalendarModule(container, { onNavigate }) {
     const gridDays = getCalendarGridDays(currentYear, currentMonth);
     const events = (calendar.events || []).slice().sort((a, b) => (a.date > b.date ? 1 : -1));
     const groupedEvents = groupCalendarEvents(events);
+
+    // Identify all hostel leaves for the current month from tps_leaves
+    const totalDaysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const monthStartStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    const monthEndStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(totalDaysInMonth).padStart(2, '0')}`;
+
+    const monthLeaves = (leaveRecords || []).filter(l => {
+      const depDate = l.departure_date || l.leaving_date;
+      const retDate = l.expected_return_date || depDate;
+      if (!depDate) return false;
+      return depDate <= monthEndStr && retDate >= monthStartStr;
+    });
+
+    const monthLeaveGroups = monthLeaves.map(l => {
+      const depDate = l.departure_date || l.leaving_date;
+      const retDate = l.expected_return_date || depDate;
+      const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id].filter(Boolean);
+      const studentNames = sIds.map(sid => allStudents.find(s => s.id === sid)?.full_name).filter(Boolean).join(', ') || l.student_name || 'Student';
+      
+      const d1 = new Date(depDate);
+      const d2 = new Date(retDate);
+      const allDates = [];
+      const tempDate = new Date(d1);
+      while (tempDate <= d2) {
+        allDates.push(toYMD(tempDate));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+
+      return {
+        id: l.id,
+        leaveId: l.id,
+        isHostelLeaveRecord: true,
+        name: `${studentNames} • ${l.reason || 'Hostel Leave'}`,
+        studentNames: studentNames,
+        reason: l.reason || 'Hostel Leave',
+        leaveCode: l.leave_code || l.leave_register_number || 'Pass',
+        status: l.status || 'Approved',
+        type: 'hostel_leave',
+        startDate: depDate,
+        endDate: retDate,
+        startTime: l.departure_time || l.leaving_time || '16:00',
+        endTime: l.expected_return_time || '18:00',
+        finePerHour: l.fine_per_hour ?? 50,
+        allDates: allDates,
+        rawLeave: l
+      };
+    });
+
+    const combinedAgenda = [...groupedEvents, ...monthLeaveGroups].sort((a, b) => (a.startDate > b.startDate ? 1 : a.startDate < b.startDate ? -1 : 0));
 
     // Summary counts
     const currentMonthDays = gridDays.filter(d => d.isCurrentMonth);
@@ -490,13 +554,13 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
           </div>
 
-          <!-- 4. SCHEDULED HOLIDAYS & SPECIAL EVENTS AGENDA (EXPANDS NATURALLY WITHOUT SCROLLBAR, MULTI-DAY MERGED INTO SINGLE CARDS) -->
+          <!-- 4. SCHEDULED HOLIDAYS, EVENTS & HOSTEL LEAVES AGENDA (EXPANDS NATURALLY WITHOUT SCROLLBAR, MULTI-DAY MERGED INTO SINGLE CARDS) -->
           <div class="cal-agenda-card-box" style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.95rem 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
               <h4 style="font-weight: 800; font-size: 0.88rem; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
                 <span>🌴</span>
                 <span>Holidays & Events</span>
-                <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">${groupedEvents.length}</span>
+                <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">${combinedAgenda.length}</span>
               </h4>
               ${!isViewOnly ? `
                 <button type="button" class="btn btn-ghost btn-xs" id="btn-add-cal-holiday-inline" style="color: #059669; font-weight: 700; font-size: 0.75rem; padding: 2px 6px;">
@@ -507,7 +571,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
             <!-- Natural list without scrollbar: multi-day leave/holiday/event rendered in a single consolidated card -->
             <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              ${groupedEvents.length > 0 ? groupedEvents.map(grp => {
+              ${combinedAgenda.length > 0 ? combinedAgenda.map(grp => {
                 const isLeave = grp.type === 'hostel_leave';
                 const isHol = grp.type === 'holiday';
                 const itemBg = isLeave ? '#FEF2F2' : isHol ? '#FFFDF5' : '#F0FDF4';
@@ -518,26 +582,46 @@ export async function renderCalendarModule(container, { onNavigate }) {
                 const dateDisplay = isMulti 
                   ? `${formatDate(grp.startDate)} – ${formatDate(grp.endDate)}` 
                   : formatDate(grp.startDate);
+                const dayCount = grp.allDates ? grp.allDates.length : 1;
                 const dayCountBadge = isMulti 
-                  ? `<span style="font-size: 0.68rem; font-weight: 700; background: rgba(0,0,0,0.04); border: 1px solid ${itemBorder}; padding: 1px 5px; border-radius: 4px; margin-left: 4px; color: ${itemColor};">(${grp.allDates.length} Days)</span>` 
+                  ? `<span style="font-size: 0.68rem; font-weight: 700; background: rgba(0,0,0,0.04); border: 1px solid ${itemBorder}; padding: 1px 5px; border-radius: 4px; margin-left: 4px; color: ${itemColor};">(${dayCount} Days)</span>` 
                   : '';
 
                 return `
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid ${itemBorder}; background: ${itemBg};">
-                    <div style="min-width: 0;">
-                      <div style="font-weight: 700; font-size: 0.82rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${grp.name}
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 10px; border: 1px solid ${itemBorder}; background: ${itemBg};">
+                    <div style="min-width: 0; flex: 1;">
+                      <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                        <span style="font-weight: 700; font-size: 0.84rem; color: #0F172A;">
+                          ${grp.name}
+                        </span>
+                        ${grp.status ? `
+                          <span class="badge" style="font-size: 0.68rem; font-weight: 700; padding: 1px 6px; background: ${grp.status === 'Approved' ? '#DEF7EC' : grp.status === 'Pending' ? '#FEF3C7' : '#FEE2E2'}; color: ${grp.status === 'Approved' ? '#03543F' : grp.status === 'Pending' ? '#92400E' : '#991B1B'};">
+                            ${grp.status}
+                          </span>
+                        ` : ''}
+                        ${grp.leaveCode ? `
+                          <code style="font-size: 0.7rem; color: #475569; background: rgba(0,0,0,0.04); padding: 1px 5px; border-radius: 4px;">${grp.leaveCode}</code>
+                        ` : ''}
                       </div>
-                      <div style="font-size: 0.72rem; color: #64748B;">
+                      <div style="font-size: 0.72rem; color: #64748B; margin-top: 2px;">
                         ${dateDisplay} • <span style="color: ${itemColor}; font-weight: 600;">${itemLabel}</span>
                         ${dayCountBadge}
+                        ${grp.startTime && grp.endTime ? ` • <span style="color: #475569;">${grp.startTime} - ${grp.endTime}</span>` : ''}
                       </div>
                     </div>
-                    ${!isViewOnly ? `
-                      <button type="button" class="btn btn-ghost btn-xs btn-del-event" data-event-id="${grp.id}" data-all-dates="${grp.allDates.join(',')}" data-range-id="${grp.range_id || ''}" title="Delete Holiday" style="color: #DC2626; padding: 2px 6px; font-size: 0.74rem; flex-shrink: 0; font-weight: 700;">
-                        ✕
-                      </button>
-                    ` : ''}
+
+                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">
+                      ${grp.isHostelLeaveRecord ? `
+                        <button type="button" class="btn btn-outline btn-xs btn-open-leave-edit" data-leave-id="${grp.leaveId}" title="View & Edit Leave Schedule" style="color: #2563EB; border-color: #BFDBFE; background: #EFF6FF; font-weight: 700; padding: 3px 8px; font-size: 0.74rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          ${!isViewOnly ? 'Edit' : 'View'}
+                        </button>
+                      ` : (!isViewOnly ? `
+                        <button type="button" class="btn btn-ghost btn-xs btn-del-event" data-event-id="${grp.id}" data-all-dates="${grp.allDates?.join(',') || ''}" data-range-id="${grp.range_id || ''}" title="Delete Holiday" style="color: #DC2626; padding: 2px 6px; font-size: 0.74rem; flex-shrink: 0; font-weight: 700;">
+                          ✕
+                        </button>
+                      ` : '')}
+                    </div>
                   </div>
                 `;
               }).join('') : `
@@ -663,6 +747,16 @@ export async function renderCalendarModule(container, { onNavigate }) {
         }
         toast.success('Calendar holiday deleted.');
         renderFullUI();
+      });
+    });
+
+    // View & Edit hostel leave schedule from agenda list
+    container.querySelectorAll('.btn-open-leave-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const leaveId = btn.getAttribute('data-leave-id');
+        if (leaveId) {
+          openEditLeaveScheduleModal(leaveId);
+        }
       });
     });
 
@@ -868,11 +962,18 @@ export async function renderCalendarModule(container, { onNavigate }) {
     });
   }
 
-  // --- MODAL 3: QUICK DATE EDIT & INSPECT (INSTITUTIONAL) ---
+  // --- MODAL 3: QUICK DATE EDIT & INSPECT (INSTITUTIONAL & HOSTEL LEAVES) ---
   function openQuickDateEditModal(dateStr) {
     const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
     const isHol = dayInfo.isHoliday;
     const isWork = dayInfo.isWorkingDay;
+
+    // Check if this date has any student hostel leaves
+    const dayLeaves = (leaveRecords || []).filter(l => {
+      const depDate = l.departure_date || l.leaving_date;
+      const retDate = l.expected_return_date || depDate;
+      return depDate && retDate && dateStr >= depDate && dateStr <= retDate;
+    });
 
     const dateObj = new Date(dateStr + 'T00:00:00');
     const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dateObj.getDay()];
@@ -900,6 +1001,47 @@ export async function renderCalendarModule(container, { onNavigate }) {
               ${icon}
             </div>
           </div>
+
+          ${dayLeaves.length > 0 ? `
+            <!-- Active Hostel Leaves on this date -->
+            <div style="background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: 10px; padding: 0.85rem 1rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem;">
+                <span style="font-size: 0.74rem; font-weight: 800; color: #DC2626; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 4px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                  Active Hostel Leave(s) (${dayLeaves.length})
+                </span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+                ${dayLeaves.map(l => {
+                  const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id].filter(Boolean);
+                  const sNames = sIds.map(sid => allStudents.find(s => s.id === sid)?.full_name).filter(Boolean).join(', ') || l.student_name || 'Student';
+                  const dep = l.departure_date || l.leaving_date;
+                  const ret = l.expected_return_date || dep;
+                  return `
+                    <div style="background: #FFFFFF; border: 1px solid #FCA5A5; border-radius: 8px; padding: 0.6rem 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                      <div>
+                        <div style="font-weight: 800; font-size: 0.84rem; color: #0F172A;">
+                          ${sNames}
+                          <span class="badge" style="font-size: 0.65rem; font-weight: 700; padding: 1px 5px; margin-left: 4px; background: ${l.status === 'Approved' ? '#DEF7EC' : l.status === 'Pending' ? '#FEF3C7' : '#FEE2E2'}; color: ${l.status === 'Approved' ? '#03543F' : l.status === 'Pending' ? '#92400E' : '#991B1B'};">${l.status || 'Active'}</span>
+                        </div>
+                        <div style="font-size: 0.72rem; color: #64748B; margin-top: 2px;">
+                          ${formatDate(dep)} ${l.departure_time || ''} – ${formatDate(ret)} ${l.expected_return_time || ''}
+                          • <span style="color: #DC2626; font-weight: 600;">${l.reason || 'Hostel Leave'}</span>
+                          • <code>${l.leave_code || l.leave_register_number || 'Pass'}</code>
+                        </div>
+                      </div>
+                      ${!isViewOnly ? `
+                        <button type="button" class="btn btn-outline btn-xs btn-modal-edit-leave" data-leave-id="${l.id}" style="color: #2563EB; border-color: #BFDBFE; background: #EFF6FF; font-weight: 700; padding: 3px 8px; font-size: 0.72rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 3px;">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          Edit Leave
+                        </button>
+                      ` : ''}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
 
           <!-- Schedule Status & Event Title -->
           <div style="border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem 1rem; background: #FFFFFF;">
@@ -975,6 +1117,14 @@ export async function renderCalendarModule(container, { onNavigate }) {
         modalBody?.querySelector?.('#modal-btn-close-inst')?.addEventListener('click', close);
         const titleInput = modalBody?.querySelector?.('#modal-edit-date-title');
 
+        modalBody?.querySelectorAll?.('.btn-modal-edit-leave')?.forEach?.(btn => {
+          btn.addEventListener('click', () => {
+            const leaveId = btn.getAttribute('data-leave-id');
+            close();
+            openEditLeaveScheduleModal(leaveId);
+          });
+        });
+
         modalBody?.querySelector?.('#btn-set-holiday')?.addEventListener('click', async () => {
           const name = titleInput ? titleInput.value.trim() || 'Institutional Holiday' : 'Institutional Holiday';
           calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'holiday' });
@@ -1009,6 +1159,116 @@ export async function renderCalendarModule(container, { onNavigate }) {
         modalBody?.querySelector?.('#btn-open-multi-day-from-inspect')?.addEventListener('click', () => {
           close();
           openAddHolidayModal(dateStr, dateStr);
+        });
+      }
+    });
+  }
+
+  // --- MODAL 4: EDIT HOSTEL LEAVE SCHEDULE (DATES, TIMES, REASON, FINE RATE) ---
+  function openEditLeaveScheduleModal(leaveId) {
+    const leave = (leaveRecords || []).find(l => l.id === leaveId || l.leave_code === leaveId);
+    if (!leave) return;
+
+    const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id].filter(Boolean);
+    const studentNames = sIds.map(sid => allStudents.find(s => s.id === sid)?.full_name).filter(Boolean).join(', ') || leave.student_name || 'Student';
+
+    openModal({
+      title: `Edit Leave Schedule — ${leave.leave_code || leave.leave_register_number || 'Pass'}`,
+      modalClass: 'cal-leave-edit-modal',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.85rem; font-size: 0.85rem; line-height: 1.5;">
+            <div><strong>Student:</strong> ${studentNames}</div>
+            <div><strong>Pass Code:</strong> <code>${leave.leave_code || leave.leave_register_number || 'N/A'}</code></div>
+            <div><strong>Status:</strong> <span class="badge ${leave.status === 'Approved' ? 'badge-success' : leave.status === 'Pending' ? 'badge-warning' : 'badge-secondary'}">${leave.status || 'Active'}</span></div>
+            ${leave.reason ? `<div><strong>Current Reason:</strong> ${leave.reason}</div>` : ''}
+          </div>
+
+          <!-- Schedule Edit Grid -->
+          <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 12px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.65rem;">
+            <div style="font-weight: 700; color: #1E40AF; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Modify Requested Dates & Times
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Date *</label>
+                <input type="date" id="cal-edit-dep-date" class="form-control" value="${leave.departure_date || leave.leaving_date || ''}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Time *</label>
+                <input type="time" id="cal-edit-dep-time" class="form-control" value="${leave.departure_time || leave.leaving_time || '16:00'}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Date *</label>
+                <input type="date" id="cal-edit-ret-date" class="form-control" value="${leave.expected_return_date || ''}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Time *</label>
+                <input type="time" id="cal-edit-ret-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 38px; font-size: 0.85rem;" required />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.76rem; font-weight: 700; color: #0F172A;">Per-Hour Overdue Fine Rate (₹/hr)</label>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span style="font-weight: 700; color: #475569;">₹</span>
+              <input type="number" id="cal-edit-fine-rate" class="form-control" value="${leave.fine_per_hour ?? 50}" min="0" step="5" style="height: 38px; font-size: 0.85rem; max-width: 120px;" />
+              <span style="font-size: 0.78rem; color: #64748B;">/ hour late</span>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.76rem; font-weight: 700; color: #0F172A;">Reason / Purpose of Leave</label>
+            <input type="text" id="cal-edit-leave-reason" class="form-control" value="${leave.reason || ''}" placeholder="Specify purpose..." style="height: 38px; font-size: 0.85rem;" />
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-outline" id="cal-btn-cancel-edit-leave">Cancel</button>
+            <button type="button" class="btn btn-primary" id="cal-btn-save-edit-leave" style="background: #2563EB; border-color: #2563EB; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Save Schedule Changes
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        modalBody?.querySelector?.('#cal-btn-cancel-edit-leave')?.addEventListener('click', close);
+        modalBody?.querySelector?.('#cal-btn-save-edit-leave')?.addEventListener('click', async () => {
+          const depDate = modalBody.querySelector('#cal-edit-dep-date')?.value;
+          const depTime = modalBody.querySelector('#cal-edit-dep-time')?.value;
+          const retDate = modalBody.querySelector('#cal-edit-ret-date')?.value;
+          const retTime = modalBody.querySelector('#cal-edit-ret-time')?.value;
+          const fineRate = Number(modalBody.querySelector('#cal-edit-fine-rate')?.value) || 50;
+          const reasonVal = modalBody.querySelector('#cal-edit-leave-reason')?.value?.trim();
+
+          if (!depDate || !retDate) {
+            toast.error('Departure and Expected Return dates are required.');
+            return;
+          }
+
+          try {
+            await db.updateLeaveRecord(leave.id, {
+              departure_date: depDate,
+              departure_time: depTime,
+              expected_return_date: retDate,
+              expected_return_time: retTime,
+              fine_per_hour: fineRate,
+              reason: reasonVal || leave.reason
+            });
+            toast.success(`Leave schedule updated successfully for ${leave.leave_code || 'pass'}.`);
+            close();
+            try {
+              leaveRecords = (await db.getLeaves?.()) || db.get('tps_leaves') || [];
+            } catch (e) {
+              leaveRecords = db.get('tps_leaves') || [];
+            }
+            renderFullUI();
+          } catch (err) {
+            toast.error(err.message || 'Failed to update leave schedule.');
+          }
         });
       }
     });

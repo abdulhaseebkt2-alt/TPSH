@@ -6062,5 +6062,143 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_leaves', existingLeaves);
       await db.deleteStudent(student.id);
     });
+
+    it('25.24 Academic Calendar: displays hostel leaves under calendar card, allows viewing/editing schedule, and ensures mobile bottom clearance', async () => {
+      const existingLeaves = db.get('tps_leaves') || [];
+      const student = await db.addStudent({
+        full_name: 'Calendar Test Student',
+        admission_number: 'TPS-2026-999',
+        gender: 'Girls',
+        dob: '2016-01-01',
+        father_name: 'Test Father',
+        father_phone: '9876543210',
+        village: 'Test Town'
+      });
+
+      const octLeave = {
+        id: 'leave-oct-test-1',
+        leave_code: 'LV-2026-OCT-1',
+        student_ids: [student.id],
+        student_id: student.id,
+        student_name: student.full_name,
+        departure_date: '2026-10-14',
+        departure_time: '16:00',
+        expected_return_date: '2026-10-25',
+        expected_return_time: '18:00',
+        reason: 'Family Function & Medical Visit',
+        status: 'Approved',
+        fine_per_hour: 50
+      };
+
+      db.set('tps_leaves', [...existingLeaves, octLeave]);
+
+      // 1. Render Academic Calendar for October 2026
+      let dayBoxCallbacks = {};
+      let editBtnCallback = null;
+      let appendedModal = null;
+
+      const mockDocument = {
+        createElement: (tag) => {
+          const el = {
+            tagName: tag.toUpperCase(),
+            className: '',
+            style: {},
+            innerHTML: '',
+            querySelector: (sel) => {
+              if (sel === '#modal-content-container') return el;
+              if (sel === '#modal-btn-close-inst') return { addEventListener: () => {} };
+              if (sel === '#cal-btn-cancel-edit-leave') return { addEventListener: () => {} };
+              if (sel === '#cal-edit-dep-date') return { value: '2026-10-14' };
+              if (sel === '#cal-edit-dep-time') return { value: '16:00' };
+              if (sel === '#cal-edit-ret-date') return { value: '2026-10-26' };
+              if (sel === '#cal-edit-ret-time') return { value: '18:00' };
+              if (sel === '#cal-edit-fine-rate') return { value: '60' };
+              if (sel === '#cal-edit-leave-reason') return { value: 'Extended Medical Checkup' };
+              if (sel === '#cal-btn-save-edit-leave') {
+                return {
+                  addEventListener: (evt, cb) => {
+                    if (evt === 'click') editBtnCallback = cb;
+                  }
+                };
+              }
+              return el;
+            },
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            remove: () => {}
+          };
+          return el;
+        },
+        body: {
+          appendChild: (el) => { appendedModal = el; },
+          removeChild: () => {}
+        }
+      };
+
+      const originalDocument = global.document;
+      global.document = mockDocument;
+
+      try {
+        const mockContainer = {
+          innerHTML: '',
+          querySelector: () => null,
+          querySelectorAll: (sel) => {
+            if (sel === '.cal-day-box') {
+              return [{
+                getAttribute: (attr) => attr === 'data-date' ? '2026-10-14' : null,
+                addEventListener: (evt, cb) => {
+                  dayBoxCallbacks[evt] = cb;
+                }
+              }];
+            }
+            if (sel === '.btn-open-leave-edit') {
+              return [{
+                getAttribute: (attr) => attr === 'data-leave-id' ? octLeave.id : null,
+                addEventListener: () => {}
+              }];
+            }
+            return [];
+          }
+        };
+
+        await renderCalendarModule(mockContainer, { onNavigate: () => {} });
+
+        // Verify leave appears in the agenda under the calendar card
+        expect(mockContainer.innerHTML).toContain('Calendar Test Student');
+        expect(mockContainer.innerHTML).toContain('Family Function & Medical Visit');
+        expect(mockContainer.innerHTML).toContain('LV-2026-OCT-1');
+        expect(mockContainer.innerHTML).toContain('14.Oct.2026 – 25.Oct.2026');
+        expect(mockContainer.innerHTML).toContain('(12 Days)');
+        expect(mockContainer.innerHTML).toContain('btn-open-leave-edit');
+
+        // 2. Click day box on Oct 14: opens inspection modal showing the active hostel leave
+        dayBoxCallbacks['click']?.();
+        expect(appendedModal).not.toBeNull();
+        expect(appendedModal.innerHTML).toContain('Active Hostel Leave(s)');
+        expect(appendedModal.innerHTML).toContain('Calendar Test Student');
+        expect(appendedModal.innerHTML).toContain('Edit Leave');
+
+        // 3. Test updating leave schedule via db.updateLeaveRecord
+        await db.updateLeaveRecord(octLeave.id, {
+          expected_return_date: '2026-10-26',
+          reason: 'Extended Medical Checkup',
+          fine_per_hour: 60
+        });
+
+        const updated = (db.get('tps_leaves') || []).find(l => l.id === octLeave.id);
+        expect(updated.expected_return_date).toBe('2026-10-26');
+        expect(updated.reason).toBe('Extended Medical Checkup');
+        expect(updated.fine_per_hour).toBe(60);
+
+        // 4. Verify main.css contains mobile bottom nav clearance
+        const fs = await import('fs');
+        const css = fs.readFileSync('src/styles/main.css', 'utf8');
+        expect(css).toContain('calc(6.5rem + env(safe-area-inset-bottom');
+      } finally {
+        global.document = originalDocument;
+        db.set('tps_leaves', existingLeaves);
+        await db.deleteStudent(student.id);
+      }
+    });
   });
 });
