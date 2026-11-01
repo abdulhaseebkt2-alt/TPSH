@@ -1096,6 +1096,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
     let selectedLeaveId = preselectedLeaveId || (activeLeaves[0]?.id || '');
     let selectedStudentLeaveId = unreturnedStudents[0]?.student.id || '';
     let selectedBatchStudentIds = new Set();
+    let lastInitializedLeaveId = null;
 
     function enhanceModalInputs(container) {
       if (!container) return;
@@ -1425,9 +1426,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             });
           }
 
-          // Preselect all unreturned by default
-          if (selectedBatchStudentIds.size === 0 && batchUnreturned.length > 0) {
+          // Preselect all unreturned by default on initial load or when switching card
+          if (lastInitializedLeaveId !== selectedLeaveId && batchUnreturned.length > 0) {
+            selectedBatchStudentIds.clear();
             batchUnreturned.forEach(st => selectedBatchStudentIds.add(st.id));
+            lastInitializedLeaveId = selectedLeaveId;
           }
 
           contentEl.innerHTML = `
@@ -1522,31 +1525,40 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
           enhanceModalInputs(contentEl);
 
+          function updateBatchSelectionCounts() {
+            const countEl = modalBody.querySelector('#batch-sel-count');
+            const btnCountEl = modalBody.querySelector('#btn-batch-confirm-count');
+            if (countEl) countEl.textContent = selectedBatchStudentIds.size;
+            if (btnCountEl) btnCountEl.textContent = selectedBatchStudentIds.size;
+          }
+
           // Event Listeners for Batch Mode
           modalBody.querySelector('#batch-leave-select')?.addEventListener('change', (e) => {
             selectedLeaveId = e.target.value;
-            selectedBatchStudentIds.clear();
             renderBatchTab();
           });
 
           modalBody.querySelector('#btn-batch-sel-all')?.addEventListener('click', () => {
-            batchUnreturned.forEach(st => selectedBatchStudentIds.add(st.id));
-            renderBatchTab();
+            modalBody.querySelectorAll('.chk-batch-ret-student').forEach(chk => {
+              chk.checked = true;
+              selectedBatchStudentIds.add(chk.value);
+            });
+            updateBatchSelectionCounts();
           });
 
           modalBody.querySelector('#btn-batch-clear-all')?.addEventListener('click', () => {
+            modalBody.querySelectorAll('.chk-batch-ret-student').forEach(chk => {
+              chk.checked = false;
+            });
             selectedBatchStudentIds.clear();
-            renderBatchTab();
+            updateBatchSelectionCounts();
           });
 
           modalBody.querySelectorAll('.chk-batch-ret-student').forEach(chk => {
             chk.addEventListener('change', () => {
               if (chk.checked) selectedBatchStudentIds.add(chk.value);
               else selectedBatchStudentIds.delete(chk.value);
-              const countEl = modalBody.querySelector('#batch-sel-count');
-              const btnCountEl = modalBody.querySelector('#btn-batch-confirm-count');
-              if (countEl) countEl.textContent = selectedBatchStudentIds.size;
-              if (btnCountEl) btnCountEl.textContent = selectedBatchStudentIds.size;
+              updateBatchSelectionCounts();
             });
           });
 
@@ -2089,26 +2101,34 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               renderBatchForm();
             });
 
+            function updatePassSelectionCounts() {
+              const countEl = modalBody.querySelector('#batch-pass-sel-count');
+              const btnCountEl = modalBody.querySelector('#btn-batch-generate-count');
+              if (countEl) countEl.textContent = selectedBatchStudentIds.size;
+              if (btnCountEl) btnCountEl.textContent = selectedBatchStudentIds.size;
+            }
+
             modalBody.querySelector('#btn-batch-pass-all')?.addEventListener('click', () => {
-              saveBatchState();
-              filtered.forEach(s => selectedBatchStudentIds.add(s.id));
-              renderBatchForm();
+              modalBody.querySelectorAll('.chk-batch-pass-student').forEach(chk => {
+                chk.checked = true;
+                selectedBatchStudentIds.add(chk.value);
+              });
+              updatePassSelectionCounts();
             });
 
             modalBody.querySelector('#btn-batch-pass-clear')?.addEventListener('click', () => {
-              saveBatchState();
-              selectedBatchStudentIds.clear();
-              renderBatchForm();
+              modalBody.querySelectorAll('.chk-batch-pass-student').forEach(chk => {
+                chk.checked = false;
+                selectedBatchStudentIds.delete(chk.value);
+              });
+              updatePassSelectionCounts();
             });
 
             modalBody.querySelectorAll('.chk-batch-pass-student').forEach(chk => {
               chk.addEventListener('change', () => {
                 if (chk.checked) selectedBatchStudentIds.add(chk.value);
                 else selectedBatchStudentIds.delete(chk.value);
-                const countEl = modalBody.querySelector('#batch-pass-sel-count');
-                const btnCountEl = modalBody.querySelector('#btn-batch-generate-count');
-                if (countEl) countEl.textContent = selectedBatchStudentIds.size;
-                if (btnCountEl) btnCountEl.textContent = selectedBatchStudentIds.size;
+                updatePassSelectionCounts();
               });
             });
 

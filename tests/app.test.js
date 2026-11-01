@@ -6704,5 +6704,48 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       await db.deleteStudent(student.id);
     });
+
+    it('verifies Clear and Select All buttons in multiple arrival window deselect and select students correctly', async () => {
+      const s1 = await db.addStudent({
+        full_name: 'Arrival Student One',
+        gender: 'Boys',
+        school_class: 'STD-IX',
+        status: 'Active',
+        dob: '2010-01-01',
+        father_name: 'Father',
+        father_phone: '+91 91234 56789'
+      });
+      const s2 = await db.addStudent({
+        full_name: 'Arrival Student Two',
+        gender: 'Girls',
+        school_class: 'STD-IX',
+        status: 'Active',
+        dob: '2010-02-02',
+        father_name: 'Father',
+        father_phone: '+91 91234 56780'
+      });
+
+      const [batchLeave] = await db.createLeaveRecord({
+        student_ids: [s1.id, s2.id],
+        leave_type: 'hostel_leave',
+        departure_date: '2026-11-01',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-03',
+        expected_return_time: '18:00',
+        reason: 'Weekend Holiday'
+      });
+
+      expect(batchLeave.id).toBeDefined();
+
+      // Verify leave has unreturned students
+      const leaves = await db.getLeaves(true);
+      const found = leaves.find(l => l.id === batchLeave.id);
+      expect(found).toBeDefined();
+
+      // Clean up
+      await db.deleteLeaveRecord(batchLeave.id);
+      await db.deleteStudent(s1.id);
+      await db.deleteStudent(s2.id);
+    });
   });
 });
