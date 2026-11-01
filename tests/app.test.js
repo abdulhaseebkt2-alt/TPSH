@@ -4723,8 +4723,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Create a batch leave using db.createLeaveRecord with fine_per_hour
       let allStudents = await db.getStudents();
       if (!allStudents || allStudents.length < 2) {
-        const s1New = await db.createStudent({ full_name: 'Test Child One', admission_number: 'TPS-TC1', gender: 'Boys', status: 'Active' });
-        const s2New = await db.createStudent({ full_name: 'Test Child Two', admission_number: 'TPS-TC2', gender: 'Boys', status: 'Active' });
+        const s1New = await db.addStudent({ full_name: 'Test Child One', admission_number: 'TPS-TC1', gender: 'Boys', status: 'Active' });
+        const s2New = await db.addStudent({ full_name: 'Test Child Two', admission_number: 'TPS-TC2', gender: 'Boys', status: 'Active' });
         allStudents = [s1New, s2New];
       }
       const s1 = allStudents[0];
@@ -4878,8 +4878,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     it('2506: Parent Dashboard multi-child switcher, single-line centered presence pill, and cross-account sync', async () => {
       let students = await db.getStudents();
       if (!students || students.length < 2) {
-        const st1New = await db.createStudent({ full_name: 'Test Child Alpha', admission_number: 'TPS-TCA', gender: 'Boys', status: 'Active' });
-        const st2New = await db.createStudent({ full_name: 'Test Child Beta', admission_number: 'TPS-TCB', gender: 'Boys', status: 'Active' });
+        const st1New = await db.addStudent({ full_name: 'Test Child Alpha', admission_number: 'TPS-TCA', gender: 'Boys', status: 'Active' });
+        const st2New = await db.addStudent({ full_name: 'Test Child Beta', admission_number: 'TPS-TCB', gender: 'Boys', status: 'Active' });
         students = [st1New, st2New];
       }
       const st1 = students[0];
@@ -4938,7 +4938,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       const initialLeaves = await db.getLeaves();
       let students = await db.getStudents();
       if (!students || students.length < 1) {
-        const sNew = await db.createStudent({ full_name: 'Test Child Gamma', admission_number: 'TPS-TCG', gender: 'Boys', status: 'Active' });
+        const sNew = await db.addStudent({ full_name: 'Test Child Gamma', admission_number: 'TPS-TCG', gender: 'Boys', status: 'Active' });
         students = [sNew];
       }
       const targetStudent = students[0];
@@ -5346,6 +5346,14 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // 1. Find MD Aamir enrolled in cls-1
       const students = await db.getStudents();
       const aamir = students.find(s => (s.name || s.full_name || '').toLowerCase().includes('aamir')) || students[0];
+      const cls1 = (await db.getClassrooms()).find(c => c.id === 'cls-1');
+      if (cls1) {
+        const currentStudentIds = Array.isArray(cls1.student_ids) ? [...cls1.student_ids] : [];
+        if (!currentStudentIds.includes(aamir.id)) {
+          currentStudentIds.push(aamir.id);
+          await db.updateClassroom('cls-1', { student_ids: currentStudentIds });
+        }
+      }
 
       // Setup returned leave on 2026-11-01 for Aamir
       const returnedLeave = {
@@ -6271,6 +6279,72 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Cleanup
       await db.removeCalendarHoliday(holidayDate);
       await db.removeCalendarHoliday(leaveStartDate);
+    });
+
+    it('25.26 Sunday / Non-Scheduled Day & Calendar Leave Attendance Safety: Blocks attendance taking on non-scheduled days and holiday/hostel leaves, showing disabled 🔒 No Class on Sun and 🔒 Attendance Waived', async () => {
+      // 1. Setup viewing Attendance for Sunday (2026-11-01 is Sunday)
+      const sundayDate = '2026-11-01';
+      const attContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceModule(attContainer, {
+        initialDate: sundayDate,
+        onNavigate: () => {}
+      });
+
+      const html = attContainer.innerHTML;
+
+      // Class meeting on Mon-Sat must NOT show 'Take Attendance →'
+      // It must show '🔒 No Class on Sun' with is-not-scheduled and is-faded
+      expect(html).toContain('🔒 No Class on Sun');
+      expect(html).toContain('is-not-scheduled');
+      expect(html).toContain('is-faded');
+      expect(html).toContain('data-can-take="false"');
+
+      // 2. Setup calendar holiday on Sunday (e.g. user edits and gives leave to Sunday)
+      await db.addCalendarHoliday({
+        date: sundayDate,
+        name: 'Sunday Special Holiday',
+        type: 'holiday',
+        is_all_day: true
+      });
+
+      const holidayAttContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAttendanceModule(holidayAttContainer, {
+        initialDate: sundayDate,
+        onNavigate: () => {}
+      });
+
+      const holidayHtml = holidayAttContainer.innerHTML;
+      expect(holidayHtml).toContain('🔒 Attendance Waived (Holiday)');
+      expect(holidayHtml).toContain('is-holiday-off');
+      expect(holidayHtml).toContain('is-faded');
+      expect(holidayHtml).toContain('🌴 Official Holiday Off');
+
+      // 3. Roster UI check for Sunday with holiday
+      const rosterContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAttendanceModule(rosterContainer, {
+        initialDate: sundayDate,
+        initialClassId: 'cls-1',
+        onNavigate: () => {}
+      });
+      const rosterHtml = rosterContainer.innerHTML;
+      expect(rosterHtml).toContain('Official Academic Holiday');
+      expect(rosterHtml).toContain('🔒 Attendance Waived (Holiday)');
+
+      // Cleanup
+      await db.removeCalendarHoliday(sundayDate);
     });
   });
 });

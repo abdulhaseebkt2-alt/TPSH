@@ -552,11 +552,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
             const days = Array.isArray(cls.days) && cls.days.length > 0 ? cls.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const isToday = sessionDate === todayIso;
-            const isTodayScheduled = days.includes(todayKey);
+            const sessionParts = sessionDate.split('-');
+            const sessionDateObj = new Date(Number(sessionParts[0]), Number(sessionParts[1]) - 1, Number(sessionParts[2]));
+            const sessionDayKey = DAY_KEYS[sessionDateObj.getDay()];
+            const isClassScheduledOnDate = days.includes(sessionDayKey);
 
-            const isLive = isToday && isTodayScheduled && currentMinutes >= sMin && currentMinutes <= eMin;
-            const isBefore = isToday && isTodayScheduled && currentMinutes < sMin;
-            const isAfter = isToday && isTodayScheduled && currentMinutes > eMin;
+            const isLive = isToday && isClassScheduledOnDate && currentMinutes >= sMin && currentMinutes <= eMin;
+            const isBefore = isToday && isClassScheduledOnDate && currentMinutes < sMin;
+            const isAfter = isToday && isClassScheduledOnDate && currentMinutes > eMin;
             const isPastDate = sessionDate < todayIso;
 
             const hasSessionRecorded = allSessions.some(s => 
@@ -569,14 +572,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                                        (isAdmin ? db.isFacultyOnApprovedLeave(cls.teacher_id, sessionDate, facultyLeaves) : null);
             const isFacultyOnLeaveForCard = !isAdmin && Boolean(facultyLeaveForCls);
 
-            // Holiday / Hostel Leave check for this class session
+            // Holiday / Hostel Leave / Weekend Off check for this class session
             const holidayOffInfo = db.isClassSessionOffDueToHoliday(cls, sessionDate, academicCalendar);
             const isClassHolidayOff = holidayOffInfo.isOff;
 
-            // Live Attendance button rule:
-            // "if any faculty at leave the could not abelee to take attendence at the time of leave"
-            // If class is during a holiday/hostel leave off time, attendance taking is disabled
-            const canTakeNow = !isFacultyOnLeaveForCard && !isClassHolidayOff && (isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked);
+            // Attendance taking strictly requires the class to meet on this date, not on leave, and not on holiday/weekend off
+            const canTakeNow = isClassScheduledOnDate && !isFacultyOnLeaveForCard && !isClassHolidayOff && (isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked);
 
             // Enrolled students count
             const enrolledStudents = getEligibleStudents(cls.id);
@@ -597,11 +598,20 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               `;
             } else if (isClassHolidayOff) {
               const isHostelLeave = holidayOffInfo.type === 'hostel_leave';
-              cardHeading = isHostelLeave ? 'Hostel Leave Active' : 'Official Holiday (Class Off)';
+              const isWeekend = holidayOffInfo.type === 'weekend_off';
+              cardHeading = isHostelLeave ? 'Hostel Leave Active' : (isWeekend ? 'Weekend Off Day' : 'Official Holiday (Class Off)');
               cardSubtitle = `${holidayOffInfo.reason} • ${holidayOffInfo.isAllDay ? 'Full Day Off' : `Off Time: ${holidayOffInfo.timeSpan}`} • Attendance waived`;
               statusBadgeHtml = `
-                <span class="badge" style="background: ${isHostelLeave ? '#FEF2F2' : '#FFFDF5'}; color: ${isHostelLeave ? '#DC2626' : '#B45309'}; border: 1.5px solid ${isHostelLeave ? '#FECACA' : '#FDE68A'}; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
-                  ${isHostelLeave ? '🚪 Hostel Leave Off' : '🌴 Official Holiday Off'}
+                <span class="badge" style="background: ${isHostelLeave ? '#FEF2F2' : isWeekend ? '#F8FAFC' : '#FFFDF5'}; color: ${isHostelLeave ? '#DC2626' : isWeekend ? '#64748B' : '#B45309'}; border: 1.5px solid ${isHostelLeave ? '#FECACA' : isWeekend ? '#CBD5E1' : '#FDE68A'}; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                  ${isHostelLeave ? '🚪 Hostel Leave Off' : isWeekend ? '📅 Weekend Off' : '🌴 Official Holiday Off'}
+                </span>
+              `;
+            } else if (!isClassScheduledOnDate) {
+              cardHeading = 'No Class Scheduled Today';
+              cardSubtitle = `${cls.name} does not meet on ${sessionDayKey} (Meets on ${cls.days?.join(', ')})`;
+              statusBadgeHtml = `
+                <span class="badge" style="background: #F1F5F9; color: #64748B; border: 1.5px solid #CBD5E1; font-weight: 700; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                  No Class on ${sessionDayKey}
                 </span>
               `;
             } else if (isLive) {
@@ -722,7 +732,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                     View Details →
                   </button>
 
-                  <!-- Take Attendance Button: Disabled/locked if on leave, or faded except during class time -->
+                  <!-- Take Attendance Button: Disabled/locked if on leave, holiday/weekend off, or not scheduled on date -->
                   ${isFacultyOnLeaveForCard ? `
                     <button type="button" 
                             class="btn btn-outline btn-sm btn-card-take-att is-on-leave" 
@@ -736,23 +746,34 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                     </button>
                   ` : isClassHolidayOff ? `
                     <button type="button" 
-                            class="btn btn-outline btn-sm btn-card-take-att is-holiday-off" 
+                            class="btn btn-outline btn-sm btn-card-take-att is-holiday-off is-faded" 
                             data-cls-id="${cls.id}"
                             data-can-take="false"
                             data-holiday-off="true"
                             disabled
                             style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #F8FAFC; color: #64748B; border-color: #CBD5E1; opacity: 0.75; cursor: not-allowed;"
                             title="Class is officially off due to ${holidayOffInfo.reason} (${holidayOffInfo.isAllDay ? 'Full Day Off' : holidayOffInfo.timeSpan}). Attendance is waived.">
-                      🔒 Attendance Waived (${holidayOffInfo.type === 'hostel_leave' ? 'Hostel Leave' : 'Holiday'})
+                      🔒 Attendance Waived (${holidayOffInfo.type === 'hostel_leave' ? 'Hostel Leave' : holidayOffInfo.type === 'weekend_off' ? 'Weekend Off' : 'Holiday'})
+                    </button>
+                  ` : !isClassScheduledOnDate ? `
+                    <button type="button" 
+                            class="btn btn-outline btn-sm btn-card-take-att is-not-scheduled is-faded" 
+                            data-cls-id="${cls.id}"
+                            data-can-take="false"
+                            data-not-scheduled="true"
+                            disabled
+                            style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #F8FAFC; color: #64748B; border-color: #CBD5E1; opacity: 0.75; cursor: not-allowed;"
+                            title="No class scheduled on ${sessionDayKey} (${cls.name} meets on ${cls.days?.join(', ')}). Attendance taking is disabled.">
+                      🔒 No Class on ${sessionDayKey}
                     </button>
                   ` : `
                     <button type="button" 
                             class="btn btn-primary btn-sm btn-card-take-att ${canTakeNow ? '' : 'is-faded'}" 
                             data-cls-id="${cls.id}"
                             data-can-take="${canTakeNow ? 'true' : 'false'}"
-                            style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #059669; border-color: #047857; ${canTakeNow ? 'box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); cursor: pointer;' : 'opacity: 0.38; filter: grayscale(40%); cursor: not-allowed;'}"
+                            style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; ${canTakeNow ? 'background: #059669; border-color: #047857; color: #FFFFFF; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); cursor: pointer;' : 'background: #F1F5F9; color: #64748B; border-color: #CBD5E1; opacity: 0.8; cursor: not-allowed;'}"
                             title="${canTakeNow ? 'Take live attendance for this session' : `Attendance window locked outside class hours (${formatTime(cls.start_time)} – ${formatTime(cls.end_time)}). Tap to view class details.`}">
-                      Take Attendance →
+                      ${canTakeNow ? 'Take Attendance →' : 'Attendance Closed'}
                     </button>
                   `}
                 </div>
@@ -820,10 +841,18 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       });
     });
 
-    // Card Take Attendance Button (Handles active, faded, and on-leave states)
+    // Card Take Attendance Button (Handles active, faded, off-day, and on-leave states)
     container.querySelectorAll('.btn-card-take-att').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (btn.getAttribute('data-not-scheduled') === 'true') {
+          toast.warning('No class scheduled on this date for this classroom.');
+          return;
+        }
+        if (btn.getAttribute('data-holiday-off') === 'true') {
+          toast.warning('Class is officially off on this date. Attendance is waived.');
+          return;
+        }
         if (btn.getAttribute('data-on-leave') === 'true') {
           toast.warning('Attendance taking is locked because you are currently on authorized faculty leave.');
           return;
@@ -835,7 +864,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           currentView = 'roster';
           if (!canTake) {
             const cls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
-            toast.info(`Attendance can only be taken during class hours (${formatTime(cls?.start_time || '06:30')} – ${formatTime(cls?.end_time || '07:30')}). Viewing class details & roster.`);
+            toast.info(`Attendance can only be taken during class hours (${formatTime(cls?.start_time || '06:30')} – ${formatTime(cls?.end_time || '07:30')}). Viewing class details.`);
           }
           renderClassRosterUI();
         }
@@ -1055,7 +1084,11 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                 ? 'Attendance Already Submitted (Locked for Teacher)'
                 : (isCurrentUserOnLeave
                     ? '🔒 Attendance Waived (Faculty On Approved Leave)'
-                    : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed'))}
+                    : (windowState.isHolidayOff
+                        ? `🔒 Attendance Waived (${windowState.holidayOff?.type === 'hostel_leave' ? 'Hostel Leave' : windowState.holidayOff?.type === 'weekend_off' ? 'Weekend Off' : 'Holiday'})`
+                        : (windowState.isNotScheduled
+                            ? `🔒 No Class on ${windowState.targetDayKey || 'Today'}`
+                            : (windowState.status === 'locked_before' ? 'Locked (Before Class Time)' : 'Session Closed'))))}
             </button>
           `}
         </div>
