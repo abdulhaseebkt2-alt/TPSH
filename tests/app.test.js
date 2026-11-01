@@ -5660,12 +5660,12 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('Room 204');
       expect(container.innerHTML).toContain('Present in Hostel');
 
-      // Check Capsule Search & Filter Pills (Matching exact UI from media_1793517769440_b0b3a7bc.png)
-      expect(container.innerHTML).toContain('Search student by name, ID, phone...');
-      expect(container.innerHTML).toContain('All Statuses');
+      // Check Student Selection Section (Matching exact UI from Screenshot 3)
+      expect(container.innerHTML).toContain('Select Student *');
+      expect(container.innerHTML).toContain('Search student name...');
       expect(container.innerHTML).toContain('All Classes');
-      expect(container.innerHTML).not.toContain('SELECT STUDENT *');
-      expect(container.innerHTML).not.toContain('QUICK SEARCH');
+      expect(container.innerHTML).toContain('All Genders');
+      expect(container.innerHTML).toContain('radio-leave-card-student');
 
       // Check Table Headers (Mobile Compact Single Display: SL, Schedule, Status, Fine, F.Paid)
       expect(container.innerHTML).toContain('SL');
@@ -6406,6 +6406,67 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Restore original academic calendar
       await db.saveAcademicCalendar(origCal);
+    });
+
+    it('25.26 Student Leave Card: student selection UI matches screenshot 3 with radio tiles, 50/50 classes and genders filter, and search input', async () => {
+      const adminUser = {
+        id: 'u-admin-sel-ui',
+        full_name: 'Admin Inspector',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+
+      const studentA = await db.addStudent({
+        full_name: 'Zayn Malik',
+        admission_number: 'TPS-2026-901',
+        gender: 'Boy',
+        school_class: 'STD-V',
+        status: 'Active'
+      });
+      const studentB = await db.addStudent({
+        full_name: 'Amina Khatun',
+        admission_number: 'TPS-2026-902',
+        gender: 'Girl',
+        school_class: 'STD-V',
+        status: 'Active'
+      });
+
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(container, { studentId: studentA.id });
+
+      const html = container.innerHTML;
+
+      // 1. Header with 'Select Student *' and checkmark badge
+      expect(html).toContain('Select Student *');
+      expect(html).toContain('✓ Zayn Malik');
+
+      // 2. Full-width search bar
+      expect(html).toContain('id="leave-card-search-input"');
+      expect(html).toContain('placeholder="Search student name..."');
+
+      // 3. 50/50 grid with All Classes and All Genders
+      expect(html).toContain('id="leave-card-class-filter"');
+      expect(html).toContain('All Classes');
+      expect(html).toContain('id="leave-card-gender-filter"');
+      expect(html).toContain('All Genders');
+      expect(html).toContain('Boys');
+      expect(html).toContain('Girls');
+
+      // 4. Scrollable list with student radio tiles
+      expect(html).toContain('leave-card-student-scroll');
+      expect(html).toContain('student-leave-card-tile');
+      expect(html).toContain('radio-leave-card-student');
+      expect(html).toContain('Zayn Malik');
+      expect(html).toContain('Amina Khatun');
+      expect(html).toContain('STD-V');
+      expect(html).toContain('Boy');
+      expect(html).toContain('Girl');
+
+      // Clean up
+      await db.deleteStudent(studentA.id);
+      await db.deleteStudent(studentB.id);
     });
   });
 });
