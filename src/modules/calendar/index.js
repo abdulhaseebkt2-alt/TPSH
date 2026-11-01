@@ -1,5 +1,5 @@
 import { db } from '../../lib/db.js';
-import { formatDate } from '../../lib/utils.js';
+import { formatDate, formatTime } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { isViewOnlyModule } from '../../lib/permissions.js';
@@ -163,7 +163,10 @@ export async function renderCalendarModule(container, { onNavigate }) {
           startDate: ev.date,
           endDate: ev.date,
           allDates: [ev.date],
-          allIds: [ev.id]
+          allIds: [ev.id],
+          start_time: ev.start_time || null,
+          end_time: ev.end_time || null,
+          is_all_day: ev.is_all_day !== false
         };
         continue;
       }
@@ -171,6 +174,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
       const sameName = cur.name.trim().toLowerCase() === (ev.name || '').trim().toLowerCase();
       const sameType = cur.type === ev.type;
       const sameRange = Boolean(cur.range_id && ev.range_id && cur.range_id === ev.range_id);
+      const sameTimes = (cur.start_time || '') === (ev.start_time || '') && (cur.end_time || '') === (ev.end_time || '') && Boolean(cur.is_all_day) === Boolean(ev.is_all_day);
 
       const isNext = (() => {
         const [y, m, d] = cur.endDate.split('-').map(Number);
@@ -179,7 +183,7 @@ export async function renderCalendarModule(container, { onNavigate }) {
         return nextStr === ev.date;
       })();
 
-      if (sameRange || (sameName && sameType && isNext)) {
+      if (sameRange || (sameName && sameType && sameTimes && isNext)) {
         cur.endDate = ev.date;
         cur.allDates.push(ev.date);
         cur.allIds.push(ev.id);
@@ -196,7 +200,10 @@ export async function renderCalendarModule(container, { onNavigate }) {
           startDate: ev.date,
           endDate: ev.date,
           allDates: [ev.date],
-          allIds: [ev.id]
+          allIds: [ev.id],
+          start_time: ev.start_time || null,
+          end_time: ev.end_time || null,
+          is_all_day: ev.is_all_day !== false
         };
       }
     }
@@ -537,12 +544,13 @@ export async function renderCalendarModule(container, { onNavigate }) {
                       <div style="font-size: 0.72rem; color: #64748B; margin-top: 2px;">
                         ${dateDisplay} • <span style="color: ${itemColor}; font-weight: 600;">${itemLabel}</span>
                         ${dayCountBadge}
+                        ${(!grp.is_all_day && grp.start_time && grp.end_time) ? `<span style="margin-left: 4px; font-weight: 700; color: #475569;">(${formatTime(grp.start_time)} – ${formatTime(grp.end_time)})</span>` : ''}
                       </div>
                     </div>
 
                     ${!isViewOnly ? `
                       <div style="display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">
-                        <button type="button" class="btn btn-outline btn-xs btn-edit-cal-event" data-event-id="${grp.id}" data-event-name="${grp.name}" data-event-type="${grp.type}" data-start-date="${grp.startDate}" data-end-date="${grp.endDate}" data-all-dates="${grp.allDates?.join(',') || ''}" data-range-id="${grp.range_id || ''}" title="Edit Holiday / Leave" style="color: #2563EB; border-color: #BFDBFE; background: #EFF6FF; font-weight: 700; padding: 2px 7px; font-size: 0.72rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 3px;">
+                        <button type="button" class="btn btn-outline btn-xs btn-edit-cal-event" data-event-id="${grp.id}" data-event-name="${grp.name}" data-event-type="${grp.type}" data-start-date="${grp.startDate}" data-end-date="${grp.endDate}" data-start-time="${grp.start_time || ''}" data-end-time="${grp.end_time || ''}" data-is-all-day="${grp.is_all_day ? 'true' : 'false'}" data-all-dates="${grp.allDates?.join(',') || ''}" data-range-id="${grp.range_id || ''}" title="Edit Holiday / Leave" style="color: #2563EB; border-color: #BFDBFE; background: #EFF6FF; font-weight: 700; padding: 2px 7px; font-size: 0.72rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 3px;">
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                           Edit
                         </button>
@@ -687,6 +695,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
         const type = btn.getAttribute('data-event-type');
         const startDate = btn.getAttribute('data-start-date');
         const endDate = btn.getAttribute('data-end-date');
+        const startTime = btn.getAttribute('data-start-time') || null;
+        const endTime = btn.getAttribute('data-end-time') || null;
+        const isAllDay = btn.getAttribute('data-is-all-day') !== 'false';
         const allDatesStr = btn.getAttribute('data-all-dates');
         const range_id = btn.getAttribute('data-range-id');
 
@@ -696,6 +707,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
           type,
           startDate,
           endDate,
+          startTime,
+          endTime,
+          isAllDay,
           allDates: allDatesStr ? allDatesStr.split(',').filter(Boolean) : [startDate],
           range_id: range_id || undefined
         });
@@ -837,11 +851,35 @@ export async function renderCalendarModule(container, { onNavigate }) {
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Type</label>
               <select id="modal-holiday-type" class="form-control" style="height: 38px;">
-                <option value="holiday">Official Holiday (Campus Closed) - Light Yellow</option>
                 <option value="hostel_leave">Hostel Leave / Vacation - Red Shade</option>
+                <option value="holiday">Official Holiday (Campus Closed) - Light Yellow</option>
                 <option value="working_day">Special Working Day (Compensatory Session)</option>
                 <option value="event">Campus Event (Regular Duty)</option>
               </select>
+            </div>
+
+            <!-- Time Span Configuration (All Day vs Specific Hours) -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.65rem 0.75rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 0.45rem; cursor: pointer; margin: 0;">
+                  <input type="checkbox" id="modal-holiday-is-all-day" checked style="width: 16px; height: 16px; accent-color: #059669;" />
+                  <span>All Day Off (Full Day)</span>
+                </label>
+                <span style="font-size: 0.72rem; color: #64748B;">Uncheck for specific hours</span>
+              </div>
+              <div id="modal-holiday-time-span-box" style="display: none; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-top: 0.45rem;">
+                <div>
+                  <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.25rem;">Start Time (Off From)</label>
+                  <input type="time" id="modal-holiday-start-time" class="form-control" value="08:00" style="height: 36px; font-size: 0.82rem;" />
+                </div>
+                <div>
+                  <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.25rem;">End Time (Off Until)</label>
+                  <input type="time" id="modal-holiday-end-time" class="form-control" value="17:00" style="height: 36px; font-size: 0.82rem;" />
+                </div>
+              </div>
+              <p style="font-size: 0.71rem; color: #64748B; margin: 0.35rem 0 0 0; line-height: 1.35;">
+                Classes scheduled during this off time window will be marked OFF and attendance will be officially waived.
+              </p>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
@@ -875,24 +913,33 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
         modalBody?.querySelector?.('#modal-btn-cancel-holiday')?.addEventListener?.('click', close);
 
+        const allDayCheckbox = modalBody?.querySelector?.('#modal-holiday-is-all-day');
+        const timeBox = modalBody?.querySelector?.('#modal-holiday-time-span-box');
+        allDayCheckbox?.addEventListener?.('change', () => {
+          if (timeBox) timeBox.style.display = allDayCheckbox.checked ? 'none' : 'grid';
+        });
+
         modalBody?.querySelector?.('#modal-form-add-holiday')?.addEventListener?.('submit', async (e) => {
           e.preventDefault();
           const name = modalBody.querySelector('#modal-holiday-title')?.value.trim();
           const type = modalBody.querySelector('#modal-holiday-type')?.value;
+          const isAllDay = allDayCheckbox ? allDayCheckbox.checked : true;
+          const startTime = isAllDay ? null : modalBody.querySelector('#modal-holiday-start-time')?.value;
+          const endTime = isAllDay ? null : modalBody.querySelector('#modal-holiday-end-time')?.value;
 
           if (isMultiDayMode) {
             const startDate = modalBody.querySelector('#modal-holiday-start-date')?.value;
             const endDate = modalBody.querySelector('#modal-holiday-end-date')?.value;
             if (!startDate || !endDate) return;
 
-            calendar = await db.addCalendarHolidayRange({ startDate, endDate, name, type });
-            toast.success(`Holiday range "${name}" added to calendar.`);
+            calendar = await db.addCalendarHolidayRange({ startDate, endDate, name, type, start_time: startTime, end_time: endTime, is_all_day: isAllDay });
+            toast.success(`${type === 'hostel_leave' ? 'Hostel leave' : 'Holiday'} range "${name}" added to calendar.`);
           } else {
             const date = modalBody.querySelector('#modal-holiday-date')?.value;
             if (!date) return;
 
-            calendar = await db.addCalendarHoliday({ date, name, type });
-            toast.success(`Holiday "${name}" added to calendar.`);
+            calendar = await db.addCalendarHoliday({ date, name, type, start_time: startTime, end_time: endTime, is_all_day: isAllDay });
+            toast.success(`${type === 'hostel_leave' ? 'Hostel leave' : 'Holiday'} "${name}" added to calendar.`);
           }
 
           rangeStart = null;
@@ -972,6 +1019,27 @@ export async function renderCalendarModule(container, { onNavigate }) {
                 style="height: 38px; font-size: 0.85rem; margin-bottom: 0.75rem;" 
               />
 
+              <!-- Time Span in Quick Date Modal -->
+              <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.5rem 0.65rem; margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <label style="font-size: 0.78rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 0.35rem; cursor: pointer; margin: 0;">
+                    <input type="checkbox" id="modal-quick-is-all-day" checked style="width: 15px; height: 15px; accent-color: #059669;" />
+                    <span>All Day Off (Full Day)</span>
+                  </label>
+                  <span style="font-size: 0.7rem; color: #64748B;">Uncheck for specific hours</span>
+                </div>
+                <div id="modal-quick-time-box" style="display: none; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.4rem;">
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 700; color: #64748B; display: block; margin-bottom: 0.2rem;">From</label>
+                    <input type="time" id="modal-quick-start-time" class="form-control" value="08:00" style="height: 32px; font-size: 0.8rem;" />
+                  </div>
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 700; color: #64748B; display: block; margin-bottom: 0.2rem;">Until</label>
+                    <input type="time" id="modal-quick-end-time" class="form-control" value="17:00" style="height: 32px; font-size: 0.8rem;" />
+                  </div>
+                </div>
+              </div>
+
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button type="button" class="btn btn-outline btn-sm" id="btn-set-holiday" style="color: #B45309; border-color: #FDE68A; background: #FFFBEB; font-weight: 700;">
                   🌴 Set as Holiday (Yellow)
@@ -1011,9 +1079,18 @@ export async function renderCalendarModule(container, { onNavigate }) {
         modalBody?.querySelector?.('#modal-btn-close-inst')?.addEventListener('click', close);
         const titleInput = modalBody?.querySelector?.('#modal-edit-date-title');
 
+        const qAllDayCb = modalBody?.querySelector?.('#modal-quick-is-all-day');
+        const qTimeBox = modalBody?.querySelector?.('#modal-quick-time-box');
+        qAllDayCb?.addEventListener?.('change', () => {
+          if (qTimeBox) qTimeBox.style.display = qAllDayCb.checked ? 'none' : 'grid';
+        });
+
         modalBody?.querySelector?.('#btn-set-holiday')?.addEventListener('click', async () => {
           const name = titleInput ? titleInput.value.trim() || 'Institutional Holiday' : 'Institutional Holiday';
-          calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'holiday' });
+          const isAllDay = qAllDayCb ? qAllDayCb.checked : true;
+          const startTime = isAllDay ? null : modalBody?.querySelector?.('#modal-quick-start-time')?.value;
+          const endTime = isAllDay ? null : modalBody?.querySelector?.('#modal-quick-end-time')?.value;
+          calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'holiday', start_time: startTime, end_time: endTime, is_all_day: isAllDay });
           toast.success(`Marked ${dateStr} as Holiday.`);
           close();
           renderFullUI();
@@ -1021,7 +1098,10 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
         modalBody?.querySelector?.('#btn-set-hostel-leave')?.addEventListener('click', async () => {
           const name = titleInput ? titleInput.value.trim() || 'Hostel Leave' : 'Hostel Leave';
-          calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'hostel_leave' });
+          const isAllDay = qAllDayCb ? qAllDayCb.checked : true;
+          const startTime = isAllDay ? null : modalBody?.querySelector?.('#modal-quick-start-time')?.value;
+          const endTime = isAllDay ? null : modalBody?.querySelector?.('#modal-quick-end-time')?.value;
+          calendar = await db.addCalendarHoliday({ date: dateStr, name, type: 'hostel_leave', start_time: startTime, end_time: endTime, is_all_day: isAllDay });
           toast.success(`Marked ${dateStr} as Hostel Leave.`);
           close();
           renderFullUI();
@@ -1065,8 +1145,8 @@ export async function renderCalendarModule(container, { onNavigate }) {
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">Type</label>
               <select id="modal-edit-cal-type" class="form-control" style="height: 38px;">
-                <option value="holiday" ${grp.type === 'holiday' ? 'selected' : ''}>Official Holiday (Campus Closed) - Light Yellow</option>
                 <option value="hostel_leave" ${grp.type === 'hostel_leave' ? 'selected' : ''}>Hostel Leave / Vacation - Red Shade</option>
+                <option value="holiday" ${grp.type === 'holiday' ? 'selected' : ''}>Official Holiday (Campus Closed) - Light Yellow</option>
                 <option value="working_day" ${grp.type === 'working_day' ? 'selected' : ''}>Special Working Day (Compensatory Session)</option>
                 <option value="event" ${grp.type === 'event' ? 'selected' : ''}>Campus Event (Regular Duty)</option>
               </select>
@@ -1083,6 +1163,27 @@ export async function renderCalendarModule(container, { onNavigate }) {
               </div>
             </div>
 
+            <!-- Time Span in Edit Modal -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.65rem 0.75rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 0.45rem; cursor: pointer; margin: 0;">
+                  <input type="checkbox" id="modal-edit-cal-is-all-day" ${grp.isAllDay !== false ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: #059669;" />
+                  <span>All Day Off (Full Day)</span>
+                </label>
+                <span style="font-size: 0.72rem; color: #64748B;">Uncheck for specific hours</span>
+              </div>
+              <div id="modal-edit-cal-time-span-box" style="display: ${grp.isAllDay !== false ? 'none' : 'grid'}; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-top: 0.45rem;">
+                <div>
+                  <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.25rem;">Start Time (Off From)</label>
+                  <input type="time" id="modal-edit-cal-start-time" class="form-control" value="${grp.startTime || '08:00'}" style="height: 36px; font-size: 0.82rem;" />
+                </div>
+                <div>
+                  <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.25rem;">End Time (Off Until)</label>
+                  <input type="time" id="modal-edit-cal-end-time" class="form-control" value="${grp.endTime || '17:00'}" style="height: 36px; font-size: 0.82rem;" />
+                </div>
+              </div>
+            </div>
+
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
               <button type="button" class="btn btn-outline" id="modal-btn-cancel-edit-cal">Cancel</button>
               <button type="submit" class="btn btn-primary" style="background: #2563EB; border-color: #2563EB; font-weight: 700;">Save Changes</button>
@@ -1093,12 +1194,21 @@ export async function renderCalendarModule(container, { onNavigate }) {
       onMount: ({ container: modalBody, close }) => {
         modalBody?.querySelector?.('#modal-btn-cancel-edit-cal')?.addEventListener?.('click', close);
 
+        const editAllDayCb = modalBody?.querySelector?.('#modal-edit-cal-is-all-day');
+        const editTimeBox = modalBody?.querySelector?.('#modal-edit-cal-time-span-box');
+        editAllDayCb?.addEventListener?.('change', () => {
+          if (editTimeBox) editTimeBox.style.display = editAllDayCb.checked ? 'none' : 'grid';
+        });
+
         modalBody?.querySelector?.('#modal-form-edit-cal-event')?.addEventListener?.('submit', async (e) => {
           e.preventDefault();
           const name = modalBody.querySelector('#modal-edit-cal-title')?.value.trim();
           const type = modalBody.querySelector('#modal-edit-cal-type')?.value;
           const startDate = modalBody.querySelector('#modal-edit-cal-start-date')?.value;
           const endDate = modalBody.querySelector('#modal-edit-cal-end-date')?.value;
+          const isAllDay = editAllDayCb ? editAllDayCb.checked : true;
+          const startTime = isAllDay ? null : modalBody.querySelector('#modal-edit-cal-start-time')?.value;
+          const endTime = isAllDay ? null : modalBody.querySelector('#modal-edit-cal-end-time')?.value;
 
           if (!name || !startDate || !endDate) return;
 
@@ -1113,9 +1223,9 @@ export async function renderCalendarModule(container, { onNavigate }) {
 
           // Add updated event or range
           if (startDate === endDate) {
-            calendar = await db.addCalendarHoliday({ date: startDate, name, type });
+            calendar = await db.addCalendarHoliday({ date: startDate, name, type, start_time: startTime, end_time: endTime, is_all_day: isAllDay });
           } else {
-            calendar = await db.addCalendarHolidayRange({ startDate, endDate, name, type });
+            calendar = await db.addCalendarHolidayRange({ startDate, endDate, name, type, start_time: startTime, end_time: endTime, is_all_day: isAllDay });
           }
 
           toast.success(`Updated "${name}" in calendar.`);

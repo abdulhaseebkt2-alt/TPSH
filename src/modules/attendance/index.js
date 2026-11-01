@@ -24,13 +24,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
 
-  const [allPrograms, allClassrooms, students, users, leaves, facultyLeaves] = await Promise.all([
+  const [allPrograms, allClassrooms, students, users, leaves, facultyLeaves, academicCalendar] = await Promise.all([
     db.getPrograms(),
     db.getClassrooms(),
     db.getStudents(),
     db.getUsers(),
     db.getLeaves(),
-    db.getFacultyLeaves()
+    db.getFacultyLeaves(),
+    db.getAcademicCalendar()
   ]);
 
   // Eligible teachers list for Admin filter
@@ -183,6 +184,19 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         badgeClass: 'is-locked-leave',
         isFacultyOnLeave: true,
         leaveData: facultyLeaveOnDate
+      };
+    }
+
+    // RULE 1-C: Academic Calendar Holiday / Hostel Leave Off Time Check
+    const holidayOff = db.isClassSessionOffDueToHoliday(cls, targetDate, academicCalendar);
+    if (holidayOff.isOff) {
+      return {
+        canTake: false,
+        status: 'holiday_off',
+        message: `Attendance Disabled: Class is officially off due to ${holidayOff.reason} (${holidayOff.isAllDay ? 'Full Day Off' : `Off Time: ${holidayOff.timeSpan}`}). Attendance duties are waived by Administration.`,
+        badgeClass: 'is-locked-holiday',
+        isHolidayOff: true,
+        holidayOff
       };
     }
 
@@ -555,9 +569,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                                        (isAdmin ? db.isFacultyOnApprovedLeave(cls.teacher_id, sessionDate, facultyLeaves) : null);
             const isFacultyOnLeaveForCard = !isAdmin && Boolean(facultyLeaveForCls);
 
+            // Holiday / Hostel Leave check for this class session
+            const holidayOffInfo = db.isClassSessionOffDueToHoliday(cls, sessionDate, academicCalendar);
+            const isClassHolidayOff = holidayOffInfo.isOff;
+
             // Live Attendance button rule:
             // "if any faculty at leave the could not abelee to take attendence at the time of leave"
-            const canTakeNow = !isFacultyOnLeaveForCard && (isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked);
+            // If class is during a holiday/hostel leave off time, attendance taking is disabled
+            const canTakeNow = !isFacultyOnLeaveForCard && !isClassHolidayOff && (isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked);
 
             // Enrolled students count
             const enrolledStudents = getEligibleStudents(cls.id);
@@ -574,6 +593,15 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               statusBadgeHtml = `
                 <span class="badge" style="background: #ECFDF5; color: #059669; border: 1.5px solid #34D399; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
                   ✓ On Approved Leave (Waived)
+                </span>
+              `;
+            } else if (isClassHolidayOff) {
+              const isHostelLeave = holidayOffInfo.type === 'hostel_leave';
+              cardHeading = isHostelLeave ? 'Hostel Leave Active' : 'Official Holiday (Class Off)';
+              cardSubtitle = `${holidayOffInfo.reason} • ${holidayOffInfo.isAllDay ? 'Full Day Off' : `Off Time: ${holidayOffInfo.timeSpan}`} • Attendance waived`;
+              statusBadgeHtml = `
+                <span class="badge" style="background: ${isHostelLeave ? '#FEF2F2' : '#FFFDF5'}; color: ${isHostelLeave ? '#DC2626' : '#B45309'}; border: 1.5px solid ${isHostelLeave ? '#FECACA' : '#FDE68A'}; font-weight: 800; font-size: 0.76rem; padding: 0.35rem 0.8rem; border-radius: 9999px;">
+                  ${isHostelLeave ? '🚪 Hostel Leave Off' : '🌴 Official Holiday Off'}
                 </span>
               `;
             } else if (isLive) {
@@ -705,6 +733,17 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                             style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #F1F5F9; color: #64748B; border-color: #CBD5E1; opacity: 0.7; cursor: not-allowed;"
                             title="You are currently on authorized faculty leave. Attendance taking is disabled.">
                       🔒 Attendance Waived (On Leave)
+                    </button>
+                  ` : isClassHolidayOff ? `
+                    <button type="button" 
+                            class="btn btn-outline btn-sm btn-card-take-att is-holiday-off" 
+                            data-cls-id="${cls.id}"
+                            data-can-take="false"
+                            data-holiday-off="true"
+                            disabled
+                            style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; background: #F8FAFC; color: #64748B; border-color: #CBD5E1; opacity: 0.75; cursor: not-allowed;"
+                            title="Class is officially off due to ${holidayOffInfo.reason} (${holidayOffInfo.isAllDay ? 'Full Day Off' : holidayOffInfo.timeSpan}). Attendance is waived.">
+                      🔒 Attendance Waived (${holidayOffInfo.type === 'hostel_leave' ? 'Hostel Leave' : 'Holiday'})
                     </button>
                   ` : `
                     <button type="button" 
@@ -872,6 +911,27 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             </div>
             <span class="badge" style="background: #D1FAE5; color: #065F46; border: 1px solid #6EE7B7; font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 9999px;">
               ✓ Approved Waiver
+            </span>
+          </div>
+        ` : ''}
+
+        ${windowState?.holidayOff?.isOff ? `
+          <div style="background: ${windowState.holidayOff.type === 'hostel_leave' ? '#FEF2F2' : '#FFFDF5'}; border: 1.5px solid ${windowState.holidayOff.type === 'hostel_leave' ? '#FECACA' : '#FDE68A'}; border-radius: 12px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              <div style="width: 32px; height: 32px; border-radius: 8px; background: ${windowState.holidayOff.type === 'hostel_leave' ? '#FEE2E2' : '#FEF3C7'}; color: ${windowState.holidayOff.type === 'hostel_leave' ? '#DC2626' : '#B45309'}; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;">
+                ${windowState.holidayOff.type === 'hostel_leave' ? '🚪' : '🌴'}
+              </div>
+              <div>
+                <strong style="color: ${windowState.holidayOff.type === 'hostel_leave' ? '#991B1B' : '#92400E'}; font-size: 0.88rem; display: block;">
+                  ${windowState.holidayOff.type === 'hostel_leave' ? 'Hostel Leave Active' : 'Official Academic Holiday'} (Class Off)
+                </strong>
+                <span style="font-size: 0.78rem; color: ${windowState.holidayOff.type === 'hostel_leave' ? '#B91C1C' : '#B45309'};">
+                  ${windowState.holidayOff.reason} (${windowState.holidayOff.isAllDay ? 'Full Day Off' : `Off Time: ${windowState.holidayOff.timeSpan}`}). Attendance duties are officially waived by Administration with zero penalties.
+                </span>
+              </div>
+            </div>
+            <span class="badge" style="background: ${windowState.holidayOff.type === 'hostel_leave' ? '#FEE2E2' : '#FEF3C7'}; color: ${windowState.holidayOff.type === 'hostel_leave' ? '#DC2626' : '#92400E'}; border: 1px solid ${windowState.holidayOff.type === 'hostel_leave' ? '#FCA5A5' : '#FCD34D'}; font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 9999px;">
+              ✓ Attendance Waived
             </span>
           </div>
         ` : ''}

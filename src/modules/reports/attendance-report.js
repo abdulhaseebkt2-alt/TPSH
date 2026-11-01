@@ -212,9 +212,10 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       // 1. Timetable working day check for this specific classroom
       const isClassScheduledDay = classDays.includes(dayKey);
 
-      // 2. Academic calendar holiday check
+      // 2. Academic calendar holiday & hostel leave off-time check
       const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
-      const isHoliday = dayInfo.isHoliday;
+      const offInfo = db.isClassSessionOffDueToHoliday(selectedClass, dateStr, calendar);
+      const isHoliday = offInfo.isOff || dayInfo.isHoliday;
 
       // 3. Hostel leave check (Text only)
       const isHostelLeave = isHostelLeaveDate(dateStr);
@@ -698,8 +699,9 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     const isClassScheduledDay = classDays.includes(dayKey);
 
     const dayInfo = db.getCalendarDayInfo(dateStr, calendar);
-    const isHoliday = dayInfo.isHoliday;
-    const isHostelLeave = isHostelLeaveDate(dateStr);
+    const offInfo = db.isClassSessionOffDueToHoliday(activeClass, dateStr, calendar);
+    const isHoliday = offInfo.isOff || dayInfo.isHoliday;
+    const isHostelLeave = offInfo.type === 'hostel_leave' || isHostelLeaveDate(dateStr);
 
     const session = attendanceSessions.find(s => 
       s.classroom_id === activeClass?.id && s.session_date === dateStr
@@ -741,10 +743,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       statusTitle = 'Unworking Day for this Classroom';
       statusDesc = `${activeClass?.name} is scheduled on (${classDays.join(', ')}). ${dayName} is an off-day for this class.`;
       statusBadge = '<span class="badge" style="background: #F1F5F9; color: #64748B;">Class Off Day</span>';
-    } else if (isHoliday) {
-      statusTitle = `Official Academic Holiday (${dayInfo.title || 'Holiday'})`;
-      statusDesc = 'Institutional holiday as per Academic Calendar. No academic duties.';
-      statusBadge = '<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A;">🌴 Official Holiday</span>';
+    } else if (isHoliday || offInfo.isOff) {
+      const isHostel = offInfo.type === 'hostel_leave';
+      statusTitle = `${isHostel ? 'Hostel Leave Active' : 'Official Academic Holiday'} (${offInfo.reason || dayInfo.title || 'Holiday'})`;
+      statusDesc = `Institutional ${isHostel ? 'hostel leave' : 'holiday'} observed (${offInfo.isAllDay ? 'Full Day Off' : `Off Time: ${offInfo.timeSpan}`}). Class is officially off • No attendance penalty.`;
+      statusBadge = `<span class="badge" style="background: ${isHostel ? '#FEF2F2' : '#FFFDF5'}; color: ${isHostel ? '#DC2626' : '#D97706'}; border: 1px solid ${isHostel ? '#FECACA' : '#FDE68A'}; font-weight: 800;">${isHostel ? '🚪 Hostel Leave Off' : '🌴 Official Holiday Off'}</span>`;
     } else if (isFacultyLeave) {
       statusTitle = `Faculty on Authorized Leave (${facultyApprovedLeave.leave_type || 'Approved Leave'})`;
       statusDesc = `${activeTeacher?.full_name || 'Faculty'} was granted official leave (${facultyApprovedLeave.leave_type || 'Leave'}) by Administration. Reason: "${facultyApprovedLeave.reason || 'Approved Duty Leave'}". Timings: Going ${formatTime(facultyApprovedLeave.departure_time || '08:00')} • Return ${formatTime(facultyApprovedLeave.return_time || '16:30')}. Attendance duty is officially waived with no penalty.`;

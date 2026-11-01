@@ -12,7 +12,8 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     examSubjects,
     students,
     attendanceRecords,
-    facultyLeaves
+    facultyLeaves,
+    academicCalendar
   ] = await Promise.all([
     db.getClassrooms(),
     db.getPrograms(),
@@ -20,7 +21,8 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
     db.getExamSubjects(),
     db.getStudents(),
     db.getAttendanceRecords(),
-    db.getFacultyLeaves()
+    db.getFacultyLeaves(),
+    db.getAcademicCalendar()
   ]);
 
   // Determine teacher name & assigned classrooms
@@ -93,10 +95,14 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   const activeFacultyLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
 
   // Calculate pending attendance for today's scheduled classes
-  // If the teacher is on approved leave today, pending attendance is 0 (duties officially waived, no alert notification)
-  const pendingAttendanceCount = activeFacultyLeaveToday ? 0 : todayClasses.filter(c => 
-    !attendanceRecords.some(r => r.classroom_id === c.id && r.session_date === todayDateStr)
-  ).length;
+  // If the teacher is on approved leave today OR if class session is off due to holiday/hostel leave, pending attendance is 0 (no red alert)
+  const pendingAttendanceClasses = activeFacultyLeaveToday ? [] : todayClasses.filter(c => {
+    const offInfo = db.isClassSessionOffDueToHoliday(c, todayDateStr, academicCalendar);
+    if (offInfo.isOff) return false; // Class is off due to holiday/hostel leave, attendance is waived!
+    return !attendanceRecords.some(r => r.classroom_id === c.id && r.session_date === todayDateStr);
+  });
+  const pendingAttendanceCount = pendingAttendanceClasses.length;
+  const displayClassOffInfo = displayClass ? db.isClassSessionOffDueToHoliday(displayClass, todayDateStr, academicCalendar) : { isOff: false };
 
   const totalStudentsTaught = students.filter(s => s.status === 'Active').length;
   const activeExam = exams[0] || { title: 'Mid-Term Examination 2026' };
@@ -328,7 +334,9 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
           <span style="color: ${pendingAttendanceCount > 0 ? '#DC2626' : '#059669'}; font-weight: 600;">
             ${activeFacultyLeaveToday 
               ? '✓ Attendance officially waived (On Leave)' 
-              : (pendingAttendanceCount > 0 ? 'Sessions pending submission' : 'All sessions marked')}
+              : (pendingAttendanceCount > 0 
+                  ? 'Sessions pending submission' 
+                  : (displayClassOffInfo.isOff ? '✓ Class off (Attendance waived)' : 'All sessions marked'))}
           </span>
         </div>
       </div>

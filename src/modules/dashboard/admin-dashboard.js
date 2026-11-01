@@ -13,7 +13,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     users,
     auditLogs,
     facultyLeaves,
-    attendance
+    attendance,
+    academicCalendar
   ] = await Promise.all([
     db.getStudents(),
     db.getClassrooms(),
@@ -23,7 +24,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     db.getUsers(),
     db.getAuditLogs(),
     db.getFacultyLeaves(),
-    db.getAttendanceRecords()
+    db.getAttendanceRecords(),
+    db.getAcademicCalendar()
   ]);
 
   // Live attendance & currently running classes calculation
@@ -39,10 +41,12 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
   }
 
-  // Scheduled classes for today
+  // Scheduled classes for today (excluding sessions off due to holiday/hostel leave)
   const todayClassrooms = (classrooms || []).filter(c => {
     const days = Array.isArray(c.days) && c.days.length > 0 ? c.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days.includes(todayKey);
+    if (!days.includes(todayKey)) return false;
+    const off = db.isClassSessionOffDueToHoliday(c, todayIso, academicCalendar);
+    return !off.isOff;
   });
 
   // Currently running classes right now (meeting today and between start_time and end_time)

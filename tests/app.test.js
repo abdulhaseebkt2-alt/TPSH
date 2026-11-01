@@ -6199,5 +6199,78 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         await db.deleteStudent(student.id);
       }
     });
+
+    it('25.25 Holiday & Hostel Leave Time-Span Support: Disables attendance during off time, waives penalties, and eliminates red missed marks on teacher dashboard and reports', async () => {
+      // 1. Add single-day holiday with specific time span (e.g. 09:00 to 14:00)
+      const holidayDate = '2026-10-28';
+      await db.addCalendarHoliday({
+        date: holidayDate,
+        name: 'Annual Sports Meet Half-Day',
+        type: 'holiday',
+        start_time: '09:00',
+        end_time: '14:00',
+        is_all_day: false
+      });
+
+      // 2. Add multi-day hostel leave with time span
+      const leaveStartDate = '2026-10-29';
+      const leaveEndDate = '2026-10-31';
+      await db.addCalendarHolidayRange({
+        startDate: leaveStartDate,
+        endDate: leaveEndDate,
+        name: 'Winter Break Hostel Leave',
+        type: 'hostel_leave',
+        start_time: '10:00',
+        end_time: '16:00',
+        is_all_day: false
+      });
+
+      const cal = await db.getAcademicCalendar();
+
+      // Class A: 10:00 - 11:30 (Overlaps Sports Meet off time 09:00 - 14:00) -> Must be OFF
+      const classOverlap = { id: 'cls-overlap', name: 'Science Lab Session', start_time: '10:00', end_time: '11:30' };
+      const offInfoOverlap = db.isClassSessionOffDueToHoliday(classOverlap, holidayDate, cal);
+      expect(offInfoOverlap.isOff).toBe(true);
+      expect(offInfoOverlap.type).toBe('holiday');
+      expect(offInfoOverlap.reason).toBe('Annual Sports Meet Half-Day');
+      expect(offInfoOverlap.isAllDay).toBe(false);
+
+      // Class B: 15:00 - 16:30 (Outside Sports Meet off time 09:00 - 14:00) -> Must NOT be off
+      const classOutside = { id: 'cls-outside', name: 'Evening Revision', start_time: '15:00', end_time: '16:30' };
+      const offInfoOutside = db.isClassSessionOffDueToHoliday(classOutside, holidayDate, cal);
+      expect(offInfoOutside.isOff).toBe(false);
+
+      // Class C: Overlaps Hostel Leave on Nov 26 -> Must be OFF with hostel_leave type
+      const classHostelOff = { id: 'cls-hostel', name: 'Morning Math Class', start_time: '11:00', end_time: '12:00' };
+      const offHostelInfo = db.isClassSessionOffDueToHoliday(classHostelOff, '2026-10-30', cal);
+      expect(offHostelInfo.isOff).toBe(true);
+      expect(offHostelInfo.type).toBe('hostel_leave');
+      expect(offHostelInfo.reason).toBe('Winter Break Hostel Leave');
+
+      // 3. Test Teacher Dashboard pendingAttendanceCount calculation
+      // For classes that are off, pending attendance must be 0 and have no red alert
+      const mockClassrooms = [classOverlap];
+      const pendingClasses = mockClassrooms.filter(c => {
+        const off = db.isClassSessionOffDueToHoliday(c, holidayDate, cal);
+        return !off.isOff;
+      });
+      expect(pendingClasses.length).toBe(0);
+
+      // 4. Verify Academic Calendar renders time span and hostel leave badge
+      const mockContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderCalendarModule(mockContainer, { onNavigate: () => {} });
+      expect(mockContainer.innerHTML).toContain('Annual Sports Meet Half-Day');
+      expect(mockContainer.innerHTML).toContain('Winter Break Hostel Leave');
+      expect(mockContainer.innerHTML).toContain('Hostel Leave');
+      expect(mockContainer.innerHTML).toContain('Official Holiday');
+
+      // Cleanup
+      await db.removeCalendarHoliday(holidayDate);
+      await db.removeCalendarHoliday(leaveStartDate);
+    });
   });
 });

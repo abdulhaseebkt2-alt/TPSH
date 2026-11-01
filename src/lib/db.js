@@ -159,7 +159,7 @@ export const INITIAL_ACADEMIC_CALENDAR = {
     { id: 'cal-4', date: '2026-10-20', name: 'Eid Milad-un-Nabi', type: 'holiday' },
     { id: 'cal-5', date: '2026-10-21', name: 'Institutional Mid-Term Break', type: 'holiday' },
     { id: 'cal-6', date: '2026-10-26', name: 'Special Working Session', type: 'working_day' },
-    { id: 'cal-7', date: '2026-11-01', name: 'Kerala Piravi / State Foundation', type: 'holiday' },
+    { id: 'cal-7', date: '2026-11-05', name: 'Kerala Piravi / State Foundation', type: 'holiday' },
     { id: 'cal-8', date: '2026-11-14', name: 'Children\'s Day Celebration', type: 'event' }
   ]
 };
@@ -3153,15 +3153,18 @@ class DatabaseService {
     return calendarData;
   }
 
-  async addCalendarHoliday({ date, name, type = 'holiday', academic_year = '2026-2027' }) {
+  async addCalendarHoliday({ date, name, type = 'holiday', start_time = null, end_time = null, is_all_day = true, academic_year = '2026-2027' }) {
     const cal = await this.getAcademicCalendar();
     const events = Array.isArray(cal.events) ? [...cal.events] : [];
     const existingIdx = events.findIndex(e => e.date === date);
     const newEvent = {
       id: 'cal-' + Date.now(),
       date,
-      name: name || 'Institutional Holiday',
-      type: type || 'holiday'
+      name: name || (type === 'hostel_leave' ? 'Hostel Leave' : 'Institutional Holiday'),
+      type: type || 'holiday',
+      start_time: is_all_day ? null : start_time,
+      end_time: is_all_day ? null : end_time,
+      is_all_day: Boolean(is_all_day)
     };
     if (existingIdx >= 0) {
       events[existingIdx] = newEvent;
@@ -3177,7 +3180,7 @@ class DatabaseService {
     return updated;
   }
 
-  async addCalendarHolidayRange({ startDate, endDate, name, type = 'holiday' }) {
+  async addCalendarHolidayRange({ startDate, endDate, name, type = 'holiday', start_time = null, end_time = null, is_all_day = true }) {
     const cal = await this.getAcademicCalendar();
     const events = Array.isArray(cal.events) ? [...cal.events] : [];
     const start = new Date(startDate + 'T00:00:00');
@@ -3196,11 +3199,14 @@ class DatabaseService {
       const ev = {
         id: 'cal-' + Date.now() + '-' + dateStr,
         date: dateStr,
-        name: name || 'Institutional Holiday',
+        name: name || (type === 'hostel_leave' ? 'Hostel Leave' : 'Institutional Holiday'),
         type: type || 'holiday',
         range_id: rangeId,
         is_range_start: isStart,
-        is_range_end: isEnd
+        is_range_end: isEnd,
+        start_time: is_all_day ? null : start_time,
+        end_time: is_all_day ? null : end_time,
+        is_all_day: Boolean(is_all_day)
       };
       if (existingIdx >= 0) {
         events[existingIdx] = ev;
@@ -3258,7 +3264,9 @@ class DatabaseService {
     const events = calendar?.events || [];
     const custom = events.find(e => e.date === dateStr);
     if (custom) {
-      if (custom.type === 'holiday') return false;
+      if (custom.type === 'holiday' || custom.type === 'hostel_leave') {
+        if (custom.is_all_day !== false) return false;
+      }
       if (custom.type === 'working_day') return true;
     }
     const parts = dateStr.split('-');
@@ -3273,18 +3281,23 @@ class DatabaseService {
   }
 
   getCalendarDayInfo(dateStr, calendar = INITIAL_ACADEMIC_CALENDAR) {
-    if (!dateStr) return { isWorkingDay: false, isHoliday: false, isSpecialWorking: false, title: '', type: 'none' };
+    if (!dateStr) return { isWorkingDay: false, isHoliday: false, isHostelLeave: false, isSpecialWorking: false, title: '', type: 'none', start_time: null, end_time: null, is_all_day: true };
     const events = calendar?.events || [];
     const custom = events.find(e => e.date === dateStr);
     const isWork = this.isDateWorkingDay(dateStr, calendar);
     if (custom) {
+      const isHol = custom.type === 'holiday' || custom.type === 'hostel_leave';
       return {
         date: dateStr,
         isWorkingDay: isWork,
-        isHoliday: custom.type === 'holiday',
+        isHoliday: isHol,
+        isHostelLeave: custom.type === 'hostel_leave',
         isSpecialWorking: custom.type === 'working_day',
         title: custom.name,
-        type: custom.type
+        type: custom.type,
+        start_time: custom.start_time || null,
+        end_time: custom.end_time || null,
+        is_all_day: custom.is_all_day !== false
       };
     }
     const parts = dateStr.split('-');
@@ -3296,10 +3309,79 @@ class DatabaseService {
       date: dateStr,
       isWorkingDay: isWork,
       isHoliday: isWeekendOff,
+      isHostelLeave: false,
       isSpecialWorking: false,
       title: isWeekendOff ? `${dayOfWeek} Weekend Off` : 'Regular Working Day',
-      type: isWeekendOff ? 'holiday' : 'working_day'
+      type: isWeekendOff ? 'holiday' : 'working_day',
+      start_time: null,
+      end_time: null,
+      is_all_day: true
     };
+  }
+
+  isClassSessionOffDueToHoliday(classObj, dateStr, calendar = INITIAL_ACADEMIC_CALENDAR) {
+    if (!dateStr) return { isOff: false };
+    const events = Array.isArray(calendar?.events) ? calendar.events : [];
+    
+    // Check matching institutional events on this date (Official Holiday or Hostel Leave)
+    const matchingEvents = events.filter(e => e.date === dateStr && (e.type === 'holiday' || e.type === 'hostel_leave'));
+    
+    for (const ev of matchingEvents) {
+      const isAllDay = ev.is_all_day !== false || (!ev.start_time && !ev.end_time);
+      if (isAllDay) {
+        return {
+          isOff: true,
+          type: ev.type,
+          reason: ev.name || (ev.type === 'hostel_leave' ? 'Hostel Leave' : 'Official Holiday'),
+          isAllDay: true,
+          startTime: null,
+          endTime: null,
+          timeSpan: 'Full Day Off',
+          event: ev
+        };
+      }
+
+      // If event has a specific time span
+      if (ev.start_time && ev.end_time) {
+        const clsStart = classObj?.start_time || '00:00';
+        const clsEnd = classObj?.end_time || '23:59';
+        
+        const toMin = (t) => {
+          if (!t) return 0;
+          const [h, m] = t.split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        
+        const cStart = toMin(clsStart);
+        const cEnd = toMin(clsEnd);
+        const evStart = toMin(ev.start_time);
+        const evEnd = toMin(ev.end_time);
+
+        // Check if class time window overlaps with holiday/leave off time window
+        if (cStart < evEnd && cEnd > evStart) {
+          const formatT = (t) => {
+            const [h, m] = (t || '00:00').split(':').map(Number);
+            const period = (h || 0) >= 12 ? 'PM' : 'AM';
+            const h12 = (h || 0) % 12 || 12;
+            return `${String(h12).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${period}`;
+          };
+          return {
+            isOff: true,
+            type: ev.type,
+            reason: ev.name || (ev.type === 'hostel_leave' ? 'Hostel Leave' : 'Official Holiday'),
+            isAllDay: false,
+            startTime: ev.start_time,
+            endTime: ev.end_time,
+            timeSpan: `${formatT(ev.start_time)} – ${formatT(ev.end_time)}`,
+            event: ev
+          };
+        }
+      }
+    }
+
+
+
+    return { isOff: false };
   }
 
   // --- AUDIT LOGS ---
