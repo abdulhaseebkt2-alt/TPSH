@@ -98,6 +98,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
     let searchFilter = '';
     let classFilter = 'all';
     let genderFilter = isBoysMentor ? 'boy' : isGirlsMentor ? 'girl' : 'all';
+    let statusFilter = 'all';
 
     // Unique classes for filter
     const uniqueClasses = Array.from(new Set(accessibleStudents.map(s => s.school_class || s.class_name).filter(Boolean))).sort();
@@ -117,18 +118,31 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       const filteredPickerStudents = accessibleStudents.filter(s => {
         if (genderFilter !== 'all') {
           const sGen = (s.gender || '').toLowerCase();
-          if (genderFilter === 'boy' && !sGen.startsWith('b') && !sGen.startsWith('m')) return false;
-          if (genderFilter === 'girl' && !sGen.startsWith('g') && !sGen.startsWith('f')) return false;
+          if ((genderFilter === 'Male' || genderFilter === 'boy') && !sGen.startsWith('b') && !sGen.startsWith('m')) return false;
+          if ((genderFilter === 'Female' || genderFilter === 'girl') && !sGen.startsWith('g') && !sGen.startsWith('f')) return false;
+        }
+        if (statusFilter !== 'all') {
+          const sStatus = s.status || 'Active';
+          if (statusFilter === 'active' || statusFilter === 'Active') {
+            if (sStatus !== 'Active' && sStatus !== 'Present') return false;
+          } else if (statusFilter === 'On Approved Leave') {
+            if (sStatus !== 'On Approved Leave') return false;
+          } else if (statusFilter === 'Temporary Break') {
+            if (sStatus !== 'Temporary Break') return false;
+          } else if (statusFilter === 'inactive') {
+            if (sStatus !== 'Inactive') return false;
+          }
         }
         if (classFilter !== 'all') {
           const sClass = s.school_class || s.class_name || '';
           if (sClass !== classFilter) return false;
         }
         if (searchFilter) {
-          const q = searchFilter.toLowerCase();
+          const q = searchFilter.toLowerCase().trim();
           const matchName = (s.full_name || '').toLowerCase().includes(q);
           const matchAdm = (s.admission_number || '').toLowerCase().includes(q);
-          if (!matchName && !matchAdm) return false;
+          const matchPhone = (s.father_phone || s.mother_phone || s.emergency_contact || '').includes(q);
+          if (!matchName && !matchAdm && !matchPhone) return false;
         }
         return true;
       });
@@ -174,46 +188,70 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               ` : ''}
             </div>
 
-            <!-- Admin & Mentor Filters Toolbar -->
+            <!-- Admin & Mentor Filters Toolbar (Matches Screenshot media_1793517769440_b0b3a7bc.png) -->
             ${!isParent ? `
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem; padding-top: 0.5rem; border-top: 1px solid #F1F5F9;">
-                <!-- Student Picker -->
-                <div>
-                  <label style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Select Student *</label>
-                  <select id="leave-card-student-select" class="form-control" style="height: 38px; font-size: 0.85rem; font-weight: 600;">
-                    ${filteredPickerStudents.map(s => `
-                      <option value="${s.id}" ${s.id === selectedStudent?.id ? 'selected' : ''}>
-                        ${s.full_name} (${s.admission_number} • ${s.school_class || '-'})
-                      </option>
-                    `).join('')}
-                  </select>
-                </div>
-
-                <!-- Class Filter -->
-                <div>
-                  <label style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Class Filter</label>
-                  <select id="leave-card-class-filter" class="form-control" style="height: 38px; font-size: 0.85rem;">
-                    <option value="all" ${classFilter === 'all' ? 'selected' : ''}>All Classes</option>
-                    ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>Class ${c}</option>`).join('')}
-                  </select>
-                </div>
-
-                <!-- Gender Filter -->
-                ${!isBoysMentor && !isGirlsMentor ? `
-                  <div>
-                    <label style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Gender Filter</label>
-                    <select id="leave-card-gender-filter" class="form-control" style="height: 38px; font-size: 0.85rem;">
-                      <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All Genders</option>
-                      <option value="boy" ${genderFilter === 'boy' ? 'selected' : ''}>Boys</option>
-                      <option value="girl" ${genderFilter === 'girl' ? 'selected' : ''}>Girls</option>
-                    </select>
+              <div class="student-filter-capsule" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.65rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative;">
+                <!-- Search Input Row with Magnifying Glass Icon -->
+                <div style="position: relative; width: 100%;">
+                  <div class="capsule-search" style="display: flex; align-items: center; gap: 0.65rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.55rem 0.75rem; width: 100%; box-sizing: border-box;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" style="flex-shrink: 0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input 
+                      type="text" 
+                      id="leave-card-search-input" 
+                      placeholder="Search student by name, ID, phone..." 
+                      value="${searchFilter}" 
+                      style="border: none; background: transparent; width: 100%; font-size: 0.85rem; color: #1E293B; outline: none; padding: 0;"
+                      autocomplete="off"
+                    />
+                    ${searchFilter ? `
+                      <button type="button" id="btn-clear-search" style="border: none; background: transparent; color: #94A3B8; cursor: pointer; padding: 0 4px; font-size: 0.95rem; line-height: 1;" title="Clear search">✕</button>
+                    ` : ''}
                   </div>
-                ` : ''}
 
-                <!-- Quick Name Search -->
-                <div>
-                  <label style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Quick Search</label>
-                  <input type="text" id="leave-card-search-input" class="form-control" placeholder="Search name / admission..." value="${searchFilter}" style="height: 38px; font-size: 0.85rem;" />
+                  <!-- Dropdown List of Matching Students for Instant 1-Tap Switching -->
+                  <div id="leave-card-student-dropdown" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #FFFFFF; border: 1.5px solid #059669; border-radius: 10px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.08); max-height: 240px; overflow-y: auto; z-index: 1000;">
+                    ${filteredPickerStudents.length === 0 ? `
+                      <div style="padding: 0.75rem 1rem; font-size: 0.8rem; color: #94A3B8; text-align: center;">
+                        No student found matching criteria
+                      </div>
+                    ` : filteredPickerStudents.map(s => `
+                      <div class="dropdown-student-item" data-id="${s.id}" style="padding: 0.6rem 0.85rem; border-bottom: 1px solid #F1F5F9; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; transition: background 0.15s ease; ${s.id === selectedStudent?.id ? 'background: #ECFDF5;' : ''}">
+                        <div style="display: flex; align-items: center; gap: 0.55rem; min-width: 0;">
+                          <span style="font-weight: 700; font-size: 0.84rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.full_name}</span>
+                          <span style="font-size: 0.7rem; color: #059669; font-weight: 700; background: #E6F4EA; padding: 1px 6px; border-radius: 4px; font-family: monospace;">${s.admission_number || 'TPS'}</span>
+                          <span style="font-size: 0.72rem; color: #64748B;">${s.school_class || ''}</span>
+                        </div>
+                        ${s.id === selectedStudent?.id ? '<span style="color: #059669; font-weight: 800; font-size: 0.85rem;">✓</span>' : ''}
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+
+                <!-- 3 Filter Dropdowns Row Side-by-Side (Matches Screenshot media_1793517769440_b0b3a7bc.png) -->
+                <div class="capsule-filters" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; width: 100%;">
+                  <!-- Gender Filter Dropdown -->
+                  <select id="leave-card-gender-filter" style="border: 1px solid #E2E8F0; background: #FFFFFF; color: #334155; font-size: 0.78rem; font-weight: 600; padding: 0.45rem 0.45rem; border-radius: 8px; cursor: pointer; outline: none; width: 100%; box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                    ${isGirlsMentor ? `<option value="Female" selected>Female</option>` : isBoysMentor ? `<option value="Male" selected>Male</option>` : `
+                      <option value="all" ${genderFilter === 'all' ? 'selected' : ''}>All</option>
+                      <option value="Male" ${genderFilter === 'Male' || genderFilter === 'boy' ? 'selected' : ''}>Male</option>
+                      <option value="Female" ${genderFilter === 'Female' || genderFilter === 'girl' ? 'selected' : ''}>Female</option>
+                    `}
+                  </select>
+
+                  <!-- Status Filter Dropdown -->
+                  <select id="leave-card-status-filter" style="border: 1px solid #E2E8F0; background: #FFFFFF; color: #334155; font-size: 0.78rem; font-weight: 600; padding: 0.45rem 0.45rem; border-radius: 8px; cursor: pointer; outline: none; width: 100%; box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                    <option value="all" ${statusFilter === 'all' ? 'selected' : ''}>All Statuses</option>
+                    <option value="active" ${statusFilter === 'active' ? 'selected' : ''}>Active</option>
+                    <option value="On Approved Leave" ${statusFilter === 'On Approved Leave' ? 'selected' : ''}>On Approved Leave</option>
+                    <option value="Temporary Break" ${statusFilter === 'Temporary Break' ? 'selected' : ''}>Temporary Break</option>
+                    <option value="inactive" ${statusFilter === 'inactive' ? 'selected' : ''}>Inactive</option>
+                  </select>
+
+                  <!-- Class Filter Dropdown -->
+                  <select id="leave-card-class-filter" style="border: 1px solid #E2E8F0; background: #FFFFFF; color: #334155; font-size: 0.78rem; font-weight: 600; padding: 0.45rem 0.45rem; border-radius: 8px; cursor: pointer; outline: none; width: 100%; box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                    <option value="all" ${classFilter === 'all' ? 'selected' : ''}>All Classes</option>
+                    ${uniqueClasses.map(c => `<option value="${c}" ${classFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
+                  </select>
                 </div>
               </div>
             ` : ''}
@@ -511,12 +549,85 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
     }
 
     function attachModuleEvents() {
-      // Admin / Mentor Student Select dropdown
-      const studentSelect = container.querySelector('#leave-card-student-select');
-      studentSelect?.addEventListener('change', () => {
-        const sid = studentSelect.value;
-        selectedStudent = accessibleStudents.find(s => s.id === sid) || selectedStudent;
-        if (typeof localStorage !== 'undefined') localStorage.setItem('tps_leave_card_active_student', sid);
+      const searchInput = container.querySelector('#leave-card-search-input');
+      const studentDropdown = container.querySelector('#leave-card-student-dropdown');
+
+      // Focus on search input reveals dropdown list of students
+      searchInput?.addEventListener('focus', () => {
+        if (studentDropdown) studentDropdown.style.display = 'block';
+      });
+
+      // Typing in search input dynamically filters dropdown items in place
+      searchInput?.addEventListener('input', (e) => {
+        searchFilter = e.target.value;
+        const q = searchFilter.toLowerCase().trim();
+        if (studentDropdown) {
+          studentDropdown.style.display = 'block';
+          const items = studentDropdown.querySelectorAll('.dropdown-student-item');
+          items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (!q || text.includes(q)) {
+              item.style.display = 'flex';
+            } else {
+              item.style.display = 'none';
+            }
+          });
+        }
+      });
+
+      // Allow pressing Enter in search box to select top visible student
+      searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const firstVisible = studentDropdown?.querySelector('.dropdown-student-item:not([style*="display: none"])');
+          if (firstVisible) {
+            firstVisible.click();
+          }
+        }
+      });
+
+      // Clear search button
+      const clearBtn = container.querySelector('#btn-clear-search');
+      clearBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        searchFilter = '';
+        renderModule();
+      });
+
+      // Click on dropdown student item selects student & renders
+      studentDropdown?.querySelectorAll('.dropdown-student-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sid = item.dataset.id;
+          selectedStudent = accessibleStudents.find(s => s.id === sid) || selectedStudent;
+          if (typeof localStorage !== 'undefined') localStorage.setItem('tps_leave_card_active_student', sid);
+          if (studentDropdown) studentDropdown.style.display = 'none';
+          searchFilter = '';
+          renderModule();
+        });
+      });
+
+      // Close dropdown when tapping anywhere outside
+      const outsideClickHandler = (e) => {
+        if (!searchInput?.contains(e.target) && !studentDropdown?.contains(e.target)) {
+          if (studentDropdown) studentDropdown.style.display = 'none';
+        }
+      };
+      if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        document.addEventListener('click', outsideClickHandler);
+      }
+
+      // Gender Filter dropdown
+      const genderSelect = container.querySelector('#leave-card-gender-filter');
+      genderSelect?.addEventListener('change', () => {
+        genderFilter = genderSelect.value;
+        renderModule();
+      });
+
+      // Status Filter dropdown
+      const statusSelect = container.querySelector('#leave-card-status-filter');
+      statusSelect?.addEventListener('change', () => {
+        statusFilter = statusSelect.value;
         renderModule();
       });
 
@@ -527,17 +638,12 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
         renderModule();
       });
 
-      // Gender Filter dropdown
-      const genderSelect = container.querySelector('#leave-card-gender-filter');
-      genderSelect?.addEventListener('change', () => {
-        genderFilter = genderSelect.value;
-        renderModule();
-      });
-
-      // Search input
-      const searchInput = container.querySelector('#leave-card-search-input');
-      searchInput?.addEventListener('input', (e) => {
-        searchFilter = e.target.value.trim();
+      // Admin / Mentor Student Select dropdown (backward compatibility)
+      const studentSelect = container.querySelector('#leave-card-student-select');
+      studentSelect?.addEventListener('change', () => {
+        const sid = studentSelect.value;
+        selectedStudent = accessibleStudents.find(s => s.id === sid) || selectedStudent;
+        if (typeof localStorage !== 'undefined') localStorage.setItem('tps_leave_card_active_student', sid);
         renderModule();
       });
 

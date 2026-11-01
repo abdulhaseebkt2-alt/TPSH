@@ -5652,6 +5652,13 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('Room 204');
       expect(container.innerHTML).toContain('Present in Hostel');
 
+      // Check Capsule Search & Filter Pills (Matching exact UI from media_1793517769440_b0b3a7bc.png)
+      expect(container.innerHTML).toContain('Search student by name, ID, phone...');
+      expect(container.innerHTML).toContain('All Statuses');
+      expect(container.innerHTML).toContain('All Classes');
+      expect(container.innerHTML).not.toContain('SELECT STUDENT *');
+      expect(container.innerHTML).not.toContain('QUICK SEARCH');
+
       // Check Table Headers (Mobile Compact Single Display: SL, Schedule, Status, Fine, F.Paid)
       expect(container.innerHTML).toContain('SL');
       expect(container.innerHTML).toContain('Schedule');
