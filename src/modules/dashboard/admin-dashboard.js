@@ -253,6 +253,16 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const occupancyRate = activeStudents.length > 0 ? Math.round((presentOnCampusCount / activeStudents.length) * 100) : 98;
   const dashOffset = Math.round(251.3 * (1 - (occupancyRate / 100)));
 
+  // Proportional arc distribution for Hostel Presence Radar
+  const inHostelCount = presentOnCampusCount;
+  const overdueCount = overdueReturns;
+  const regularOnLeaveCount = Math.max(0, studentsOnLeave - overdueCount);
+  const totalRadarCount = Math.max(1, inHostelCount + regularOnLeaveCount + overdueCount);
+  const ARC_LEN = 251.3;
+  const inHostelArc = inHostelCount > 0 ? Math.max(3, Number(((inHostelCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
+  const onLeaveArc = regularOnLeaveCount > 0 ? Math.max(3, Number(((regularOnLeaveCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
+  const overdueArc = overdueCount > 0 ? Math.max(3, Number(((overdueCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
+
   container.innerHTML = `
     <!-- ==========================================
          MOBILE DASHBOARD VIEW (<= 768px Viewports)
@@ -413,10 +423,19 @@ export async function renderAdminDashboard(container, { onNavigate }) {
 
           <div class="m-gauge-visual-wrap">
             <svg class="m-gauge-svg" viewBox="0 0 200 115">
+              <!-- Full background track -->
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#E2E8F0" stroke-width="18" stroke-linecap="round"/>
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#059669" stroke-width="18" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="${dashOffset}"/>
-              ${overdueReturns > 0 ? `
-                <circle cx="178" cy="95" r="7" fill="#EF4444" stroke="#FFFFFF" stroke-width="2" />
+              <!-- 1. In Hostel segment (Green) -->
+              ${inHostelArc > 0 ? `
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#059669" stroke-width="18" stroke-linecap="round" stroke-dasharray="${inHostelArc} 251.3" stroke-dashoffset="0"/>
+              ` : ''}
+              <!-- 2. On Leave segment (Blue) -->
+              ${onLeaveArc > 0 ? `
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="18" stroke-linecap="${overdueArc === 0 ? 'round' : 'butt'}" stroke-dasharray="${onLeaveArc} 251.3" stroke-dashoffset="-${inHostelArc}"/>
+              ` : ''}
+              <!-- 3. Overdue segment (Red - No floating circle dot) -->
+              ${overdueArc > 0 ? `
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#EF4444" stroke-width="18" stroke-linecap="round" stroke-dasharray="${overdueArc} 251.3" stroke-dashoffset="-${inHostelArc + onLeaveArc}"/>
               ` : ''}
             </svg>
             <div class="m-gauge-center-content">

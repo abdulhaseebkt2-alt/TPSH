@@ -170,7 +170,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         all_students_count: totalStudentsCount,
         unreturned_count: unretCount,
         arrived_count: arrivedCount,
-        status: isAllReturned ? 'Returned' : (l.is_extended ? 'Extended' : (isLeaveOverdue(l) ? 'Overdue' : 'Away'))
+        status: isAllReturned ? 'Returned' : (isLeaveOverdue(l) ? 'Overdue' : (l.is_extended ? 'Extended' : 'Away'))
       });
 
       // 2. ALSO GENERATE SEPARATE "ARRIVAL CARD(S)" FOR EVERY RECORDED ARRIVAL
@@ -543,8 +543,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     const unretCount = l.has_existing_arrivals ? (l.unreturned_count || 0) : getUnreturnedCount(l);
                     const isRej = (l.status || '').toLowerCase() === 'rejected';
                     const isPend = (l.status || '').toLowerCase() === 'pending';
+                    const isParentRequest = isPend || Boolean(l.requested_by_parent || l.request_source === 'parent' || l.source === 'parent');
                     const isOverdue = isLeaveOverdue(l);
-                    const isRet = !isRej && (l.status === 'Returned' || unretCount === 0);
+                    const isRet = !isPend && !isRej && (l.status === 'Returned' || (l.has_existing_arrivals ? l.unreturned_count === 0 : unretCount === 0));
                     const isExt = Boolean(l.is_extended);
                     const departs = l.departure_date || l.leaving_date;
                     const todayIso = new Date().toISOString().split('T')[0];
@@ -559,7 +560,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     return `
                       <tr style="border-bottom: 1px solid #ECFDF5; background: #FAFCFA; transition: background 0.15s ease;">
                         <td style="padding: 0.85rem 1rem;">
-                          <span style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: ${isExt ? '#7C3AED' : '#047857'};">${code}${l.parent_leave_code ? ` <span style="font-size: 0.75rem; color: #7E22CE; font-weight: 700;">(${l.parent_leave_code})</span>` : ''}</span>
+                          <span style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7C3AED' : '#047857')};">${code}${l.parent_leave_code ? ` <span style="font-size: 0.75rem; color: #7E22CE; font-weight: 700;">(${l.parent_leave_code})</span>` : ''}</span>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                           <div style="font-weight: 700; color: #1E293B; text-transform: capitalize; font-size: 0.85rem;">${typeDisplay}${isExt ? ' (Extended Leave)' : ''}</div>
@@ -570,9 +571,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           <div style="font-size: 0.72rem; color: #94A3B8;">${l.departure_time || l.leaving_time || '16:00'}</div>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
-                          <div style="font-size: 0.82rem; font-weight: 700; color: #1E293B;">${l.expected_return_date || '-'}</div>
-                          <div style="font-size: 0.72rem; color: #94A3B8;">${l.expected_return_time || '17:00'}</div>
-                          ${l.fine_per_hour ? `<div style="font-size: 0.72rem; color: #7C3AED; font-weight: 700; margin-top: 2px;">Rate: ₹${l.fine_per_hour}/hr</div>` : ''}
+                          <div style="font-size: 0.82rem; font-weight: 700; color: ${isRej || isOverdue ? '#DC2626' : '#1E293B'};">${l.expected_return_date || '-'}</div>
+                          <div style="font-size: 0.72rem; color: ${isOverdue ? '#DC2626' : '#94A3B8'};">${l.expected_return_time || '17:00'}</div>
+                          ${l.fine_per_hour ? `<div style="font-size: 0.72rem; color: ${isOverdue ? '#DC2626' : '#7C3AED'}; font-weight: 700; margin-top: 2px;">Rate: ₹${l.fine_per_hour}/hr</div>` : ''}
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                           <span class="badge" style="background: ${isExt ? '#F3E8FF' : '#ECFDF5'}; color: ${isExt ? '#7E22CE' : '#047857'}; border: 1px solid ${isExt ? '#DDD6FE' : '#A7F3D0'}; font-weight: 600; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
@@ -593,6 +594,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                             <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                               Rejected
                             </span>
+                          ` : isOverdue ? `
+                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                              Overdue Return${isExt ? ' (Extended)' : ''}
+                            </span>
                           ` : isUpcoming ? `
                             <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
                               Approved (Upcoming)
@@ -609,21 +614,23 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         </td>
                         <td style="padding: 0.85rem 1rem; text-align: right;">
                           <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
-                            ${(isPend || (!isRet && !isRej)) && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                            ${(canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
                               ${isPend ? `
                                 <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;">
                                   Approve
                                 </button>
+                                <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Reject leave request">
+                                  Reject
+                                </button>
                               ` : ''}
-                              <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Reject or cancel leave pass">
-                                Reject
-                              </button>
-                              <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Edit requested date & time schedule">
-                                Edit
-                              </button>
-                              <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Expand/extend return date for student(s)">
-                                Extend
-                              </button>
+                              ${!isRet && !isRej && !isPend ? `
+                                <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Edit requested date & time schedule">
+                                  Edit
+                                </button>
+                                <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Expand/extend return date for student(s)">
+                                  Extend
+                                </button>
+                              ` : ''}
                             ` : ''}
 
                             <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
@@ -743,8 +750,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const unretCount = l.has_existing_arrivals ? (l.unreturned_count || 0) : getUnreturnedCount(l);
                 const isRej = (l.status || '').toLowerCase() === 'rejected';
                 const isPend = (l.status || '').toLowerCase() === 'pending';
+                const isParentRequest = isPend || Boolean(l.requested_by_parent || l.request_source === 'parent' || l.source === 'parent');
                 const isOverdue = isLeaveOverdue(l);
-                const isRet = !isRej && (l.status === 'Returned' || unretCount === 0);
+                const isRet = !isPend && !isRej && (l.status === 'Returned' || (l.has_existing_arrivals ? l.unreturned_count === 0 : unretCount === 0));
                 const isExt = Boolean(l.is_extended);
                 const departs = l.departure_date || l.leaving_date;
                 const todayIso = new Date().toISOString().split('T')[0];
@@ -756,10 +764,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                 return `
-                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej ? '#FECACA' : (isExt ? '#DDD6FE' : '#A7F3D0')}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej || isOverdue ? '#FECACA' : (isExt ? '#DDD6FE' : '#A7F3D0')}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                      <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: ${isExt ? '#7C3AED' : '#047857'};">${code}${l.parent_leave_code ? ` <span style="font-size: 0.75rem; color: #7E22CE; font-weight: 700;">(${l.parent_leave_code})</span>` : ''}</span>
+                      <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7C3AED' : '#047857')};">${code}${l.parent_leave_code ? ` <span style="font-size: 0.75rem; color: #7E22CE; font-weight: 700;">(${l.parent_leave_code})</span>` : ''}</span>
                       ${isPend ? `
                         <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
                           Pending Approval
@@ -767,6 +775,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       ` : isRej ? `
                         <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                           Rejected
+                        </span>
+                      ` : isOverdue ? `
+                        <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+                          Overdue Return${isExt ? ' (Extended)' : ''}
                         </span>
                       ` : isUpcoming ? `
                         <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
@@ -787,28 +799,31 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     <div style="font-weight: 700; font-size: 0.88rem; color: #1E293B; text-transform: capitalize;">${(l.leave_type || 'Hostel Leave').replace(/_/g, ' ')}${isExt ? ' (Extended Leave)' : ''}</div>
                     <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${l.reason || 'General leave'}</div>
 
-                    <!-- Dates Specs (Green/Purple Themed) -->
-                    <div style="margin-top: 0.65rem; padding: 0.5rem 0.65rem; background: ${isRej ? '#FEF2F2' : (isExt ? '#FAF5FF' : '#F0FDF4')}; border: 1px solid ${isRej ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center;">
-                      <div>
-                        <div style="color: ${isRej ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">DEPARTURE</div>
-                        <div style="font-weight: 700; color: #1E293B;">${l.departure_date || l.leaving_date || '-'}</div>
+                    <!-- Dates Specs (Aligned & Balanced with Policy) -->
+                    <div style="margin-top: 0.65rem; padding: 0.55rem 0.75rem; background: ${isRej || isOverdue ? '#FEF2F2' : (isExt ? '#FAF5FF' : '#F0FDF4')}; border: 1px solid ${isRej || isOverdue ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; border-radius: 8px; font-size: 0.78rem;">
+                      <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                          <div style="color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">DEPARTURE</div>
+                          <div style="font-weight: 700; color: #1E293B;">${l.departure_date || l.leaving_date || '-'}${l.leaving_time ? ` <span style="font-size: 0.72rem; color: #64748B;">${l.leaving_time}</span>` : ''}</div>
+                        </div>
+                        <div style="color: ${isRej || isOverdue ? '#F87171' : (isExt ? '#C084FC' : '#86EFAC')}; font-weight: 700; padding: 0 4px;">→</div>
+                        <div style="text-align: right;">
+                          <div style="color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">EXPECTED RETURN</div>
+                          <div style="font-weight: 700; color: ${isRej || isOverdue ? '#DC2626' : '#1E293B'};">${l.expected_return_date || '-'}${l.expected_return_time ? ` <span style="font-size: 0.72rem; color: ${isOverdue ? '#DC2626' : '#64748B'};">${l.expected_return_time}</span>` : ''}</div>
+                        </div>
                       </div>
-                      <div style="color: ${isExt ? '#C084FC' : '#86EFAC'};">→</div>
-                      <div style="text-align: right;">
-                        <div style="color: ${isRej ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">EXPECTED RETURN</div>
-                        <div style="font-weight: 700; color: #1E293B;">${l.expected_return_date || '-'}</div>
-                      </div>
+                      ${l.fine_per_hour ? `
+                        <div style="margin-top: 0.45rem; padding-top: 0.35rem; border-top: 1px dashed ${isRej || isOverdue ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
+                          <span style="color: ${isRej || isOverdue ? '#991B1B' : (isExt ? '#6B21A8' : '#047857')}; font-weight: 600;">Overdue Fine Policy:</span>
+                          <span style="color: ${isRej || isOverdue ? '#DC2626' : '#7C3AED'}; font-weight: 800;">₹${l.fine_per_hour} / hr</span>
+                        </div>
+                      ` : ''}
                     </div>
-                    ${l.fine_per_hour ? `
-                      <div style="margin-top: 4px; font-size: 0.72rem; color: #7C3AED; font-weight: 700; display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                        Overdue Fine Rate: ₹${l.fine_per_hour}/hr
-                      </div>
-                    ` : ''}
 
                     <!-- Footer Action Row -->
                     <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; flex-direction: column; gap: 0.45rem;">
                       <div style="display: flex; justify-content: space-between; align-items: center; min-width: 0;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: ${isExt ? '#6B21A8' : '#065F46'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: ${isRej || isOverdue ? '#991B1B' : (isExt ? '#6B21A8' : '#065F46')}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                           ${studentLabel}
                         </span>
                         ${l.has_existing_arrivals ? `
@@ -822,21 +837,23 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         ` : ''}
                       </div>
                       <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.35rem; width: 100%;">
-                        ${(isPend || (!isRet && !isRej)) && (canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+                        ${(canCreateLeave || user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
                           ${isPend ? `
                             <button class="btn btn-xs btn-primary btn-approve-leave" data-id="${l.id}" style="background: #059669; border-color: #059669; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;">
                               Approve
                             </button>
+                            <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;">
+                              Reject
+                            </button>
                           ` : ''}
-                          <button class="btn btn-xs btn-outline btn-reject-leave" data-id="${l.id}" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;">
-                            Reject
-                          </button>
-                          <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Edit requested date & time schedule">
-                            Edit
-                          </button>
-                          <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Expand/extend return date for student(s)">
-                            Extend
-                          </button>
+                          ${!isRet && !isRej && !isPend ? `
+                            <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Edit requested date & time schedule">
+                              Edit
+                            </button>
+                            <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Expand/extend return date for student(s)">
+                              Extend
+                            </button>
+                          ` : ''}
                         ` : ''}
 
                         <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">
@@ -959,8 +976,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
               <div class="form-group" style="margin: 0;">
                 <label class="form-label required" style="font-weight: 700; font-size: 0.82rem; color: #0F172A;">
-                  Per-Hour Overdue Fine Rate (₹/hr) *
-                </label>
+                  Per-Hour Overdue Fine Rate (₹/hr)</label>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                   <span style="font-weight: 700; color: #475569;">₹</span>
                   <input type="number" id="approve-fine-rate" class="form-control" value="${leave.fine_per_hour || 5}" min="0" step="1" required style="height: 38px; font-weight: 700; font-size: 0.95rem; max-width: 130px;" />
@@ -1389,19 +1405,19 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem;">
               <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Date *</label>
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Date</label>
                 <input type="date" id="edit-dep-date" class="form-control" value="${leave.departure_date || leave.leaving_date || ''}" style="height: 38px; font-size: 0.85rem;" required />
               </div>
               <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Time *</label>
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Departure Time</label>
                 <input type="time" id="edit-dep-time" class="form-control" value="${leave.departure_time || leave.leaving_time || '16:00'}" style="height: 38px; font-size: 0.85rem;" required />
               </div>
               <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Date *</label>
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Date</label>
                 <input type="date" id="edit-ret-date" class="form-control" value="${leave.expected_return_date || ''}" style="height: 38px; font-size: 0.85rem;" required />
               </div>
               <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Time *</label>
+                <label class="form-label required" style="font-size: 0.74rem; font-weight: 700; color: #1E3A8A;">Expected Return Time</label>
                 <input type="time" id="edit-ret-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 38px; font-size: 0.85rem;" required />
               </div>
             </div>
@@ -1551,33 +1567,47 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           ` : ''}
 
           <!-- New Return Schedule Details & Overdue Fine Rate -->
-          <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.65rem;">
-            <div style="font-weight: 700; color: #334155; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em;">
-              New Extended Return Schedule & Overdue Fine Rate
+          <div style="background: #FAF5FF; border: 1.5px solid #DDD6FE; border-radius: 12px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 800; color: #6B21A8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;">
+                New Extended Return Schedule
+              </span>
+              <span style="font-size: 0.72rem; font-weight: 700; color: #7E22CE; background: #F3E8FF; padding: 2px 8px; border-radius: 9999px;">
+                Extended Pass
+              </span>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.55rem;">
+            <!-- Row 1: Return Date & Return Time (2 columns with comfortable width) -->
+            <div style="display: grid; grid-template-columns: 1.25fr 1fr; gap: 0.65rem;">
               <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">New Return Date *</label>
-                <input type="date" id="input-extend-date" class="form-control" value="${defaultNewDate}" min="${leave.departure_date || ''}" style="height: 38px; font-size: 0.88rem; font-weight: 700;" required />
+                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">New Return Date</label>
+                <input type="date" id="input-extend-date" class="form-control" value="${defaultNewDate}" min="${leave.departure_date || ''}" style="height: 42px; font-size: 0.88rem; font-weight: 700; width: 100%; box-sizing: border-box;" required />
               </div>
               <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">New Return Time *</label>
-                <input type="time" id="input-extend-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 38px; font-size: 0.88rem;" required />
-              </div>
-              <div class="form-group" style="margin: 0;">
-                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">Fine Rate (₹/hr) *</label>
-                <input type="number" id="input-extend-fine-rate" class="form-control" value="${leave.fine_per_hour || 5}" min="0" step="1" style="height: 38px; font-size: 0.88rem; font-weight: 700;" required />
+                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">New Return Time</label>
+                <input type="time" id="input-extend-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 42px; font-size: 0.88rem; font-weight: 600; width: 100%; box-sizing: border-box;" required />
               </div>
             </div>
-            <div style="font-size: 0.72rem; color: #64748B;">
-              Overdue fine will accrue at this hourly rate if resident returns after the new expected return schedule.
+
+            <!-- Row 2: Overdue Fine Rate (full clean width) -->
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">Late Fine Rate</label>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="position: relative; flex: 1;">
+                  <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: 800; color: #64748B; font-size: 0.9rem;">₹</span>
+                  <input type="number" id="input-extend-fine-rate" class="form-control" value="${leave.fine_per_hour || 5}" min="0" step="1" style="height: 40px; font-size: 0.92rem; font-weight: 800; padding-left: 1.6rem; color: #0F172A;" required />
+                </div>
+                <span style="font-size: 0.8rem; font-weight: 700; color: #64748B; white-space: nowrap;">per resident / hr</span>
+              </div>
+              <div style="font-size: 0.72rem; color: #7E22CE; margin-top: 4px; font-weight: 500;">
+                Overdue fine will accrue at this hourly rate if resident returns after the new expected return schedule.
+              </div>
             </div>
           </div>
 
           <!-- Reason / Justification -->
           <div class="form-group" style="margin: 0;">
-            <label class="form-label required" style="font-size: 0.78rem; font-weight: 700; color: #0F172A;">Reason for Leave Expansion *</label>
+            <label class="form-label required" style="font-size: 0.78rem; font-weight: 700; color: #0F172A;">Reason for Leave Expansion</label>
             <div style="display: flex; gap: 4px; margin-bottom: 5px; flex-wrap: wrap;">
               <button type="button" class="btn btn-xs btn-outline btn-quick-reason" data-reason="Parent requested medical treatment extension" style="font-size: 0.68rem; padding: 2px 6px;">Medical Treatment</button>
               <button type="button" class="btn btn-xs btn-outline btn-quick-reason" data-reason="Transit delay / confirmed railway schedule cancellation" style="font-size: 0.68rem; padding: 2px 6px;">Transit Delay</button>
@@ -2203,11 +2233,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <!-- Return Date & Time Row -->
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Actual Return Date *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Actual Return Date</label>
                       <input type="date" id="ind-return-date" class="form-control" value="${savedRetDate}" required style="height: 34px; font-size: 0.8rem;" />
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Actual Return Time *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Actual Return Time</label>
                       <input type="time" id="ind-return-time" class="form-control" value="${savedRetTime}" data-picker-title="Actual Return Time" required style="height: 34px; font-size: 0.78rem;" />
                     </div>
                   </div>
@@ -2453,7 +2483,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 0.45rem;">
                 <!-- Select Leave Card -->
                 <div class="form-group" style="margin: 0;">
-                  <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Select Active Leave Card *</label>
+                  <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Select Active Leave Card</label>
                   <select id="batch-leave-select" class="form-control" style="height: 34px; font-size: 0.8rem;">
                     ${activeLeaves.map(l => {
                       const unret = getUnreturnedCount(l);
@@ -2469,11 +2499,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 <!-- Batch Return Date & Time -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
                   <div class="form-group" style="margin: 0;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Batch Return Date *</label>
+                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Batch Return Date</label>
                     <input type="date" id="batch-ret-date" class="form-control" value="${today}" required style="height: 34px; font-size: 0.8rem;" />
                   </div>
                   <div class="form-group" style="margin: 0;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Batch Return Time *</label>
+                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Batch Return Time</label>
                     <input type="time" id="batch-ret-time" class="form-control" value="${nowTime}" data-picker-title="Batch Return Time" required style="height: 34px; font-size: 0.78rem;" />
                   </div>
                 </div>
@@ -2787,14 +2817,14 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <!-- Departure & Return Row -->
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Departure Date & Time *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Departure Date & Time</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
                         <input type="date" id="pass-dep-date" class="form-control" value="${savedDepDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
                         <input type="time" id="pass-dep-time" class="form-control" value="${savedDepTime}" data-picker-title="Departure Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
                       </div>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Expected Return Date & Time *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Expected Return Date & Time</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
                         <input type="date" id="pass-ret-date" class="form-control" value="${savedRetDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
                         <input type="time" id="pass-ret-time" class="form-control" value="${savedRetTime}" data-picker-title="Expected Return Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
@@ -2805,7 +2835,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <!-- Line 1: Leave Type (3/5) & Late Fine / Hour (2/5) in a single line -->
                   <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type</label>
                       <select id="pass-leave-type" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
                         <option value="hostel_leave" ${savedLeaveType === 'hostel_leave' ? 'selected' : ''}>Hostel Weekend Leave</option>
                         <option value="vacation" ${savedLeaveType === 'vacation' ? 'selected' : ''}>Vacation / Term Holidays</option>
@@ -2815,14 +2845,14 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹)</label>
                       <input type="number" id="pass-fine-rate" class="form-control" value="${savedFineRate}" min="0" step="5" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                     </div>
                   </div>
 
                   <!-- Line 2: Reason for Leave under them in a single line -->
                   <div class="form-group" style="margin: 0; width: 100%;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason for Leave *</label>
+                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason for Leave</label>
                     <input type="text" id="pass-reason" class="form-control" placeholder="e.g. Attending sister's wedding / Family function" value="${savedReason}" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                   </div>
                 </div>
@@ -3055,14 +3085,14 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <!-- Departure & Return Row -->
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Departure Date & Time *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Departure Date & Time</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
                         <input type="date" id="batch-pass-dep-date" class="form-control" value="${savedBatchDepDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
                         <input type="time" id="batch-pass-dep-time" class="form-control" value="${savedBatchDepTime}" data-picker-title="Departure Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
                       </div>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Expected Return Date & Time *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Expected Return Date & Time</label>
                       <div style="display: flex; gap: 0.35rem; align-items: center;">
                         <input type="date" id="batch-pass-ret-date" class="form-control" value="${savedBatchRetDate}" required style="height: 34px; font-size: 0.8rem; flex: 1; min-width: 0;" />
                         <input type="time" id="batch-pass-ret-time" class="form-control" value="${savedBatchRetTime}" data-picker-title="Expected Return Time" required style="height: 34px; font-size: 0.78rem; width: 110px; flex: 0 0 110px;" />
@@ -3073,7 +3103,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <!-- Line 1: Leave Type (3/5) & Late Fine / Hour (2/5) in a single line -->
                   <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 0.45rem;">
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Leave Type</label>
                       <select id="batch-pass-type" class="form-control" style="width: 100%; height: 34px; font-size: 0.8rem;">
                         <option value="vacation" ${savedBatchLeaveType === 'vacation' ? 'selected' : ''}>Vacation / Term Holidays</option>
                         <option value="hostel_leave" ${savedBatchLeaveType === 'hostel_leave' ? 'selected' : ''}>Hostel Weekend Leave</option>
@@ -3083,14 +3113,14 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
+                      <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹)</label>
                       <input type="number" id="batch-pass-fine-rate" class="form-control" value="${savedBatchFineRate}" min="0" step="1" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                     </div>
                   </div>
 
                   <!-- Line 2: Reason / Vacation Description underneath in a single line -->
                   <div class="form-group" style="margin: 0; width: 100%;">
-                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason / Vacation Description *</label>
+                    <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Reason / Vacation Description</label>
                     <input type="text" id="batch-pass-reason" class="form-control" placeholder="e.g. Eid Vacation / Term End Holidays" value="${savedBatchReason}" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                   </div>
                 </div>
@@ -3526,7 +3556,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <button type="button" class="btn btn-outline" id="btn-details-close">Close</button>
-              ${!isRet && !isRej && (user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
+              ${!isRet && !isRej && (isPend || leave.requested_by_parent || leave.request_source === 'parent' || leave.source === 'parent') && (user?.is_super_admin || user?.role === 'admin' || isMentorRole(user?.role)) ? `
                 <button type="button" class="btn btn-danger" id="btn-details-reject-pass" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF; font-size: 0.8rem;">
                   Reject Pass
                 </button>

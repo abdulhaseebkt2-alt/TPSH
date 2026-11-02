@@ -706,8 +706,7 @@ export async function renderStudentDisciplineCardModule(container, options = {})
             <!-- Amount Input Field -->
             <div>
               <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
-                Amount to Pay (₹)
-              </label>
+                Amount to Pay (₹)</label>
               <input type="number" id="input-disc-fine-amount" class="form-control" min="1" max="${remainingAmt}" value="${remainingAmt}" step="0.01" style="font-weight: 800; font-size: 1rem; color: #0F172A;" />
               <div id="text-disc-remaining-preview" style="font-size: 0.74rem; color: #64748B; margin-top: 4px;">
                 Remaining balance after payment: <strong style="color: #059669;">✓ ₹0.00 (Fully Settled)</strong>
@@ -717,8 +716,7 @@ export async function renderStudentDisciplineCardModule(container, options = {})
             <!-- Payment Method Selection -->
             <div>
               <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
-                Payment Method
-              </label>
+                Payment Method</label>
               <select id="select-disc-fine-method" class="form-control" style="font-size: 0.85rem;">
                 <option value="Cash" selected>Cash (at Hostel Office)</option>
                 <option value="UPI">UPI / Google Pay / PhonePe</option>
