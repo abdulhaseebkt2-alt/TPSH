@@ -424,7 +424,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                       let isEarly = false;
 
                       const studentEntry = Array.isArray(l.students) ? l.students.find(e => e.student_id === selectedStudent.id) : null;
-                      const fineAmt = Number(l.calculated_fine) || Number(studentEntry?.fine_amount) || 0;
+                      const fineAmt = Number(studentEntry && studentEntry.fine_amount !== undefined ? studentEntry.fine_amount : l.calculated_fine) || 0;
                       const isRecordedLate = (l.late_hours > 0) || (l.late_days > 0) || (studentEntry && (studentEntry.late_hours > 0 || studentEntry.late_days > 0)) || (fineAmt > 0) || l.return_status === 'late';
 
                       if (isRej) {
@@ -710,17 +710,32 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       });
     }
 
-    // ROW CLICK POPUP: Full details & Admin/Mentor Fine Clearing
+    // ROW CLICK POPUP: Full details, Partial/Full Fine Settlement, & Bulk Detachment
     function openLeaveCardRowPopup(leaveId) {
       const leave = allLeaves.find(l => l.id === leaveId);
       if (!leave) return;
 
       const studentEntry = Array.isArray(leave.students) ? leave.students.find(e => e.student_id === selectedStudent?.id) : null;
-      const fineAmt = Number(studentEntry?.fine_amount !== undefined ? studentEntry.fine_amount : leave.calculated_fine) || 0;
-      const isPaid = (studentEntry?.fine_status ? studentEntry.fine_status === 'paid' : leave.fine_status === 'paid');
-      const isPartial = (studentEntry?.fine_status ? studentEntry.fine_status === 'partial' : leave.fine_status === 'partial');
+      const fineAmt = Number(studentEntry && studentEntry.fine_amount !== undefined ? studentEntry.fine_amount : leave.calculated_fine) || 0;
+      const paidAmt = Number(studentEntry && studentEntry.fine_paid_amount !== undefined ? studentEntry.fine_paid_amount : leave.fine_paid_amount) || 0;
+      const remainingAmt = Math.max(0, fineAmt - paidAmt);
+      const isPaid = fineAmt > 0 ? (remainingAmt <= 0 || (studentEntry?.fine_status === 'paid' || (!studentEntry && leave.fine_status === 'paid'))) : false;
+      const isPartial = fineAmt > 0 && !isPaid && (paidAmt > 0 || studentEntry?.fine_status === 'partial' || leave.fine_status === 'partial');
       const isRej = (leave.status || '').toLowerCase() === 'rejected';
       const isPend = (leave.status || '').toLowerCase() === 'pending';
+
+      const isBulkLeave = (Array.isArray(leave.students) && leave.students.length > 1) || (Array.isArray(leave.student_ids) && leave.student_ids.length > 1);
+      const totalStudentsInLeave = (Array.isArray(leave.students) && leave.students.length) || (Array.isArray(leave.student_ids) && leave.student_ids.length) || 1;
+
+      const allPayments = db.get('tps_fine_payments') || [];
+      const paymentsForPass = allPayments.filter(p => {
+        const matchPass = (p.leave_record_id === leave.id || p.leave_code === leave.leave_code);
+        if (!matchPass) return false;
+        if (selectedStudent?.id && p.student_id) {
+          return p.student_id === selectedStudent.id;
+        }
+        return true;
+      });
 
       const actualRetDate = studentEntry?.actual_return_date || leave.actual_return_date || (leave.status === 'Returned' ? (leave.actual_return_date || leave.expected_return_date) : null);
       const actualRetTime = studentEntry?.actual_return_time || leave.actual_return_time || (leave.status === 'Returned' ? (leave.actual_return_time || leave.expected_return_time) : null);
@@ -798,12 +813,12 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
             </div>
 
             <!-- Fine Assessment & Payment Status Card -->
-            <div style="background: ${fineAmt > 0 ? (isPaid ? '#ECFDF5' : '#FFF1F2') : '#F8FAFC'}; border: 1.5px solid ${fineAmt > 0 ? (isPaid ? '#A7F3D0' : '#FECDD3') : '#E2E8F0'}; border-radius: 12px; padding: 0.85rem; font-size: 0.82rem;">
+            <div style="background: ${fineAmt > 0 ? (isPaid ? '#ECFDF5' : (isPartial ? '#FFFBEB' : '#FFF1F2')) : '#F8FAFC'}; border: 1.5px solid ${fineAmt > 0 ? (isPaid ? '#A7F3D0' : (isPartial ? '#FCD34D' : '#FECDD3')) : '#E2E8F0'}; border-radius: 12px; padding: 0.85rem; font-size: 0.82rem;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <span style="font-weight: 700; color: ${fineAmt > 0 ? (isPaid ? '#065F46' : '#9F1239') : '#334155'}; font-size: 0.85rem;">
+                <span style="font-weight: 700; color: ${fineAmt > 0 ? (isPaid ? '#065F46' : (isPartial ? '#92400E' : '#9F1239')) : '#334155'}; font-size: 0.85rem;">
                   Late Fine Breakdown
                 </span>
-                <span style="font-size: 1.1rem; font-weight: 800; color: ${fineAmt > 0 ? (isPaid ? '#059669' : '#DC2626') : '#64748B'};">
+                <span style="font-size: 1.1rem; font-weight: 800; color: ${fineAmt > 0 ? (isPaid ? '#059669' : (isPartial ? '#D97706' : '#DC2626')) : '#64748B'};">
                   ${fineAmt > 0 ? `₹${fineAmt.toFixed(2)}` : '₹0.00 (No Fine)'}
                 </span>
               </div>
@@ -813,21 +828,36 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                   <span style="color: #64748B;">Settlement Status:</span>
                   ${isPaid ? `
                     <span style="color: #059669; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
-                      ✓ Paid ${studentEntry?.fine_paid_at || leave.fine_paid_at ? `on ${(studentEntry?.fine_paid_at || leave.fine_paid_at).split('T')[0]}` : ''} ${leave.fine_cleared_by ? `(Cleared by: ${leave.fine_cleared_by})` : ''}
+                      ✓ Fully Settled (₹${fineAmt.toFixed(2)}) ${leave.fine_cleared_by || studentEntry?.fine_cleared_by ? `• By: ${studentEntry?.fine_cleared_by || leave.fine_cleared_by}` : ''}
                     </span>
                   ` : isPartial ? `
                     <span style="color: #D97706; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
-                      ⚠️ Partially Paid: ₹${studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0} • Due: ₹${studentEntry?.fine_remaining_amount || leave.fine_remaining_amount || (fineAmt - (studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0))}
+                      ⚠️ Partially Paid: ₹${paidAmt.toFixed(2)} • Due: ₹${remainingAmt.toFixed(2)}
                     </span>
                   ` : `
                     <span style="color: #DC2626; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
-                      ✗ Unpaid Outstanding
+                      ✗ Unpaid Outstanding (₹${remainingAmt.toFixed(2)})
                     </span>
                   `}
                 </div>
               ` : `
                 <div style="color: #64748B; font-size: 0.76rem;">Student reported safely on time without delay.</div>
               `}
+
+              ${paymentsForPass.length > 0 ? `
+                <div style="margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed #CBD5E1; font-size: 0.75rem; color: #475569;">
+                  <div style="font-weight: 700; margin-bottom: 0.25rem; color: #334155; display: flex; align-items: center; gap: 4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    Payment & Fine Clearance Records:
+                  </div>
+                  ${paymentsForPass.map(p => `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px; padding: 2px 0;">
+                      <span>• ${p.receipt_number || 'RCPT'} (${p.payment_method || 'Cash'})${p.recorded_by ? ` - ${p.recorded_by}` : ''}:</span>
+                      <span style="font-weight: 700; color: #059669;">₹${p.amount} on ${p.payment_date || '-'}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
             </div>
 
             <!-- Actions Footer -->
@@ -835,18 +865,18 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               ${isMentor ? `
                 <button type="button" class="btn btn-xs btn-outline-danger" id="btn-popup-delete-leave" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.65rem; border-radius: 8px;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                  Delete Leave Record
+                  ${isBulkLeave ? 'Remove Student from Pass' : 'Delete Leave Record'}
                 </button>
               ` : '<div></div>'}
 
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <button type="button" class="btn btn-outline" id="btn-popup-close">Close</button>
                 
-                <!-- CLEAR FINE BUTTON (ONLY FOR ADMIN & MENTOR IF UNPAID FINE EXISTS) -->
+                <!-- SETTLE / PAY FINE BUTTON (ONLY FOR ADMIN & MENTOR IF UNPAID OR PARTIAL FINE EXISTS) -->
                 ${fineAmt > 0 && !isPaid && isMentor ? `
                   <button type="button" class="btn btn-primary" id="btn-popup-clear-fine" style="background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    ${isPartial ? `Clear Remaining Due (₹${studentEntry?.fine_remaining_amount || leave.fine_remaining_amount || (fineAmt - (studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0))})` : `Clear / Mark Fine Paid (₹${fineAmt})`}
+                    ${isPartial ? `Pay / Settle Fine (Due: ₹${remainingAmt})` : `Pay / Settle Fine (₹${fineAmt})`}
                   </button>
                 ` : ''}
               </div>
@@ -857,76 +887,307 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
       modalBody.querySelector('#btn-popup-close')?.addEventListener('click', close);
 
+      // DELETE / DETACH LEAVE ACTION
       modalBody.querySelector('#btn-popup-delete-leave')?.addEventListener('click', () => {
         close();
         const code = leave.leave_code || leave.leave_register_number || 'Pass';
-        const { container: deleteModal, close: closeDeleteModal } = openModal({
-          title: `Delete Leave Record - ${code}`,
+
+        if (isBulkLeave) {
+          // Bulk leave: Remove ONLY this student from the bulk pass
+          const { container: deleteModal, close: closeDeleteModal } = openModal({
+            title: `Remove Student from Leave Pass - ${code}`,
+            size: 'sm',
+            contentHtml: `
+              <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+                <div style="background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 10px; padding: 0.85rem; color: #92400E;">
+                  <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+                    Detach Student from Bulk Pass
+                  </div>
+                  <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #78350F;">
+                    Pass <strong>${code}</strong> is a bulk leave pass with <strong>${totalStudentsInLeave} students</strong>.
+                  </p>
+                  <p style="font-size: 0.82rem; margin: 0.35rem 0 0; color: #92400E;">
+                    Are you sure you want to remove <strong>${studentName}</strong> from this pass?
+                  </p>
+                  <div style="margin-top: 0.5rem; font-size: 0.76rem; background: #FEF3C7; padding: 6px 10px; border-radius: 6px; color: #78350F; line-height: 1.4;">
+                    • <strong>${studentName}</strong> will be removed and their status restored to <strong>Active (In Hostel)</strong>.<br>
+                    • The other ${totalStudentsInLeave - 1} student(s) will remain on this pass without any change.
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                  <button type="button" class="btn btn-outline" id="btn-cancel-del-card">Cancel</button>
+                  <button type="button" class="btn btn-warning" id="btn-confirm-del-card" style="background: #D97706; border-color: #D97706; font-weight: 700; color: #FFFFFF;">
+                    Remove Student Only
+                  </button>
+                </div>
+              </div>
+            `
+          });
+
+          deleteModal?.querySelector('#btn-cancel-del-card')?.addEventListener('click', closeDeleteModal);
+          deleteModal?.querySelector('#btn-confirm-del-card')?.addEventListener('click', async () => {
+            closeDeleteModal();
+            try {
+              await db.removeStudentFromLeaveRecord(leave.id, selectedStudent.id);
+              toast.success(`${studentName} removed from leave #${code} and restored to hostel.`);
+              const updatedLeaves = await db.getLeaves(true);
+              allLeaves.length = 0;
+              allLeaves.push(...updatedLeaves);
+              renderModule();
+            } catch (err) {
+              toast.error(err.message || 'Error removing student from leave record');
+            }
+          });
+        } else {
+          // Single student leave: Permanently delete the whole record
+          const { container: deleteModal, close: closeDeleteModal } = openModal({
+            title: `Delete Leave Record - ${code}`,
+            size: 'sm',
+            contentHtml: `
+              <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+                <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
+                  <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Permanent Data Deletion
+                  </div>
+                  <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
+                    Are you sure you want to permanently delete this leave file (<strong>${code}</strong>)?
+                  </p>
+                  <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
+                    This will completely wipe all leave dates, arrival records, and associated fines from the entire database.
+                  </p>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                  <button type="button" class="btn btn-outline" id="btn-cancel-del-card">Cancel</button>
+                  <button type="button" class="btn btn-danger" id="btn-confirm-del-card" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
+                    Delete Permanently
+                  </button>
+                </div>
+              </div>
+            `
+          });
+
+          deleteModal?.querySelector('#btn-cancel-del-card')?.addEventListener('click', closeDeleteModal);
+          deleteModal?.querySelector('#btn-confirm-del-card')?.addEventListener('click', async () => {
+            closeDeleteModal();
+            try {
+              await db.deleteLeaveRecord(leave.id);
+              toast.success(`Leave #${code} wiped permanently.`);
+              const updatedLeaves = await db.getLeaves(true);
+              allLeaves.length = 0;
+              allLeaves.push(...updatedLeaves);
+              renderModule();
+            } catch (err) {
+              if (err.message && err.message.toLowerCase().includes('not found')) {
+                const updatedLeaves = await db.getLeaves(true);
+                allLeaves.length = 0;
+                allLeaves.push(...updatedLeaves);
+                renderModule();
+                return;
+              }
+              toast.error(err.message || 'Error deleting leave record');
+            }
+          });
+        }
+      });
+
+      // Wire Settle/Pay Fine button with Full vs Partial Payment Modal
+      modalBody.querySelector('#btn-popup-clear-fine')?.addEventListener('click', () => {
+        close();
+        const code = leave.leave_code || leave.leave_register_number || 'Pass';
+        const defaultPartialAmt = Math.max(1, Math.round(remainingAmt / 2));
+
+        const { container: payModal, close: closePayModal } = openModal({
+          title: `Fine Settlement — ${studentName}`,
           size: 'sm',
           contentHtml: `
             <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
-              <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
-                <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                  Permanent Data Deletion
+              <!-- Fine Summary Box -->
+              <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 0.75rem; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="color: #64748B;">Leave Pass:</span>
+                  <span style="font-weight: 700; color: #0F172A;">#${code}</span>
                 </div>
-                <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
-                  Are you sure you want to permanently delete this leave file (<strong>${code}</strong>)?
-                </p>
-                <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
-                  This will completely wipe all leave dates, arrival records, and associated fines from the entire database.
-                </p>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="color: #64748B;">Total Assessed Fine:</span>
+                  <span style="font-weight: 700; color: #0F172A;">₹${fineAmt.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="color: #64748B;">Already Paid:</span>
+                  <span style="font-weight: 700; color: #059669;">₹${paidAmt.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 4px; border-top: 1px dashed #CBD5E1;">
+                  <span style="font-weight: 800; color: #DC2626;">Current Balance Due:</span>
+                  <span style="font-weight: 800; color: #DC2626; font-size: 0.95rem;">₹${remainingAmt.toFixed(2)}</span>
+                </div>
               </div>
 
+              <!-- Payment Mode Selection -->
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                  <label id="label-pay-full" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #059669; background: #ECFDF5; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #065F46;">
+                    <input type="radio" name="fine_payment_mode" value="full" checked style="accent-color: #059669;" />
+                    Full Clearance
+                  </label>
+                  <label id="label-pay-partial" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #E2E8F0; background: #FFFFFF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
+                    <input type="radio" name="fine_payment_mode" value="partial" style="accent-color: #D97706;" />
+                    Partial Payment
+                  </label>
+                </div>
+              </div>
+
+              <!-- Amount Input Field -->
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
+                  Amount to Pay (₹)
+                </label>
+                <input type="number" id="input-fine-amount" class="form-control" min="1" max="${remainingAmt}" value="${remainingAmt}" style="font-weight: 800; font-size: 1rem; color: #0F172A;" />
+                <div id="text-remaining-preview" style="font-size: 0.74rem; color: #64748B; margin-top: 4px;">
+                  Remaining balance after payment: <strong style="color: #059669;">₹0.00</strong>
+                </div>
+              </div>
+
+              <!-- Payment Method Selection -->
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
+                  Payment Method
+                </label>
+                <select id="select-fine-method" class="form-control" style="font-size: 0.85rem;">
+                  <option value="Cash" selected>Cash (at Hostel Office)</option>
+                  <option value="UPI">UPI / QR Code</option>
+                  <option value="Google Pay">Google Pay</option>
+                  <option value="PhonePe">PhonePe</option>
+                  <option value="Bank Transfer">School Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                </select>
+              </div>
+
+              <!-- Reference Notes -->
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
+                  Receipt / Transaction Note (Optional)
+                </label>
+                <input type="text" id="input-fine-ref" class="form-control" placeholder="e.g., Parent paid cash / UPI Txn ID" style="font-size: 0.82rem;" />
+              </div>
+
+              <!-- Action Buttons -->
               <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
-                <button type="button" class="btn btn-outline" id="btn-cancel-del-card">Cancel</button>
-                <button type="button" class="btn btn-danger" id="btn-confirm-del-card" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
-                  Delete Permanently
+                <button type="button" class="btn btn-outline" id="btn-cancel-fine-pay">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-fine-pay" style="background: #059669; border-color: #059669; font-weight: 700; color: #FFFFFF;">
+                  Record Payment (₹${remainingAmt})
                 </button>
               </div>
             </div>
           `
         });
 
-        deleteModal?.querySelector('#btn-cancel-del-card')?.addEventListener('click', closeDeleteModal);
-        deleteModal?.querySelector('#btn-confirm-del-card')?.addEventListener('click', async () => {
-          closeDeleteModal();
+        const fullRadio = payModal?.querySelector('input[value="full"]');
+        const partialRadio = payModal?.querySelector('input[value="partial"]');
+        const labelFull = payModal?.querySelector('#label-pay-full');
+        const labelPartial = payModal?.querySelector('#label-pay-partial');
+        const amountInput = payModal?.querySelector('#input-fine-amount');
+        const previewText = payModal?.querySelector('#text-remaining-preview');
+        const submitBtn = payModal?.querySelector('#btn-confirm-fine-pay');
+        const methodSelect = payModal?.querySelector('#select-fine-method');
+        const refInput = payModal?.querySelector('#input-fine-ref');
+
+        function updateFineFormState() {
+          const isPartialMode = partialRadio?.checked;
+          const enteredAmt = Math.max(0, Math.min(remainingAmt, Number(amountInput.value) || 0));
+          const balAfter = Math.max(0, remainingAmt - enteredAmt);
+
+          if (isPartialMode) {
+            labelFull.style.borderColor = '#E2E8F0';
+            labelFull.style.background = '#FFFFFF';
+            labelFull.style.color = '#334155';
+            labelPartial.style.borderColor = '#D97706';
+            labelPartial.style.background = '#FFFBEB';
+            labelPartial.style.color = '#92400E';
+          } else {
+            labelFull.style.borderColor = '#059669';
+            labelFull.style.background = '#ECFDF5';
+            labelFull.style.color = '#065F46';
+            labelPartial.style.borderColor = '#E2E8F0';
+            labelPartial.style.background = '#FFFFFF';
+            labelPartial.style.color = '#334155';
+          }
+
+          if (previewText) {
+            previewText.innerHTML = `Remaining balance after payment: <strong style="color: ${balAfter > 0 ? '#DC2626' : '#059669'};">₹${balAfter.toFixed(2)}</strong>`;
+          }
+
+          if (submitBtn) {
+            submitBtn.textContent = `Record Payment (₹${enteredAmt.toFixed(2)})`;
+          }
+        }
+
+        fullRadio?.addEventListener('change', () => {
+          if (amountInput) amountInput.value = remainingAmt;
+          updateFineFormState();
+        });
+
+        partialRadio?.addEventListener('change', () => {
+          if (amountInput) amountInput.value = defaultPartialAmt;
+          updateFineFormState();
+        });
+
+        amountInput?.addEventListener('input', () => {
+          const val = Number(amountInput.value) || 0;
+          if (val < remainingAmt && !partialRadio.checked) {
+            partialRadio.checked = true;
+          } else if (val >= remainingAmt && !fullRadio.checked) {
+            fullRadio.checked = true;
+          }
+          updateFineFormState();
+        });
+
+        payModal?.querySelector('#btn-cancel-fine-pay')?.addEventListener('click', closePayModal);
+
+        submitBtn?.addEventListener('click', async () => {
+          const payAmt = Number(amountInput?.value) || 0;
+          if (payAmt <= 0) {
+            toast.error('Please enter a valid payment amount greater than ₹0.');
+            return;
+          }
+          if (payAmt > remainingAmt) {
+            toast.error(`Payment cannot exceed the remaining fine balance of ₹${remainingAmt}.`);
+            return;
+          }
+
+          const method = methodSelect?.value || 'Cash';
+          const ref = refInput?.value?.trim() || '';
+
           try {
-            await db.deleteLeaveRecord(leave.id);
-            toast.success(`Leave #${code} wiped permanently.`);
+            closePayModal();
+            await db.recordFinePayment(
+              leave.id,
+              payAmt,
+              method,
+              ref || 'Settled via Student Leave Card',
+              user?.full_name || 'Hostel Administrator',
+              selectedStudent?.id
+            );
+
+            const newRemaining = Math.max(0, remainingAmt - payAmt);
+            if (newRemaining <= 0) {
+              toast.success(`Full fine of ₹${payAmt} recorded as paid for ${studentName}!`);
+            } else {
+              toast.success(`Partial payment of ₹${payAmt} recorded! Remaining balance: ₹${newRemaining.toFixed(2)}`);
+            }
+
+            // Refresh leaves from DB and re-render
             const updatedLeaves = await db.getLeaves(true);
             allLeaves.length = 0;
             allLeaves.push(...updatedLeaves);
             renderModule();
           } catch (err) {
-            if (err.message && err.message.toLowerCase().includes('not found')) {
-              const updatedLeaves = await db.getLeaves(true);
-              allLeaves.length = 0;
-              allLeaves.push(...updatedLeaves);
-              renderModule();
-              return;
-            }
-            toast.error(err.message || 'Error deleting leave record');
+            toast.error(err.message || 'Failed to record fine payment');
           }
         });
-      });
-
-      // Wire Clear Fine button
-      modalBody.querySelector('#btn-popup-clear-fine')?.addEventListener('click', async () => {
-        try {
-          const clearAmt = isPartial ? Number(studentEntry?.fine_remaining_amount || leave.fine_remaining_amount || (fineAmt - (studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0))) : fineAmt;
-          await db.recordFinePayment(leave.id, clearAmt, 'Cash', 'Cleared via Student Leave Card', user?.full_name || 'Hostel Administrator', selectedStudent?.id);
-          toast.success(`Fine of ₹${fineAmt} successfully marked as paid!`);
-          close();
-
-          // Refresh leaves from DB and re-render
-          const updatedLeaves = await db.getLeaves(true);
-          allLeaves.length = 0;
-          allLeaves.push(...updatedLeaves);
-          renderModule();
-        } catch (err) {
-          toast.error(err.message || 'Failed to clear fine');
-        }
       });
     }
 

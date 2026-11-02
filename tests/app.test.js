@@ -6951,5 +6951,144 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteLeaveRecord(leave.id);
       await db.deleteStudent(student.id);
     });
+    it('detaches individual student from bulk leave without deleting the pass for other students', async () => {
+      // 1. Setup 3 students
+      const s1 = await db.addStudent({ full_name: 'Student One', admission_number: 'TPS-S1', status: 'Active', hostel_status: 'resident' });
+      const s2 = await db.addStudent({ full_name: 'Student Two', admission_number: 'TPS-S2', status: 'Active', hostel_status: 'resident' });
+      const s3 = await db.addStudent({ full_name: 'Student Three', admission_number: 'TPS-S3', status: 'Active', hostel_status: 'resident' });
+
+      // 2. Create bulk leave pass
+      const [bulkLeave] = await db.createLeaveRecord({
+        student_ids: [s1.id, s2.id, s3.id],
+        leave_type: 'vacation',
+        reason: 'Holiday',
+        departure_date: '2026-11-01',
+        departure_time: '10:00',
+        expected_return_date: '2026-11-05',
+        expected_return_time: '18:00'
+      });
+
+      // Verify all 3 are on leave
+      let leaves = db.get('tps_leaves') || [];
+      let foundLeave = leaves.find(l => l.id === bulkLeave.id);
+      expect(foundLeave).toBeDefined();
+      expect(foundLeave.student_ids.length).toBe(3);
+
+      // 3. Remove Student Two from the bulk leave pass
+      await db.removeStudentFromLeaveRecord(bulkLeave.id, s2.id);
+
+      leaves = db.get('tps_leaves') || [];
+      foundLeave = leaves.find(l => l.id === bulkLeave.id);
+      // Bulk leave must STILL exist!
+      expect(foundLeave).toBeDefined();
+      expect(foundLeave.student_ids).not.toContain(s2.id);
+      expect(foundLeave.student_ids).toContain(s1.id);
+      expect(foundLeave.student_ids).toContain(s3.id);
+      expect(foundLeave.total_students).toBe(2);
+
+      // Verify Student Two's status was restored to Active
+      const updatedS2 = (db.get('tps_students') || []).find(s => s.id === s2.id);
+      expect(updatedS2.status).toBe('Active');
+
+      // 4. Remove Student One and Student Three; when last student is removed, pass should be cleaned up
+      await db.removeStudentFromLeaveRecord(bulkLeave.id, s1.id);
+      await db.removeStudentFromLeaveRecord(bulkLeave.id, s3.id);
+
+      leaves = db.get('tps_leaves') || [];
+      expect(leaves.find(l => l.id === bulkLeave.id)).toBeUndefined();
+
+      // Cleanup
+      await db.deleteStudent(s1.id);
+      await db.deleteStudent(s2.id);
+      await db.deleteStudent(s3.id);
+    });
+
+    it('records partial fine payments and tracks remaining balances accurately', async () => {
+      const student = await db.addStudent({ full_name: 'Fine Test Student', admission_number: 'TPS-FINE-1', status: 'Active' });
+
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'vacation',
+        reason: 'Late return test',
+        departure_date: '2026-10-20',
+        departure_time: '09:00',
+        expected_return_date: '2026-10-25',
+        expected_return_time: '18:00',
+        fine_unit: 'hourly',
+        fine_per_hour: 50
+      });
+
+      // Record late return
+      await db.recordReturn(leave.id, '2026-10-26', '18:00', 'Late return', student.id, null, 100);
+
+      let leaves = db.get('tps_leaves') || [];
+      let targetLeave = leaves.find(l => l.id === leave.id);
+      expect(targetLeave.calculated_fine).toBe(100);
+
+      // 1. Record partial payment of ₹35 via UPI
+      const p1 = await db.recordFinePayment(leave.id, 35, 'UPI', 'UPI-REF-001', 'Admin Officer', student.id);
+      expect(p1.amount).toBe(35);
+      expect(p1.payment_type).toBe('Partial');
+
+      leaves = db.get('tps_leaves') || [];
+      targetLeave = leaves.find(l => l.id === leave.id);
+      expect(targetLeave.fine_paid_amount).toBe(35);
+      expect(targetLeave.fine_remaining_amount).toBe(65);
+      expect(targetLeave.fine_status).toBe('partial');
+
+      // 2. Settle remaining ₹65 via Cash
+      const p2 = await db.recordFinePayment(leave.id, 65, 'Cash', 'CASH-REF-002', 'Hostel Warden', student.id);
+      expect(p2.amount).toBe(65);
+      expect(p2.payment_type).toBe('Full');
+
+      leaves = db.get('tps_leaves') || [];
+      targetLeave = leaves.find(l => l.id === leave.id);
+      expect(targetLeave.fine_paid_amount).toBe(100);
+      expect(targetLeave.fine_remaining_amount).toBe(0);
+      expect(targetLeave.fine_status).toBe('paid');
+
+      // 3. Verify getFinePayments returns both transactions
+      const payments = await db.getFinePayments({ leave_id: leave.id, student_id: student.id });
+      expect(payments.length).toBe(2);
+      expect(payments[0].amount).toBe(35);
+      expect(payments[1].amount).toBe(65);
+
+      // Cleanup
+      await db.deleteLeaveRecord(leave.id);
+      await db.deleteStudent(student.id);
+    });
+    it('verifies student leave card displays individual fine and partial settlement options', async () => {
+      const s1 = await db.addStudent({ full_name: 'Test Student SLC', admission_number: 'TPS-SLC-1', status: 'Active' });
+
+      const [bulkLeave] = await db.createLeaveRecord({
+        student_ids: [s1.id],
+        leave_type: 'vacation',
+        reason: 'SLC Test',
+        departure_date: '2026-10-20',
+        departure_time: '10:00',
+        expected_return_date: '2026-10-25',
+        expected_return_time: '18:00'
+      });
+
+      // Record return with custom fine
+      await db.recordReturn(bulkLeave.id, '2026-10-27', '18:00', 'Late return', s1.id, null, 150);
+
+      // Record partial payment of 50
+      await db.recordFinePayment(bulkLeave.id, 50, 'Cash', 'Receipt-01', 'Admin', s1.id);
+
+      const { renderStudentLeaveCardModule } = await import('../src/modules/leaves/student-leave-card.js');
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(container, { studentId: s1.id });
+
+      // Verify fine display and partial status badge (½ symbol)
+      expect(container.innerHTML).toContain('₹150');
+      expect(container.innerHTML).toContain('½');
+
+      // Cleanup
+      await db.deleteLeaveRecord(bulkLeave.id);
+      await db.deleteStudent(s1.id);
+    });
+
+
   });
 });

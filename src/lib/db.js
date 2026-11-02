@@ -2470,6 +2470,94 @@ class DatabaseService {
     return targetLeave;
   }
 
+  async removeStudentFromLeaveRecord(leave_id, student_id) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_fine_payments'], true);
+    let leaves = this.get('tps_leaves') || [];
+    const targetIdx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (targetIdx === -1) throw new Error('Leave record not found');
+
+    const targetLeave = leaves[targetIdx];
+    const origStudents = Array.isArray(targetLeave.students) ? targetLeave.students : [];
+    const origStudentIds = Array.isArray(targetLeave.student_ids) ? targetLeave.student_ids : (targetLeave.student_id ? [targetLeave.student_id] : []);
+
+    const remainingStudents = origStudents.filter(s => s.student_id !== student_id);
+    const remainingIds = origStudentIds.filter(id => id !== student_id);
+
+    // If no students remain, completely delete the leave record
+    if (remainingStudents.length === 0 && remainingIds.length === 0) {
+      return this.deleteLeaveRecord(leave_id);
+    }
+
+    targetLeave.students = remainingStudents;
+    targetLeave.student_ids = remainingIds;
+    targetLeave.total_students = remainingStudents.length || remainingIds.length;
+
+    // If the primary student on the leave card was this student, update to next available student
+    if (targetLeave.student_id === student_id) {
+      targetLeave.student_id = remainingIds[0] || (remainingStudents[0]?.student_id || null);
+      const allStudents = this.get('tps_students') || [];
+      const nextSt = allStudents.find(s => s.id === targetLeave.student_id);
+      if (nextSt) {
+        targetLeave.student_name = nextSt.full_name;
+        targetLeave.admission_number = nextSt.admission_number;
+      }
+    }
+
+    // Recalculate fines if students array is present
+    if (targetLeave.students && targetLeave.students.length > 0) {
+      const allReturned = targetLeave.students.every(s => s.is_returned);
+      if (allReturned) {
+        targetLeave.status = 'Returned';
+      }
+      targetLeave.calculated_fine = targetLeave.students.reduce((sum, s) => sum + (Number(s.fine_amount) || 0), 0);
+      targetLeave.fine_paid_amount = targetLeave.students.reduce((sum, s) => sum + (Number(s.fine_paid_amount) || 0), 0);
+      targetLeave.fine_remaining_amount = targetLeave.students.reduce((sum, s) => sum + (Number(s.fine_remaining_amount) || 0), 0);
+      targetLeave.fine_status = targetLeave.fine_remaining_amount <= 0 && targetLeave.calculated_fine > 0 ? 'paid' : (targetLeave.fine_paid_amount > 0 ? 'partial' : 'unpaid');
+    }
+
+    // Also clean up any child arrival cards associated with this parent leave that contain this student
+    leaves.forEach(l => {
+      if (l.parent_leave_id === targetLeave.id || l.parent_leave_id === targetLeave.leave_code) {
+        if (Array.isArray(l.student_ids) && l.student_ids.includes(student_id)) {
+          l.student_ids = l.student_ids.filter(id => id !== student_id);
+          if (Array.isArray(l.students)) {
+            l.students = l.students.filter(s => s.student_id !== student_id);
+          }
+          l.total_students = l.student_ids.length;
+        }
+      }
+    });
+
+    // Remove any empty child arrival cards
+    leaves = leaves.filter(l => {
+      if (l.is_arrival_card || (l.leave_code && l.leave_code.includes('-ARR'))) {
+        return (l.student_ids && l.student_ids.length > 0) || (l.students && l.students.length > 0);
+      }
+      return true;
+    });
+
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+
+    // Sync student status: if student has no other active unreturned leaves, restore to Active
+    const otherActiveLeave = leaves.find(l => {
+      const isRej = (l.status || '').toLowerCase() === 'rejected';
+      const isRet = l.status === 'Returned';
+      if (isRej || isRet) return false;
+      return l.student_id === student_id ||
+        (Array.isArray(l.student_ids) && l.student_ids.includes(student_id)) ||
+        (Array.isArray(l.students) && l.students.some(s => s.student_id === student_id && !s.is_returned));
+    });
+
+    if (!otherActiveLeave) {
+      await this.updateStudent(student_id, { status: 'Active', hostel_status: 'resident' });
+    }
+
+    this.reconcileStudentLeaveStatuses();
+    this.logAudit('REMOVE_STUDENT_FROM_LEAVE', 'student_leave_records', targetLeave.id, `Removed student ${student_id} from bulk leave ${targetLeave.leave_code || targetLeave.id}`);
+    return targetLeave;
+  }
+
   async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null, fine_payment_status = null, custom_fine_amount = null, fine_paid_amount = null) {
     await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
     const leaves = this.get('tps_leaves') || [];
@@ -3058,6 +3146,18 @@ class DatabaseService {
     return studentId ? marks.filter(m => m.student_id === studentId) : marks;
   }
 
+  async getFinePayments(filter = {}) {
+    await this.pullCloudKeys(['tps_fine_payments'], false);
+    let payments = this.get('tps_fine_payments') || [];
+    if (filter.leave_id) {
+      payments = payments.filter(p => p.leave_record_id === filter.leave_id || p.leave_code === filter.leave_id);
+    }
+    if (filter.student_id) {
+      payments = payments.filter(p => p.student_id === filter.student_id);
+    }
+    return payments;
+  }
+
   async recordFinePayment(leave_record_id, amount, payment_method = 'Cash', reference_number = '', recorded_by = 'Hostel Office', target_student_id = null) {
     await this.pullCloudKeys(['tps_leaves', 'tps_fine_payments'], true);
     const leaves = this.get('tps_leaves') || [];
@@ -3066,25 +3166,55 @@ class DatabaseService {
 
     const leave = leaves[idx];
     const totalDue = Number(leave.calculated_fine) || 0;
-    const paidAmt = Number(amount) > 0 ? Number(amount) : totalDue;
     const prevPaid = Number(leave.fine_paid_amount) || 0;
-    const newPaidTotal = prevPaid + paidAmt;
-    const isFull = newPaidTotal >= totalDue;
 
-    leave.fine_status = isFull ? 'paid' : 'partial';
-    leave.fine_paid_at = new Date().toISOString();
-    leave.fine_paid_amount = newPaidTotal;
-    leave.fine_remaining_amount = Math.max(0, totalDue - newPaidTotal);
-    leave.fine_cleared_by = recorded_by;
+    let targetStudent = null;
+    if (Array.isArray(leave.students) && target_student_id) {
+      targetStudent = leave.students.find(s => s.student_id === target_student_id);
+    }
 
-    if (Array.isArray(leave.students)) {
-      leave.students.forEach(s => {
-        if (!target_student_id || s.student_id === target_student_id) {
-          s.fine_status = 'paid';
+    const stFineTotal = targetStudent ? (Number(targetStudent.fine_amount !== undefined ? targetStudent.fine_amount : totalDue) || 0) : totalDue;
+    const stPrevPaid = targetStudent ? (Number(targetStudent.fine_paid_amount) || 0) : prevPaid;
+    const stRemainingBefore = Math.max(0, stFineTotal - stPrevPaid);
+
+    const paidAmt = (amount !== null && amount !== undefined && !isNaN(amount) && Number(amount) > 0)
+      ? Number(amount)
+      : stRemainingBefore;
+
+    if (targetStudent) {
+      const newStPaid = stPrevPaid + paidAmt;
+      targetStudent.fine_paid_amount = newStPaid;
+      targetStudent.fine_remaining_amount = Math.max(0, stFineTotal - newStPaid);
+      targetStudent.fine_status = (newStPaid >= stFineTotal) ? 'paid' : (newStPaid > 0 ? 'partial' : 'unpaid');
+      targetStudent.fine_paid_at = new Date().toISOString();
+      targetStudent.fine_cleared_by = recorded_by;
+      targetStudent.fine_payment_method = payment_method;
+
+      // Update parent leave totals across students
+      leave.fine_paid_amount = leave.students.reduce((sum, s) => sum + (Number(s.fine_paid_amount) || 0), 0);
+      leave.fine_remaining_amount = leave.students.reduce((sum, s) => sum + (Number(s.fine_remaining_amount) || 0), 0);
+      const allStudentsPaid = leave.students.every(s => (Number(s.fine_remaining_amount) || 0) <= 0);
+      leave.fine_status = allStudentsPaid ? 'paid' : (leave.fine_paid_amount > 0 ? 'partial' : 'unpaid');
+      leave.fine_paid_at = new Date().toISOString();
+      leave.fine_cleared_by = recorded_by;
+    } else {
+      const newPaidTotal = prevPaid + paidAmt;
+      const isFull = newPaidTotal >= totalDue;
+      leave.fine_status = isFull ? 'paid' : (newPaidTotal > 0 ? 'partial' : 'unpaid');
+      leave.fine_paid_at = new Date().toISOString();
+      leave.fine_paid_amount = newPaidTotal;
+      leave.fine_remaining_amount = Math.max(0, totalDue - newPaidTotal);
+      leave.fine_cleared_by = recorded_by;
+      leave.fine_payment_method = payment_method;
+
+      if (Array.isArray(leave.students)) {
+        leave.students.forEach(s => {
+          s.fine_status = isFull ? 'paid' : 'partial';
           s.fine_paid_at = leave.fine_paid_at;
           s.fine_cleared_by = recorded_by;
-        }
-      });
+          s.fine_payment_method = payment_method;
+        });
+      }
     }
 
     this.set('tps_leaves', leaves);
@@ -3093,19 +3223,23 @@ class DatabaseService {
     const newPayment = {
       id: 'fp-' + Date.now(),
       leave_record_id: leave.id,
-      student_id: leave.student_id || (Array.isArray(leave.student_ids) ? leave.student_ids[0] : null),
-      amount: Number(amount) || Number(leave.calculated_fine) || 0,
+      leave_code: leave.leave_code || leave.id,
+      student_id: target_student_id || leave.student_id || (Array.isArray(leave.student_ids) ? leave.student_ids[0] : null),
+      student_name: targetStudent?.student_name || leave.student_name || '',
+      amount: paidAmt,
       payment_date: new Date().toISOString().split('T')[0],
       payment_method,
       reference_number,
       receipt_number: 'RCPT-' + Date.now().toString().slice(-6),
-      recorded_by
+      recorded_by,
+      payment_type: (targetStudent ? ((targetStudent.fine_paid_amount >= stFineTotal) ? 'Full' : 'Partial') : ((leave.fine_paid_amount >= totalDue) ? 'Full' : 'Partial')),
+      notes: reference_number || ''
     };
     payments.push(newPayment);
     this.set('tps_fine_payments', payments);
     await this.pushCloudKey('tps_leaves', leaves);
     await this.pushCloudKey('tps_fine_payments', payments);
-    this.logAudit('FINE_PAYMENT', 'fine_payments', newPayment.id, `Fine payment of ₹${newPayment.amount} received by ${recorded_by}`);
+    this.logAudit('FINE_PAYMENT', 'fine_payments', newPayment.id, `Fine payment of ₹${newPayment.amount} (${newPayment.payment_type}) received via ${payment_method} by ${recorded_by}`);
     return newPayment;
   }
 
