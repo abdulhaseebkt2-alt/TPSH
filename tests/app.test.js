@@ -7243,15 +7243,25 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(payments.some(p => p.student_id === s1.id && p.amount === 75)).toBe(true);
       expect(payments.some(p => p.payment_method === 'UPI')).toBe(true);
 
-      // Verify Leave Given Card appearance: must NOT have Arrival button or red overdue styling
+      // Verify Leave Given Card appearance: must have green theme, NO Arrival button, and NO red overdue styling
       const { renderLeavesModule } = await import('../src/modules/leaves/index.js');
       const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
       await renderLeavesModule(container);
       expect(container.innerHTML).not.toContain('btn-record-arrival-action');
       expect(container.innerHTML).not.toContain('Arrival (2)');
+      // Green theme check: emerald border and dates box
+      expect(container.innerHTML).toContain('#A7F3D0');
+      expect(container.innerHTML).toContain('#F0FDF4');
+      expect(container.innerHTML).toContain('#047857');
+
+      // Verify deletion of leave pass with recorded arrivals wipes both leave given card and arrival cards
+      await db.deleteLeaveRecord(leave.id);
+      const afterDelCards = await db.getLeaves();
+      expect(afterDelCards.find(l => l.id === leave.id)).toBeUndefined();
+      await renderLeavesModule(container);
+      expect(container.innerHTML).not.toContain(leave.leave_code);
 
       // Cleanup
-      await db.deleteLeaveRecord(leave.id);
       await db.deleteStudent(s1.id);
       await db.deleteStudent(s2.id);
     });

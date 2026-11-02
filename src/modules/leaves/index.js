@@ -537,9 +537,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                     return `
-                      <tr style="border-bottom: 1px solid #F1F5F9; transition: background 0.15s ease;">
+                      <tr style="border-bottom: 1px solid #ECFDF5; background: #FAFCFA; transition: background 0.15s ease;">
                         <td style="padding: 0.85rem 1rem;">
-                          <span style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: #0F172A;">${code}</span>
+                          <span style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: #047857;">${code}</span>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                           <div style="font-weight: 700; color: #1E293B; text-transform: capitalize; font-size: 0.85rem;">${typeDisplay}</div>
@@ -554,7 +554,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           <div style="font-size: 0.72rem; color: #94A3B8;">${l.expected_return_time || '17:00'}</div>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
-                          <span class="badge" style="background: #F1F5F9; color: #334155; font-weight: 600; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
+                          <span class="badge" style="background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; font-weight: 600; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
                             ${studentLabel}
                           </span>
                           ${l.has_existing_arrivals ? `
@@ -727,10 +727,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                 return `
-                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej ? '#FECACA' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej ? '#FECACA' : '#A7F3D0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                      <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #0F172A;">${code}</span>
+                      <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #047857;">${code}</span>
                       ${isPend ? `
                         <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
                           Pending Approval
@@ -754,23 +754,23 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     <div style="font-weight: 700; font-size: 0.88rem; color: #1E293B; text-transform: capitalize;">${(l.leave_type || 'Hostel Leave').replace(/_/g, ' ')}</div>
                     <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${l.reason || 'General leave'}</div>
 
-                    <!-- Dates Specs -->
-                    <div style="margin-top: 0.65rem; padding: 0.5rem 0.65rem; background: #F8FAFC; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center;">
+                    <!-- Dates Specs (Green Themed) -->
+                    <div style="margin-top: 0.65rem; padding: 0.5rem 0.65rem; background: ${isRej ? '#FEF2F2' : '#F0FDF4'}; border: 1px solid ${isRej ? '#FECACA' : '#DCFCE7'}; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center;">
                       <div>
-                        <div style="color: #94A3B8; font-size: 0.7rem; font-weight: 600;">DEPARTURE</div>
-                        <div style="font-weight: 700; color: #334155;">${l.departure_date || l.leaving_date || '-'}</div>
+                        <div style="color: ${isRej ? '#DC2626' : '#059669'}; font-size: 0.7rem; font-weight: 700;">DEPARTURE</div>
+                        <div style="font-weight: 700; color: #1E293B;">${l.departure_date || l.leaving_date || '-'}</div>
                       </div>
-                      <div style="color: #CBD5E1;">→</div>
+                      <div style="color: #86EFAC;">→</div>
                       <div style="text-align: right;">
-                        <div style="color: #94A3B8; font-size: 0.7rem; font-weight: 600;">EXPECTED RETURN</div>
-                        <div style="font-weight: 700; color: #334155;">${l.expected_return_date || '-'}</div>
+                        <div style="color: ${isRej ? '#DC2626' : '#059669'}; font-size: 0.7rem; font-weight: 700;">EXPECTED RETURN</div>
+                        <div style="font-weight: 700; color: #1E293B;">${l.expected_return_date || '-'}</div>
                       </div>
                     </div>
 
                     <!-- Footer Action Row -->
                     <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; flex-direction: column; gap: 0.45rem;">
                       <div style="display: flex; justify-content: space-between; align-items: center; min-width: 0;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #065F46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                           👥 ${studentLabel}
                         </span>
                         ${l.has_existing_arrivals ? `
@@ -1143,52 +1143,82 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         if (!leave) return;
 
         const code = leave.leave_code || leave.leave_register_number || 'Pass';
-        const hasArrivals = btn.dataset.hasArrivals === 'true';
+        const hasStudentsArray = Array.isArray(leave.students) && leave.students.length > 0;
+        const returnedCount = hasStudentsArray
+          ? leave.students.filter(s => s.is_returned).length
+          : (leave.status === 'Returned' || Boolean(leave.actual_return_date) ? 1 : 0);
+        const awayCount = hasStudentsArray
+          ? leave.students.filter(s => !s.is_returned).length
+          : (returnedCount > 0 ? 0 : 1);
+        const hasArrivals = returnedCount > 0 || btn.dataset.hasArrivals === 'true';
 
         if (hasArrivals) {
-          const unret = btn.dataset.unreturned || 'some';
-          const arr = btn.dataset.arrived || 'some';
+          const arr = returnedCount || Number(btn.dataset.arrived) || 1;
+          const unret = awayCount !== undefined ? awayCount : Number(btn.dataset.unreturned) || 0;
+
           const { container: choiceModal, close: closeChoiceModal } = openModal({
-            title: `Delete / Cancel Options — ${code}`,
+            title: `Delete Leave Card — ${code}`,
             size: 'md',
             contentHtml: `
               <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
-                <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px; padding: 0.85rem; color: #92400E;">
-                  <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    Pass has ${arr} students already safely arrived
+                <!-- Main Warning Banner -->
+                <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 12px; padding: 0.85rem 1rem;">
+                  <div style="font-weight: 800; font-size: 0.95rem; color: #991B1B; display: flex; align-items: center; gap: 7px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Arrival Already Recorded for this Leave Pass
                   </div>
-                  <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #78350F;">
-                    There are <strong>${unret} student(s)</strong> still away on this pass, and <strong>${arr} student(s)</strong> who have already safely returned.
+                  <p style="font-size: 0.83rem; margin: 0.45rem 0 0; line-height: 1.5; color: #7F1D1D;">
+                    This leave card (<strong>#${code}</strong>) has arrival recorded for <strong>${arr} student(s)</strong>${unret > 0 ? `, and <strong>${unret} student(s)</strong> are currently still away` : ''}.
                   </p>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-                  <!-- Option 1: Cancel Away Pass Only (Recommended) -->
-                  <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                    <div>
-                      <div style="font-weight: 700; font-size: 0.85rem; color: #0F172A;">Cancel Away Pass Only (Recommended)</div>
-                      <div style="font-size: 0.75rem; color: #64748B;">Cancels the away status for the ${unret} remaining student(s). All ${arr} arrived students and their arrival cards stay safely preserved!</div>
+                  <div style="margin-top: 0.65rem; padding: 0.65rem 0.85rem; background: #FFFFFF; border: 1.5px dashed #EF4444; border-radius: 8px; color: #991B1B; font-size: 0.8rem; font-weight: 700; line-height: 1.45;">
+                    ⚠️ Important Notice: When you delete this leave card, its arrival cards will also be deleted with it!
+                    <div style="font-weight: 500; font-size: 0.75rem; color: #B91C1C; margin-top: 2px;">
+                      All associated arrival batch cards (${code}-ARR, ${code}-A1, etc.) and fine clearance records will be wiped from the hostel register together.
                     </div>
-                    <button type="button" class="btn btn-warning btn-sm" id="btn-opt-cancel-away" style="white-space: nowrap; font-weight: 700; background: #F59E0B; border-color: #F59E0B; color: #FFF;">
-                      Cancel Away Pass
-                    </button>
-                  </div>
-
-                  <!-- Option 2: Delete Entire Pass -->
-                  <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                    <div>
-                      <div style="font-weight: 700; font-size: 0.85rem; color: #991B1B;">Delete Entire Pass & History</div>
-                      <div style="font-size: 0.75rem; color: #7F1D1D;">Completely wipe this entire pass from the database including all arrival cards and fines.</div>
-                    </div>
-                    <button type="button" class="btn btn-danger btn-sm" id="btn-opt-delete-all" style="white-space: nowrap; font-weight: 700; background: #DC2626; border-color: #DC2626;">
-                      Delete Everything
-                    </button>
                   </div>
                 </div>
 
-                <div style="display: flex; justify-content: flex-end; margin-top: 0.25rem;">
-                  <button type="button" class="btn btn-outline" id="btn-choice-close">Close</button>
+                <!-- Action Options -->
+                ${unret > 0 ? `
+                  <div style="display: flex; flex-direction: column; gap: 0.55rem;">
+                    <!-- Option 1: Cancel Away Pass Only (Preserves Arrival Cards) -->
+                    <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px; padding: 0.75rem 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 0.6rem;">
+                      <div>
+                        <div style="font-weight: 700; font-size: 0.84rem; color: #92400E;">Cancel Away Pass Only</div>
+                        <div style="font-size: 0.73rem; color: #78350F; margin-top: 2px;">Cancels the away status for the ${unret} unreturned students only. All ${arr} arrival cards stay safely preserved.</div>
+                      </div>
+                      <button type="button" class="btn btn-warning btn-sm" id="btn-opt-cancel-away" style="white-space: nowrap; font-weight: 700; background: #F59E0B; border-color: #F59E0B; color: #FFF; border-radius: 8px; padding: 0.4rem 0.75rem; flex-shrink: 0;">
+                        Cancel Away Only
+                      </button>
+                    </div>
+
+                    <!-- Option 2: Delete Entire Leave & All Arrival Cards -->
+                    <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.75rem 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 0.6rem;">
+                      <div>
+                        <div style="font-weight: 700; font-size: 0.84rem; color: #991B1B;">Delete Leave & All Arrival Cards</div>
+                        <div style="font-size: 0.73rem; color: #7F1D1D; margin-top: 2px;">Permanently deletes this leave card and deletes all ${arr} of its arrival cards together.</div>
+                      </div>
+                      <button type="button" class="btn btn-danger btn-sm" id="btn-opt-delete-all" style="white-space: nowrap; font-weight: 700; background: #DC2626; border-color: #DC2626; border-radius: 8px; padding: 0.4rem 0.75rem; flex-shrink: 0;">
+                        Delete Everything
+                      </button>
+                    </div>
+                  </div>
+                ` : `
+                  <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 0.75rem 0.85rem;">
+                    <div style="font-size: 0.8rem; color: #475569; line-height: 1.45;">
+                      All students on this leave pass have already returned. Confirm if you want to permanently delete this leave record along with all its arrival cards.
+                    </div>
+                  </div>
+                `}
+
+                <!-- Footer / Close -->
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; padding-top: 0.5rem; border-top: 1px solid #F1F5F9;">
+                  <button type="button" class="btn btn-outline" id="btn-choice-close" style="font-weight: 600;">Keep Cards / Cancel</button>
+                  ${unret === 0 ? `
+                    <button type="button" class="btn btn-danger" id="btn-opt-delete-all" style="font-weight: 700; background: #DC2626; border-color: #DC2626; color: #FFFFFF; border-radius: 8px;">
+                      Delete Leave & All Arrival Cards
+                    </button>
+                  ` : ''}
                 </div>
               </div>
             `
@@ -1210,7 +1240,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             closeChoiceModal();
             try {
               await db.deleteLeaveRecord(leaveId);
-              toast.success(`Leave pass #${code} wiped permanently.`);
+              toast.success(`Leave card #${code} and its arrival cards were deleted.`);
               await reloadLeavesData();
               renderView();
             } catch (err) {
