@@ -481,9 +481,6 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
           </div>
         </div>
 
-        <!-- 3-LINE ATTENDANCE PUNCTUALITY & COMPLIANCE TREND GRAPH -->
-        ${punctualityChartHtml}
-
         <!-- COMPACT VISUAL CALENDAR CARD (EXACT MATCHING ACADEMIC CALENDAR SCREENSHOT 2) -->
         <div class="cal-fluent-grid-card" style="margin-bottom: 1.5rem;">
           
@@ -699,6 +696,9 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
           </div>
 
         </div>
+
+        <!-- 3-LINE ATTENDANCE PUNCTUALITY & COMPLIANCE TREND GRAPH (Positioned under the calendar) -->
+        ${punctualityChartHtml}
 
       </div>
     `;

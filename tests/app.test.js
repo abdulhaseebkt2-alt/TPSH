@@ -6383,6 +6383,13 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // C. Timetable unworking days must be clean class off days
       expect(html).toContain('is-class-off-day');
 
+      // D. Graph must be positioned UNDER the calendar card in single line layout
+      const calIndex = html.indexOf('cal-fluent-grid-card');
+      const chartIndex = html.indexOf('punctuality-chart-card');
+      expect(calIndex).toBeGreaterThan(-1);
+      expect(chartIndex).toBeGreaterThan(calIndex);
+      expect(html).toContain('punc-stats-single-line');
+
       // 2. Now add an institutional Hostel Leave to Academic Calendar for current month
       const currentYearMonth = new Date().toISOString().slice(0, 7);
       const testLeaveDate = `${currentYearMonth}-15`;
