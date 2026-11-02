@@ -4362,14 +4362,14 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Boys Mentor view
       updateCurrentUserProfile(boysMentor);
       let container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
-      await renderDisciplineModule(container, { onNavigate: () => {} });
+      await renderDisciplineModule(container, { onNavigate: () => {}, initialTab: 'register' });
       expect(container.innerHTML).toContain('Left boys hostel block');
       expect(container.innerHTML).not.toContain('Phone found in study desk');
 
       // Girls Mentor view
       updateCurrentUserProfile(girlsMentor);
       container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
-      await renderDisciplineModule(container, { onNavigate: () => {} });
+      await renderDisciplineModule(container, { onNavigate: () => {}, initialTab: 'register' });
       expect(container.innerHTML).toContain('Phone found in study desk');
       expect(container.innerHTML).not.toContain('Left boys hostel block');
     });
@@ -6676,7 +6676,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Render module
       const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
-      await renderDisciplineModule(container, { onNavigate: () => {} });
+      await renderDisciplineModule(container, { onNavigate: () => {}, initialTab: 'register' });
       const html = container.innerHTML;
 
       // Must contain responsive desktop table and mobile card feed
@@ -7383,6 +7383,9 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(cardContainer.innerHTML).toContain('Discipline Card Student');
       expect(cardContainer.innerHTML).toContain('Property damage');
       expect(cardContainer.innerHTML).toContain('+2 Active Black Mark(s)');
+      expect(cardContainer.innerHTML).toContain('student-discipline-card-table');
+      expect(cardContainer.innerHTML).toContain('Violation & Date');
+      expect(cardContainer.innerHTML).toContain('F.Paid');
 
       // 4. Settle partial payment via db.settleDisciplineFine
       const settled = await db.settleDisciplineFine(inc.id, {
@@ -7395,6 +7398,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(settled.fine_payment_status).toBe('partial');
       expect(settled.fine_paid_amount).toBe(25);
       expect(settled.fine_remaining_amount).toBe(35);
+
+      // Re-render card: card and row stay in view with partial indicator ½
+      await renderStudentDisciplineCardModule(cardContainer, { studentId: student.id });
+      expect(cardContainer.innerHTML).toContain('Property damage');
+      expect(cardContainer.innerHTML).toContain('½');
 
       // Verify payment lookup
       const payments = await db.getDisciplineFinePaymentsByIncident(inc.id);

@@ -10,7 +10,7 @@ export { renderFineStatusBadge };
 
 export async function renderDisciplineModule(container, options = {}) {
   const { onNavigate, initialTab, studentId } = options;
-  let currentSubView = initialTab === 'student_card' ? 'student_card' : 'register';
+  let currentSubView = initialTab === 'register' ? 'register' : 'student_card';
   let activeStudentId = studentId || null;
   const user = getCurrentUser();
   const [students, rawIncidents] = await Promise.all([
@@ -45,8 +45,11 @@ export async function renderDisciplineModule(container, options = {}) {
     return renderStudentDisciplineCardModule(container, {
       studentId: activeStudentId,
       onNavigate: (to) => {
-        if (to === 'discipline') {
+        if (to === 'discipline_register' || to === 'register') {
           currentSubView = 'register';
+          renderView();
+        } else if (to === 'discipline' || to === 'discipline_card') {
+          currentSubView = 'student_card';
           renderView();
         } else if (onNavigate) {
           onNavigate(to);
