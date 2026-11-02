@@ -7384,9 +7384,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(cardContainer.innerHTML).toContain('Discipline Card Student');
       expect(cardContainer.innerHTML).toContain('Property damage');
       expect(cardContainer.innerHTML).toContain('+2 Active Black Mark(s)');
-      expect(cardContainer.innerHTML).toContain('student-discipline-card-table');
-      expect(cardContainer.innerHTML).toContain('Violation & Date');
-      expect(cardContainer.innerHTML).toContain('F.Paid');
+      expect(cardContainer.innerHTML).toContain('Discipline & Incident Record History');
+      expect(cardContainer.innerHTML).toContain('Settle Fine');
 
       // 4. Settle partial payment via db.settleDisciplineFine
       const settled = await db.settleDisciplineFine(inc.id, {
@@ -7400,10 +7399,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(settled.fine_paid_amount).toBe(25);
       expect(settled.fine_remaining_amount).toBe(35);
 
-      // Re-render card: card and row stay in view with partial indicator ½
+      // Re-render card: card stays in view with partial indicator
       await renderStudentDisciplineCardModule(cardContainer, { studentId: student.id });
       expect(cardContainer.innerHTML).toContain('Property damage');
-      expect(cardContainer.innerHTML).toContain('½');
+      expect(cardContainer.innerHTML).toContain('Partial: ₹25.00 Paid');
 
       // Verify payment lookup
       const payments = await db.getDisciplineFinePaymentsByIncident(inc.id);

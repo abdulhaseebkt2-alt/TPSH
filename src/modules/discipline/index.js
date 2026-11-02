@@ -125,12 +125,6 @@ export async function renderDisciplineModule(container, options = {}) {
             Student Discipline Card
           </button>
         </div>
-        ${canManage ? `
-          <button class="btn btn-primary" id="btn-log-incident" style="background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 0.35rem 0.75rem; border-radius: 8px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Record Disciplinary Incident
-          </button>
-        ` : ''}
       </div>
 
       <!-- Page Header with compact responsive typography -->
@@ -342,43 +336,48 @@ export async function renderDisciplineModule(container, options = {}) {
                       </div>
                     ` : ''}
 
-                    <!-- Penalties Strip & Mobile Action Buttons -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.5rem; border-top: 1px solid #F1F5F9; gap: 0.4rem; flex-wrap: wrap;">
-                      <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
-                        <span class="badge badge-black-mark" style="font-size: 0.72rem; padding: 2px 7px; font-weight: 700;">
+                    <!-- Penalties Strip & Status Row -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.65rem; border-top: 1px solid #F1F5F9; gap: 0.4rem; flex-wrap: wrap;">
+                      <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                        <span class="badge badge-black-mark" style="font-size: 0.72rem; padding: 2.5px 8px; font-weight: 800;">
                           +${d.black_marks_awarded} Mark(s)
                         </span>
                         ${d.monetary_fine > 0 ? renderFineStatusBadge(d) : ''}
                       </div>
 
-                      <div style="display: flex; gap: 0.35rem; align-items: center; margin-left: auto; flex-wrap: wrap;">
-                        <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px;">
-                          Details
+                      <span class="badge" style="font-size: 0.7rem; padding: 2.5px 8px; border-radius: 9999px; font-weight: 700; ${resStyle}">
+                        ${d.resolution_status || 'Open'}
+                      </span>
+                    </div>
+
+                    <!-- Clean Rearranged Actions Bar -->
+                    <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.35rem; padding-top: 0.45rem; border-top: 1px dashed #F1F5F9; flex-wrap: wrap;">
+                      <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 600; border-radius: 8px;">
+                        Details
+                      </button>
+                      <button class="btn btn-outline btn-xs btn-goto-student-card" data-student-id="${d.student_id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #DC2626; border-color: #FECACA;">
+                        🪪 Card
+                      </button>
+                      ${canManage && !isRes ? `
+                        <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #059669; border-color: #A7F3D0;">
+                          Resolve
                         </button>
-                        <button class="btn btn-outline btn-xs btn-goto-student-card" data-student-id="${d.student_id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 700; border-radius: 7px; color: #DC2626; border-color: #FECACA;">
-                          🪪 Card
+                      ` : ''}
+                      ${(Number(d.fine_paid_amount) || 0) > 0 ? `
+                        <button class="btn btn-outline btn-xs btn-view-receipt" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #047857; border-color: #A7F3D0;">
+                          Receipt
                         </button>
-                        ${(Number(d.fine_remaining_amount) == null ? (d.fine_payment_status === 'paid' ? 0 : Number(d.monetary_fine) || 0) : Number(d.fine_remaining_amount)) > 0 && canManage ? `
-                          <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 700; border-radius: 7px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; white-space: nowrap;">
-                            💳 ${(Number(d.fine_paid_amount) || 0) > 0 ? `Pay Remaining (₹${(Number(d.fine_remaining_amount) || 0).toFixed(2)})` : 'Settle Fine'}
-                          </button>
-                        ` : ''}
-                        ${(Number(d.fine_paid_amount) || 0) > 0 ? `
-                          <button class="btn btn-outline btn-xs btn-view-receipt" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 700; border-radius: 7px; color: #047857; border-color: #A7F3D0;">
-                            Receipt
-                          </button>
-                        ` : ''}
-                        ${canManage && !isRes ? `
-                          <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px; color: #059669; border-color: #A7F3D0;">
-                            Resolve
-                          </button>
-                        ` : ''}
-                        ${canManage ? `
-                          <button class="btn btn-xs btn-outline-danger btn-delete-incident" data-id="${d.id}" style="padding: 0.3rem 0.55rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px; color: #DC2626; border-color: #FCA5A5;" title="Delete Record">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                          </button>
-                        ` : ''}
-                      </div>
+                      ` : ''}
+                      ${(Number(d.fine_remaining_amount) == null ? (d.fine_payment_status === 'paid' ? 0 : Number(d.monetary_fine) || 0) : Number(d.fine_remaining_amount)) > 0 && canManage ? `
+                        <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.32rem 0.75rem; font-size: 0.75rem; font-weight: 800; border-radius: 8px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                          💳 ${(Number(d.fine_paid_amount) || 0) > 0 ? `Pay Rem (₹${(Number(d.fine_remaining_amount) || 0).toFixed(0)})` : `Settle Fine (₹${(Number(d.monetary_fine) || 0).toFixed(0)})`}
+                        </button>
+                      ` : ''}
+                      ${canManage ? `
+                        <button class="btn btn-xs btn-outline-danger btn-delete-incident" data-id="${d.id}" style="padding: 0.32rem 0.55rem; font-size: 0.75rem; font-weight: 600; border-radius: 8px; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; justify-content: center;" title="Delete Record">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                      ` : ''}
                     </div>
                   </div>
                 `;
