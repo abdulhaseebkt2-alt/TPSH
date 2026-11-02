@@ -2279,6 +2279,78 @@ class DatabaseService {
     return leave;
   }
 
+  async extendLeaveRecord(leaveId, {
+    student_ids = null,
+    new_expected_return_date,
+    new_expected_return_time = '18:00',
+    reason = 'Parent requested leave extension',
+    approved_by = 'Hostel Office'
+  }) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leaveId || l.leave_code === leaveId);
+    if (idx === -1) throw new Error('Leave pass record not found');
+
+    const leave = leaves[idx];
+    const nowIso = new Date().toISOString();
+    const targetStudentIds = (Array.isArray(student_ids) && student_ids.length > 0)
+      ? new Set(student_ids)
+      : null;
+
+    const hasStudents = Array.isArray(leave.students) && leave.students.length > 0;
+    const awayStudents = hasStudents ? leave.students.filter(s => !s.is_returned) : [];
+    const isAllSelected = !targetStudentIds || (awayStudents.length > 0 && awayStudents.every(s => targetStudentIds.has(s.student_id)));
+
+    // Update individual students
+    if (hasStudents) {
+      leave.students.forEach(s => {
+        if (!s.is_returned && (!targetStudentIds || targetStudentIds.has(s.student_id))) {
+          s.original_expected_return_date = s.original_expected_return_date || s.expected_return_date || leave.expected_return_date;
+          s.original_expected_return_time = s.original_expected_return_time || s.expected_return_time || leave.expected_return_time || '18:00';
+          s.expected_return_date = new_expected_return_date;
+          s.expected_return_time = new_expected_return_time;
+          s.is_extended = true;
+          s.extension_reason = reason;
+          s.extended_by = approved_by;
+          s.extended_at = nowIso;
+        }
+      });
+    }
+
+    // If all students or single pass, update top-level pass return schedule
+    if (isAllSelected || !leave.is_batch) {
+      leave.original_expected_return_date = leave.original_expected_return_date || leave.expected_return_date;
+      leave.original_expected_return_time = leave.original_expected_return_time || leave.expected_return_time;
+      leave.expected_return_date = new_expected_return_date;
+      leave.expected_return_time = new_expected_return_time;
+    }
+
+    leave.is_extended = true;
+    leave.extension_reason = reason;
+    leave.extended_by = approved_by;
+    leave.extended_at = nowIso;
+    leave.updated_at = nowIso;
+
+    leave.extension_history = leave.extension_history || [];
+    leave.extension_history.push({
+      extended_at: nowIso,
+      new_expected_return_date,
+      new_expected_return_time,
+      reason,
+      approved_by,
+      student_ids: targetStudentIds ? Array.from(targetStudentIds) : (leave.student_ids || [leave.student_id])
+    });
+
+    leaves[idx] = leave;
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+
+    this.logAudit('LEAVE_EXTENDED', 'student_leave_records', leave.id,
+      `Leave extended to ${new_expected_return_date} for ${targetStudentIds ? targetStudentIds.size + ' student(s)' : 'all students'} by ${approved_by}: ${reason}`);
+
+    return leave;
+  }
+
   async rejectLeaveRecord(leave_id, { rejected_by = 'Hostel Warden', reason = 'Administrative grounds' } = {}) {
     await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
     const leaves = this.get('tps_leaves') || [];
@@ -2570,9 +2642,15 @@ class DatabaseService {
       ? (leave.fine_per_hour_applied || leave.fine_per_hour || 5)
       : (leave.fine_per_day_applied || leave.fine_per_day || 100);
 
+    const targetStudentEntry = Array.isArray(leave.students) && target_student_id
+      ? leave.students.find(s => s.student_id === target_student_id)
+      : null;
+    const effectiveExpDate = targetStudentEntry?.expected_return_date || leave.expected_return_date;
+    const effectiveExpTime = targetStudentEntry?.expected_return_time || leave.expected_return_time || '17:00';
+
     const calc = this.calculateReturnLate(
-      leave.expected_return_date,
-      leave.expected_return_time || '17:00',
+      effectiveExpDate,
+      effectiveExpTime,
       actual_return_date,
       actual_return_time || '17:00',
       rate,
@@ -3396,7 +3474,9 @@ class DatabaseService {
     const fines = this.get('tps_fines') || [];
     const fineIdx = fines.findIndex(f => f.incident_id === incident_id);
     if (fineIdx >= 0) {
-      fines[fineIdx].status = 'paid';
+      fines[fineIdx].status = isFull ? 'paid' : 'partial';
+      fines[fineIdx].paid_amount = cumulativePaid;
+      fines[fineIdx].remaining_amount = remaining;
       fines[fineIdx].paid_date = new Date().toISOString().split('T')[0];
       fines[fineIdx].received_by = received_by;
       this.set('tps_fines', fines);
@@ -3414,6 +3494,7 @@ class DatabaseService {
       payment_method,
       reference_number,
       receipt_no,
+      receipt_number: receipt_no,
       received_by,
       remarks,
       created_at: new Date().toISOString()
@@ -3429,6 +3510,11 @@ class DatabaseService {
   async getDisciplineFinePayments(studentId = null) {
     const payments = this.get('tps_discipline_fine_payments') || [];
     return studentId ? payments.filter(p => p.student_id === studentId) : payments;
+  }
+
+  async getDisciplineFinePaymentsByIncident(incidentId) {
+    const payments = this.get('tps_discipline_fine_payments') || [];
+    return incidentId ? payments.filter(p => p.incident_id === incidentId) : payments;
   }
 
   // --- DISCIPLINE & BLACK MARKS ---

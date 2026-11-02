@@ -446,7 +446,10 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                           </span>
                         `;
                       } else if (isRet) {
-                        const expDt = parseDateTimeSafe(l.expected_return_date, l.expected_return_time || '18:00');
+                        const effectiveExpDate = studentEntry?.expected_return_date || l.expected_return_date;
+                        const effectiveExpTime = studentEntry?.expected_return_time || l.expected_return_time || '18:00';
+                        const isEntryExtended = studentEntry?.is_extended === true || l.is_extended === true;
+                        const expDt = parseDateTimeSafe(effectiveExpDate, effectiveExpTime);
                         const actDt = parseDateTimeSafe(actualRetDate, actualRetTime || '18:00');
 
                         if (isRecordedLate || (actDt && expDt && actDt.getTime() > expDt.getTime())) {
@@ -479,7 +482,10 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                         }
                       } else {
                         // Not returned yet
-                        const expDt = parseDateTimeSafe(l.expected_return_date, l.expected_return_time || '18:00');
+                        const effectiveExpDate = studentEntry?.expected_return_date || l.expected_return_date;
+                        const effectiveExpTime = studentEntry?.expected_return_time || l.expected_return_time || '18:00';
+                        const isEntryExtended = studentEntry?.is_extended === true || l.is_extended === true;
+                        const expDt = parseDateTimeSafe(effectiveExpDate, effectiveExpTime);
                         const nowMs = Date.now();
                         if (expDt && nowMs > expDt.getTime()) {
                           isLate = true;
@@ -539,10 +545,13 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                           </div>
                         `;
                       } else {
-                        const formattedExpRetTime = l.expected_return_time ? formatTime(l.expected_return_time) : '06:00 PM';
+                        const effectiveExpDate = studentEntry?.expected_return_date || l.expected_return_date;
+                        const effectiveExpTime = studentEntry?.expected_return_time || l.expected_return_time || '18:00';
+                        const isEntryExtended = studentEntry?.is_extended === true || l.is_extended === true;
+                        const formattedExpRetTime = effectiveExpTime ? formatTime(effectiveExpTime) : '06:00 PM';
                         arrivalLineHtml = `
-                          <div style="font-size: 0.73rem; font-weight: 600; color: ${isLate ? '#DC2626' : '#64748B'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
-                            ${l.expected_return_date || '-'} <span style="font-size: 0.65rem; color: #94A3B8;">${formattedExpRetTime}${l.expected_return_date ? ' (Exp)' : ''}</span>
+                          <div style="font-size: 0.73rem; font-weight: 600; color: ${isLate ? '#DC2626' : (isEntryExtended ? '#2563EB' : '#64748B')}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;">
+                            ${effectiveExpDate || '-'} <span style="font-size: 0.65rem; color: ${isEntryExtended ? '#2563EB' : '#94A3B8'}; font-weight: ${isEntryExtended ? '700' : '400'};">${formattedExpRetTime}${isEntryExtended ? ' (Ext)' : (effectiveExpDate ? ' (Exp)' : '')}</span>
                           </div>
                         `;
                       }
@@ -784,7 +793,10 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               </div>
               <div>
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Scheduled Return</span>
-                <div style="font-weight: 700; color: #0F172A; margin-top: 2px;">${leave.expected_return_date || '-'} at ${leave.expected_return_time || '18:00'}</div>
+                <div style="font-weight: 700; color: #0F172A; margin-top: 2px;">
+                  ${studentEntry?.expected_return_date || leave.expected_return_date || '-'} at ${studentEntry?.expected_return_time || leave.expected_return_time || '18:00'}
+                  ${(studentEntry?.is_extended || leave.is_extended) ? '<span style="background: #EFF6FF; color: #1D4ED8; font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; margin-left: 4px; font-weight: 800; border: 1px solid #BFDBFE;">EXTENDED</span>' : ''}
+                </div>
               </div>
               <div>
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Actual Return Date</span>
@@ -869,7 +881,13 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                 </button>
               ` : '<div></div>'}
 
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                ${!actualRetDate && !isRej && !isPend && isMentor ? `
+                  <button type="button" class="btn btn-outline" id="btn-popup-extend-leave" style="color: #2563EB; border-color: #BFDBFE; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.65rem; border-radius: 8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Extend Return Date
+                  </button>
+                ` : ''}
                 <button type="button" class="btn btn-outline" id="btn-popup-close">Close</button>
                 
                 <!-- SETTLE / PAY FINE BUTTON (ONLY FOR ADMIN & MENTOR IF UNPAID OR PARTIAL FINE EXISTS) -->
@@ -886,6 +904,97 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       });
 
       modalBody.querySelector('#btn-popup-close')?.addEventListener('click', close);
+
+      // EXTEND LEAVE EVENT
+      modalBody.querySelector('#btn-popup-extend-leave')?.addEventListener('click', () => {
+        close();
+        const code = leave.leave_code || leave.leave_register_number || 'Pass';
+        const curExpDate = studentEntry?.expected_return_date || leave.expected_return_date || new Date().toISOString().split('T')[0];
+        const curExpTime = studentEntry?.expected_return_time || leave.expected_return_time || '18:00';
+
+        const { container: extModal, close: closeExtModal } = openModal({
+          title: `Extend Leave — ${studentName}`,
+          size: 'sm',
+          contentHtml: `
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+              <div style="background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 10px; padding: 0.75rem; color: #1E40AF; font-size: 0.82rem;">
+                <div style="font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  Leave Return Date Extension
+                </div>
+                <div style="margin-top: 4px; color: #1E3A8A;">
+                  Extending scheduled return for <strong>${studentName}</strong> on Pass <strong>#${code}</strong>.
+                </div>
+                <div style="margin-top: 3px; font-size: 0.75rem; color: #3B82F6;">
+                  Current Scheduled Return: <strong>${curExpDate} at ${curExpTime}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
+                  New Expected Return Date *
+                </label>
+                <input type="date" id="ext-new-date" class="form-control" value="${curExpDate}" min="${leave.departure_date || ''}" style="font-size: 0.88rem; font-weight: 700;" required />
+              </div>
+
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
+                  New Expected Return Time *
+                </label>
+                <input type="time" id="ext-new-time" class="form-control" value="${curExpTime}" style="font-size: 0.88rem; font-weight: 700;" required />
+              </div>
+
+              <div>
+                <label style="font-size: 0.76rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">
+                  Extension Reason *
+                </label>
+                <input type="text" id="ext-reason" class="form-control" placeholder="e.g. Parent requested 2 more days via phone" style="font-size: 0.85rem;" required />
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-ext">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-ext" style="background: #2563EB; border-color: #2563EB; font-weight: 700; color: #FFFFFF;">
+                  Confirm Extension
+                </button>
+              </div>
+            </div>
+          `
+        });
+
+        extModal?.querySelector('#btn-cancel-ext')?.addEventListener('click', closeExtModal);
+        extModal?.querySelector('#btn-confirm-ext')?.addEventListener('click', async () => {
+          const newDate = extModal.querySelector('#ext-new-date')?.value?.trim();
+          const newTime = extModal.querySelector('#ext-new-time')?.value?.trim() || '18:00';
+          const reason = extModal.querySelector('#ext-reason')?.value?.trim();
+
+          if (!newDate) {
+            toast.error('Please select the new return date');
+            return;
+          }
+          if (!reason) {
+            toast.error('Please specify a reason for extension');
+            return;
+          }
+
+          try {
+            await db.extendLeaveRecord(leave.id, {
+              student_ids: [selectedStudent.id],
+              new_expected_return_date: newDate,
+              new_expected_return_time: newTime,
+              reason: reason,
+              approved_by: user?.full_name || 'Hostel Warden'
+            });
+            closeExtModal();
+            toast.success(`Leave extended for ${studentName} until ${newDate} (${newTime})`);
+            const updatedLeaves = await db.getLeaves(true);
+            allLeaves.length = 0;
+            allLeaves.push(...updatedLeaves);
+            renderModule();
+          } catch (err) {
+            toast.error(err.message || 'Error extending leave record');
+          }
+        });
+      });
 
       // DELETE / DETACH LEAVE ACTION
       modalBody.querySelector('#btn-popup-delete-leave')?.addEventListener('click', () => {

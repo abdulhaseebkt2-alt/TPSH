@@ -220,7 +220,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
           </thead>
           <tbody>
             ${filtered.map(s => {
-              const isGirl = s.gender === 'Girls' || s.gender === 'Girl';
+            const isGirl = (s.gender || '').toLowerCase().startsWith('g') || (s.gender || '').toLowerCase().startsWith('f');
               const isChecked = selectedIds.has(s.id);
 
               // Status Badge Formatting
@@ -348,7 +348,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
         </div>
         <div class="students-mobile-items">
           ${filtered.map(s => {
-            const isGirl = s.gender === 'Girls' || s.gender === 'Girl';
+            const isGirl = (s.gender || '').toLowerCase().startsWith('g') || (s.gender || '').toLowerCase().startsWith('f');
             const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
             return `
               <div class="student-mobile-card-row" data-id="${s.id}" role="button" tabindex="0" title="Tap to view full student details">
@@ -493,7 +493,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
   // View Profile Modal
   function showProfileModal(student) {
-    const isGirl = student.gender === 'Girls' || student.gender === 'Girl';
+    const isGirl = (student.gender || '').toLowerCase().startsWith('g') || (student.gender || '').toLowerCase().startsWith('f');
 
     openModal({
       title: `Student Profile — ${student.full_name}`,

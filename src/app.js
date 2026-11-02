@@ -20,6 +20,7 @@ import { renderLeavesModule } from './modules/leaves/index.js';
 import { renderStudentLeaveCardModule } from './modules/leaves/student-leave-card.js';
 import { renderFinesModule } from './modules/fines/index.js';
 import { renderDisciplineModule } from './modules/discipline/index.js';
+import { renderStudentDisciplineCardModule } from './modules/discipline/student-discipline-card.js';
 import { renderExamsModule } from './modules/exams/index.js';
 import { renderMarksModule } from './modules/marks/index.js';
 import { renderHostelModule } from './modules/hostel/index.js';
@@ -50,6 +51,8 @@ const MODULE_ROUTERS = {
   student_leave_card: renderStudentLeaveCardModule,
   fines: renderFinesModule,
   discipline: renderDisciplineModule,
+  discipline_card: renderStudentDisciplineCardModule,
+  student_discipline_card: renderStudentDisciplineCardModule,
   exams: renderExamsModule,
   marks: renderMarksModule,
   hostel: renderHostelModule,

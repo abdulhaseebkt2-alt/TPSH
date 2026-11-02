@@ -1,3 +1,21 @@
+// Robust gender determination helper (covers Boys, Boy, boy, Male, male, Girls, Girl, girl, Female, female)
+export function isStudentBoy(genderOrStudent, hostelUnit = '') {
+  let g = '';
+  let unit = hostelUnit;
+  if (typeof genderOrStudent === 'object' && genderOrStudent !== null) {
+    g = String(genderOrStudent.gender || '').toLowerCase().trim();
+    unit = String(genderOrStudent.hostel_unit || '').toLowerCase();
+  } else {
+    g = String(genderOrStudent || '').toLowerCase().trim();
+    unit = String(hostelUnit || '').toLowerCase();
+  }
+  if (g === 'male' || g === 'boys' || g === 'boy' || g.startsWith('b') || g.startsWith('m')) return true;
+  if (g === 'female' || g === 'girls' || g === 'girl' || g.startsWith('g') || g.startsWith('f')) return false;
+  if (unit.includes('boys')) return true;
+  if (unit.includes('girls')) return false;
+  return true;
+}
+
 import { db } from '../../lib/db.js';
 import { formatDate, formatTime, formatCurrency, printDocument } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
@@ -124,6 +142,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       const hasStudentsArray = Array.isArray(l.students) && l.students.length > 0;
       const returnedStudents = hasStudentsArray ? l.students.filter(s => s.is_returned) : [];
       const awayStudents = hasStudentsArray ? l.students.filter(s => !s.is_returned) : [];
+      const extendedAwayStudents = awayStudents.filter(s => s.is_extended);
       const hasArrivals = hasStudentsArray
         ? (returnedStudents.length > 0)
         : (l.status === 'Returned' || Boolean(l.actual_return_date));
@@ -596,6 +615,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                               <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Edit requested date & time schedule">
                                 Edit
                               </button>
+                              <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.75rem;" title="Expand/extend return date for student(s)">
+                                Extend
+                              </button>
                             ` : ''}
 
                             <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
@@ -795,6 +817,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           </button>
                           <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Edit requested date & time schedule">
                             Edit
+                          </button>
+                          <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Expand/extend return date for student(s)">
+                            Extend
                           </button>
                         ` : ''}
 
@@ -1308,6 +1333,13 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         openEditLeaveScheduleModal(leaveId);
       });
     });
+
+    container.querySelectorAll('.btn-extend-leave').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const leaveId = btn.dataset.id;
+        openExtendLeaveModal(leaveId);
+      });
+    });
   }
 
   // -------------------------------------------------------------
@@ -1416,6 +1448,208 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         renderView();
       } catch (err) {
         toast.error(err.message || 'Error updating leave');
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // MODAL: EXTEND / EXPAND LEAVE FOR BULK OR INDIVIDUAL STUDENTS
+  // -------------------------------------------------------------
+  function openExtendLeaveModal(leaveId) {
+    const leave = leaves.find(l => l.id === leaveId);
+    if (!leave) return;
+
+    const hasStudents = Array.isArray(leave.students) && leave.students.length > 0;
+    const awayStudents = hasStudents ? leave.students.filter(s => !s.is_returned) : [];
+    const isBatch = Boolean(leave.is_batch || (hasStudents && leave.students.length > 1));
+
+    // Calculate default new return date (+3 days from current expected return)
+    const currentExp = leave.expected_return_date || new Date().toISOString().split('T')[0];
+    const curDateObj = new Date(currentExp);
+    curDateObj.setDate(curDateObj.getDate() + 3);
+    const defaultNewDate = !isNaN(curDateObj.getTime()) ? curDateObj.toISOString().split('T')[0] : currentExp;
+
+    const selectedExtendIds = new Set(awayStudents.map(s => s.student_id));
+
+    const { container: modal, close } = openModal({
+      title: `Extend Leave — ${leave.leave_code || leave.leave_register_number || 'Pass'}`,
+      size: 'md',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+          <!-- Pass Summary Box -->
+          <div style="background: #FAF5FF; border: 1.5px solid #E9D5FF; border-radius: 12px; padding: 0.85rem; font-size: 0.85rem; line-height: 1.5;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <strong style="color: #6B21A8; font-size: 0.95rem;">${leave.leave_code || leave.leave_register_number}</strong>
+                <span class="badge" style="background: #F3E8FF; color: #7E22CE; margin-left: 6px; font-weight: 700; font-size: 0.72rem;">${(leave.leave_type || 'Leave').replace(/_/g, ' ')}</span>
+              </div>
+              <div style="font-size: 0.78rem; color: #7E22CE; font-weight: 700;">
+                Current Return: ${leave.expected_return_date} at ${formatTime(leave.expected_return_time || '18:00')}
+              </div>
+            </div>
+            <div style="font-size: 0.78rem; color: #64748B; margin-top: 4px;">
+              Reason: <strong>${leave.reason || 'General leave'}</strong> • Total Away: <strong>${awayStudents.length > 0 ? awayStudents.length : 1} student(s)</strong>
+            </div>
+          </div>
+
+          ${isBatch && awayStudents.length > 0 ? `
+            <!-- Bulk Student Picker for Leave Expansion -->
+            <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <label style="font-size: 0.78rem; font-weight: 700; color: #1E293B; text-transform: uppercase; margin: 0;">
+                  Select Student(s) to Expand Leave (${awayStudents.length} Away)
+                </label>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn btn-xs btn-outline" id="btn-extend-sel-all" style="font-size: 0.72rem; padding: 2px 7px;">Select All</button>
+                  <button type="button" class="btn btn-xs btn-outline" id="btn-extend-desel-all" style="font-size: 0.72rem; padding: 2px 7px;">Clear</button>
+                </div>
+              </div>
+
+              <div style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; padding-right: 2px;">
+                ${awayStudents.map(entry => {
+                  const st = (allStudents || students || []).find(s => s.id === entry.student_id);
+                  const isChecked = selectedExtendIds.has(entry.student_id);
+                  const sExpDate = entry.expected_return_date || leave.expected_return_date;
+                  return `
+                    <label style="display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.45rem 0.6rem; border: 1.5px solid ${isChecked ? '#7C3AED' : '#E2E8F0'}; background: ${isChecked ? '#FAF5FF' : '#FFFFFF'}; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+                      <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 0;">
+                        <input type="checkbox" class="chk-extend-student" value="${entry.student_id}" ${isChecked ? 'checked' : ''} style="accent-color: #7C3AED; width: 16px; height: 16px; flex-shrink: 0;" />
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: #F3E8FF; color: #7E22CE; font-weight: 800; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">
+                          ${st?.photo_url ? `<img src="${st.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : (st?.full_name?.charAt(0) || 'S')}
+                        </div>
+                        <div style="min-width: 0;">
+                          <div style="font-weight: 700; font-size: 0.82rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${st?.full_name || 'Student'}</div>
+                          <div style="font-size: 0.7rem; color: #64748B;">Class ${st?.school_class || '-'} • Room ${st?.hostel_room || '-'}</div>
+                        </div>
+                      </div>
+                      <div style="text-align: right; flex-shrink: 0;">
+                        <span class="badge" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 6px; background: ${entry.is_extended ? '#F3E8FF' : '#F1F5F9'}; color: ${entry.is_extended ? '#7E22CE' : '#475569'}; font-weight: 700;">
+                          ${entry.is_extended ? '🗓️ Prev Ext: ' + sExpDate : 'Due: ' + sExpDate}
+                        </span>
+                      </div>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- New Return Schedule Details -->
+          <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.65rem;">
+            <div style="font-weight: 700; color: #334155; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em;">
+              New Extended Return Schedule
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">New Expected Return Date *</label>
+                <input type="date" id="input-extend-date" class="form-control" value="${defaultNewDate}" min="${leave.departure_date || ''}" style="height: 38px; font-size: 0.88rem; font-weight: 700;" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label required" style="font-size: 0.76rem; font-weight: 700; color: #1E293B;">New Expected Return Time *</label>
+                <input type="time" id="input-extend-time" class="form-control" value="${leave.expected_return_time || '18:00'}" style="height: 38px; font-size: 0.88rem;" required />
+              </div>
+            </div>
+          </div>
+
+          <!-- Reason / Justification -->
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label required" style="font-size: 0.78rem; font-weight: 700; color: #0F172A;">Reason for Leave Expansion *</label>
+            <div style="display: flex; gap: 4px; margin-bottom: 5px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-xs btn-outline btn-quick-reason" data-reason="Parent requested medical treatment extension" style="font-size: 0.68rem; padding: 2px 6px;">Medical Treatment</button>
+              <button type="button" class="btn btn-xs btn-outline btn-quick-reason" data-reason="Transit delay / confirmed railway schedule cancellation" style="font-size: 0.68rem; padding: 2px 6px;">Transit Delay</button>
+              <button type="button" class="btn btn-xs btn-outline btn-quick-reason" data-reason="Family wedding / urgent domestic emergency" style="font-size: 0.68rem; padding: 2px 6px;">Family Emergency</button>
+            </div>
+            <input type="text" id="input-extend-reason" class="form-control" placeholder="Specify genuine reason for extending leave..." value="Parent requested leave extension" style="height: 38px; font-size: 0.85rem;" required />
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.76rem; font-weight: 700; color: #0F172A;">Authorized By</label>
+            <input type="text" id="input-extend-authorizer" class="form-control" value="${user?.full_name || 'Hostel Warden'}" style="height: 38px; font-size: 0.85rem;" />
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem;">
+            <button type="button" class="btn btn-outline" id="btn-cancel-extend-leave">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-save-extend-leave" style="background: #7C3AED; border-color: #7C3AED; font-weight: 700; color: #FFFFFF; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Approve & Save Extension
+            </button>
+          </div>
+        </div>
+      `
+    });
+
+    modal.querySelector('#btn-cancel-extend-leave')?.addEventListener('click', close);
+
+    // Quick reason pills
+    modal.querySelectorAll('.btn-quick-reason').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const input = modal.querySelector('#input-extend-reason');
+        if (input) input.value = pill.dataset.reason;
+      });
+    });
+
+    // Bulk selection controls
+    modal.querySelector('#btn-extend-sel-all')?.addEventListener('click', () => {
+      modal.querySelectorAll('.chk-extend-student').forEach(chk => {
+        chk.checked = true;
+        selectedExtendIds.add(chk.value);
+      });
+    });
+    modal.querySelector('#btn-extend-desel-all')?.addEventListener('click', () => {
+      modal.querySelectorAll('.chk-extend-student').forEach(chk => {
+        chk.checked = false;
+        selectedExtendIds.delete(chk.value);
+      });
+    });
+    modal.querySelectorAll('.chk-extend-student').forEach(chk => {
+      chk.addEventListener('change', () => {
+        if (chk.checked) selectedExtendIds.add(chk.value);
+        else selectedExtendIds.delete(chk.value);
+      });
+    });
+
+    modal.querySelector('#btn-save-extend-leave')?.addEventListener('click', async () => {
+      const newDate = modal.querySelector('#input-extend-date')?.value;
+      const newTime = modal.querySelector('#input-extend-time')?.value || '18:00';
+      const reasonVal = modal.querySelector('#input-extend-reason')?.value.trim();
+      const approvedBy = modal.querySelector('#input-extend-authorizer')?.value.trim() || user?.full_name || 'Hostel Office';
+
+      if (!newDate || !reasonVal) {
+        toast.error('New expected return date and reason are required.');
+        return;
+      }
+
+      const targetIds = isBatch ? Array.from(selectedExtendIds) : (leave.student_ids || [leave.student_id]);
+      if (isBatch && targetIds.length === 0) {
+        toast.error('Please select at least one student whose leave should be extended.');
+        return;
+      }
+
+      try {
+        const saveBtn = modal.querySelector('#btn-save-extend-leave');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Extending...'; }
+
+        await db.extendLeaveRecord(leave.id, {
+          student_ids: targetIds,
+          new_expected_return_date: newDate,
+          new_expected_return_time: newTime,
+          reason: reasonVal,
+          approved_by: approvedBy
+        });
+
+        toast.success(`Leave extended to ${formatDate(newDate)} for ${targetIds.length} student(s).`);
+        close();
+        const updatedLeaves = await db.getLeaves(true);
+        const reFiltered = filterLeavesForCurrentRole(updatedLeaves);
+        leaves.length = 0;
+        leaves.push(...reFiltered);
+        renderView();
+      } catch (err) {
+        toast.error(err.message || 'Error extending leave');
+        const saveBtn = modal.querySelector('#btn-save-extend-leave');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Approve & Save Extension'; }
       }
     });
   }
@@ -1894,8 +2128,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             return unreturnedStudents.filter(us => {
               const s = us.student;
               const gMatch = genderFilter === 'all' || 
-                (genderFilter === 'male' && (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys')) ||
-                (genderFilter === 'female' && (s.gender === 'female' || s.gender === 'girls' || s.gender === 'Girls'));
+                (genderFilter === 'male' && isStudentBoy(s)) || (genderFilter === 'female' && !isStudentBoy(s));
               const cMatch = classFilter === 'all' || s.school_class === classFilter;
               return gMatch && cMatch;
             });
@@ -1911,8 +2144,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               const q = indSearch.toLowerCase().trim();
               const nameMatch = !q || us.student.full_name?.toLowerCase().includes(q) || us.student.admission_number?.toLowerCase().includes(q);
               const gMatch = genderFilter === 'all' || 
-                (genderFilter === 'male' && (us.student.gender === 'male' || us.student.gender === 'boys' || us.student.gender === 'Boys')) ||
-                (genderFilter === 'female' && (us.student.gender === 'female' || us.student.gender === 'girls' || us.student.gender === 'Girls'));
+                (genderFilter === 'male' && isStudentBoy(us.student)) || (genderFilter === 'female' && !isStudentBoy(us.student));
               const cMatch = classFilter === 'all' || us.student.school_class === classFilter;
               return nameMatch && gMatch && cMatch;
             });
@@ -2003,7 +2235,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         No away students match current search / filters.
                       </div>
                     ` : filtered.map(us => {
-                      const isBoy = (us.student.gender === 'male' || us.student.gender === 'boys' || us.student.gender === 'Boys');
+                      const isBoy = isStudentBoy(us.student);
                       const isSelected = selectedStudentLeaveId === us.student.id;
                       return `
                         <label class="student-ret-ind-tile" data-id="${us.student.id}" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: ${isSelected ? '#ECFDF5' : '#FFFFFF'}; border: 1.5px solid ${isSelected ? '#10B981' : '#E2E8F0'}; border-radius: 8px; cursor: pointer; user-select: none; transition: all 0.15s ease;">
@@ -2248,7 +2480,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       All students on this leave card have already returned.
                     </div>
                   ` : batchUnreturned.map(st => {
-                    const isBoy = (st.gender === 'male' || st.gender === 'boys' || st.gender === 'Boys');
+                    const isBoy = isStudentBoy(st);
                     return `
                       <label style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; user-select: none;">
                         <input type="checkbox" class="chk-batch-ret-student" value="${st.id}" ${selectedBatchStudentIds.has(st.id) ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;" />
@@ -2507,8 +2739,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               const q = indSearch.toLowerCase().trim();
               const nameMatch = !q || s.full_name?.toLowerCase().includes(q) || s.admission_number?.toLowerCase().includes(q);
               const gMatch = genderFilter === 'all' || 
-                (genderFilter === 'male' && (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys')) ||
-                (genderFilter === 'female' && (s.gender === 'female' || s.gender === 'girls' || s.gender === 'Girls'));
+                (genderFilter === 'male' && isStudentBoy(s)) || (genderFilter === 'female' && !isStudentBoy(s));
               const cMatch = classFilter === 'all' || s.school_class === classFilter;
               return nameMatch && gMatch && cMatch;
             });
@@ -2612,7 +2843,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         No students match current search / filters.
                       </div>
                     ` : filtered.map(s => {
-                      const isBoy = (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys');
+                      const isBoy = isStudentBoy(s);
                       const isSelected = selectedStudentId === s.id;
                       return `
                         <label class="student-ind-select-tile" data-id="${s.id}" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: ${isSelected ? '#ECFDF5' : '#FFFFFF'}; border: 1.5px solid ${isSelected ? '#10B981' : '#E2E8F0'}; border-radius: 8px; cursor: pointer; user-select: none; transition: all 0.15s ease;">
@@ -2778,8 +3009,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           function getBatchFiltered() {
             return students.filter(s => {
               const gMatch = batchGender === 'all' || 
-                (batchGender === 'male' && (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys')) ||
-                (batchGender === 'female' && (s.gender === 'female' || s.gender === 'girls' || s.gender === 'Girls'));
+                (batchGender === 'male' && isStudentBoy(s)) || (batchGender === 'female' && !isStudentBoy(s));
               const cMatch = batchClass === 'all' || s.school_class === batchClass;
               const sMatch = !batchSearch || 
                 s.full_name?.toLowerCase().includes(batchSearch.toLowerCase()) || 
@@ -2874,7 +3104,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   <!-- Checkbox List (Dynamic Height, ONLY photo, name, class under name, and Boy/Girl on right) -->
                   <div class="hostel-modal-scroll-area" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; padding-right: 2px;">
                     ${filtered.map(s => {
-                      const isBoy = (s.gender === 'male' || s.gender === 'boys' || s.gender === 'Boys');
+                      const isBoy = isStudentBoy(s);
                       return `
                         <label style="display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; user-select: none;">
                           <input type="checkbox" class="chk-batch-pass-student" value="${s.id}" ${selectedBatchStudentIds.has(s.id) ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;" />

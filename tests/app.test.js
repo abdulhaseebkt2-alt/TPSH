@@ -22,7 +22,7 @@ import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, open
 import { applyInstitutionalAppIcon } from '../src/app.js';
 import { enhanceSelect } from '../src/components/custom-select.js';
 import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
-import { renderLeavesModule } from '../src/modules/leaves/index.js';
+import { renderLeavesModule, isStudentBoy } from '../src/modules/leaves/index.js';
 import { renderStudentLeaveCardModule } from '../src/modules/leaves/student-leave-card.js';
 import { renderHostelModule } from '../src/modules/hostel/index.js';
 import { renderDisciplineModule } from '../src/modules/discipline/index.js';
@@ -7322,6 +7322,172 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       const leavesIndexCode = fs.readFileSync('src/modules/leaves/index.js', 'utf8');
       expect(leavesIndexCode).toContain('Delete Arrival');
       expect(leavesIndexCode).not.toContain('Cancel This Arrival Record');
+    });
+
+    it('provides Student Discipline Card view with per-student fine settlement, partial payments, and card retention', async () => {
+      const { renderFineStatusBadge, renderStudentDisciplineCardModule } = await import('../src/modules/discipline/student-discipline-card.js');
+      const { renderDisciplineModule } = await import('../src/modules/discipline/index.js');
+
+      // 1. Fine Status Badge renders partial and paid states properly
+      const mockUnpaid = { monetary_fine: 50, fine_payment_status: 'unpaid' };
+      const badgeUnpaid = renderFineStatusBadge(mockUnpaid);
+      expect(badgeUnpaid).toContain('Fine: ₹50.00');
+
+      const mockPartial = { monetary_fine: 50, fine_paid_amount: 20, fine_remaining_amount: 30, fine_payment_status: 'partial' };
+      const badgePartial = renderFineStatusBadge(mockPartial);
+      expect(badgePartial).toContain('Partial: ₹20.00 Paid • ₹30.00 Due');
+
+      const mockPaid = { monetary_fine: 50, fine_paid_amount: 50, fine_remaining_amount: 0, fine_payment_status: 'paid' };
+      const badgePaid = renderFineStatusBadge(mockPaid);
+      expect(badgePaid).toContain('Fine Paid (₹50.00)');
+
+      // 2. Discipline module renders Sub-Tabs (Incident Register & Student Discipline Card)
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderDisciplineModule(container);
+      expect(container.innerHTML).toContain('Incident Register');
+      expect(container.innerHTML).toContain('Student Discipline Card');
+
+      // 3. Student Discipline Card renders profile and history
+      const student = await db.addStudent({
+        full_name: 'Discipline Card Student',
+        gender: 'Male',
+        school_class: 'STD-IX',
+        status: 'Active',
+        dob: '2010-05-15',
+        hostel_room: 'Room 204',
+        hostel_bed: 'Bed 2'
+      });
+
+      const inc = await db.logDisciplineIncident({
+        student_id: student.id,
+        category: 'Property damage',
+        severity: 'Moderate',
+        incident_date: '2026-11-02',
+        description: 'Broken desk handle',
+        black_marks: 2,
+        fine: 60,
+        action_taken: 'Repair fine levied',
+        reported_by: 'Warden'
+      });
+
+      const cardContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentDisciplineCardModule(cardContainer, { studentId: student.id });
+      expect(cardContainer.innerHTML).toContain('Student Discipline Card');
+      expect(cardContainer.innerHTML).toContain('Discipline Card Student');
+      expect(cardContainer.innerHTML).toContain('Property damage');
+      expect(cardContainer.innerHTML).toContain('+2 Active Black Mark(s)');
+
+      // 4. Settle partial payment via db.settleDisciplineFine
+      const settled = await db.settleDisciplineFine(inc.id, {
+        amount: 25,
+        payment_method: 'Cash',
+        reference_number: 'RCPT-1001',
+        received_by: 'Hostel Office',
+        remarks: 'First installment'
+      });
+      expect(settled.fine_payment_status).toBe('partial');
+      expect(settled.fine_paid_amount).toBe(25);
+      expect(settled.fine_remaining_amount).toBe(35);
+
+      // Verify payment lookup
+      const payments = await db.getDisciplineFinePaymentsByIncident(inc.id);
+      expect(payments.length).toBeGreaterThan(0);
+      expect(payments[0].amount).toBe(25);
+
+      // Clean up
+      await db.deleteDisciplineIncident(inc.id);
+      await db.deleteStudent(student.id);
+    });
+
+    it('accurately resolves student gender for Male, Boys, and handles bulk leave extension per student', async () => {
+      // 1. Gender check validation
+      expect(isStudentBoy('Male')).toBe(true);
+      expect(isStudentBoy('male')).toBe(true);
+      expect(isStudentBoy('Boys')).toBe(true);
+      expect(isStudentBoy('boys')).toBe(true);
+      expect(isStudentBoy('Boy')).toBe(true);
+      expect(isStudentBoy({ gender: 'Male', hostel_unit: 'Thaiba Boys Hostel Block A' })).toBe(true);
+      expect(isStudentBoy({ gender: 'Female' })).toBe(false);
+      expect(isStudentBoy({ gender: 'Girls' })).toBe(false);
+      expect(isStudentBoy({ gender: 'Girl' })).toBe(false);
+
+      // 2. Setup 2 students for bulk leave
+      const student1 = await db.addStudent({
+        full_name: 'MD Aamir Test',
+        admission_number: 'TPS-TEST-MALE-1',
+        gender: 'Male',
+        school_class: 'STD-I',
+        hostel_unit: 'Thaiba Boys Hostel Block A'
+      });
+      const student2 = await db.addStudent({
+        full_name: 'Rehan Test',
+        admission_number: 'TPS-TEST-MALE-2',
+        gender: 'Boys',
+        school_class: 'STD-II',
+        hostel_unit: 'Thaiba Boys Hostel Block A'
+      });
+
+      // 3. Create bulk leave pass
+      const [bulkLeave] = await db.createLeaveRecord({
+        student_id: student1.id,
+        student_name: `${student1.full_name} + 1 more`,
+        student_ids: [student1.id, student2.id],
+        is_batch: true,
+        students: [
+          { student_id: student1.id, student_name: student1.full_name, admission_number: student1.admission_number, is_returned: false, expected_return_date: '2026-10-25' },
+          { student_id: student2.id, student_name: student2.full_name, admission_number: student2.admission_number, is_returned: false, expected_return_date: '2026-10-25' }
+        ],
+        leave_type: 'vacation',
+        reason: 'Puja vacation',
+        departure_date: '2026-10-14',
+        departure_time: '16:00',
+        expected_return_date: '2026-10-25',
+        expected_return_time: '18:00',
+        fine_per_hour: 5,
+        status: 'Approved'
+      });
+
+      expect(bulkLeave.students.length).toBe(2);
+
+      // 4. Extend leave ONLY for student1
+      const extendedLeave = await db.extendLeaveRecord(bulkLeave.id, {
+        student_ids: [student1.id],
+        new_expected_return_date: '2026-10-28',
+        new_expected_return_time: '18:00',
+        reason: 'Family requested 3 additional days due to health',
+        approved_by: 'Hostel Warden Test'
+      });
+
+      // Verify student1 is extended
+      const s1Entry = extendedLeave.students.find(s => s.student_id === student1.id);
+      expect(s1Entry.expected_return_date).toBe('2026-10-28');
+      expect(s1Entry.is_extended).toBe(true);
+      expect(s1Entry.extension_reason).toContain('health');
+
+      // Verify student2 remains on original return date
+      const s2Entry = extendedLeave.students.find(s => s.student_id === student2.id);
+      expect(s2Entry.expected_return_date || extendedLeave.expected_return_date).toBe('2026-10-25');
+      expect(s2Entry.is_extended).toBeFalsy();
+
+      // Verify extension history logs
+      expect(Array.isArray(extendedLeave.extension_history)).toBe(true);
+      expect(extendedLeave.extension_history.length).toBe(1);
+      expect(extendedLeave.extension_history[0].new_expected_return_date).toBe('2026-10-28');
+
+      // 5. Test Student Leave Card rendering for extended student
+      const cardWrap = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderStudentLeaveCardModule(cardWrap, { studentId: student1.id });
+      expect(cardWrap.innerHTML).toContain('MD Aamir Test');
+      expect(cardWrap.innerHTML).toContain('(Ext)');
+
+      // Clean up
+      await db.deleteLeaveRecord(bulkLeave.id);
+      await db.deleteStudent(student1.id);
+      await db.deleteStudent(student2.id);
     });
 
   });
