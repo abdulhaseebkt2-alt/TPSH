@@ -6383,9 +6383,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // C. Timetable unworking days must be clean class off days
       expect(html).toContain('is-class-off-day');
 
-      // 2. Now add an institutional Hostel Leave to Academic Calendar
+      // 2. Now add an institutional Hostel Leave to Academic Calendar for current month
+      const currentYearMonth = new Date().toISOString().slice(0, 7);
+      const testLeaveDate = `${currentYearMonth}-15`;
       await db.addCalendarHoliday({
-        date: '2026-10-20',
+        date: testLeaveDate,
         name: 'Term Hostel Break',
         type: 'hostel_leave',
         is_all_day: true
@@ -6736,6 +6738,118 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteLeaveRecord(batchLeave.id);
       await db.deleteStudent(s1.id);
       await db.deleteStudent(s2.id);
+    });
+
+    it('records multiple bulk leave arrival batches, cancels single arrival batch, and deletes away pass safely', async () => {
+      const s1 = await db.addStudent({ full_name: 'Batch Stud 1', gender: 'Boys', school_class: 'STD-X', status: 'Active', dob: '2008-01-01', father_name: 'F1', father_phone: '+91 90000 00001' });
+      const s2 = await db.addStudent({ full_name: 'Batch Stud 2', gender: 'Boys', school_class: 'STD-X', status: 'Active', dob: '2008-01-01', father_name: 'F2', father_phone: '+91 90000 00002' });
+      const s3 = await db.addStudent({ full_name: 'Batch Stud 3', gender: 'Boys', school_class: 'STD-X', status: 'Active', dob: '2008-01-01', father_name: 'F3', father_phone: '+91 90000 00003' });
+
+      // Create bulk leave for 3 students
+      const [bulkLeave] = await db.createLeaveRecord({
+        student_ids: [s1.id, s2.id, s3.id],
+        leave_type: 'vacation',
+        departure_date: '2026-10-15',
+        departure_time: '08:00',
+        expected_return_date: '2026-10-25',
+        expected_return_time: '18:00',
+        reason: 'Puja Vacation'
+      });
+
+      // Batch 1: Return s1
+      const ret1 = await db.recordBatchReturn({
+        leave_id: bulkLeave.id,
+        student_ids: [s1.id],
+        actual_return_date: '2026-10-24',
+        actual_return_time: '16:00',
+        remarks: 'First batch returned'
+      });
+      expect(ret1.students.find(s => s.student_id === s1.id).is_returned).toBe(true);
+      expect(ret1.students.find(s => s.student_id === s2.id).is_returned).toBeFalsy();
+
+      // Batch 2: Return s2
+      const ret2 = await db.recordBatchReturn({
+        leave_id: bulkLeave.id,
+        student_ids: [s2.id],
+        actual_return_date: '2026-10-25',
+        actual_return_time: '17:30',
+        remarks: 'Second batch returned'
+      });
+      expect(ret2.students.find(s => s.student_id === s2.id).is_returned).toBe(true);
+      expect(ret2.students.find(s => s.student_id === s3.id).is_returned).toBeFalsy();
+
+      // Cancel arrival batch 1 (s1): s1 should become unreturned, s2 stays returned
+      const batchKey1 = ret1.students.find(s => s.student_id === s1.id).batch_id;
+      const cancelled = await db.cancelArrivalBatch(bulkLeave.id, batchKey1, [s1.id]);
+      expect(cancelled.students.find(s => s.student_id === s1.id).is_returned).toBe(false);
+      expect(cancelled.students.find(s => s.student_id === s2.id).is_returned).toBe(true);
+
+      // Now delete away pass only: s2 was returned, s1 and s3 were away
+      const passAfterAwayDel = await db.deleteLeaveAwayStudents(bulkLeave.id);
+      expect(passAfterAwayDel.status).toBe('Returned');
+      expect(passAfterAwayDel.students.length).toBe(1);
+      expect(passAfterAwayDel.students[0].student_id).toBe(s2.id);
+
+      // Full cleanup
+      await db.deleteLeaveRecord(bulkLeave.id);
+      await db.deleteStudent(s1.id);
+      await db.deleteStudent(s2.id);
+      await db.deleteStudent(s3.id);
+    });
+
+    it('settles discipline and leave fines with partial payments and tracks remaining balance', async () => {
+      const student = await db.addStudent({
+        full_name: 'Partial Fine Resident',
+        gender: 'Girls',
+        school_class: 'STD-VIII',
+        status: 'Active',
+        dob: '2011-04-12',
+        father_name: 'Father',
+        father_phone: '+91 93333 44444'
+      });
+
+      // 1. Discipline Fine Partial Settlement
+      const incident = await db.logDisciplineIncident({
+        student_id: student.id,
+        category: 'Property damage',
+        severity: 'Moderate',
+        incident_date: '2026-11-01',
+        description: 'Broken window latch',
+        black_marks: 1,
+        fine: 100,
+        action_taken: 'Repair fine levied',
+        reported_by: 'Warden'
+      });
+
+      // Settle partial payment of 40 out of 100
+      const part1 = await db.settleDisciplineFine(incident.id, {
+        amount: 40,
+        payment_method: 'UPI',
+        reference_number: 'UPI-112233',
+        received_by: 'Warden Office',
+        remarks: 'First installment'
+      });
+
+      expect(part1.fine_payment_status).toBe('partial');
+      expect(part1.fine_paid_amount).toBe(40);
+      expect(part1.fine_remaining_amount).toBe(60);
+
+      // Settle remaining 60
+      const part2 = await db.settleDisciplineFine(incident.id, {
+        amount: 60,
+        payment_method: 'Cash',
+        reference_number: '',
+        received_by: 'Warden Office',
+        remarks: 'Balance clearance'
+      });
+
+      expect(part2.fine_payment_status).toBe('paid');
+      expect(part2.fine_paid_amount).toBe(100);
+      expect(part2.fine_remaining_amount).toBe(0);
+
+      // Clean up
+      await db.deleteDisciplineIncident(incident.id);
+      await db.deleteStudent(student.id);
     });
   });
 });

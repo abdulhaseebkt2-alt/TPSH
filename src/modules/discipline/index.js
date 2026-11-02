@@ -5,6 +5,19 @@ import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
+// Helper: render fine status badge for a discipline incident
+function renderFineStatusBadge(d) {
+  if (!d.monetary_fine || d.monetary_fine <= 0) return '';
+  if (d.fine_payment_status === 'paid') {
+    return `<span style="font-size:0.72rem;font-weight:700;color:#047857;background:#ECFDF5;padding:2px 8px;border-radius:6px;border:1px solid #A7F3D0;white-space:nowrap;">
+      ✓ Fine Paid ${d.fine_paid_at ? '(' + d.fine_paid_at.split('T')[0] + ')' : ''}
+    </span>`;
+  }
+  return `<span style="font-size:0.75rem;font-weight:700;color:#DC2626;background:#FEF2F2;padding:2px 7px;border-radius:6px;border:1px solid #FCA5A5;white-space:nowrap;">
+    Fine: ${formatCurrency(d.monetary_fine)}
+  </span>`;
+}
+
 export async function renderDisciplineModule(container, { onNavigate } = {}) {
   const user = getCurrentUser();
   const [students, rawIncidents] = await Promise.all([
@@ -218,7 +231,16 @@ export async function renderDisciplineModule(container, { onNavigate } = {}) {
                         <td style="padding: 0.75rem 0.85rem;"><span class="badge" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; ${sevStyle}">${d.severity}</span></td>
                         <td style="padding: 0.75rem 0.85rem; max-width: 220px; font-size: 0.78rem; color: #475569;">${d.description}</td>
                         <td style="padding: 0.75rem 0.85rem;"><span class="badge badge-black-mark" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px;">+${d.black_marks_awarded} Mark(s)</span></td>
-                        <td style="padding: 0.75rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: ${d.monetary_fine > 0 ? '#DC2626' : '#64748B'};">${d.monetary_fine > 0 ? formatCurrency(d.monetary_fine) : 'None'}</td>
+                        <td style="padding: 0.75rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: ${d.monetary_fine > 0 ? '#DC2626' : '#64748B'};">
+                          ${d.monetary_fine > 0 ? `
+                            <div>${renderFineStatusBadge(d)}</div>
+                            ${d.monetary_fine > 0 && d.fine_payment_status !== 'paid' && canManage ? `
+                              <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="margin-top:4px;padding:2px 7px;font-size:0.7rem;font-weight:700;border-radius:6px;background:#F59E0B;border:1.5px solid #F59E0B;color:#FFF;white-space:nowrap;">
+                                💳 Settle Fine
+                              </button>
+                            ` : ''}
+                          ` : 'None'}
+                        </td>
                         <td style="padding: 0.75rem 0.85rem;"><span class="badge" style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; ${resStyle}">${d.resolution_status || 'Open'}</span></td>
                         <td style="padding: 0.75rem 0.85rem; text-align: right;">
                           <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
@@ -287,17 +309,23 @@ export async function renderDisciplineModule(container, { onNavigate } = {}) {
                         <span class="badge badge-black-mark" style="font-size: 0.72rem; padding: 2px 7px; font-weight: 700;">
                           +${d.black_marks_awarded} Mark(s)
                         </span>
-                        ${d.monetary_fine > 0 ? `
-                          <span style="font-size: 0.75rem; font-weight: 700; color: #DC2626; background: #FEF2F2; padding: 2px 7px; border-radius: 6px; border: 1px solid #FCA5A5;">
-                            Fine: ${formatCurrency(d.monetary_fine)}
-                          </span>
-                        ` : ''}
+                        ${d.monetary_fine > 0 ? renderFineStatusBadge(d) : ''}
                       </div>
 
-                      <div style="display: flex; gap: 0.35rem; align-items: center; margin-left: auto;">
+                      <div style="display: flex; gap: 0.35rem; align-items: center; margin-left: auto; flex-wrap: wrap;">
                         <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px;">
                           Details
                         </button>
+                        ${d.monetary_fine > 0 && d.fine_payment_status !== 'paid' && canManage ? `
+                          <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 700; border-radius: 7px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; white-space: nowrap;">
+                            💳 Settle Fine
+                          </button>
+                        ` : ''}
+                        ${d.monetary_fine > 0 && d.fine_payment_status !== 'paid' && isParent ? `
+                          <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 700; border-radius: 7px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; white-space: nowrap;">
+                            💳 View Fine
+                          </button>
+                        ` : ''}
                         ${canManage && !isRes ? `
                           <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; border-radius: 7px; color: #059669; border-color: #A7F3D0;">
                             Resolve
@@ -385,6 +413,14 @@ export async function renderDisciplineModule(container, { onNavigate } = {}) {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         confirmDeleteIncident(id);
+      });
+    });
+
+    // Settle Fine
+    container.querySelectorAll('.btn-settle-fine').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        openSettleFineModal(id);
       });
     });
   }
@@ -500,10 +536,146 @@ export async function renderDisciplineModule(container, { onNavigate } = {}) {
   }
 
   // -------------------------------------------------------------
+  // MODAL: SETTLE DISCIPLINE FINE
+  // -------------------------------------------------------------
+  function openSettleFineModal(id) {
+    const d = displayIncidents.find(item => item.id === id);
+    if (!d) return;
+    const student = students.find(s => s.id === d.student_id);
+    const fineAmt = Number(d.monetary_fine) || 0;
+    const today = new Date().toISOString().split('T')[0];
+
+    openModal({
+      title: `Settle Disciplinary Fine — ${student?.full_name || 'Student'}`,
+      size: 'sm',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <!-- Fine Summary Card -->
+          <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px; padding: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <div style="font-weight: 800; font-size: 0.92rem; color: #0F172A;">${student?.full_name || 'Student'}</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">${student?.admission_number || ''} • ${student?.school_class || ''}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 1.3rem; font-weight: 900; color: #DC2626; font-family: monospace;">₹${fineAmt.toFixed(2)}</div>
+                <div style="font-size: 0.72rem; color: #B45309; font-weight: 600;">OUTSTANDING FINE</div>
+              </div>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.78rem; color: #78350F;">
+              Violation: <strong>${d.category}</strong> • ${formatDate(d.incident_date)}
+            </div>
+          </div>
+
+          <!-- Payment Form -->
+          <div class="form-group" style="margin: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <label class="form-label required" style="font-size: 0.8rem; font-weight: 700; margin: 0;">Amount Paid Now (₹)</label>
+              <div id="settle-live-bal-status" style="font-size: 0.75rem; font-weight: 700; color: #059669;">Full Settlement</div>
+            </div>
+            <input type="number" id="settle-amount" class="form-control" value="${fineAmt}" min="1" max="${fineAmt}" step="0.01"
+              style="height: 38px; font-size: 0.88rem; font-weight: 700;" />
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label required" style="font-size: 0.8rem; font-weight: 700;">Payment Method</label>
+            <select id="settle-method" class="form-control" style="height: 38px; font-size: 0.85rem;">
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI / Digital Payment</option>
+              <option value="Bank Transfer">Bank Transfer / NEFT</option>
+              <option value="Cheque">Cheque</option>
+              <option value="DD">Demand Draft (DD)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; font-weight: 700;">Reference / Transaction No. (Optional)</label>
+            <input type="text" id="settle-ref" class="form-control" placeholder="e.g. UPI Ref: 123456789 or Cheque No."
+              style="height: 38px; font-size: 0.85rem;" />
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; font-weight: 700;">Received By</label>
+            <input type="text" id="settle-receiver" class="form-control" value="${user?.full_name || 'Hostel Office'}"
+              style="height: 38px; font-size: 0.85rem;" />
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; font-weight: 700;">Remarks (Optional)</label>
+            <input type="text" id="settle-remarks" class="form-control" placeholder="e.g. Paid by father at warden office"
+              style="height: 38px; font-size: 0.85rem;" />
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-outline" id="btn-cancel-settle">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-confirm-settle"
+              style="background: #F59E0B; border-color: #F59E0B; font-weight: 700; color: #FFFFFF; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              </svg>
+              Confirm Payment
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        modalBody.querySelector('#btn-cancel-settle')?.addEventListener('click', close);
+
+        const amtInput = modalBody.querySelector('#settle-amount');
+        const balStatus = modalBody.querySelector('#settle-live-bal-status');
+        if (amtInput && balStatus) {
+          amtInput.addEventListener('input', () => {
+            const val = Number(amtInput.value) || 0;
+            const bal = Math.max(0, fineAmt - val);
+            if (bal === 0) {
+              balStatus.innerHTML = '<span style="color: #059669;">✓ Full Settlement</span>';
+            } else {
+              balStatus.innerHTML = `<span style="color: #D97706;">⚠️ Partial — Balance Due: ₹${bal.toFixed(2)}</span>`;
+            }
+          });
+        }
+        modalBody.querySelector('#btn-confirm-settle')?.addEventListener('click', async () => {
+          const amount = Number(modalBody.querySelector('#settle-amount')?.value) || fineAmt;
+          const method = modalBody.querySelector('#settle-method')?.value || 'Cash';
+          const ref = modalBody.querySelector('#settle-ref')?.value?.trim() || '';
+          const receiver = modalBody.querySelector('#settle-receiver')?.value?.trim() || user?.full_name || 'Hostel Office';
+          const remarks = modalBody.querySelector('#settle-remarks')?.value?.trim() || '';
+
+          if (amount <= 0) {
+            toast.error('Please enter a valid payment amount.');
+            return;
+          }
+
+          try {
+            const confirmBtn = modalBody.querySelector('#btn-confirm-settle');
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Processing...'; }
+
+            await db.settleDisciplineFine(id, {
+              amount,
+              payment_method: method,
+              reference_number: ref,
+              received_by: receiver,
+              remarks
+            });
+
+            toast.success(`Fine of ${formatCurrency(amount)} settled successfully! Receipt generated.`);
+            close();
+            await reloadData();
+            renderView();
+          } catch (err) {
+            toast.error(err.message || 'Error settling fine');
+            const confirmBtn = modalBody.querySelector('#btn-confirm-settle');
+            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Confirm Payment'; }
+          }
+        });
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
   // MODAL: INCIDENT DETAILS & ACTIONS
   // -------------------------------------------------------------
-  function openIncidentDetailsModal(id) {
-    const d = displayIncidents.find(item => item.id === id);
+  function openIncidentDetailsModal(id) {    const d = displayIncidents.find(item => item.id === id);
     if (!d) return;
     const student = students.find(s => s.id === d.student_id);
     const isRes = (d.resolution_status || '').toLowerCase() === 'resolved';
@@ -543,18 +715,34 @@ export async function renderDisciplineModule(container, { onNavigate } = {}) {
           <!-- Penalties & Action Taken -->
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; display: flex; flex-direction: column; gap: 0.35rem;">
             <div>Black Marks Awarded: <span class="badge badge-black-mark" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px;">+${d.black_marks_awarded}</span></div>
-            <div>Property Damage Fine: <strong style="color: ${d.monetary_fine > 0 ? '#DC2626' : '#64748B'};">${d.monetary_fine > 0 ? formatCurrency(d.monetary_fine) : 'None'}</strong></div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              Property Damage Fine:
+              ${d.monetary_fine > 0 ? renderFineStatusBadge(d) : '<strong style="color:#64748B;">None</strong>'}
+            </div>
+            ${d.monetary_fine > 0 && d.fine_payment_status === 'paid' ? `
+              <div style="font-size:0.76rem;color:#475569;">
+                Paid via <strong>${d.fine_payment_method || 'Cash'}</strong>
+                ${d.fine_payment_reference ? `• Ref: <code>${d.fine_payment_reference}</code>` : ''}
+                ${d.fine_paid_by ? `• Received by: <strong>${d.fine_paid_by}</strong>` : ''}
+                ${d.fine_payment_remarks ? `<br><em>${d.fine_payment_remarks}</em>` : ''}
+              </div>
+            ` : ''}
             <div>Action Taken: <strong style="color: #1E293B;">${d.action_taken || 'Documented on record'}</strong></div>
             ${d.resolution_notes ? `<div>Resolution Notes: <em>"${d.resolution_notes}"</em></div>` : ''}
           </div>
 
           <!-- Actions Footer -->
           <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E2E8F0; padding-top: 0.75rem; margin-top: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
               ${canManage ? `
                 <button type="button" class="btn btn-outline-danger btn-xs" id="btn-modal-delete-inc" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border-radius: 7px; padding: 0.35rem 0.65rem;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                  Delete Incident
+                  Delete
+                </button>
+              ` : ''}
+              ${d.monetary_fine > 0 && d.fine_payment_status !== 'paid' && canManage ? `
+                <button type="button" class="btn btn-xs" id="btn-modal-settle-fine" style="background:#F59E0B;border:1.5px solid #F59E0B;color:#FFF;font-weight:700;border-radius:7px;padding:0.35rem 0.65rem;display:inline-flex;align-items:center;gap:4px;">
+                  💳 Settle Fine
                 </button>
               ` : ''}
             </div>
@@ -580,6 +768,11 @@ export async function renderDisciplineModule(container, { onNavigate } = {}) {
         modalBody.querySelector('#btn-modal-delete-inc')?.addEventListener('click', () => {
           close();
           confirmDeleteIncident(id);
+        });
+
+        modalBody.querySelector('#btn-modal-settle-fine')?.addEventListener('click', () => {
+          close();
+          openSettleFineModal(id);
         });
       }
     });

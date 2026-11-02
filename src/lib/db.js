@@ -370,6 +370,9 @@ class DatabaseService {
     if (!this.getStorageItem('tps_discipline')) {
       this.setStorageItem('tps_discipline', JSON.stringify(INITIAL_DISCIPLINE));
     }
+    if (!this.getStorageItem('tps_discipline_fine_payments')) {
+      this.setStorageItem('tps_discipline_fine_payments', JSON.stringify([]));
+    }
     if (!this.getStorageItem('tps_exams')) {
       this.setStorageItem('tps_exams', JSON.stringify(INITIAL_EXAMS));
     }
@@ -2352,7 +2355,7 @@ class DatabaseService {
     return targetLeave;
   }
 
-  async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null, fine_payment_status = null, custom_fine_amount = null) {
+  async recordReturn(leave_record_id, actual_return_date, actual_return_time, remarks = '', target_student_id = null, fine_payment_status = null, custom_fine_amount = null, fine_paid_amount = null) {
     await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
     const leaves = this.get('tps_leaves') || [];
     const idx = leaves.findIndex(l => l.id === leave_record_id || l.leave_code === leave_record_id);
@@ -2382,11 +2385,15 @@ class DatabaseService {
 
     const determinedFineStatus = fine_payment_status === 'paid'
       ? 'paid'
-      : (calc.fineAmount > 0 ? (fine_payment_status === 'unpaid' ? 'unpaid' : 'unpaid') : 'no_fine');
+      : (fine_payment_status === 'partial' ? 'partial' : (calc.fineAmount > 0 ? (fine_payment_status === 'unpaid' ? 'unpaid' : 'unpaid') : 'no_fine'));
 
     const returningStudentIds = target_student_id
       ? [target_student_id]
       : (Array.isArray(leave.student_ids) && leave.student_ids.length > 0 ? leave.student_ids : [leave.student_id]);
+
+    const actualPaidNow = fine_payment_status === 'paid'
+      ? calc.fineAmount
+      : (fine_payment_status === 'partial' ? (Number(fine_paid_amount) || 0) : 0);
 
     if (Array.isArray(leave.students)) {
       leave.students.forEach(s => {
@@ -2398,6 +2405,8 @@ class DatabaseService {
           s.late_days = calc.lateDays;
           s.fine_amount = calc.fineAmount;
           s.fine_status = determinedFineStatus;
+          s.fine_paid_amount = actualPaidNow;
+          s.fine_remaining_amount = Math.max(0, calc.fineAmount - actualPaidNow);
           s.black_marks = calc.blackMarks;
           s.return_remarks = remarks;
         }
@@ -2487,6 +2496,81 @@ class DatabaseService {
     return leave;
   }
 
+  async cancelArrivalBatch(leave_id, batch_key, student_ids = []) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_fines'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+    const leave = leaves[idx];
+    const targetSet = new Set(student_ids);
+
+    if (Array.isArray(leave.students)) {
+      leave.students.forEach(s => {
+        const matchesKey = batch_key && (s.batch_id === batch_key || `${s.actual_return_date || ''}_${s.actual_return_time || ''}` === batch_key);
+        if (targetSet.has(s.student_id) || matchesKey) {
+          s.is_returned = false;
+          s.actual_return_date = null;
+          s.actual_return_time = null;
+          s.late_days = 0;
+          s.late_hours = 0;
+          s.fine_amount = 0;
+          s.fine_status = null;
+          s.fine_paid_amount = 0;
+          s.batch_id = null;
+          s.return_remarks = '';
+          targetSet.add(s.student_id);
+        }
+      });
+    }
+
+    leave.status = 'Away';
+    this.set('tps_leaves', leaves);
+
+    for (const sid of targetSet) {
+      if (sid) {
+        await this.updateStudent(sid, { hostel_status: 'on_leave' });
+      }
+    }
+
+    const fines = this.get('tps_fines') || [];
+    const filteredFines = fines.filter(f => !(f.leave_id === leave.id && targetSet.has(f.student_id)));
+    this.set('tps_fines', filteredFines);
+
+    await this.pushCloudKey('tps_leaves', leaves);
+    await this.pushCloudKey('tps_fines', filteredFines);
+    this.logAudit('CANCEL_ARRIVAL_BATCH', 'student_leave_records', leave.id, `Cancelled arrival batch for ${targetSet.size} student(s)`);
+    return leave;
+  }
+
+  async deleteLeaveAwayStudents(leave_id) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+    const leave = leaves[idx];
+
+    if (Array.isArray(leave.students)) {
+      const awayStudents = leave.students.filter(s => !s.is_returned);
+      leave.students = leave.students.filter(s => s.is_returned);
+      leave.student_ids = leave.students.map(s => s.student_id);
+      leave.total_students = leave.students.length;
+      leave.status = 'Returned';
+
+      for (const s of awayStudents) {
+        if (s.student_id) {
+          await this.updateStudent(s.student_id, { status: 'Active', hostel_status: 'resident' });
+        }
+      }
+    } else {
+      return this.deleteLeaveRecord(leave_id);
+    }
+
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+    this.logAudit('DELETE_AWAY_PASS', 'student_leave_records', leave.id, 'Cancelled away pass for remaining students');
+    return leave;
+  }
+
   async recordBatchReturn({ leave_id, student_ids, actual_return_date, actual_return_time, remarks = '' }) {
     await this.pullCloudKeys(['tps_leaves'], true);
     const leaves = this.get('tps_leaves');
@@ -2503,6 +2587,7 @@ class DatabaseService {
     );
 
     const targetIds = new Set(student_ids);
+    const batchId = 'batch-' + Date.now();
 
     if (Array.isArray(leave.students)) {
       leave.students.forEach(s => {
@@ -2510,6 +2595,7 @@ class DatabaseService {
           s.is_returned = true;
           s.actual_return_date = actual_return_date;
           s.actual_return_time = actual_return_time;
+          s.batch_id = batchId;
           s.late_days = calc.lateDays;
           s.fine_amount = calc.fineAmount;
           s.black_marks = calc.blackMarks;
@@ -2565,6 +2651,7 @@ class DatabaseService {
       }
     }
 
+    this.set('tps_leaves', leaves);
     await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('RECORD_BATCH_RETURN', 'student_leave_records', leave_id, `Batch return recorded for ${student_ids.length} student(s)`);
     return leave;
@@ -2812,9 +2899,16 @@ class DatabaseService {
     if (idx === -1) throw new Error('Leave record not found');
 
     const leave = leaves[idx];
-    leave.fine_status = 'paid';
+    const totalDue = Number(leave.calculated_fine) || 0;
+    const paidAmt = Number(amount) > 0 ? Number(amount) : totalDue;
+    const prevPaid = Number(leave.fine_paid_amount) || 0;
+    const newPaidTotal = prevPaid + paidAmt;
+    const isFull = newPaidTotal >= totalDue;
+
+    leave.fine_status = isFull ? 'paid' : 'partial';
     leave.fine_paid_at = new Date().toISOString();
-    leave.fine_paid_amount = Number(amount) || Number(leave.calculated_fine) || 0;
+    leave.fine_paid_amount = newPaidTotal;
+    leave.fine_remaining_amount = Math.max(0, totalDue - newPaidTotal);
     leave.fine_cleared_by = recorded_by;
 
     if (Array.isArray(leave.students)) {
@@ -2851,6 +2945,80 @@ class DatabaseService {
 
   async clearFineRecord(leave_record_id, { cleared_by = 'Hostel Administrator', remarks = 'Cleared by Admin' } = {}) {
     return this.recordFinePayment(leave_record_id, null, 'Cash', remarks, cleared_by);
+  }
+
+  // --- DISCIPLINE FINE SETTLEMENT ---
+  async settleDisciplineFine(incident_id, {
+    amount,
+    payment_method = 'Cash',
+    reference_number = '',
+    received_by = 'Hostel Office',
+    remarks = ''
+  } = {}) {
+    const incidents = this.get('tps_discipline') || [];
+    const idx = incidents.findIndex(d => d.id === incident_id);
+    if (idx < 0) throw new Error('Discipline incident not found');
+
+    const incident = incidents[idx];
+    const totalFine = Number(incident.monetary_fine) || 0;
+    const prevPaid = Number(incident.fine_paid_amount) || 0;
+    const payNow = Number(amount) || totalFine;
+    const paidAmount = payNow;
+    const cumulativePaid = prevPaid + payNow;
+    const isFull = cumulativePaid >= totalFine;
+    const remaining = Math.max(0, totalFine - cumulativePaid);
+
+    incidents[idx] = {
+      ...incident,
+      fine_payment_status: isFull ? 'paid' : 'partial',
+      fine_paid_amount: cumulativePaid,
+      fine_remaining_amount: remaining,
+      fine_paid_at: new Date().toISOString(),
+      fine_paid_by: received_by,
+      fine_payment_method: payment_method,
+      fine_payment_reference: reference_number,
+      fine_payment_remarks: remarks,
+      updated_at: new Date().toISOString()
+    };
+    this.set('tps_discipline', incidents);
+
+    // Also update the linked tps_fines record if it exists
+    const fines = this.get('tps_fines') || [];
+    const fineIdx = fines.findIndex(f => f.incident_id === incident_id);
+    if (fineIdx >= 0) {
+      fines[fineIdx].status = 'paid';
+      fines[fineIdx].paid_date = new Date().toISOString().split('T')[0];
+      fines[fineIdx].received_by = received_by;
+      this.set('tps_fines', fines);
+    }
+
+    // Log in dedicated discipline payments ledger
+    const payments = this.get('tps_discipline_fine_payments') || [];
+    const receipt_no = 'DISC-RCPT-' + Date.now().toString().slice(-7);
+    const newPayment = {
+      id: 'dfp-' + Date.now(),
+      incident_id,
+      student_id: incident.student_id,
+      amount: paidAmount,
+      payment_date: new Date().toISOString().split('T')[0],
+      payment_method,
+      reference_number,
+      receipt_no,
+      received_by,
+      remarks,
+      created_at: new Date().toISOString()
+    };
+    payments.unshift(newPayment);
+    this.set('tps_discipline_fine_payments', payments);
+
+    this.logAudit('DISCIPLINE_FINE_PAID', 'discipline_fine_payments', newPayment.id,
+      `Fine of ₹${paidAmount} settled for incident ${incident_id} by ${received_by} via ${payment_method}`);
+    return { ...incidents[idx], incident: incidents[idx], payment: newPayment };
+  }
+
+  async getDisciplineFinePayments(studentId = null) {
+    const payments = this.get('tps_discipline_fine_payments') || [];
+    return studentId ? payments.filter(p => p.student_id === studentId) : payments;
   }
 
   // --- DISCIPLINE & BLACK MARKS ---

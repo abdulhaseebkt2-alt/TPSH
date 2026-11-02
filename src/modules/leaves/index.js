@@ -102,9 +102,99 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
     return now > expDate;
   }
 
+  let currentDisplayCards = [];
+
+  function expandLeavesToDisplayCards(rawLeavesList) {
+    const cards = [];
+    rawLeavesList.forEach(l => {
+      const isPend = (l.status || '').toLowerCase() === 'pending';
+      const isRej = (l.status || '').toLowerCase() === 'rejected';
+
+      // If pending or rejected or no students array, treat as regular card
+      if (isPend || isRej || !Array.isArray(l.students) || l.students.length === 0) {
+        cards.push({
+          ...l,
+          is_arrival_card: (l.status === 'Returned' || Boolean(l.actual_return_date)),
+          has_existing_arrivals: false
+        });
+        return;
+      }
+
+      // Bulk leave with students array
+      const returnedStudents = l.students.filter(s => s.is_returned);
+      const awayStudents = l.students.filter(s => !s.is_returned);
+
+      // If no returned students yet, it's just the active away pass
+      if (returnedStudents.length === 0) {
+        cards.push({
+          ...l,
+          is_arrival_card: false,
+          has_existing_arrivals: false,
+          unreturned_count: awayStudents.length,
+          all_students_count: l.students.length
+        });
+        return;
+      }
+
+      // Group returned students into batches
+      const batchesMap = new Map();
+      returnedStudents.forEach(s => {
+        const key = s.batch_id || `${s.actual_return_date || l.actual_return_date || 'arr'}_${s.actual_return_time || l.actual_return_time || '00:00'}`;
+        if (!batchesMap.has(key)) batchesMap.set(key, []);
+        batchesMap.get(key).push(s);
+      });
+
+      const batchEntries = Array.from(batchesMap.entries());
+
+      // Create an Arrival Card for each arrival batch
+      batchEntries.forEach(([batchKey, bStudents], idx) => {
+        const batchDate = bStudents[0]?.actual_return_date || l.actual_return_date || l.expected_return_date;
+        const batchTime = bStudents[0]?.actual_return_time || l.actual_return_time || l.expected_return_time || '17:00';
+        const batchRemarks = bStudents[0]?.return_remarks || l.return_remarks || '';
+        const parentCode = l.leave_code || l.leave_register_number || 'LV';
+        const batchCode = batchEntries.length > 1 ? `${parentCode}-A${idx + 1}` : `${parentCode}-ARR`;
+
+        cards.push({
+          ...l,
+          id: `${l.id}__arr__${batchKey}`,
+          parent_leave_id: l.id,
+          is_arrival_card: true,
+          batch_key: batchKey,
+          leave_code: batchCode,
+          parent_leave_code: parentCode,
+          status: 'Returned',
+          students: bStudents,
+          student_ids: bStudents.map(s => s.student_id),
+          total_students: bStudents.length,
+          actual_return_date: batchDate,
+          actual_return_time: batchTime,
+          arrival_remarks: batchRemarks,
+          has_existing_arrivals: false,
+          created_at: bStudents[0]?.actual_return_date ? `${batchDate}T${batchTime}:00` : l.created_at
+        });
+      });
+
+      // If there are still students away, also show the Active Away Pass
+      if (awayStudents.length > 0) {
+        cards.push({
+          ...l,
+          is_arrival_card: false,
+          has_existing_arrivals: true,
+          students: awayStudents,
+          student_ids: awayStudents.map(s => s.student_id),
+          total_students: awayStudents.length,
+          unreturned_count: awayStudents.length,
+          all_students_count: l.students.length,
+          status: isLeaveOverdue(l) ? 'Overdue' : 'Away'
+        });
+      }
+    });
+
+    return cards;
+  }
+
   function renderView() {
     // Metrics
-    const totalPasses = leaves.length;
     let awayStudentsCount = 0;
     let overdueCount = 0;
     let returnedCount = 0;
@@ -114,32 +204,47 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
     leaves.forEach(l => {
       const isPend = (l.status || '').toLowerCase() === 'pending';
       const isRej = (l.status || '').toLowerCase() === 'rejected';
-      const unret = getUnreturnedCount(l);
-      if (!isPend && !isRej) {
-        awayStudentsCount += unret;
-        if (isLeaveOverdue(l) && unret > 0) overdueCount += unret;
+      if (isPend || isRej) return;
+      if (Array.isArray(l.students) && l.students.length > 0) {
+        const ret = l.students.filter(s => s.is_returned).length;
+        const away = l.students.filter(s => !s.is_returned).length;
+        returnedCount += ret;
+        awayStudentsCount += away;
+        if (isLeaveOverdue(l) && away > 0) overdueCount += away;
+      } else {
+        if (l.status === 'Returned') {
+          returnedCount += (l.total_students || 1);
+        } else {
+          const unret = getUnreturnedCount(l);
+          awayStudentsCount += unret;
+          if (isLeaveOverdue(l) && unret > 0) overdueCount += unret;
+        }
       }
-      if (l.status === 'Returned') returnedCount += (l.total_students || 1);
     });
 
+    // Expand leaves into individual display cards (including separate arrival cards for bulk return batches)
+    const displayCards = expandLeavesToDisplayCards(leaves);
+    currentDisplayCards = displayCards;
+    const totalPasses = displayCards.length;
+
     // Filter leaves
-    const filteredLeaves = leaves.filter(l => {
+    const filteredLeaves = displayCards.filter(l => {
       const isPend = (l.status || '').toLowerCase() === 'pending';
       const isRej = (l.status || '').toLowerCase() === 'rejected';
-      const unret = getUnreturnedCount(l);
-      const isOverdue = isLeaveOverdue(l);
-      const isRet = l.status === 'Returned' || (!isPend && !isRej && unret === 0);
+      const isRet = l.status === 'Returned' || l.is_arrival_card;
+      const isOverdue = !isRet && !isPend && !isRej && (l.status === 'Overdue' || isLeaveOverdue(l));
+      const isAway = !isRet && !isPend && !isRej && !isOverdue;
 
       if (statusFilter === 'pending' && !isPend) return false;
-      if (statusFilter === 'away' && (isPend || isRej || isRet || unret === 0)) return false;
-      if (statusFilter === 'overdue' && (isPend || isRej || !isOverdue || unret === 0)) return false;
-      if (statusFilter === 'returned' && (isPend || isRej || !isRet)) return false;
+      if (statusFilter === 'away' && !isAway) return false;
+      if (statusFilter === 'overdue' && !isOverdue) return false;
+      if (statusFilter === 'returned' && !isRet) return false;
       if (statusFilter === 'rejected' && !isRej) return false;
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const codeMatch = (l.leave_code || l.leave_register_number || '').toLowerCase().includes(q);
-        const reasonMatch = (l.reason || '').toLowerCase().includes(q);
+        const codeMatch = (l.leave_code || l.parent_leave_code || l.leave_register_number || '').toLowerCase().includes(q);
+        const reasonMatch = (l.reason || l.arrival_remarks || '').toLowerCase().includes(q);
         const typeMatch = (l.leave_type || '').toLowerCase().includes(q);
         
         const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
@@ -247,7 +352,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         <!-- Status Filter Pills -->
         <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
           <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'all' ? 'btn-primary' : 'btn-ghost'}" data-status="all" style="border-radius: 9999px; font-weight: 600; font-size: 0.78rem;">
-            All (${leaves.length})
+            All (${displayCards.length})
           </button>
           <button type="button" class="btn btn-sm btn-leave-filter ${statusFilter === 'pending' ? 'btn-warning' : 'btn-ghost'}" data-status="pending" style="border-radius: 9999px; font-weight: 700; font-size: 0.78rem; ${statusFilter === 'pending' ? 'background: #D97706; color: #FFFFFF; border: 1px solid #D97706;' : (pendingCount > 0 ? 'background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;' : '')}">
             Pending (${pendingCount})
@@ -298,7 +403,59 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 </thead>
                 <tbody>
                   ${filteredLeaves.map(l => {
-                    const unretCount = getUnreturnedCount(l);
+                    if (l.is_arrival_card) {
+                      const parentCode = l.parent_leave_code || 'LV';
+                      const totalStudents = l.total_students || (Array.isArray(l.students) ? l.students.length : 1);
+                      const sIds = Array.isArray(l.student_ids) ? l.student_ids : [];
+                      const firstStudent = students.find(s => s.id === sIds[0]) || allStudents.find(s => s.id === sIds[0]);
+                      const studentLabel = totalStudents === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s) Arrived`;
+                      const typeDisplay = (l.leave_type || 'Vacation').replace(/_/g, ' ');
+
+                      return `
+                        <tr style="border-bottom: 1px solid #E2E8F0; background: #F0FDF4; transition: background 0.15s ease;">
+                          <td style="padding: 0.85rem 1rem;">
+                            <div style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: #047857;">${l.leave_code}</div>
+                            <div style="font-size: 0.7rem; color: #059669; font-weight: 600;">Batch from ${parentCode}</div>
+                          </td>
+                          <td style="padding: 0.85rem 1rem;">
+                            <div style="font-weight: 700; color: #1E293B; text-transform: capitalize; font-size: 0.85rem;">${typeDisplay} (Arrival)</div>
+                            <div style="font-size: 0.76rem; color: #64748B; margin-top: 1px;">${l.arrival_remarks || l.reason || 'Safe return recorded'}</div>
+                          </td>
+                          <td style="padding: 0.85rem 1rem;">
+                            <div style="font-size: 0.82rem; font-weight: 600; color: #1E293B;">${l.departure_date || '-'}</div>
+                            <div style="font-size: 0.72rem; color: #94A3B8;">Departed</div>
+                          </td>
+                          <td style="padding: 0.85rem 1rem;">
+                            <div style="font-size: 0.82rem; font-weight: 800; color: #047857;">${l.actual_return_date || '-'}</div>
+                            <div style="font-size: 0.72rem; color: #059669; font-weight: 600;">${formatTime(l.actual_return_time || '17:00')}</div>
+                          </td>
+                          <td style="padding: 0.85rem 1rem;">
+                            <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
+                              ✓ ${studentLabel}
+                            </span>
+                          </td>
+                          <td style="padding: 0.85rem 1rem;">
+                            <span class="badge badge-success" style="background: #ECFDF5; color: #047857; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                              Returned Safe
+                            </span>
+                          </td>
+                          <td style="padding: 0.85rem 1rem; text-align: right;">
+                            <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
+                              <button class="btn btn-xs btn-outline btn-view-arrival-card" data-card-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
+                                Details
+                              </button>
+                              ${canRecordReturn ? `
+                                <button class="btn btn-xs btn-outline-danger btn-delete-arrival-card" data-parent-id="${l.parent_leave_id}" data-batch-key="${l.batch_key}" data-code="${l.leave_code}" data-students='${JSON.stringify(l.student_ids)}' style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Cancel arrival for this batch only">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
+                                </button>
+                              ` : ''}
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    }
+
+                    const unretCount = l.has_existing_arrivals ? (l.unreturned_count || 0) : getUnreturnedCount(l);
                     const isRej = (l.status || '').toLowerCase() === 'rejected';
                     const isPend = (l.status || '').toLowerCase() === 'pending';
                     const isOverdue = isLeaveOverdue(l);
@@ -308,7 +465,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
                     const code = l.leave_code || l.leave_register_number || 'LV-2026';
                     const typeDisplay = (l.leave_type || 'Hostel Leave').replace(/_/g, ' ');
-                    const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
+                    const totalStudents = l.has_existing_arrivals ? (l.all_students_count || l.total_students) : (l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1));
                     const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
                     const firstStudent = students.find(s => s.id === sIds[0]);
                     const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
@@ -334,6 +491,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           <span class="badge" style="background: #F1F5F9; color: #334155; font-weight: 600; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
                             ${studentLabel}
                           </span>
+                          ${l.has_existing_arrivals ? `
+                            <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.68rem; margin-left: 3px; font-weight: 700;">
+                              ${l.unreturned_count} away
+                            </span>
+                          ` : ''}
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                           ${isPend ? `
@@ -378,7 +540,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                             <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
                               Details
                             </button>
-                            <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Permanently delete this leave record">
+                            <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" data-has-arrivals="${l.has_existing_arrivals ? 'true' : 'false'}" data-unreturned="${l.unreturned_count || unretCount}" data-arrived="${(l.all_students_count || 0) - (l.unreturned_count || unretCount)}" style="border-radius: 9999px; padding: 0.25rem 0.55rem; font-weight: 600; font-size: 0.75rem; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Delete or cancel this leave record">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
                             </button>
                           </div>
@@ -393,7 +555,65 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             <!-- Mobile Touch Card Feed (Compact Ergonomics) -->
             <div class="mobile-leave-cards" style="display: none; padding: 0.65rem; flex-direction: column; gap: 0.75rem;">
               ${filteredLeaves.map(l => {
-                const unretCount = getUnreturnedCount(l);
+                if (l.is_arrival_card) {
+                  const parentCode = l.parent_leave_code || 'LV';
+                  const totalStudents = l.total_students || (Array.isArray(l.students) ? l.students.length : 1);
+                  const sIds = Array.isArray(l.student_ids) ? l.student_ids : [];
+                  const firstStudent = students.find(s => s.id === sIds[0]) || allStudents.find(s => s.id === sIds[0]);
+                  const studentLabel = totalStudents === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s) Arrived`;
+                  const typeDisplay = (l.leave_type || 'Vacation').replace(/_/g, ' ');
+
+                  return `
+                    <div style="background: #FFFFFF; border: 1.5px solid #A7F3D0; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                      <!-- Top Row: Code + Status Badge -->
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <div>
+                          <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #047857;">${l.leave_code}</span>
+                          <span style="font-size: 0.7rem; color: #059669; font-weight: 600; margin-left: 4px;">(${parentCode})</span>
+                        </div>
+                        <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+                          Returned Safe
+                        </span>
+                      </div>
+
+                      <!-- Reason & Type -->
+                      <div style="font-weight: 700; font-size: 0.88rem; color: #1E293B; text-transform: capitalize;">${typeDisplay} (Arrival Batch)</div>
+                      <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${l.arrival_remarks || l.reason || 'Safe return recorded'}</div>
+
+                      <!-- Dates Specs -->
+                      <div style="margin-top: 0.65rem; padding: 0.5rem 0.65rem; background: #F0FDF4; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid #DCFCE7;">
+                        <div>
+                          <div style="color: #64748B; font-size: 0.7rem; font-weight: 600;">DEPARTURE</div>
+                          <div style="font-weight: 700; color: #334155;">${l.departure_date || '-'}</div>
+                        </div>
+                        <div style="color: #86EFAC;">→</div>
+                        <div style="text-align: right;">
+                          <div style="color: #047857; font-size: 0.7rem; font-weight: 700;">ACTUAL ARRIVAL</div>
+                          <div style="font-weight: 800; color: #047857;">${l.actual_return_date || '-'} at ${formatTime(l.actual_return_time || '17:00')}</div>
+                        </div>
+                      </div>
+
+                      <!-- Footer Action Row -->
+                      <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #047857;">
+                          ✓ ${studentLabel}
+                        </span>
+                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                          <button class="btn btn-xs btn-outline btn-view-arrival-card" data-card-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">
+                            Details
+                          </button>
+                          ${canRecordReturn ? `
+                            <button class="btn btn-xs btn-outline-danger btn-delete-arrival-card" data-parent-id="${l.parent_leave_id}" data-batch-key="${l.batch_key}" data-code="${l.leave_code}" data-students='${JSON.stringify(l.student_ids)}' style="border-radius: 9999px; padding: 0.28rem 0.6rem; font-size: 0.74rem; font-weight: 600; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Cancel arrival for this batch only">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
+                            </button>
+                          ` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                }
+
+                const unretCount = l.has_existing_arrivals ? (l.unreturned_count || 0) : getUnreturnedCount(l);
                 const isRej = (l.status || '').toLowerCase() === 'rejected';
                 const isPend = (l.status || '').toLowerCase() === 'pending';
                 const isOverdue = isLeaveOverdue(l);
@@ -402,7 +622,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const todayIso = new Date().toISOString().split('T')[0];
                 const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
                 const code = l.leave_code || l.leave_register_number || 'LV-2026';
-                const totalStudents = l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
+                const totalStudents = l.has_existing_arrivals ? (l.all_students_count || l.total_students) : (l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1));
                 const sIds = Array.isArray(l.student_ids) ? l.student_ids : [l.student_id];
                 const firstStudent = students.find(s => s.id === sIds[0]);
                 const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
@@ -454,7 +674,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         <span style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                           👥 ${studentLabel}
                         </span>
-                        ${unretCount > 0 && !isRet && !isRej ? `
+                        ${l.has_existing_arrivals ? `
+                          <span style="font-size: 0.72rem; color: #D97706; font-weight: 700; background: #FEF3C7; padding: 2px 7px; border-radius: 9999px; flex-shrink: 0;">
+                            Away (${l.unreturned_count} of ${l.all_students_count})
+                          </span>
+                        ` : unretCount > 0 && !isRet && !isRej ? `
                           <span style="font-size: 0.72rem; color: #D97706; font-weight: 700; background: #FEF3C7; padding: 2px 7px; border-radius: 9999px; flex-shrink: 0;">
                             Away (${unretCount})
                           </span>
@@ -482,7 +706,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">
                           Details
                         </button>
-                        <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.6rem; font-size: 0.74rem; font-weight: 600; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Permanently delete this leave record">
+                        <button class="btn btn-xs btn-outline-danger btn-delete-leave" data-id="${l.id}" data-has-arrivals="${l.has_existing_arrivals ? 'true' : 'false'}" data-unreturned="${l.unreturned_count || unretCount}" data-arrived="${(l.all_students_count || 0) - (l.unreturned_count || unretCount)}" style="border-radius: 9999px; padding: 0.28rem 0.6rem; font-size: 0.74rem; font-weight: 600; color: #DC2626; border-color: #FCA5A5; display: inline-flex; align-items: center; gap: 3px;" title="Delete or cancel this leave record">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete
                         </button>
                       </div>
@@ -750,7 +974,73 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       });
     });
 
-    // Delete Leave Record button (Wipes data from entire project database)
+    // View Arrival Card Details
+    container.querySelectorAll('.btn-view-arrival-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cardId = btn.dataset.cardId;
+        const card = currentDisplayCards.find(c => c.id === cardId);
+        if (card) {
+          openArrivalBatchDetailsModal(card);
+        }
+      });
+    });
+
+    // Delete / Cancel Arrival Batch button (cancels ONLY this arrival batch, preserves leave pass)
+    container.querySelectorAll('.btn-delete-arrival-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const parentId = btn.dataset.parentId;
+        const batchKey = btn.dataset.batchKey;
+        const code = btn.dataset.code;
+        let studentIds = [];
+        try {
+          studentIds = JSON.parse(btn.dataset.students || '[]');
+        } catch (_) {}
+
+        const { container: deleteModal, close: closeDeleteModal } = openModal({
+          title: `Cancel Arrival Record - ${code}`,
+          size: 'sm',
+          contentHtml: `
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+              <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
+                <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  Cancel Arrival Batch
+                </div>
+                <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
+                  Are you sure you want to cancel the arrival for these <strong>${studentIds.length} student(s)</strong> (${code})?
+                </p>
+                <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
+                  These students will be moved back to <strong>Away</strong> status. The main leave pass and other arrival batches will remain completely safe!
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-arr-modal">Keep Arrived</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-cancel-arr" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
+                  Cancel Arrival Record
+                </button>
+              </div>
+            </div>
+          `
+        });
+
+        deleteModal?.querySelector('#btn-cancel-arr-modal')?.addEventListener('click', closeDeleteModal);
+        deleteModal?.querySelector('#btn-confirm-cancel-arr')?.addEventListener('click', async () => {
+          closeDeleteModal();
+          try {
+            await db.cancelArrivalBatch(parentId, batchKey, studentIds);
+            toast.success(`Arrival batch ${code} cancelled. Students marked away again.`);
+            await reloadLeavesData();
+            renderView();
+          } catch (err) {
+            console.error('Failed to cancel arrival batch:', err);
+            toast.error(err.message || 'Error cancelling arrival record');
+          }
+        });
+      });
+    });
+
+    // Delete Leave Record button (Safely handles active passes with existing arrivals)
     container.querySelectorAll('.btn-delete-leave').forEach(btn => {
       btn.addEventListener('click', () => {
         const leaveId = btn.dataset.id;
@@ -758,6 +1048,83 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         if (!leave) return;
 
         const code = leave.leave_code || leave.leave_register_number || 'Pass';
+        const hasArrivals = btn.dataset.hasArrivals === 'true';
+
+        if (hasArrivals) {
+          const unret = btn.dataset.unreturned || 'some';
+          const arr = btn.dataset.arrived || 'some';
+          const { container: choiceModal, close: closeChoiceModal } = openModal({
+            title: `Delete / Cancel Options — ${code}`,
+            size: 'md',
+            contentHtml: `
+              <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+                <div style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px; padding: 0.85rem; color: #92400E;">
+                  <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Pass has ${arr} students already safely arrived
+                  </div>
+                  <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #78350F;">
+                    There are <strong>${unret} student(s)</strong> still away on this pass, and <strong>${arr} student(s)</strong> who have already safely returned.
+                  </p>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                  <!-- Option 1: Cancel Away Pass Only (Recommended) -->
+                  <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <div>
+                      <div style="font-weight: 700; font-size: 0.85rem; color: #0F172A;">Cancel Away Pass Only (Recommended)</div>
+                      <div style="font-size: 0.75rem; color: #64748B;">Cancels the away status for the ${unret} remaining student(s). All ${arr} arrived students and their arrival cards stay safely preserved!</div>
+                    </div>
+                    <button type="button" class="btn btn-warning btn-sm" id="btn-opt-cancel-away" style="white-space: nowrap; font-weight: 700; background: #F59E0B; border-color: #F59E0B; color: #FFF;">
+                      Cancel Away Pass
+                    </button>
+                  </div>
+
+                  <!-- Option 2: Delete Entire Pass -->
+                  <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <div>
+                      <div style="font-weight: 700; font-size: 0.85rem; color: #991B1B;">Delete Entire Pass & History</div>
+                      <div style="font-size: 0.75rem; color: #7F1D1D;">Completely wipe this entire pass from the database including all arrival cards and fines.</div>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" id="btn-opt-delete-all" style="white-space: nowrap; font-weight: 700; background: #DC2626; border-color: #DC2626;">
+                      Delete Everything
+                    </button>
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 0.25rem;">
+                  <button type="button" class="btn btn-outline" id="btn-choice-close">Close</button>
+                </div>
+              </div>
+            `
+          });
+
+          choiceModal?.querySelector('#btn-choice-close')?.addEventListener('click', closeChoiceModal);
+          choiceModal?.querySelector('#btn-opt-cancel-away')?.addEventListener('click', async () => {
+            closeChoiceModal();
+            try {
+              await db.deleteLeaveAwayStudents(leaveId);
+              toast.success(`Away pass cancelled for remaining students. Arrived student cards kept safe.`);
+              await reloadLeavesData();
+              renderView();
+            } catch (err) {
+              toast.error(err.message || 'Error cancelling away pass');
+            }
+          });
+          choiceModal?.querySelector('#btn-opt-delete-all')?.addEventListener('click', async () => {
+            closeChoiceModal();
+            try {
+              await db.deleteLeaveRecord(leaveId);
+              toast.success(`Leave pass #${code} wiped permanently.`);
+              await reloadLeavesData();
+              renderView();
+            } catch (err) {
+              toast.error(err.message || 'Error deleting leave record');
+            }
+          });
+          return;
+        }
+
         const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
         const studentNames = sIds.map(sid => students.find(s => s.id === sid)?.full_name || 'Student').join(', ');
 
@@ -929,9 +1296,12 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
   }
 
   // -------------------------------------------------------------
-  // FINE SETTLEMENT CARD POPUP: Overdue Return with Pay Now / Pay Later / Cancel
+  // FINE SETTLEMENT CARD POPUP: Overdue Return with Full / Partial / Pay Later
   // -------------------------------------------------------------
   function openFineSettlementModal({ student, leave, retDate, retTime, remarks, fineAmount, lateHours, rate, onSettled }) {
+    let currentMode = 'full'; // 'full', 'partial', 'unpaid'
+    const defaultPartial = Math.max(1, Math.floor(fineAmount / 2));
+
     const { container: fineModal, close: closeFineModal } = openModal({
       title: 'Late Return Fine Assessment',
       size: 'sm',
@@ -989,36 +1359,115 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             </div>
           </div>
 
-          <p style="font-size: 0.75rem; color: #64748B; margin: 0; line-height: 1.4;">
-            * If parent is paying the fine now, select <strong>Pay Fine Now</strong>. If they cannot pay now, select <strong>Pay Later</strong> to register the unpaid fine.
-          </p>
+          <!-- Payment Options Strip (Full vs Partial vs Later) -->
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.85rem;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #047857;">
+                <input type="radio" name="fine_pay_option" value="full" checked />
+                Full (₹${fineAmount})
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #D97706;">
+                <input type="radio" name="fine_pay_option" value="partial" />
+                Partial Payment
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #DC2626;">
+                <input type="radio" name="fine_pay_option" value="unpaid" />
+                Pay Later (Unpaid)
+              </label>
+            </div>
+
+            <!-- Partial Amount Inputs -->
+            <div id="fine-partial-inputs-box" style="display: none; padding-top: 0.5rem; border-top: 1px dashed #CBD5E1; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <div style="flex: 1;">
+                  <label class="form-label" style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 2px;">Amount Paying Now (₹) *</label>
+                  <input type="number" id="fine-paying-now-val" class="form-control" value="${defaultPartial}" min="1" max="${fineAmount}" style="height: 35px; font-size: 0.88rem; font-weight: 800;" />
+                </div>
+                <div style="text-align: right; min-width: 120px;">
+                  <div style="font-size: 0.7rem; color: #64748B; font-weight: 600;">Remaining Balance</div>
+                  <div id="fine-balance-calc-display" style="font-size: 0.95rem; font-weight: 800; color: #DC2626; font-family: monospace;">₹${fineAmount - defaultPartial}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Details (Method & Ref) -->
+            <div id="fine-mode-ref-box" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 2px;">Payment Method</label>
+                <select id="fine-payment-method-select" class="form-control" style="height: 35px; font-size: 0.8rem;">
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI / Digital</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 2px;">Ref No. (Optional)</label>
+                <input type="text" id="fine-ref-no-input" class="form-control" placeholder="UPI Ref / Note" style="height: 35px; font-size: 0.8rem;" />
+              </div>
+            </div>
+          </div>
 
           <!-- Action Buttons -->
-          <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.25rem;">
-            <button type="button" class="btn btn-primary" id="btn-fine-pay-now" style="background: #059669; border-color: #059669; font-weight: 800; padding: 0.6rem;">
-              ✓ Pay Fine Now (₹${fineAmount})
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-outline" id="btn-fine-cancel" style="font-weight: 600;">
+              Cancel
             </button>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
-              <button type="button" class="btn btn-outline" id="btn-fine-pay-later" style="font-weight: 700; border-color: #F59E0B; color: #D97706; background: #FFFBEB;">
-                Pay Later (Unpaid)
-              </button>
-              <button type="button" class="btn btn-outline" id="btn-fine-cancel" style="font-weight: 600;">
-                Cancel
-              </button>
-            </div>
+            <button type="button" class="btn btn-primary" id="btn-fine-submit-record" style="background: #059669; border-color: #059669; font-weight: 800; padding: 0.55rem 1rem;">
+              Confirm & Record Arrival
+            </button>
           </div>
         </div>
       `
     });
 
-    fineModal.querySelector('#btn-fine-pay-now')?.addEventListener('click', () => {
-      closeFineModal();
-      if (onSettled) onSettled('paid');
+    const optRadios = fineModal.querySelectorAll('input[name="fine_pay_option"]');
+    const partialBox = fineModal.querySelector('#fine-partial-inputs-box');
+    const modeRefBox = fineModal.querySelector('#fine-mode-ref-box');
+    const payValInput = fineModal.querySelector('#fine-paying-now-val');
+    const balanceDisplay = fineModal.querySelector('#fine-balance-calc-display');
+
+    optRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        currentMode = radio.value;
+        if (currentMode === 'partial') {
+          if (partialBox) partialBox.style.display = 'block';
+          if (modeRefBox) modeRefBox.style.display = 'grid';
+        } else if (currentMode === 'full') {
+          if (partialBox) partialBox.style.display = 'none';
+          if (modeRefBox) modeRefBox.style.display = 'grid';
+        } else {
+          // unpaid
+          if (partialBox) partialBox.style.display = 'none';
+          if (modeRefBox) modeRefBox.style.display = 'none';
+        }
+      });
     });
 
-    fineModal.querySelector('#btn-fine-pay-later')?.addEventListener('click', () => {
+    if (payValInput && balanceDisplay) {
+      payValInput.addEventListener('input', () => {
+        const val = Number(payValInput.value) || 0;
+        const bal = Math.max(0, fineAmount - val);
+        balanceDisplay.textContent = `₹${bal}`;
+      });
+    }
+
+    fineModal.querySelector('#btn-fine-submit-record')?.addEventListener('click', () => {
+      const method = fineModal.querySelector('#fine-payment-method-select')?.value || 'Cash';
+      const ref = fineModal.querySelector('#fine-ref-no-input')?.value?.trim() || '';
+      let paidAmt = null;
+
+      if (currentMode === 'full') {
+        paidAmt = fineAmount;
+      } else if (currentMode === 'partial') {
+        paidAmt = Number(payValInput?.value) || defaultPartial;
+        if (paidAmt <= 0) paidAmt = defaultPartial;
+      } else {
+        paidAmt = 0;
+      }
+
       closeFineModal();
-      if (onSettled) onSettled('unpaid');
+      if (onSettled) onSettled(currentMode, paidAmt, method, ref);
     });
 
     fineModal.querySelector('#btn-fine-cancel')?.addEventListener('click', () => {
@@ -1365,18 +1814,18 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   lateHours: calc.lateHours || 1,
                   lateDays: calc.lateDays,
                   rate,
-                  onSettled: async (fineStatus) => {
+                  onSettled: async (fineStatus, paidAmount = null, paymentMethod = 'Cash', refNumber = '') => {
                     try {
-                      await db.recordReturn(targetLeave.id, retDate, retTime, remarks, activeTarget.student.id, fineStatus, calc.fineAmount);
+                      await db.recordReturn(targetLeave.id, retDate, retTime, remarks, activeTarget.student.id, fineStatus, calc.fineAmount, paidAmount, paymentMethod, refNumber);
                       if (fineStatus === 'paid') {
                         toast.success(`Arrival recorded & fine of ₹${calc.fineAmount} marked as Paid.`);
+                      } else if (fineStatus === 'partial') {
+                        toast.success(`Arrival recorded & partial payment of ₹${paidAmount} received (Balance: ₹${calc.fineAmount - paidAmount}).`);
                       } else {
                         toast.success(`Arrival recorded. Late fine of ₹${calc.fineAmount} registered as Unpaid.`);
                       }
                       close();
-                      const updatedLeaves = await db.getLeaves();
-                      leaves.length = 0;
-                      leaves.push(...updatedLeaves);
+                      await reloadLeavesData();
                       renderView();
                     } catch (err) {
                       toast.error(err.message || 'Error recording return');

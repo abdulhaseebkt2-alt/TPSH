@@ -14,11 +14,12 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
   const user = getCurrentUser();
   await db.pullCloudKeys(['tps_parent_assignments', 'tps_leaves'], true);
-  const [allStudents, allLeaves, exams, examSubjects] = await Promise.all([
+  const [allStudents, allLeaves, exams, examSubjects, allDisciplineIncidents] = await Promise.all([
     db.getStudents(),
     db.getLeaves(true),
     db.getExams(),
-    db.getExamSubjects()
+    db.getExamSubjects(),
+    db.getDisciplineIncidents()
   ]);
 
   // STRICT CHILD ISOLATION: A parent gets ONLY their children's data
@@ -80,6 +81,13 @@ export async function renderParentDashboard(container, { onNavigate }) {
   });
 
   const displayChildLeaves = childLeaves;
+
+  // Discipline incidents for this child
+  const childDisciplineIncidents = (allDisciplineIncidents || []).filter(d => d.student_id === selectedChild.id);
+  const openDisicplineIncidents = childDisciplineIncidents.filter(d => (d.resolution_status || 'Open').toLowerCase() === 'open');
+  const totalBlackMarks = childDisciplineIncidents.reduce((sum, d) => sum + (Number(d.black_marks_awarded) || 0), 0);
+  const pendingFines = childDisciplineIncidents.filter(d => d.monetary_fine > 0 && d.fine_payment_status !== 'paid');
+  const pendingFineTotal = pendingFines.reduce((sum, d) => sum + (Number(d.monetary_fine) || 0), 0);
 
   // Evaluate Active Leave, Pending Requests, Overdue state, and Countdown/Countup
   const activeLeave = childLeaves.find(l => {
@@ -544,16 +552,20 @@ export async function renderParentDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <div class="stat-card" data-route="discipline" style="cursor: pointer;">
+      <div class="stat-card" data-route="discipline" style="cursor: pointer; ${pendingFineTotal > 0 ? 'border-left: 3px solid #F59E0B; background: #FFFBEB;' : ''}">
         <div class="stat-header">
-          <span class="stat-title">Conduct & Standing</span>
-          <div class="stat-icon-wrapper" style="background: #FAF5FF; color: #7C3AED;">
+          <span class="stat-title" style="${pendingFineTotal > 0 ? 'color: #92400E;' : ''}">Conduct & Standing</span>
+          <div class="stat-icon-wrapper" style="background: ${pendingFineTotal > 0 ? '#FEF3C7' : '#FAF5FF'}; color: ${pendingFineTotal > 0 ? '#D97706' : '#7C3AED'};">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </div>
         </div>
-        <div class="stat-value" style="color: #059669; font-size: 1.5rem;">Exemplary</div>
+        <div class="stat-value" style="color: ${totalBlackMarks > 0 ? '#DC2626' : '#059669'}; font-size: ${totalBlackMarks > 0 ? '1.3rem' : '1.5rem'};">
+          ${totalBlackMarks > 0 ? `+${totalBlackMarks} Marks` : 'Exemplary'}
+        </div>
         <div class="stat-footer">
-          <span>0 Black Marks Recorded</span>
+          ${pendingFineTotal > 0
+            ? `<span style="color: #B45309; font-weight: 700;">⚠ Fine Due: ₹${pendingFineTotal.toFixed(2)}</span>`
+            : `<span>${childDisciplineIncidents.length} Incident(s) Recorded</span>`}
         </div>
       </div>
     </div>
@@ -663,6 +675,61 @@ export async function renderParentDashboard(container, { onNavigate }) {
       </div>
 
     </div>
+
+    <!-- Discipline Fines Panel (shown only if child has discipline incidents with fines) -->
+    ${childDisciplineIncidents.length > 0 ? `
+      <div class="card-panel" style="margin-bottom: 1.25rem; ${pendingFineTotal > 0 ? 'border: 1.5px solid #FDE68A;' : ''}">
+        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center; background: ${pendingFineTotal > 0 ? '#FFFBEB' : '#F8FAFC'};">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span style="font-size: 18px;">⚠️</span>
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A;">
+              Discipline & Fine Records
+              ${pendingFineTotal > 0 ? `<span style="margin-left:6px;font-size:0.74rem;font-weight:800;background:#FEF3C7;color:#B45309;padding:2px 8px;border-radius:9999px;">₹${pendingFineTotal.toFixed(2)} Due</span>` : ''}
+            </h3>
+          </div>
+          <button class="btn btn-outline btn-sm" id="btn-parent-view-discipline" style="font-size:0.78rem;">View All →</button>
+        </div>
+        <div class="card-panel-body" style="padding: 0.65rem;">
+          ${childDisciplineIncidents.length === 0 ? `
+            <div style="text-align: center; color: #94A3B8; padding: 1rem; font-size: 0.82rem;">No disciplinary incidents on record ✓</div>
+          ` : childDisciplineIncidents.map(d => {
+            const isPaid = d.fine_payment_status === 'paid';
+            const hasFine = d.monetary_fine > 0;
+            return `
+              <div style="background: ${hasFine && !isPaid ? '#FFFBEB' : '#FFFFFF'}; border: 1.5px solid ${hasFine && !isPaid ? '#FDE68A' : '#E2E8F0'}; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.35rem;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">${d.category}</div>
+                    <div style="font-size: 0.74rem; color: #64748B;">${d.incident_date} • ${d.severity}</div>
+                  </div>
+                  <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; ${(d.resolution_status || 'Open').toLowerCase() === 'resolved' ? 'background:#ECFDF5;color:#047857;' : 'background:#FFFBEB;color:#B45309;'}">
+                    ${d.resolution_status || 'Open'}
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <span style="font-size: 0.72rem; font-weight: 700; background: #F1F5F9; color: #DC2626; padding: 2px 7px; border-radius: 6px;">
+                    +${d.black_marks_awarded} Mark(s)
+                  </span>
+                  ${hasFine ? `
+                    <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; ${isPaid ? 'background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;' : 'background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;'}">
+                      ${isPaid ? `✓ Fine Paid (₹${d.monetary_fine})` : `Fine Due: ₹${d.monetary_fine}`}
+                    </span>
+                    ${isPaid && d.fine_payment_method ? `
+                      <span style="font-size: 0.7rem; color: #64748B;">via ${d.fine_payment_method}</span>
+                    ` : ''}
+                  ` : ''}
+                </div>
+                ${hasFine && !isPaid ? `
+                  <div style="font-size: 0.76rem; color: #92400E; background: #FEF3C7; border-radius: 6px; padding: 0.4rem 0.6rem; margin-top: 0.2rem;">
+                    💳 <strong>Please pay this fine</strong> at the hostel warden's office. Bring the incident ID: <code style="font-family:monospace;font-size:0.72rem;">${d.id}</code>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : ''}
 
     <!-- Quick Parent Contact & Help Section -->
     <div class="card-panel">
@@ -927,4 +994,5 @@ export async function renderParentDashboard(container, { onNavigate }) {
   container.querySelector('#btn-parent-apply-leave')?.addEventListener('click', openParentLeaveModal);
   container.querySelector('#btn-parent-new-leave')?.addEventListener('click', openParentLeaveModal);
   container.querySelector('#btn-parent-view-all-marks')?.addEventListener('click', () => onNavigate('marks'));
+  container.querySelector('#btn-parent-view-discipline')?.addEventListener('click', () => onNavigate('discipline'));
 }

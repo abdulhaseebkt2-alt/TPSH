@@ -499,9 +499,14 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                       let finePaidDisplay = '<span style="color: #94A3B8; font-size: 0.76rem;">-</span>';
                       if (fineAmt > 0) {
                         const isPaid = l.fine_status === 'paid' || studentEntry?.fine_status === 'paid';
+                        const isPartial = l.fine_status === 'partial' || studentEntry?.fine_status === 'partial';
                         if (isPaid) {
                           finePaidDisplay = `
                             <span style="color: #059669; font-weight: 900; font-size: 0.95rem; line-height: 1;" title="Paid">✓</span>
+                          `;
+                        } else if (isPartial) {
+                          finePaidDisplay = `
+                            <span style="color: #D97706; font-weight: 900; font-size: 0.76rem; line-height: 1; background: #FEF3C7; padding: 2px 4px; border-radius: 4px;" title="Partially Paid">½</span>
                           `;
                         } else {
                           finePaidDisplay = `
@@ -706,6 +711,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       const studentEntry = Array.isArray(leave.students) ? leave.students.find(e => e.student_id === selectedStudent?.id) : null;
       const fineAmt = Number(studentEntry?.fine_amount !== undefined ? studentEntry.fine_amount : leave.calculated_fine) || 0;
       const isPaid = (studentEntry?.fine_status ? studentEntry.fine_status === 'paid' : leave.fine_status === 'paid');
+      const isPartial = (studentEntry?.fine_status ? studentEntry.fine_status === 'partial' : leave.fine_status === 'partial');
       const isRej = (leave.status || '').toLowerCase() === 'rejected';
       const isPend = (leave.status || '').toLowerCase() === 'pending';
 
@@ -802,6 +808,10 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                     <span style="color: #059669; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
                       ✓ Paid ${studentEntry?.fine_paid_at || leave.fine_paid_at ? `on ${(studentEntry?.fine_paid_at || leave.fine_paid_at).split('T')[0]}` : ''} ${leave.fine_cleared_by ? `(Cleared by: ${leave.fine_cleared_by})` : ''}
                     </span>
+                  ` : isPartial ? `
+                    <span style="color: #D97706; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                      ⚠️ Partially Paid: ₹${studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0} • Due: ₹${studentEntry?.fine_remaining_amount || leave.fine_remaining_amount || (fineAmt - (studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0))}
+                    </span>
                   ` : `
                     <span style="color: #DC2626; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
                       ✗ Unpaid Outstanding
@@ -829,7 +839,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                 ${fineAmt > 0 && !isPaid && isMentor ? `
                   <button type="button" class="btn btn-primary" id="btn-popup-clear-fine" style="background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    Clear / Mark Fine Paid (₹${fineAmt})
+                    ${isPartial ? `Clear Remaining Due (₹${studentEntry?.fine_remaining_amount || leave.fine_remaining_amount || (fineAmt - (studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0))})` : `Clear / Mark Fine Paid (₹${fineAmt})`}
                   </button>
                 ` : ''}
               </div>
@@ -897,7 +907,8 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       // Wire Clear Fine button
       modalBody.querySelector('#btn-popup-clear-fine')?.addEventListener('click', async () => {
         try {
-          await db.recordFinePayment(leave.id, fineAmt, 'Cash', 'Cleared via Student Leave Card', user?.full_name || 'Hostel Administrator', selectedStudent?.id);
+          const clearAmt = isPartial ? Number(studentEntry?.fine_remaining_amount || leave.fine_remaining_amount || (fineAmt - (studentEntry?.fine_paid_amount || leave.fine_paid_amount || 0))) : fineAmt;
+          await db.recordFinePayment(leave.id, clearAmt, 'Cash', 'Cleared via Student Leave Card', user?.full_name || 'Hostel Administrator', selectedStudent?.id);
           toast.success(`Fine of ₹${fineAmt} successfully marked as paid!`);
           close();
 
