@@ -7354,6 +7354,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await renderDisciplineModule(container);
       expect(container.innerHTML).toContain('Incident Register');
       expect(container.innerHTML).toContain('Student Discipline Card');
+      expect(container.innerHTML).toContain('Discipline & Incident Register');
+      expect(container.innerHTML).toContain('Hostel Misconduct Records');
 
       // 3. Student Discipline Card renders profile and history
       const student = await db.addStudent({

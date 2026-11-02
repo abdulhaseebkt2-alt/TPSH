@@ -10,7 +10,7 @@ export { renderFineStatusBadge };
 
 export async function renderDisciplineModule(container, options = {}) {
   const { onNavigate, initialTab, studentId } = options;
-  let currentSubView = initialTab === 'register' ? 'register' : 'student_card';
+  let currentSubView = (initialTab === 'card' || initialTab === 'student_card') ? 'student_card' : 'register';
   let activeStudentId = studentId || null;
   const user = getCurrentUser();
   const [students, rawIncidents] = await Promise.all([
@@ -45,10 +45,10 @@ export async function renderDisciplineModule(container, options = {}) {
     return renderStudentDisciplineCardModule(container, {
       studentId: activeStudentId,
       onNavigate: (to) => {
-        if (to === 'discipline_register' || to === 'register') {
+        if (to === 'discipline' || to === 'discipline_register' || to === 'register') {
           currentSubView = 'register';
           renderView();
-        } else if (to === 'discipline' || to === 'discipline_card') {
+        } else if (to === 'discipline_card' || to === 'student_card' || to === 'card') {
           currentSubView = 'student_card';
           renderView();
         } else if (onNavigate) {
@@ -479,7 +479,7 @@ export async function renderDisciplineModule(container, options = {}) {
       renderStudentDisciplineCardModule(container, {
         studentId: activeStudentId,
         onNavigate: (to) => {
-          if (to === 'discipline') {
+          if (to === 'discipline' || to === 'discipline_register' || to === 'register') {
             currentSubView = 'register';
             renderView();
           } else if (onNavigate) {
@@ -498,7 +498,7 @@ export async function renderDisciplineModule(container, options = {}) {
         renderStudentDisciplineCardModule(container, {
           studentId: activeStudentId,
           onNavigate: (to) => {
-            if (to === 'discipline') {
+            if (to === 'discipline' || to === 'discipline_register' || to === 'register') {
               currentSubView = 'register';
               renderView();
             } else if (onNavigate) {
@@ -574,7 +574,7 @@ export async function renderDisciplineModule(container, options = {}) {
           <input type="text" id="inc-action" class="form-control" placeholder="e.g. Property repair cost levied, phone confiscated for 7 days" />
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-          <button class="btn btn-primary" id="btn-save-incident" style="background: #059669; border-color: #059669; font-weight: 700;">
+          <button class="btn btn-primary btn-save-incident" id="btn-save-incident" style="background: #059669; border-color: #059669; font-weight: 700;">
             Log Incident & Apply Black Marks
           </button>
         </div>
@@ -583,15 +583,40 @@ export async function renderDisciplineModule(container, options = {}) {
         modalBody.querySelector('#btn-save-incident')?.addEventListener('click', async () => {
           const sid = modalBody.querySelector('#inc-student')?.value;
           const category = modalBody.querySelector('#inc-category')?.value;
-          const incident_date = modalBody.querySelector('#inc-date')?.value;
+          const dateInput = modalBody.querySelector('#inc-date');
+          const incident_date = dateInput?.value;
           const severity = modalBody.querySelector('#inc-severity')?.value;
-          const marks = modalBody.querySelector('#inc-marks')?.value;
+          const marksInput = modalBody.querySelector('#inc-marks');
+          const marks = marksInput?.value;
           const fine = modalBody.querySelector('#inc-fine')?.value;
-          const desc = modalBody.querySelector('#inc-desc')?.value.trim();
+          const descInput = modalBody.querySelector('#inc-desc');
+          const desc = descInput?.value.trim();
           const action = modalBody.querySelector('#inc-action')?.value.trim();
 
+          // Reset borders
+          if (dateInput) dateInput.style.borderColor = '#CBD5E1';
+          if (marksInput) marksInput.style.borderColor = '#CBD5E1';
+          if (descInput) descInput.style.borderColor = '#CBD5E1';
+
+          let hasError = false;
+          if (!incident_date) {
+            if (dateInput) dateInput.style.borderColor = '#DC2626';
+            hasError = true;
+          }
+          if (!marks || Number(marks) <= 0) {
+            if (marksInput) marksInput.style.borderColor = '#DC2626';
+            hasError = true;
+          }
           if (!desc) {
-            toast.error('Please enter an incident description.');
+            if (descInput) {
+              descInput.style.borderColor = '#DC2626';
+              descInput.focus();
+            }
+            hasError = true;
+          }
+
+          if (hasError) {
+            toast.error('Please fill in all mandatory fields indicated in red.');
             return;
           }
 

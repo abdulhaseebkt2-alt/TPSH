@@ -50,7 +50,7 @@ const MODULE_ROUTERS = {
   leave_card: renderStudentLeaveCardModule,
   student_leave_card: renderStudentLeaveCardModule,
   fines: renderFinesModule,
-  discipline: renderDisciplineModule,
+  discipline: (container, opts) => renderDisciplineModule(container, { ...opts, initialTab: 'register' }),
   discipline_register: (container, opts) => renderDisciplineModule(container, { ...opts, initialTab: 'register' }),
   discipline_card: renderStudentDisciplineCardModule,
   student_discipline_card: renderStudentDisciplineCardModule,
