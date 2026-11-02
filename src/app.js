@@ -1,3 +1,4 @@
+import { db } from './lib/db.js';
 import { initAuth, onAuthStateChanged, signInWithGoogle, signInWithEmail, signOut, switchDevRole, canSwitchRoles, getCurrentUser, refreshUserProfile } from './lib/auth.js';
 import { canAccessModule } from './lib/permissions.js';
 import { renderNavbar } from './components/navbar.js';
@@ -226,6 +227,9 @@ class App {
         this.navigate(route);
       }
     });
+
+    // Self-heal orphaned student statuses across all modules
+    db.reconcileStudentLeaveStatuses();
 
     // Subscribe to auth state
     onAuthStateChanged(({ session, profile }) => {

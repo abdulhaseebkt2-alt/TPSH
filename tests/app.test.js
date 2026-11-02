@@ -6893,6 +6893,13 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('Boys in Hostel');
       expect(container.innerHTML).toContain('Girls in Hostel');
 
+      // Test Student Leave Card rendering for student without active leave: MUST heal to 'Present in Hostel'
+      await db.updateStudent(bStudent.id, { status: 'On Approved Leave', hostel_status: 'on_leave' });
+      const cardContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderStudentLeaveCardModule(cardContainer, { studentId: bStudent.id });
+      expect(cardContainer.innerHTML).toContain('Present in Hostel');
+      expect(cardContainer.innerHTML).not.toContain('background: #FEF3C7; color: #92400E;');
+
       // Cleanup
       await db.deleteStudent(bStudent.id);
       await db.deleteStudent(gStudent.id);

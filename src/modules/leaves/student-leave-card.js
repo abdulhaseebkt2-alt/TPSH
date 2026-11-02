@@ -44,7 +44,10 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
     const isMentor = isAdmin || isBoysMentor || isGirlsMentor || role === 'mentor';
     const isParent = role === 'parent';
 
-    // 1. Fetch Students and Leaves
+    // 1. Self-heal any orphaned leave status
+    db.reconcileStudentLeaveStatuses();
+
+    // 2. Fetch Students and Leaves
     const [allStudents, allLeaves] = await Promise.all([
       db.getStudents(),
       db.getLeaves(true)
@@ -176,15 +179,19 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
         return true;
       });
 
-      const isStudentAway = !!activeUnreturnedLeave || (selectedStudent && (selectedStudent.status === 'On Approved Leave' || selectedStudent.status === 'Away'));
+      const isStudentAway = !!activeUnreturnedLeave;
 
       // Automatically keep student record status synced in DB
-      if (selectedStudent && isStudentAway && selectedStudent.status !== 'On Approved Leave') {
-        selectedStudent.status = 'On Approved Leave';
-        db.updateStudent(selectedStudent.id, { status: 'On Approved Leave' }).catch(() => {});
-      } else if (selectedStudent && !isStudentAway && selectedStudent.status === 'On Approved Leave') {
-        selectedStudent.status = 'Active';
-        db.updateStudent(selectedStudent.id, { status: 'Active' }).catch(() => {});
+      if (selectedStudent) {
+        if (isStudentAway && selectedStudent.status !== 'On Approved Leave') {
+          selectedStudent.status = 'On Approved Leave';
+          selectedStudent.hostel_status = 'on_leave';
+          db.updateStudent(selectedStudent.id, { status: 'On Approved Leave', hostel_status: 'on_leave' }).catch(() => {});
+        } else if (!isStudentAway && (selectedStudent.status === 'On Approved Leave' || selectedStudent.status === 'Away')) {
+          selectedStudent.status = 'Active';
+          selectedStudent.hostel_status = 'resident';
+          db.updateStudent(selectedStudent.id, { status: 'Active', hostel_status: 'resident' }).catch(() => {});
+        }
       }
 
       container.innerHTML = `
