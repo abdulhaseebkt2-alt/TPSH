@@ -2792,23 +2792,68 @@ class DatabaseService {
     return leave;
   }
 
-  async recordBatchReturn({ leave_id, student_ids, actual_return_date, actual_return_time, remarks = '' }) {
-    await this.pullCloudKeys(['tps_leaves'], true);
-    const leaves = this.get('tps_leaves');
+  async recordBatchReturn({
+    leave_id,
+    student_ids,
+    actual_return_date,
+    actual_return_time,
+    remarks = '',
+    fine_payment_status = null, // 'paid', 'partial', 'unpaid', 'none'
+    custom_fine_amount = null,
+    fine_paid_amount = null,
+    payment_method = 'Cash',
+    reference_number = '',
+    recorded_by = 'Hostel Office'
+  }) {
+    await this.pullCloudKeys(['tps_leaves', 'tps_students', 'tps_fine_payments'], true);
+    const leaves = this.get('tps_leaves') || [];
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
     if (idx === -1) throw new Error('Leave record not found');
 
     const leave = leaves[idx];
+    const isHourly = leave.fine_unit === 'hour' || leave.fine_unit === 'hourly' || (leave.fine_unit !== 'daily' && !leave.fine_per_day);
+    const rate = isHourly
+      ? Number(leave.fine_per_hour_applied || leave.fine_per_hour || 50)
+      : Number(leave.fine_per_day_applied || leave.fine_per_day || 100);
+
     const calc = this.calculateReturnLate(
       leave.expected_return_date,
-      leave.expected_return_time || '17:00',
+      leave.expected_return_time || '18:00',
       actual_return_date,
-      actual_return_time || '17:00',
-      leave.fine_per_day_applied || leave.fine_per_day || 100
+      actual_return_time || '18:00',
+      rate,
+      isHourly ? 'hour' : 'daily'
     );
 
+    const perStudentFine = (custom_fine_amount !== null && custom_fine_amount !== undefined && !isNaN(custom_fine_amount))
+      ? Number(custom_fine_amount)
+      : calc.fineAmount;
+
+    const count = student_ids.length;
+    const totalAssessedFine = perStudentFine * count;
+
+    let normalizedStatus = fine_payment_status;
+    if (normalizedStatus === 'full') normalizedStatus = 'paid';
+    if (!normalizedStatus) {
+      normalizedStatus = perStudentFine > 0 ? 'unpaid' : 'none';
+    }
+
+    let totalPaid = 0;
+    if (normalizedStatus === 'paid') {
+      totalPaid = totalAssessedFine;
+    } else if (normalizedStatus === 'partial') {
+      totalPaid = (fine_paid_amount !== null && fine_paid_amount !== undefined && !isNaN(fine_paid_amount) && Number(fine_paid_amount) > 0)
+        ? Math.min(totalAssessedFine, Number(fine_paid_amount))
+        : Math.floor(totalAssessedFine / 2);
+    } else {
+      totalPaid = 0;
+    }
+
+    const perStudentPaid = count > 0 ? Math.round((totalPaid / count) * 100) / 100 : 0;
     const targetIds = new Set(student_ids);
     const batchId = 'batch-' + Date.now();
+    const nowIso = new Date().toISOString();
+    const finePayments = this.get('tps_fine_payments') || [];
 
     if (Array.isArray(leave.students)) {
       leave.students.forEach(s => {
@@ -2818,9 +2863,39 @@ class DatabaseService {
           s.actual_return_time = actual_return_time;
           s.batch_id = batchId;
           s.late_days = calc.lateDays;
-          s.fine_amount = calc.fineAmount;
+          s.late_hours = calc.lateHours;
+          s.fine_amount = perStudentFine;
+          s.fine_paid_amount = perStudentPaid;
+          s.fine_remaining_amount = Math.max(0, perStudentFine - perStudentPaid);
+          s.fine_status = (perStudentPaid >= perStudentFine && perStudentFine > 0)
+            ? 'paid'
+            : (perStudentPaid > 0 ? 'partial' : (perStudentFine > 0 ? 'unpaid' : 'none'));
+          if (perStudentPaid > 0) {
+            s.fine_paid_at = nowIso;
+            s.fine_cleared_by = recorded_by;
+            s.fine_payment_method = payment_method;
+          }
           s.black_marks = calc.blackMarks;
           s.return_remarks = remarks;
+
+          // Record fine payment receipt in tps_fine_payments if payment was made
+          if (perStudentPaid > 0) {
+            finePayments.push({
+              id: 'fp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+              leave_record_id: leave.id,
+              leave_code: leave.leave_code || leave.id,
+              student_id: s.student_id,
+              student_name: s.student_name || '',
+              amount: perStudentPaid,
+              payment_date: actual_return_date || nowIso.split('T')[0],
+              payment_method,
+              reference_number,
+              receipt_number: 'RCPT-' + Date.now().toString().slice(-6),
+              recorded_by,
+              payment_type: s.fine_status === 'paid' ? 'Full' : 'Partial',
+              notes: reference_number || remarks || 'Batch arrival fine payment'
+            });
+          }
         }
       });
     }
@@ -2833,11 +2908,25 @@ class DatabaseService {
       leave.actual_return_time = actual_return_time;
     }
 
+    // Recalculate parent leave totals across all students
+    if (Array.isArray(leave.students)) {
+      leave.calculated_fine = leave.students.reduce((sum, s) => sum + (Number(s.fine_amount) || 0), 0);
+      leave.fine_paid_amount = leave.students.reduce((sum, s) => sum + (Number(s.fine_paid_amount) || 0), 0);
+      leave.fine_remaining_amount = leave.students.reduce((sum, s) => sum + (Number(s.fine_remaining_amount) || 0), 0);
+      if (leave.fine_paid_amount >= leave.calculated_fine && leave.calculated_fine > 0) {
+        leave.fine_status = 'paid';
+      } else if (leave.fine_paid_amount > 0) {
+        leave.fine_status = 'partial';
+      } else if (leave.calculated_fine > 0) {
+        leave.fine_status = 'unpaid';
+      }
+    }
+
     // Reactivate returning students
     for (const sid of student_ids) {
       await this.updateStudent(sid, { status: 'Active', hostel_status: 'resident' });
 
-      if (calc.fineAmount > 0) {
+      if (perStudentFine > 0) {
         const fnNo = `FN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         const fines = this.get('tps_fines') || [];
         fines.unshift({
@@ -2846,13 +2935,14 @@ class DatabaseService {
           student_id: sid,
           leave_id: leave.id,
           category_name: 'Late Hostel Return',
-          amount: calc.fineAmount,
+          amount: perStudentFine,
+          paid_amount: perStudentPaid,
           late_days: calc.lateDays,
           black_marks: calc.blackMarks,
-          reason: `${calc.lateDays} days late return from batch leave (${leave.leave_code || leave.leave_register_number})`,
+          reason: `${calc.lateDays > 0 ? calc.lateDays + ' days' : (calc.lateHours || 1) + ' hours'} late return from batch leave (${leave.leave_code || leave.leave_register_number})`,
           issue_date: actual_return_date,
-          status: 'pending',
-          issued_by: 'Warden Office'
+          status: (perStudentPaid >= perStudentFine) ? 'paid' : (perStudentPaid > 0 ? 'partial' : 'pending'),
+          issued_by: recorded_by || 'Warden Office'
         });
         this.set('tps_fines', fines);
       }
@@ -2866,15 +2956,17 @@ class DatabaseService {
           marks_count: calc.blackMarks,
           reason: calc.lateDays > 0 ? `${calc.lateDays} days late return` : `Late return on scheduled date (${actual_return_time})`,
           issued_date: actual_return_date,
-          issued_by: 'Warden Office'
+          issued_by: recorded_by || 'Warden Office'
         });
         this.set('tps_black_marks', blackMarks);
       }
     }
 
     this.set('tps_leaves', leaves);
+    this.set('tps_fine_payments', finePayments);
     await this.pushCloudKey('tps_leaves', leaves);
-    this.logAudit('RECORD_BATCH_RETURN', 'student_leave_records', leave_id, `Batch return recorded for ${student_ids.length} student(s)`);
+    await this.pushCloudKey('tps_fine_payments', finePayments);
+    this.logAudit('RECORD_BATCH_RETURN', 'student_leave_records', leave_id, `Batch return recorded for ${student_ids.length} student(s) (Fine: ₹${totalAssessedFine}, Paid: ₹${totalPaid})`);
     return leave;
   }
 

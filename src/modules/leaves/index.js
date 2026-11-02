@@ -550,7 +550,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           <div style="font-size: 0.72rem; color: #94A3B8;">${l.departure_time || l.leaving_time || '16:00'}</div>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
-                          <div style="font-size: 0.82rem; font-weight: 700; color: ${isOverdue ? '#DC2626' : '#1E293B'};">${l.expected_return_date || '-'}</div>
+                          <div style="font-size: 0.82rem; font-weight: 700; color: #1E293B;">${l.expected_return_date || '-'}</div>
                           <div style="font-size: 0.72rem; color: #94A3B8;">${l.expected_return_time || '17:00'}</div>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
@@ -577,8 +577,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                               Approved (Upcoming)
                             </span>
                           ` : `
-                            <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
-                              ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
+                            <span class="badge ${isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700; ${!isRet ? 'background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;' : ''}">
+                              ${isRet ? 'Returned' : 'Away'}
                             </span>
                           `}
                         </td>
@@ -597,12 +597,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                                 Edit
                               </button>
                             ` : ''}
-                            ${!isPend && !isRej && !isUpcoming && unretCount > 0 && canRecordReturn ? `
-                              <button class="btn btn-xs btn-outline-success btn-record-arrival-action btn-checkin-return" data-id="${l.id}" title="Record arrival for students on this pass" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; color: #059669; border-color: #A7F3D0; background: #ECFDF5;">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                                Arrival (${unretCount})
-                              </button>
-                            ` : ''}
+
                             <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.25rem 0.65rem; font-weight: 600; font-size: 0.75rem;">
                               Details
                             </button>
@@ -732,7 +727,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                 return `
-                  <div style="background: #FFFFFF; border: 1.5px solid ${isOverdue ? '#FCA5A5' : isRej ? '#FECACA' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej ? '#FECACA' : '#E2E8F0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                       <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #0F172A;">${code}</span>
@@ -749,8 +744,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           Approved (Upcoming)
                         </span>
                       ` : `
-                        <span class="badge ${isOverdue ? 'badge-danger' : isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
-                          ${isOverdue ? 'Overdue Return' : isRet ? 'Returned' : 'Away'}
+                        <span class="badge ${isRet ? 'badge-success' : 'badge-warning'}" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700; ${!isRet ? 'background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;' : ''}">
+                          ${isRet ? 'Returned' : 'Away'}
                         </span>
                       `}
                     </div>
@@ -768,7 +763,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       <div style="color: #CBD5E1;">→</div>
                       <div style="text-align: right;">
                         <div style="color: #94A3B8; font-size: 0.7rem; font-weight: 600;">EXPECTED RETURN</div>
-                        <div style="font-weight: 700; color: ${isOverdue ? '#DC2626' : '#334155'};">${l.expected_return_date || '-'}</div>
+                        <div style="font-weight: 700; color: #334155;">${l.expected_return_date || '-'}</div>
                       </div>
                     </div>
 
@@ -802,11 +797,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                             Edit
                           </button>
                         ` : ''}
-                        ${!isPend && !isRej && !isUpcoming && unretCount > 0 && canRecordReturn ? `
-                          <button class="btn btn-xs btn-record-arrival-action btn-checkin-return" data-id="${l.id}" style="background: #059669; color: #FFFFFF; border-radius: 9999px; padding: 0.28rem 0.65rem; font-weight: 700; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 3px;">
-                            Arrival (${unretCount})
-                          </button>
-                        ` : ''}
+
                         <button class="btn btn-xs btn-outline btn-view-leave-details btn-view-leave-card" data-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">
                           Details
                         </button>
@@ -1580,6 +1571,189 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
   }
 
   // -------------------------------------------------------------
+  // BATCH FINE SETTLEMENT CARD POPUP: Overdue Batch Return with Full / Partial / Pay Later
+  // -------------------------------------------------------------
+  function openBatchFineSettlementModal({ leave, returningCount, retDate, retTime, remarks, perStudentFine, totalBatchFine, lateHours, lateDays, rate, isHourly, onSettled }) {
+    let currentMode = 'full'; // 'full', 'partial', 'unpaid'
+    const defaultPartial = Math.max(1, Math.floor(totalBatchFine / 2));
+
+    const { container: fineModal, close: closeFineModal } = openModal({
+      title: 'Batch Return Late Fine Assessment',
+      size: 'sm',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
+          <!-- Header Warning Banner -->
+          <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 12px; padding: 0.75rem 0.9rem; display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">
+              ⚠️
+            </div>
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-size: 0.95rem; font-weight: 800; color: #991B1B;">Overdue Bulk Return Detected</div>
+              <div style="font-size: 0.76rem; color: #B91C1C; margin-top: 1px;">
+                ${returningCount} Student(s) returning late from pass #${leave.leave_code || leave.leave_register_number || 'LV-2026'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Fine Breakdown Card -->
+          <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.85rem 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Curfew Schedule</span>
+              <span style="font-size: 0.8rem; font-weight: 700; color: #0F172A;">
+                ${leave.expected_return_date} at ${formatTime(leave.expected_return_time || '18:00')}
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Actual Arrival</span>
+              <span style="font-size: 0.8rem; font-weight: 800; color: #DC2626;">
+                ${retDate} at ${formatTime(retTime)}
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Delay Duration</span>
+              <span style="font-size: 0.82rem; font-weight: 800; color: #DC2626; font-family: monospace;">
+                +${lateDays > 0 ? `${lateDays} day(s)` : `${lateHours || 1} hour(s)`} late
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 0.76rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Fine Calculation</span>
+              <span style="font-size: 0.8rem; font-weight: 700; color: #475569;">
+                ₹${perStudentFine} × ${returningCount} student(s)
+              </span>
+            </div>
+
+            <!-- Total Accrued Fine Highlight -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.25rem;">
+              <span style="font-size: 0.85rem; font-weight: 800; color: #0F172A;">Total Batch Fine</span>
+              <span style="font-size: 1.45rem; font-weight: 900; color: #DC2626; font-family: monospace;">
+                ₹${totalBatchFine}
+              </span>
+            </div>
+          </div>
+
+          <!-- Payment Options Strip (Full vs Partial vs Later) -->
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.85rem;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #047857;">
+                <input type="radio" name="batch_fine_pay_option" value="full" checked />
+                Full (₹${totalBatchFine})
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #D97706;">
+                <input type="radio" name="batch_fine_pay_option" value="partial" />
+                Partial Payment
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #DC2626;">
+                <input type="radio" name="batch_fine_pay_option" value="unpaid" />
+                Pay Later (Unpaid)
+              </label>
+            </div>
+
+            <!-- Partial Amount Inputs -->
+            <div id="batch-fine-partial-inputs-box" style="display: none; padding-top: 0.5rem; border-top: 1px dashed #CBD5E1; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <div style="flex: 1;">
+                  <label class="form-label" style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 2px;">Amount Paying Now (₹) *</label>
+                  <input type="number" id="batch-fine-paying-now-val" class="form-control" value="${defaultPartial}" min="1" max="${totalBatchFine}" style="height: 35px; font-size: 0.88rem; font-weight: 800;" />
+                </div>
+                <div style="text-align: right; min-width: 120px;">
+                  <div style="font-size: 0.7rem; color: #64748B; font-weight: 600;">Remaining Balance</div>
+                  <div id="batch-fine-balance-calc-display" style="font-size: 0.95rem; font-weight: 800; color: #DC2626; font-family: monospace;">₹${totalBatchFine - defaultPartial}</div>
+                </div>
+              </div>
+              <div style="font-size: 0.7rem; color: #64748B; margin-top: 4px;">
+                Amount paid will be equally credited across the ${returningCount} returning student(s).
+              </div>
+            </div>
+
+            <!-- Payment Details (Method & Ref) -->
+            <div id="batch-fine-mode-ref-box" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 2px;">Payment Method</label>
+                <select id="batch-fine-payment-method-select" class="form-control" style="height: 35px; font-size: 0.8rem;">
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI / Digital</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 2px;">Ref No. (Optional)</label>
+                <input type="text" id="batch-fine-ref-no-input" class="form-control" placeholder="UPI Ref / Note" style="height: 35px; font-size: 0.8rem;" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button type="button" class="btn btn-outline" id="btn-batch-fine-cancel" style="font-weight: 600;">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-batch-fine-submit-record" style="background: #059669; border-color: #059669; font-weight: 800; padding: 0.55rem 1rem;">
+              Confirm & Record Arrival
+            </button>
+          </div>
+        </div>
+      `
+    });
+
+    const optRadios = fineModal.querySelectorAll('input[name="batch_fine_pay_option"]');
+    const partialBox = fineModal.querySelector('#batch-fine-partial-inputs-box');
+    const modeRefBox = fineModal.querySelector('#batch-fine-mode-ref-box');
+    const payValInput = fineModal.querySelector('#batch-fine-paying-now-val');
+    const balanceDisplay = fineModal.querySelector('#batch-fine-balance-calc-display');
+
+    optRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        currentMode = radio.value;
+        if (currentMode === 'partial') {
+          if (partialBox) partialBox.style.display = 'block';
+          if (modeRefBox) modeRefBox.style.display = 'grid';
+        } else if (currentMode === 'full') {
+          if (partialBox) partialBox.style.display = 'none';
+          if (modeRefBox) modeRefBox.style.display = 'grid';
+        } else {
+          if (partialBox) partialBox.style.display = 'none';
+          if (modeRefBox) modeRefBox.style.display = 'none';
+        }
+      });
+    });
+
+    if (payValInput && balanceDisplay) {
+      payValInput.addEventListener('input', () => {
+        const val = Number(payValInput.value) || 0;
+        const bal = Math.max(0, totalBatchFine - val);
+        balanceDisplay.textContent = `₹${bal}`;
+      });
+    }
+
+    fineModal.querySelector('#btn-batch-fine-submit-record')?.addEventListener('click', () => {
+      const method = fineModal.querySelector('#batch-fine-payment-method-select')?.value || 'Cash';
+      const ref = fineModal.querySelector('#batch-fine-ref-no-input')?.value?.trim() || '';
+      let paidAmt = null;
+
+      if (currentMode === 'full') {
+        paidAmt = totalBatchFine;
+      } else if (currentMode === 'partial') {
+        paidAmt = Number(payValInput?.value) || defaultPartial;
+        if (paidAmt <= 0) paidAmt = defaultPartial;
+      } else {
+        paidAmt = 0;
+      }
+
+      closeFineModal();
+      if (onSettled) onSettled(currentMode, paidAmt, method, ref);
+    });
+
+    fineModal.querySelector('#btn-batch-fine-cancel')?.addEventListener('click', () => {
+      closeFineModal();
+    });
+  }
+
+
+  // -------------------------------------------------------------
   // MODAL 1: HOSTEL ARRIVAL & RETURN REGISTER (INDIVIDUAL / BATCH)
   // -------------------------------------------------------------
   function openRecordArrivalModal(defaultMode = 'individual', preselectedLeaveId = null) {
@@ -2127,20 +2301,89 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             const retTime = modalBody.querySelector('#batch-ret-time').value;
             const remarks = modalBody.querySelector('#batch-ret-remarks').value.trim();
 
+            if (!retDate || !retTime) {
+              toast.error('Actual return date and time are required.');
+              return;
+            }
+
+            const targetLeave = currentLeave;
+            const isHourly = targetLeave.fine_unit === 'hour' || targetLeave.fine_unit === 'hourly' || (targetLeave.fine_unit !== 'daily' && !targetLeave.fine_per_day);
+            const rate = isHourly
+              ? Number(targetLeave.fine_per_hour_applied || targetLeave.fine_per_hour || 50)
+              : Number(targetLeave.fine_per_day_applied || targetLeave.fine_per_day || 100);
+
+            const calc = db.calculateReturnLate(
+              targetLeave.expected_return_date,
+              targetLeave.expected_return_time || '18:00',
+              retDate,
+              retTime,
+              rate,
+              isHourly ? 'hour' : 'daily'
+            );
+
+            const selectedCount = selectedBatchStudentIds.size;
+            const perStudentFine = calc.fineAmount;
+            const totalBatchFine = perStudentFine * selectedCount;
+
+            if (totalBatchFine > 0) {
+              openBatchFineSettlementModal({
+                leave: targetLeave,
+                returningCount: selectedCount,
+                retDate,
+                retTime,
+                remarks,
+                perStudentFine,
+                totalBatchFine,
+                lateHours: calc.lateHours || 1,
+                lateDays: calc.lateDays,
+                rate,
+                isHourly,
+                onSettled: async (fineStatus, paidAmount = null, paymentMethod = 'Cash', refNumber = '') => {
+                  try {
+                    await db.recordBatchReturn({
+                      leave_id: selectedLeaveId,
+                      student_ids: Array.from(selectedBatchStudentIds),
+                      actual_return_date: retDate,
+                      actual_return_time: retTime,
+                      remarks,
+                      fine_payment_status: fineStatus,
+                      custom_fine_amount: perStudentFine,
+                      fine_paid_amount: paidAmount,
+                      payment_method: paymentMethod,
+                      reference_number: refNumber
+                    });
+
+                    if (fineStatus === 'paid' || fineStatus === 'full') {
+                      toast.success(`Recorded return for ${selectedCount} student(s) & fine of ₹${totalBatchFine} marked as Paid.`);
+                    } else if (fineStatus === 'partial') {
+                      toast.success(`Recorded return for ${selectedCount} student(s) & partial fine ₹${paidAmount} received (Balance: ₹${totalBatchFine - paidAmount}).`);
+                    } else {
+                      toast.success(`Recorded return for ${selectedCount} student(s). Late fine of ₹${totalBatchFine} registered as Unpaid.`);
+                    }
+                    close();
+                    await reloadLeavesData();
+                    renderView();
+                  } catch (err) {
+                    toast.error(err.message || 'Error recording batch return');
+                  }
+                }
+              });
+              return;
+            }
+
             try {
               await db.recordBatchReturn({
                 leave_id: selectedLeaveId,
                 student_ids: Array.from(selectedBatchStudentIds),
                 actual_return_date: retDate,
                 actual_return_time: retTime,
-                remarks
+                remarks,
+                fine_payment_status: 'no_fine'
               });
 
               toast.success(`Recorded return for ${selectedBatchStudentIds.size} student(s).`);
               close();
-              const updatedLeaves = await db.getLeaves();
-              leaves.length = 0;
-              leaves.push(...updatedLeaves);
+              await reloadLeavesData();
               renderView();
             } catch (err) {
               toast.error(err.message || 'Error recording batch return');
@@ -2859,7 +3102,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem;">
               ${arrivedStudents.map(r => {
                 const fineVal = Number(r.returnEntry?.fine_amount || 0);
-                const isFinePaid = r.returnEntry?.fine_status === 'paid';
+                const finePaid = Number(r.returnEntry?.fine_paid_amount || 0);
+                const fineRem = Number(r.returnEntry?.fine_remaining_amount !== undefined ? r.returnEntry?.fine_remaining_amount : Math.max(0, fineVal - finePaid));
+                const isFinePaid = r.returnEntry?.fine_status === 'paid' || (finePaid >= fineVal && fineVal > 0);
+                const isFinePartial = r.returnEntry?.fine_status === 'partial' || (finePaid > 0 && finePaid < fineVal);
                 return `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.65rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px;">
                     <div>
@@ -2871,8 +3117,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         ✓ In Hostel
                       </span>
                       ${fineVal > 0 ? `
-                        <div style="font-size: 0.7rem; font-weight: 700; color: ${isFinePaid ? '#059669' : '#DC2626'}; margin-top: 2px;">
-                          Fine: ₹${fineVal} (${isFinePaid ? 'Paid' : 'Due'})
+                        <div style="font-size: 0.7rem; font-weight: 700; color: ${isFinePaid ? '#059669' : isFinePartial ? '#D97706' : '#DC2626'}; margin-top: 2px;">
+                          Fine: ₹${fineVal} (${isFinePaid ? 'Paid' : isFinePartial ? `₹${finePaid} Paid • ₹${fineRem} Due` : 'Due'})
                         </div>
                       ` : ''}
                     </div>

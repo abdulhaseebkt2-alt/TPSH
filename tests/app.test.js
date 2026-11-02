@@ -7126,7 +7126,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // BOTH cards must be present:
       // A) The original Leave Given Card (with remaining students away count and arrival trigger)
       expect(container.innerHTML).toContain(bulkLeave.leave_code);
-      expect(container.innerHTML).toContain('Arrival (2)');
+      expect(container.innerHTML).toContain('Away (2 of 3)');
+      expect(container.innerHTML).not.toContain('Arrival (2)');
       // B) The Arrival Card for Student A
       expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-ARR`);
       expect(container.innerHTML).toContain('Batch Student A');
@@ -7144,7 +7145,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Original bulk leave card STILL exists with 1 student away
       expect(container.innerHTML).toContain(bulkLeave.leave_code);
-      expect(container.innerHTML).toContain('Arrival (1)');
+      expect(container.innerHTML).toContain('Away (1 of 3)');
+      expect(container.innerHTML).not.toContain('Arrival (1)');
       // And arrival batch cards exist
       expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A1`);
       expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A2`);
@@ -7174,6 +7176,85 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(s3.id);
     });
 
+    it('records batch arrival with late fine calculation and partial payment options', async () => {
+      const s1 = await db.addStudent({
+        full_name: 'Late Batch Student 1',
+        admission_number: 'LBS-01',
+        gender: 'male',
+        school_class: 'IX',
+        hostel_status: 'resident'
+      });
+      const s2 = await db.addStudent({
+        full_name: 'Late Batch Student 2',
+        admission_number: 'LBS-02',
+        gender: 'female',
+        school_class: 'IX',
+        hostel_status: 'resident'
+      });
+
+      // Apply batch leave with curfew on 2026-11-01 10:00 AM
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [s1.id, s2.id],
+        leave_type: 'Hostel Leave',
+        reason: 'Weekend Home Visit',
+        departure_date: '2026-10-30',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-01',
+        expected_return_time: '10:00',
+        fine_unit: 'hourly',
+        fine_per_hour_applied: 50,
+        fine_per_hour: 50,
+        status: 'Approved'
+      });
+
+      // Record batch arrival 4 hours late (2026-11-01 14:00) with partial fine payment
+      // Late: 4 hours * 50 = 200 per student => Total 400 for 2 students.
+      // Parents pay partially: 150 total (75 per student).
+      const updatedLeave = await db.recordBatchReturn({
+        leave_id: leave.id,
+        student_ids: [s1.id, s2.id],
+        actual_return_date: '2026-11-01',
+        actual_return_time: '14:00',
+        remarks: 'Late return due to bus delay',
+        fine_payment_status: 'partial',
+        custom_fine_amount: 200,
+        fine_paid_amount: 150,
+        payment_method: 'UPI',
+        reference_number: 'UPI-TXN-987654'
+      });
+
+      // Verify leave status and student records
+      expect(updatedLeave.status).toBe('Returned');
+      expect(updatedLeave.fine_status).toBe('partial');
+      expect(updatedLeave.calculated_fine).toBe(400);
+      expect(updatedLeave.fine_paid_amount).toBe(150);
+      expect(updatedLeave.fine_remaining_amount).toBe(250);
+
+      const st1 = updatedLeave.students.find(s => s.student_id === s1.id);
+      expect(st1.is_returned).toBe(true);
+      expect(st1.fine_amount).toBe(200);
+      expect(st1.fine_paid_amount).toBe(75);
+      expect(st1.fine_remaining_amount).toBe(125);
+      expect(st1.fine_status).toBe('partial');
+
+      // Verify fine payment receipts
+      const payments = await db.getFinePayments({ leave_id: leave.id });
+      expect(payments.length).toBeGreaterThanOrEqual(2);
+      expect(payments.some(p => p.student_id === s1.id && p.amount === 75)).toBe(true);
+      expect(payments.some(p => p.payment_method === 'UPI')).toBe(true);
+
+      // Verify Leave Given Card appearance: must NOT have Arrival button or red overdue styling
+      const { renderLeavesModule } = await import('../src/modules/leaves/index.js');
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(container);
+      expect(container.innerHTML).not.toContain('btn-record-arrival-action');
+      expect(container.innerHTML).not.toContain('Arrival (2)');
+
+      // Cleanup
+      await db.deleteLeaveRecord(leave.id);
+      await db.deleteStudent(s1.id);
+      await db.deleteStudent(s2.id);
+    });
 
   });
 });
