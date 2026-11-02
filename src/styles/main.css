@@ -8349,6 +8349,12 @@ body.tps-wheel-open {
     color: #1D4ED8;
   }
 
+  .m-res-avatar.extended {
+    border: 2px solid #8B5CF6;
+    background: #FAF5FF;
+    color: #7C3AED;
+  }
+
   .m-res-avatar.overdue {
     border: 2px solid #DC2626;
     background: #FEF2F2;
@@ -8368,6 +8374,10 @@ body.tps-wheel-open {
 
   .m-res-badge-dot.dot-blue {
     background: #2563EB;
+  }
+
+  .m-res-badge-dot.dot-purple {
+    background: #8B5CF6;
   }
 
   .m-res-badge-dot.dot-red {
@@ -8415,6 +8425,12 @@ body.tps-wheel-open {
     background: #EFF6FF;
     color: #2563EB;
     border: 1px solid rgba(37, 99, 235, 0.25);
+  }
+
+  .m-res-status-pill.status-extended {
+    background: #FAF5FF;
+    color: #7C3AED;
+    border: 1px solid rgba(139, 92, 246, 0.35);
   }
 
   .m-res-status-pill.status-overdue {

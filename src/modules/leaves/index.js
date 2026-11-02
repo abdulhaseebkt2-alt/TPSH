@@ -571,9 +571,9 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           <div style="font-size: 0.72rem; color: #94A3B8;">${l.departure_time || l.leaving_time || '16:00'}</div>
                         </td>
                         <td style="padding: 0.85rem 1rem;">
-                          <div style="font-size: 0.82rem; font-weight: 700; color: ${isRej || isOverdue ? '#DC2626' : '#1E293B'};">${l.expected_return_date || '-'}</div>
-                          <div style="font-size: 0.72rem; color: ${isOverdue ? '#DC2626' : '#94A3B8'};">${l.expected_return_time || '17:00'}</div>
-                          ${l.fine_per_hour ? `<div style="font-size: 0.72rem; color: ${isOverdue ? '#DC2626' : '#7C3AED'}; font-weight: 700; margin-top: 2px;">Rate: ₹${l.fine_per_hour}/hr</div>` : ''}
+                          <div style="font-size: 0.82rem; font-weight: 700; color: ${isRej ? '#DC2626' : (isExt ? '#7C3AED' : '#1E293B')};">${l.expected_return_date || '-'}</div>
+                          <div style="font-size: 0.72rem; color: ${isExt ? '#7C3AED' : '#94A3B8'};">${l.expected_return_time || '17:00'}</div>
+                          ${l.fine_per_hour ? `<div style="font-size: 0.72rem; color: ${isExt ? '#7C3AED' : '#059669'}; font-weight: 700; margin-top: 2px;">Rate: ₹${l.fine_per_hour}/hr</div>` : ''}
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                           <span class="badge" style="background: ${isExt ? '#F3E8FF' : '#ECFDF5'}; color: ${isExt ? '#7E22CE' : '#047857'}; border: 1px solid ${isExt ? '#DDD6FE' : '#A7F3D0'}; font-weight: 600; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
@@ -593,10 +593,6 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           ` : isRej ? `
                             <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                               Rejected
-                            </span>
-                          ` : isOverdue ? `
-                            <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
-                              Overdue Return${isExt ? ' (Extended)' : ''}
                             </span>
                           ` : isUpcoming ? `
                             <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
@@ -764,10 +760,10 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const studentLabel = sIds.length === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s)`;
 
                 return `
-                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej || isOverdue ? '#FECACA' : (isExt ? '#DDD6FE' : '#A7F3D0')}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                  <div style="background: #FFFFFF; border: 1.5px solid ${isRej ? '#FECACA' : (isExt ? '#DDD6FE' : '#A7F3D0')}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                     <!-- Top Row: Code + Status Badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                      <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7C3AED' : '#047857')};">${code}${l.parent_leave_code ? ` <span style="font-size: 0.75rem; color: #7E22CE; font-weight: 700;">(${l.parent_leave_code})</span>` : ''}</span>
+                      <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: ${isRej ? '#DC2626' : (isExt ? '#7C3AED' : '#047857')};">${code}${l.parent_leave_code ? ` <span style="font-size: 0.75rem; color: #7E22CE; font-weight: 700;">(${l.parent_leave_code})</span>` : ''}</span>
                       ${isPend ? `
                         <span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
                           Pending Approval
@@ -775,10 +771,6 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       ` : isRej ? `
                         <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;" title="${l.rejected_reason || 'Rejected'}">
                           Rejected
-                        </span>
-                      ` : isOverdue ? `
-                        <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
-                          Overdue Return${isExt ? ' (Extended)' : ''}
                         </span>
                       ` : isUpcoming ? `
                         <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
@@ -800,22 +792,22 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${l.reason || 'General leave'}</div>
 
                     <!-- Dates Specs (Aligned & Balanced with Policy) -->
-                    <div style="margin-top: 0.65rem; padding: 0.55rem 0.75rem; background: ${isRej || isOverdue ? '#FEF2F2' : (isExt ? '#FAF5FF' : '#F0FDF4')}; border: 1px solid ${isRej || isOverdue ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; border-radius: 8px; font-size: 0.78rem;">
+                    <div style="margin-top: 0.65rem; padding: 0.55rem 0.75rem; background: ${isRej ? '#FEF2F2' : (isExt ? '#FAF5FF' : '#F0FDF4')}; border: 1px solid ${isRej ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; border-radius: 8px; font-size: 0.78rem;">
                       <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                          <div style="color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">DEPARTURE</div>
+                          <div style="color: ${isRej ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">DEPARTURE</div>
                           <div style="font-weight: 700; color: #1E293B;">${l.departure_date || l.leaving_date || '-'}${l.leaving_time ? ` <span style="font-size: 0.72rem; color: #64748B;">${l.leaving_time}</span>` : ''}</div>
                         </div>
-                        <div style="color: ${isRej || isOverdue ? '#F87171' : (isExt ? '#C084FC' : '#86EFAC')}; font-weight: 700; padding: 0 4px;">→</div>
+                        <div style="color: ${isRej ? '#F87171' : (isExt ? '#C084FC' : '#86EFAC')}; font-weight: 700; padding: 0 4px;">→</div>
                         <div style="text-align: right;">
-                          <div style="color: ${isRej || isOverdue ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">EXPECTED RETURN</div>
-                          <div style="font-weight: 700; color: ${isRej || isOverdue ? '#DC2626' : '#1E293B'};">${l.expected_return_date || '-'}${l.expected_return_time ? ` <span style="font-size: 0.72rem; color: ${isOverdue ? '#DC2626' : '#64748B'};">${l.expected_return_time}</span>` : ''}</div>
+                          <div style="color: ${isRej ? '#DC2626' : (isExt ? '#7E22CE' : '#059669')}; font-size: 0.7rem; font-weight: 700;">EXPECTED RETURN</div>
+                          <div style="font-weight: 700; color: #1E293B;">${l.expected_return_date || '-'}${l.expected_return_time ? ` <span style="font-size: 0.72rem; color: #64748B;">${l.expected_return_time}</span>` : ''}</div>
                         </div>
                       </div>
                       ${l.fine_per_hour ? `
-                        <div style="margin-top: 0.45rem; padding-top: 0.35rem; border-top: 1px dashed ${isRej || isOverdue ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
-                          <span style="color: ${isRej || isOverdue ? '#991B1B' : (isExt ? '#6B21A8' : '#047857')}; font-weight: 600;">Overdue Fine Policy:</span>
-                          <span style="color: ${isRej || isOverdue ? '#DC2626' : '#7C3AED'}; font-weight: 800;">₹${l.fine_per_hour} / hr</span>
+                        <div style="margin-top: 0.45rem; padding-top: 0.35rem; border-top: 1px dashed ${isRej ? '#FECACA' : (isExt ? '#E9D5FF' : '#DCFCE7')}; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
+                          <span style="color: ${isRej ? '#991B1B' : (isExt ? '#6B21A8' : '#047857')}; font-weight: 600;">Overdue Fine Policy:</span>
+                          <span style="color: ${isRej ? '#DC2626' : (isExt ? '#7C3AED' : '#059669')}; font-weight: 800;">₹${l.fine_per_hour} / hr</span>
                         </div>
                       ` : ''}
                     </div>
@@ -823,7 +815,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     <!-- Footer Action Row -->
                     <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; flex-direction: column; gap: 0.45rem;">
                       <div style="display: flex; justify-content: space-between; align-items: center; min-width: 0;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: ${isRej || isOverdue ? '#991B1B' : (isExt ? '#6B21A8' : '#065F46')}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: ${isRej ? '#991B1B' : (isExt ? '#6B21A8' : '#065F46')}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                           ${studentLabel}
                         </span>
                         ${l.has_existing_arrivals ? `

@@ -193,8 +193,16 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const boysInHostel = Math.max(0, boysCount - boysOnLeave);
   const girlsInHostel = Math.max(0, girlsCount - girlsOnLeave);
 
-  let overdueReturns = 0;
+  // Categorize away students: Extended, Overdue, or Regular On Leave
+  const extendedStudentIds = new Set();
+  const overdueStudentIds = new Set();
+  const regularLeaveStudentIds = new Set();
+
   activeUnreturnedLeaves.forEach(l => {
+    const isExtPass = Boolean(l.is_extended);
+    const departs = l.departure_date || l.leaving_date;
+    if (departs && departs > todayIso) return; // Not away yet
+
     const status = (l.status || '').toLowerCase();
     const isOver = status === 'overdue' || (
       l.expected_return_date && (
@@ -202,14 +210,48 @@ export async function renderAdminDashboard(container, { onNavigate }) {
         (l.expected_return_date === todayIso && l.expected_return_time && parseMinutes(l.expected_return_time) < currentMinutes)
       )
     );
-    if (isOver) {
-      if (Array.isArray(l.students) && l.students.length > 0) {
-        overdueReturns += l.students.filter(s => !s.is_returned).length;
-      } else {
-        overdueReturns += 1;
-      }
+
+    if (Array.isArray(l.students) && l.students.length > 0) {
+      l.students.forEach(s => {
+        if (!s.is_returned && s.student_id) {
+          if (isExtPass || s.is_extended) {
+            extendedStudentIds.add(s.student_id);
+          } else if (isOver) {
+            overdueStudentIds.add(s.student_id);
+          } else {
+            regularLeaveStudentIds.add(s.student_id);
+          }
+        }
+      });
+    } else {
+      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+      sIds.forEach(sid => {
+        if (sid) {
+          if (isExtPass) {
+            extendedStudentIds.add(sid);
+          } else if (isOver) {
+            overdueStudentIds.add(sid);
+          } else {
+            regularLeaveStudentIds.add(sid);
+          }
+        }
+      });
     }
   });
+
+  // Priority: Extended takes precedence over Overdue
+  extendedStudentIds.forEach(id => {
+    overdueStudentIds.delete(id);
+    regularLeaveStudentIds.delete(id);
+  });
+  overdueStudentIds.forEach(id => {
+    regularLeaveStudentIds.delete(id);
+  });
+
+  const extendedCount = extendedStudentIds.size;
+  const overdueCount = overdueStudentIds.size;
+  const regularOnLeaveCount = regularLeaveStudentIds.size;
+  const overdueReturns = overdueCount;
 
   const totalFines = (leaves || []).reduce((sum, l) => sum + (Number(l.calculated_fine) || 0), 0);
   const unpaidFines = (leaves || []).filter(l => l.fine_status === 'unpaid').reduce((sum, l) => sum + (Number(l.calculated_fine) || 0), 0);
@@ -231,18 +273,21 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   activeAwayStudentIds.forEach(sid => {
     const s = students.find(st => st.id === sid);
     const matchedLeave = activeLeavesMap.get(sid) || (s ? activeLeavesMap.get((s.full_name || '').toLowerCase()) : null);
-    const isOverdue = matchedLeave?.status === 'Overdue' || (
+    const isExtended = extendedStudentIds.has(sid) || Boolean(matchedLeave?.is_extended);
+    const isOverdue = !isExtended && (overdueStudentIds.has(sid) || matchedLeave?.status === 'Overdue' || (
       matchedLeave?.expected_return_date && (
         matchedLeave.expected_return_date < todayIso ||
         (matchedLeave.expected_return_date === todayIso && matchedLeave.expected_return_time && parseMinutes(matchedLeave.expected_return_time) < currentMinutes)
       )
-    );
+    ));
     studentsOnLeaveList.push({
       id: sid,
       full_name: s?.full_name || matchedLeave?.student_name || 'Resident',
       school_class: s?.school_class || 'STD',
       photo_url: s?.photo_url || null,
-      status: isOverdue ? 'Overdue' : 'On Leave',
+      status: isExtended ? 'Extended' : (isOverdue ? 'Overdue' : 'On Leave'),
+      is_extended: isExtended,
+      is_overdue: isOverdue,
       expected_return_date: matchedLeave?.expected_return_date || null
     });
   });
@@ -255,12 +300,11 @@ export async function renderAdminDashboard(container, { onNavigate }) {
 
   // Proportional arc distribution for Hostel Presence Radar
   const inHostelCount = presentOnCampusCount;
-  const overdueCount = overdueReturns;
-  const regularOnLeaveCount = Math.max(0, studentsOnLeave - overdueCount);
-  const totalRadarCount = Math.max(1, inHostelCount + regularOnLeaveCount + overdueCount);
+  const totalRadarCount = Math.max(1, inHostelCount + regularOnLeaveCount + extendedCount + overdueCount);
   const ARC_LEN = 251.3;
   const inHostelArc = inHostelCount > 0 ? Math.max(3, Number(((inHostelCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
   const onLeaveArc = regularOnLeaveCount > 0 ? Math.max(3, Number(((regularOnLeaveCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
+  const extendedArc = extendedCount > 0 ? Math.max(3, Number(((extendedCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
   const overdueArc = overdueCount > 0 ? Math.max(3, Number(((overdueCount / totalRadarCount) * ARC_LEN).toFixed(1))) : 0;
 
   container.innerHTML = `
@@ -431,11 +475,15 @@ export async function renderAdminDashboard(container, { onNavigate }) {
               ` : ''}
               <!-- 2. On Leave segment (Blue) -->
               ${onLeaveArc > 0 ? `
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="18" stroke-linecap="${overdueArc === 0 ? 'round' : 'butt'}" stroke-dasharray="${onLeaveArc} 251.3" stroke-dashoffset="-${inHostelArc}"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="18" stroke-linecap="${(extendedArc === 0 && overdueArc === 0) ? 'round' : 'butt'}" stroke-dasharray="${onLeaveArc} 251.3" stroke-dashoffset="-${inHostelArc}"/>
               ` : ''}
-              <!-- 3. Overdue segment (Red - No floating circle dot) -->
+              <!-- 3. Extended Leave segment (Violet) -->
+              ${extendedArc > 0 ? `
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#8B5CF6" stroke-width="18" stroke-linecap="${overdueArc === 0 ? 'round' : 'butt'}" stroke-dasharray="${extendedArc} 251.3" stroke-dashoffset="-${inHostelArc + onLeaveArc}"/>
+              ` : ''}
+              <!-- 4. Overdue segment (Red - No floating circle dot) -->
               ${overdueArc > 0 ? `
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#EF4444" stroke-width="18" stroke-linecap="round" stroke-dasharray="${overdueArc} 251.3" stroke-dashoffset="-${inHostelArc + onLeaveArc}"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#EF4444" stroke-width="18" stroke-linecap="round" stroke-dasharray="${overdueArc} 251.3" stroke-dashoffset="-${inHostelArc + onLeaveArc + extendedArc}"/>
               ` : ''}
             </svg>
             <div class="m-gauge-center-content">
@@ -444,7 +492,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             </div>
           </div>
 
-          <div class="m-gauge-legend-row">
+          <div class="m-gauge-legend-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.25rem;">
             <div class="m-gauge-leg-item">
               <span class="m-leg-dot emerald"></span>
               <span class="m-leg-name">In Hostel</span>
@@ -453,12 +501,17 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             <div class="m-gauge-leg-item">
               <span class="m-leg-dot blue"></span>
               <span class="m-leg-name">On Leave</span>
-              <span class="m-leg-count">${studentsOnLeave}</span>
+              <span class="m-leg-count">${regularOnLeaveCount}</span>
+            </div>
+            <div class="m-gauge-leg-item">
+              <span class="m-leg-dot purple" style="background: #8B5CF6;"></span>
+              <span class="m-leg-name" style="color: #7C3AED;">Extended</span>
+              <span class="m-leg-count" style="color: #7C3AED;">${extendedCount}</span>
             </div>
             <div class="m-gauge-leg-item">
               <span class="m-leg-dot red"></span>
               <span class="m-leg-name">Overdue</span>
-              <span class="m-leg-count">${overdueReturns}</span>
+              <span class="m-leg-count">${overdueCount}</span>
             </div>
           </div>
         </div>
@@ -483,17 +536,18 @@ export async function renderAdminDashboard(container, { onNavigate }) {
           ` : studentsOnLeaveList.map(s => {
             const photo = s.photo_url;
             const firstName = (s.full_name || 'Student').split(' ')[0];
-            const isOverdue = s.status === 'Overdue';
+            const isExtended = s.is_extended;
+            const isOverdue = s.is_overdue;
             return `
               <div class="m-res-item m-leave-item" data-route="leaves" data-student-id="${s.id}" title="${s.full_name} (${s.status})">
                 <div class="m-res-avatar-wrap">
-                  <div class="m-res-avatar ${isOverdue ? 'overdue' : 'on-leave'}">
+                  <div class="m-res-avatar ${isExtended ? 'extended' : (isOverdue ? 'overdue' : 'on-leave')}">
                     ${photo ? `<img src="${photo}" alt="${s.full_name}" />` : `<span>${(firstName[0] || 'S').toUpperCase()}</span>`}
                   </div>
-                  <span class="m-res-badge-dot ${isOverdue ? 'dot-red' : 'dot-blue'}"></span>
+                  <span class="m-res-badge-dot ${isExtended ? 'dot-purple' : (isOverdue ? 'dot-red' : 'dot-blue')}"></span>
                 </div>
                 <span class="m-res-name">${firstName}</span>
-                <span class="m-res-status-pill ${isOverdue ? 'status-overdue' : 'status-leave'}">${isOverdue ? 'Overdue' : 'On Leave'}</span>
+                <span class="m-res-status-pill ${isExtended ? 'status-extended' : (isOverdue ? 'status-overdue' : 'status-leave')}">${s.status}</span>
               </div>
             `;
           }).join('')}
