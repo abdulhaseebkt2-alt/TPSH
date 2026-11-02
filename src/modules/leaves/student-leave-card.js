@@ -454,9 +454,28 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
 
                         if (isRecordedLate || (actDt && expDt && actDt.getTime() > expDt.getTime())) {
                           isLate = true;
+                          let rowDelayHours = Number(studentEntry?.late_hours !== undefined ? studentEntry.late_hours : l.late_hours) || 0;
+                          let rowDelayDays = Number(studentEntry?.late_days !== undefined ? studentEntry.late_days : l.late_days) || 0;
+                          if (!rowDelayHours && actDt && expDt && actDt.getTime() > expDt.getTime()) {
+                            rowDelayHours = Math.ceil((actDt.getTime() - expDt.getTime()) / (1000 * 60 * 60));
+                            const expDay = new Date(`${effectiveExpDate}T00:00:00`);
+                            const actDay = new Date(`${actualRetDate}T00:00:00`);
+                            rowDelayDays = Math.max(0, Math.round((actDay.getTime() - expDay.getTime()) / (1000 * 60 * 60 * 24)));
+                          }
+                          if (!rowDelayHours && fineAmt > 0) {
+                            const rate = Number(l.fine_per_hour || studentEntry?.fine_per_hour || 5);
+                            if (rate > 0) {
+                              rowDelayHours = Math.round(fineAmt / rate);
+                              rowDelayDays = Math.max(1, Math.floor(rowDelayHours / 24));
+                            }
+                          }
+                          const delayBadgeText = rowDelayDays > 0 
+                            ? `Late (+${rowDelayDays}d ${rowDelayHours % 24 > 0 ? `${rowDelayHours % 24}h` : ''})` 
+                            : (rowDelayHours > 0 ? `Late (+${rowDelayHours}h)` : 'Late');
+
                           statusBadgeHtml = `
                             <span class="badge badge-danger" style="background: #FEE2E2; color: #DC2626; font-size: 0.68rem; padding: 2px 6px; border-radius: 9999px; font-weight: 700;">
-                              Late
+                              ${delayBadgeText}
                             </span>
                           `;
                         } else if (actualRetDate && l.expected_return_date && actualRetDate < l.expected_return_date) {
@@ -749,6 +768,42 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       const actualRetDate = studentEntry?.actual_return_date || leave.actual_return_date || (leave.status === 'Returned' ? (leave.actual_return_date || leave.expected_return_date) : null);
       const actualRetTime = studentEntry?.actual_return_time || leave.actual_return_time || (leave.status === 'Returned' ? (leave.actual_return_time || leave.expected_return_time) : null);
 
+      // Calculate exact late duration in days and hours
+      const effExpDate = studentEntry?.expected_return_date || leave.expected_return_date;
+      const effExpTime = studentEntry?.expected_return_time || leave.expected_return_time || '18:00';
+      const effActDate = actualRetDate;
+      const effActTime = actualRetTime || effExpTime;
+
+      let delayHours = Number(studentEntry?.late_hours !== undefined ? studentEntry.late_hours : leave.late_hours) || 0;
+      let delayDays = Number(studentEntry?.late_days !== undefined ? studentEntry.late_days : leave.late_days) || 0;
+
+      if (effExpDate && effActDate) {
+        const expTimeClean = effExpTime.length === 5 ? `${effExpTime}:00` : effExpTime;
+        const actTimeClean = effActTime.length === 5 ? `${effActTime}:00` : effActTime;
+        const expDt = new Date(`${effExpDate}T${expTimeClean}`);
+        const actDt = new Date(`${effActDate}T${actTimeClean}`);
+
+        if (!isNaN(expDt.getTime()) && !isNaN(actDt.getTime()) && actDt.getTime() > expDt.getTime()) {
+          const diffMs = actDt.getTime() - expDt.getTime();
+          delayHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+          const expDay = new Date(`${effExpDate}T00:00:00`);
+          const actDay = new Date(`${effActDate}T00:00:00`);
+          delayDays = Math.max(0, Math.round((actDay.getTime() - expDay.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+      }
+
+      // If delay is 0 but fineAmt exists: calculate delay hours from fineRate
+      if (!delayHours && fineAmt > 0) {
+        const rate = Number(leave.fine_per_hour || studentEntry?.fine_per_hour || 5);
+        if (rate > 0) {
+          delayHours = Math.round(fineAmt / rate);
+          delayDays = Math.max(1, Math.floor(delayHours / 24));
+        }
+      }
+
+      const isLateReturn = delayHours > 0 || delayDays > 0 || fineAmt > 0;
+
       const studentName = selectedStudent?.full_name || leave.student_name || 'Student';
       const admNo = selectedStudent?.admission_number || 'TPS-ADM';
 
@@ -800,12 +855,38 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               </div>
               <div>
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Actual Return Date</span>
-                <div style="font-weight: 700; color: #059669; margin-top: 2px;">${actualRetDate || 'Not Returned Yet'}</div>
+                <div style="font-weight: 700; color: ${isLateReturn ? '#DC2626' : '#059669'}; margin-top: 2px;">${actualRetDate || 'Not Returned Yet'}</div>
               </div>
               <div>
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Actual Return Time</span>
-                <div style="font-weight: 700; color: #059669; margin-top: 2px;">${actualRetTime || '-'}</div>
+                <div style="font-weight: 700; color: ${isLateReturn ? '#DC2626' : '#059669'}; margin-top: 2px;">${actualRetTime || '-'}</div>
               </div>
+              ${isLateReturn ? `
+                <div style="grid-column: span 2; background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: 10px; padding: 0.65rem 0.85rem; margin-top: 2px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 0.72rem; font-weight: 800; color: #991B1B; text-transform: uppercase; letter-spacing: 0.03em; display: inline-flex; align-items: center; gap: 4px;">
+                      ⚠️ Overdue Late Return
+                    </span>
+                    <span style="font-size: 0.74rem; font-weight: 800; color: #DC2626; background: #FEE2E2; border: 1px solid #FCA5A5; padding: 2px 8px; border-radius: 9999px;">
+                      ${delayDays > 0 ? `${delayDays} Day(s) Late` : ''}${delayDays > 0 && delayHours > 0 ? ' • ' : ''}${delayHours > 0 ? `${delayHours} Hour(s) Late` : ''}
+                    </span>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.8rem; margin-top: 0.35rem; padding-top: 0.35rem; border-top: 1px dashed #FCA5A5;">
+                    <div>
+                      <span style="color: #7F1D1D; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Days Late:</span>
+                      <div style="font-weight: 800; color: #991B1B; font-size: 0.95rem; margin-top: 1px;">
+                        ${delayDays} Day${delayDays === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <div>
+                      <span style="color: #7F1D1D; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Hours Late:</span>
+                      <div style="font-weight: 800; color: #DC2626; font-size: 0.95rem; margin-top: 1px;">
+                        ${delayHours} Hour${delayHours === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
               <div style="grid-column: span 2;">
                 <span style="color: #64748B; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Reason for Leave</span>
                 <div style="color: #1E293B; margin-top: 2px;">${leave.reason || 'General leave'}</div>
@@ -836,6 +917,12 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
               </div>
               
               ${fineAmt > 0 ? `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem; padding-bottom: 0.35rem; border-bottom: 1px dashed ${isPaid ? '#A7F3D0' : (isPartial ? '#FCD34D' : '#FECDD3')}; font-size: 0.78rem;">
+                  <span style="color: #64748B;">Overdue Delay:</span>
+                  <span style="color: ${isPaid ? '#059669' : (isPartial ? '#D97706' : '#DC2626')}; font-weight: 800;">
+                    ${delayDays > 0 ? `${delayDays} Day(s) ` : ''}${delayHours > 0 ? `(${delayHours} Hours Late)` : ''}
+                  </span>
+                </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem; font-size: 0.78rem;">
                   <span style="color: #64748B;">Settlement Status:</span>
                   ${isPaid ? `
