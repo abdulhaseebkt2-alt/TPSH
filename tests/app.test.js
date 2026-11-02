@@ -7088,6 +7088,91 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteLeaveRecord(bulkLeave.id);
       await db.deleteStudent(s1.id);
     });
+    it('preserves both the original bulk leave pass card and creates separate arrival cards as students arrive at different times', async () => {
+      const s1 = await db.addStudent({ full_name: 'Batch Student A', admission_number: 'TPS-BSA-1', status: 'Active' });
+      const s2 = await db.addStudent({ full_name: 'Batch Student B', admission_number: 'TPS-BSB-2', status: 'Active' });
+      const s3 = await db.addStudent({ full_name: 'Batch Student C', admission_number: 'TPS-BSC-3', status: 'Active' });
+
+      // 1. Issue bulk leave for 3 students
+      const [bulkLeave] = await db.createLeaveRecord({
+        student_ids: [s1.id, s2.id, s3.id],
+        leave_type: 'vacation',
+        reason: 'Holiday vacation',
+        departure_date: '2026-11-01',
+        departure_time: '09:00',
+        expected_return_date: '2026-11-05',
+        expected_return_time: '18:00'
+      });
+
+      const { renderLeavesModule } = await import('../src/modules/leaves/index.js');
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+
+      // Render before any returns: 1 bulk leave card
+      await renderLeavesModule(container);
+      expect(container.innerHTML).toContain(bulkLeave.leave_code);
+      expect(container.innerHTML).toContain('3 Student(s)');
+
+      // 2. Student A arrives first at 10:00 AM
+      await db.recordBatchReturn({
+        leave_id: bulkLeave.id,
+        student_ids: [s1.id],
+        actual_return_date: '2026-11-05',
+        actual_return_time: '10:00',
+        remarks: 'First arrival batch'
+      });
+
+      await renderLeavesModule(container);
+
+      // BOTH cards must be present:
+      // A) The original Leave Given Card (with remaining students away count and arrival trigger)
+      expect(container.innerHTML).toContain(bulkLeave.leave_code);
+      expect(container.innerHTML).toContain('Arrival (2)');
+      // B) The Arrival Card for Student A
+      expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-ARR`);
+      expect(container.innerHTML).toContain('Batch Student A');
+
+      // 3. Student B arrives later at 02:00 PM
+      await db.recordBatchReturn({
+        leave_id: bulkLeave.id,
+        student_ids: [s2.id],
+        actual_return_date: '2026-11-05',
+        actual_return_time: '14:00',
+        remarks: 'Second arrival batch'
+      });
+
+      await renderLeavesModule(container);
+
+      // Original bulk leave card STILL exists with 1 student away
+      expect(container.innerHTML).toContain(bulkLeave.leave_code);
+      expect(container.innerHTML).toContain('Arrival (1)');
+      // And arrival batch cards exist
+      expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A1`);
+      expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A2`);
+
+      // 4. Student C arrives at 06:00 PM (All 3 students returned)
+      await db.recordBatchReturn({
+        leave_id: bulkLeave.id,
+        student_ids: [s3.id],
+        actual_return_date: '2026-11-05',
+        actual_return_time: '18:00',
+        remarks: 'Final arrival batch'
+      });
+
+      await renderLeavesModule(container);
+
+      // The original Leave Given Card must STILL BE THERE (not deleted or replaced), showing full pass completed
+      expect(container.innerHTML).toContain(bulkLeave.leave_code);
+      // And arrival cards for the batches are all displayed
+      expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A1`);
+      expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A2`);
+      expect(container.innerHTML).toContain(`${bulkLeave.leave_code}-A3`);
+
+      // Cleanup
+      await db.deleteLeaveRecord(bulkLeave.id);
+      await db.deleteStudent(s1.id);
+      await db.deleteStudent(s2.id);
+      await db.deleteStudent(s3.id);
+    });
 
 
   });

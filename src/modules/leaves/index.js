@@ -110,49 +110,94 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       const isPend = (l.status || '').toLowerCase() === 'pending';
       const isRej = (l.status || '').toLowerCase() === 'rejected';
 
-      // If pending or rejected or no students array, treat as regular card
-      if (isPend || isRej || !Array.isArray(l.students) || l.students.length === 0) {
+      // If pending or rejected: it is strictly a pending/rejected leave request pass
+      if (isPend || isRej) {
         cards.push({
           ...l,
-          is_arrival_card: (l.status === 'Returned' || Boolean(l.actual_return_date)),
+          id: l.id,
+          is_arrival_card: false,
           has_existing_arrivals: false
         });
         return;
       }
 
-      // Bulk leave with students array
-      const returnedStudents = l.students.filter(s => s.is_returned);
-      const awayStudents = l.students.filter(s => !s.is_returned);
+      const hasStudentsArray = Array.isArray(l.students) && l.students.length > 0;
+      const returnedStudents = hasStudentsArray ? l.students.filter(s => s.is_returned) : [];
+      const awayStudents = hasStudentsArray ? l.students.filter(s => !s.is_returned) : [];
+      const hasArrivals = hasStudentsArray
+        ? (returnedStudents.length > 0)
+        : (l.status === 'Returned' || Boolean(l.actual_return_date));
 
-      // If no returned students yet, it's just the active away pass
-      if (returnedStudents.length === 0) {
-        cards.push({
-          ...l,
-          is_arrival_card: false,
-          has_existing_arrivals: false,
-          unreturned_count: awayStudents.length,
-          all_students_count: l.students.length
-        });
-        return;
-      }
+      const totalStudentsCount = hasStudentsArray
+        ? l.students.length
+        : (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
+      const unretCount = hasStudentsArray
+        ? awayStudents.length
+        : (l.status === 'Returned' ? 0 : 1);
+      const arrivedCount = hasStudentsArray
+        ? returnedStudents.length
+        : (l.status === 'Returned' ? 1 : 0);
+      const isAllReturned = unretCount === 0;
 
-      // Group returned students into batches
-      const batchesMap = new Map();
-      returnedStudents.forEach(s => {
-        const key = s.batch_id || `${s.actual_return_date || l.actual_return_date || 'arr'}_${s.actual_return_time || l.actual_return_time || '00:00'}`;
-        if (!batchesMap.has(key)) batchesMap.set(key, []);
-        batchesMap.get(key).push(s);
+      // 1. ALWAYS PRESERVE & DISPLAY THE OFFICIAL "LEAVE GIVEN" CARD (NEVER REPLACED)
+      cards.push({
+        ...l,
+        id: l.id,
+        is_arrival_card: false,
+        has_existing_arrivals: hasArrivals,
+        students: l.students, // Preserves ALL enrolled students
+        student_ids: l.student_ids || (hasStudentsArray ? l.students.map(s => s.student_id) : (l.student_id ? [l.student_id] : [])),
+        total_students: totalStudentsCount,
+        all_students_count: totalStudentsCount,
+        unreturned_count: unretCount,
+        arrived_count: arrivedCount,
+        status: isAllReturned ? 'Returned' : (isLeaveOverdue(l) ? 'Overdue' : 'Away')
       });
 
-      const batchEntries = Array.from(batchesMap.entries());
+      // 2. ALSO GENERATE SEPARATE "ARRIVAL CARD(S)" FOR EVERY RECORDED ARRIVAL
+      if (hasStudentsArray && returnedStudents.length > 0) {
+        // Group returned students into distinct arrival batches (by batch_id or arrival timestamp)
+        const batchesMap = new Map();
+        returnedStudents.forEach(s => {
+          const key = s.batch_id || `${s.actual_return_date || l.actual_return_date || 'arr'}_${s.actual_return_time || l.actual_return_time || '00:00'}`;
+          if (!batchesMap.has(key)) batchesMap.set(key, []);
+          batchesMap.get(key).push(s);
+        });
 
-      // Create an Arrival Card for each arrival batch
-      batchEntries.forEach(([batchKey, bStudents], idx) => {
-        const batchDate = bStudents[0]?.actual_return_date || l.actual_return_date || l.expected_return_date;
-        const batchTime = bStudents[0]?.actual_return_time || l.actual_return_time || l.expected_return_time || '17:00';
-        const batchRemarks = bStudents[0]?.return_remarks || l.return_remarks || '';
+        const batchEntries = Array.from(batchesMap.entries());
+
+        batchEntries.forEach(([batchKey, bStudents], idx) => {
+          const batchDate = bStudents[0]?.actual_return_date || l.actual_return_date || l.expected_return_date;
+          const batchTime = bStudents[0]?.actual_return_time || l.actual_return_time || l.expected_return_time || '17:00';
+          const batchRemarks = bStudents[0]?.return_remarks || l.return_remarks || '';
+          const parentCode = l.leave_code || l.leave_register_number || 'LV';
+          const batchCode = batchEntries.length > 1 ? `${parentCode}-A${idx + 1}` : `${parentCode}-ARR`;
+
+          cards.push({
+            ...l,
+            id: `${l.id}__arr__${batchKey}`,
+            parent_leave_id: l.id,
+            is_arrival_card: true,
+            batch_key: batchKey,
+            leave_code: batchCode,
+            parent_leave_code: parentCode,
+            status: 'Returned',
+            students: bStudents,
+            student_ids: bStudents.map(s => s.student_id),
+            total_students: bStudents.length,
+            actual_return_date: batchDate,
+            actual_return_time: batchTime,
+            arrival_remarks: batchRemarks,
+            has_existing_arrivals: false,
+            created_at: bStudents[0]?.actual_return_date ? `${batchDate}T${batchTime}:00` : l.created_at
+          });
+        });
+      } else if (!hasStudentsArray && (l.status === 'Returned' || Boolean(l.actual_return_date))) {
+        // Single student arrival card
         const parentCode = l.leave_code || l.leave_register_number || 'LV';
-        const batchCode = batchEntries.length > 1 ? `${parentCode}-A${idx + 1}` : `${parentCode}-ARR`;
+        const batchDate = l.actual_return_date || l.expected_return_date;
+        const batchTime = l.actual_return_time || l.expected_return_time || '17:00';
+        const batchKey = `${batchDate}_${batchTime}`;
 
         cards.push({
           ...l,
@@ -160,32 +205,15 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           parent_leave_id: l.id,
           is_arrival_card: true,
           batch_key: batchKey,
-          leave_code: batchCode,
+          leave_code: `${parentCode}-ARR`,
           parent_leave_code: parentCode,
           status: 'Returned',
-          students: bStudents,
-          student_ids: bStudents.map(s => s.student_id),
-          total_students: bStudents.length,
+          total_students: 1,
           actual_return_date: batchDate,
           actual_return_time: batchTime,
-          arrival_remarks: batchRemarks,
+          arrival_remarks: l.return_remarks || l.remarks || '',
           has_existing_arrivals: false,
-          created_at: bStudents[0]?.actual_return_date ? `${batchDate}T${batchTime}:00` : l.created_at
-        });
-      });
-
-      // If there are still students away, also show the Active Away Pass
-      if (awayStudents.length > 0) {
-        cards.push({
-          ...l,
-          is_arrival_card: false,
-          has_existing_arrivals: true,
-          students: awayStudents,
-          student_ids: awayStudents.map(s => s.student_id),
-          total_students: awayStudents.length,
-          unreturned_count: awayStudents.length,
-          all_students_count: l.students.length,
-          status: isLeaveOverdue(l) ? 'Overdue' : 'Away'
+          created_at: `${batchDate}T${batchTime}:00`
         });
       }
     });
@@ -2732,6 +2760,158 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
         if (currentMode === 'individual') renderIndividualPass();
         else renderBatchPass();
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // MODAL: ARRIVAL BATCH DETAILS MODAL
+  // -------------------------------------------------------------
+  function openArrivalBatchDetailsModal(card) {
+    if (!card) return;
+    const parentCode = card.parent_leave_code || card.leave_code;
+    const sIds = Array.isArray(card.student_ids) ? card.student_ids : [card.student_id].filter(Boolean);
+    const arrivedStudents = sIds.map(sid => {
+      const student = students.find(s => s.id === sid) || allStudents.find(s => s.id === sid);
+      let returnEntry = null;
+      if (Array.isArray(card.students)) {
+        returnEntry = card.students.find(s => s.student_id === sid);
+      }
+      return { student, returnEntry };
+    }).filter(r => r.student);
+
+    // Compute late/fine stats for this batch
+    const expTime = (card.expected_return_time && card.expected_return_time.length === 5) ? `${card.expected_return_time}:00` : (card.expected_return_time || '18:00:00');
+    const actTime = (card.actual_return_time && card.actual_return_time.length === 5) ? `${card.actual_return_time}:00` : (card.actual_return_time || '18:00:00');
+    const expDt = card.expected_return_date ? new Date(`${card.expected_return_date}T${expTime}`) : null;
+    const actDt = card.actual_return_date ? new Date(`${card.actual_return_date}T${actTime}`) : null;
+
+    let isLateArrival = false;
+    let delayLabel = '';
+    if (actDt && expDt && !isNaN(actDt.getTime()) && !isNaN(expDt.getTime()) && actDt.getTime() > expDt.getTime()) {
+      isLateArrival = true;
+      const diffMs = actDt.getTime() - expDt.getTime();
+      const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      if (hrs >= 24) {
+        const days = Math.floor(hrs / 24);
+        const remH = hrs % 24;
+        delayLabel = remH > 0 ? `${days}d ${remH}h late` : `${days}d late`;
+      } else if (hrs > 0) {
+        delayLabel = mins > 0 ? `${hrs}h ${mins}m late` : `${hrs}h late`;
+      } else {
+        delayLabel = `${mins}m late`;
+      }
+    } else if (Number(card.late_hours) > 0 || Number(card.late_days) > 0 || Number(card.calculated_fine) > 0) {
+      isLateArrival = true;
+      delayLabel = Number(card.late_days) > 0 ? `${card.late_days}d late` : `${card.late_hours || 1}h late`;
+    }
+
+    const { container: arrivalModal, close: closeArrivalModal } = openModal({
+      title: `Arrival Record — ${card.leave_code}`,
+      size: 'md',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <!-- Header Banner -->
+          <div style="background: ${isLateArrival ? '#FEF2F2' : '#F0FDF4'}; border: 1.5px solid ${isLateArrival ? '#FCA5A5' : '#BBF7D0'}; border-radius: 12px; padding: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 800; font-size: 1rem; color: ${isLateArrival ? '#DC2626' : '#047857'}; font-family: monospace;">
+                ${card.leave_code}
+              </div>
+              <div style="font-size: 0.74rem; color: #64748B; margin-top: 2px;">
+                Arrival Batch from Leave Pass: <strong>#${parentCode}</strong>
+              </div>
+            </div>
+            <span class="badge" style="background: ${isLateArrival ? '#FEE2E2' : '#DCFCE7'}; color: ${isLateArrival ? '#991B1B' : '#15803D'}; font-weight: 800; padding: 4px 10px; border-radius: 9999px; font-size: 0.78rem;">
+              ${isLateArrival ? `⚠️ Returned Late (${delayLabel || 'Late'})` : '✓ Returned Safe (On-Time)'}
+            </span>
+          </div>
+
+          <!-- Transit Info Grid -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.82rem;">
+            <div>
+              <div style="color: #64748B; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Departure Date & Time</div>
+              <div style="font-weight: 700; color: #0F172A; margin-top: 2px;">${card.departure_date || '-'} at ${card.departure_time || '16:00'}</div>
+            </div>
+            <div>
+              <div style="color: #64748B; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Expected Return</div>
+              <div style="font-weight: 700; color: #0F172A; margin-top: 2px;">${card.expected_return_date || '-'} at ${card.expected_return_time || '18:00'}</div>
+            </div>
+            <div>
+              <div style="color: ${isLateArrival ? '#DC2626' : '#047857'}; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Actual Arrival Date</div>
+              <div style="font-weight: 800; color: ${isLateArrival ? '#DC2626' : '#047857'}; margin-top: 2px;">${card.actual_return_date || '-'}</div>
+            </div>
+            <div>
+              <div style="color: ${isLateArrival ? '#DC2626' : '#047857'}; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Actual Arrival Time</div>
+              <div style="font-weight: 800; color: ${isLateArrival ? '#DC2626' : '#047857'}; margin-top: 2px;">${formatTime(card.actual_return_time || '17:00')}</div>
+            </div>
+            <div style="grid-column: span 2;">
+              <div style="color: #64748B; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Arrival Notes / Remarks</div>
+              <div style="color: #1E293B; margin-top: 2px;">${card.arrival_remarks || card.return_remarks || 'None noted'}</div>
+            </div>
+          </div>
+
+          <!-- Students Arrived in this Batch -->
+          <div>
+            <h4 style="font-size: 0.86rem; font-weight: 800; color: #0F172A; margin: 0 0 0.4rem;">
+              Students Arrived in this Batch (${arrivedStudents.length})
+            </h4>
+            <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem;">
+              ${arrivedStudents.map(r => {
+                const fineVal = Number(r.returnEntry?.fine_amount || 0);
+                const isFinePaid = r.returnEntry?.fine_status === 'paid';
+                return `
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.65rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div>
+                      <strong style="font-size: 0.85rem; color: #0F172A;">${r.student.full_name}</strong>
+                      <div style="font-size: 0.72rem; color: #64748B;">${r.student.admission_number} • Class ${r.student.school_class || '-'} • ${r.student.hostel_room ? `Room ${r.student.hostel_room}` : ''}</div>
+                    </div>
+                    <div style="text-align: right;">
+                      <span class="badge badge-success" style="background: #ECFDF5; color: #059669; font-size: 0.72rem; padding: 2px 7px;">
+                        ✓ In Hostel
+                      </span>
+                      ${fineVal > 0 ? `
+                        <div style="font-size: 0.7rem; font-weight: 700; color: ${isFinePaid ? '#059669' : '#DC2626'}; margin-top: 2px;">
+                          Fine: ₹${fineVal} (${isFinePaid ? 'Paid' : 'Due'})
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- Footer Buttons -->
+          <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #E2E8F0; align-items: center;">
+            ${canRecordReturn ? `
+              <button type="button" class="btn btn-xs btn-outline-danger" id="btn-modal-cancel-arrival" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.65rem; border-radius: 8px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Cancel This Arrival Record
+              </button>
+            ` : '<div></div>'}
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button type="button" class="btn btn-outline" id="btn-modal-arrival-close">Close</button>
+              <button type="button" class="btn btn-primary" id="btn-modal-view-parent-pass" style="background: #059669; border-color: #059669; font-weight: 700; font-size: 0.8rem;">
+                View Original Leave Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      `
+    });
+
+    arrivalModal?.querySelector('#btn-modal-arrival-close')?.addEventListener('click', closeArrivalModal);
+    arrivalModal?.querySelector('#btn-modal-view-parent-pass')?.addEventListener('click', () => {
+      closeArrivalModal();
+      openLeaveDetailsModal(card.parent_leave_id || card.id);
+    });
+    arrivalModal?.querySelector('#btn-modal-cancel-arrival')?.addEventListener('click', () => {
+      closeArrivalModal();
+      const code = card.leave_code;
+      const trigger = container.querySelector(`.btn-delete-arrival-card[data-code="${code}"]`);
+      if (trigger) {
+        trigger.click();
       }
     });
   }

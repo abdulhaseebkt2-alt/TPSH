@@ -2707,7 +2707,7 @@ class DatabaseService {
     const leave = leaves[idx];
     const targetSet = new Set(student_ids);
 
-    if (Array.isArray(leave.students)) {
+    if (Array.isArray(leave.students) && leave.students.length > 0) {
       leave.students.forEach(s => {
         const matchesKey = batch_key && (s.batch_id === batch_key || `${s.actual_return_date || ''}_${s.actual_return_time || ''}` === batch_key);
         if (targetSet.has(s.student_id) || matchesKey) {
@@ -2719,19 +2719,37 @@ class DatabaseService {
           s.fine_amount = 0;
           s.fine_status = null;
           s.fine_paid_amount = 0;
+          s.fine_remaining_amount = 0;
           s.batch_id = null;
           s.return_remarks = '';
           targetSet.add(s.student_id);
         }
       });
+      // If some students are still returned, keep their fines/status
+      const anyStillReturned = leave.students.some(s => s.is_returned);
+      leave.status = anyStillReturned ? 'Away' : 'Away';
+      leave.calculated_fine = leave.students.reduce((sum, s) => sum + (Number(s.fine_amount) || 0), 0);
+      leave.fine_paid_amount = leave.students.reduce((sum, s) => sum + (Number(s.fine_paid_amount) || 0), 0);
+      leave.fine_remaining_amount = leave.students.reduce((sum, s) => sum + (Number(s.fine_remaining_amount) || 0), 0);
+      leave.fine_status = leave.fine_remaining_amount <= 0 && leave.calculated_fine > 0 ? 'paid' : (leave.fine_paid_amount > 0 ? 'partial' : 'unpaid');
+    } else {
+      leave.status = 'Away';
+      leave.actual_return_date = null;
+      leave.actual_return_time = null;
+      leave.late_days = 0;
+      leave.late_hours = 0;
+      leave.calculated_fine = 0;
+      leave.fine_status = 'no_fine';
+      leave.fine_paid_amount = 0;
+      leave.fine_remaining_amount = 0;
+      if (leave.student_id) targetSet.add(leave.student_id);
     }
 
-    leave.status = 'Away';
     this.set('tps_leaves', leaves);
 
     for (const sid of targetSet) {
       if (sid) {
-        await this.updateStudent(sid, { hostel_status: 'on_leave' });
+        await this.updateStudent(sid, { hostel_status: 'on_leave', status: 'On Approved Leave' });
       }
     }
 
