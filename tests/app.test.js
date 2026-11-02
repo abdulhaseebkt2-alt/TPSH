@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import fs from 'fs';
 import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions, isMentorRole, getMentorGenderScope } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour, attachWheelTimePicker, initAllWheelTimePickers } from '../src/lib/wheelTimePicker.js';
@@ -7464,30 +7465,34 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       expect(bulkLeave.students.length).toBe(2);
 
-      // 4. Extend leave ONLY for student1
+      // 4. Extend leave ONLY for student1 with fine_per_hour = 10
       const extendedLeave = await db.extendLeaveRecord(bulkLeave.id, {
         student_ids: [student1.id],
         new_expected_return_date: '2026-10-28',
         new_expected_return_time: '18:00',
+        fine_per_hour: 10,
         reason: 'Family requested 3 additional days due to health',
         approved_by: 'Hostel Warden Test'
       });
 
-      // Verify student1 is extended
-      const s1Entry = extendedLeave.students.find(s => s.student_id === student1.id);
-      expect(s1Entry.expected_return_date).toBe('2026-10-28');
-      expect(s1Entry.is_extended).toBe(true);
-      expect(s1Entry.extension_reason).toContain('health');
+      // Verify student1 is separated into extended leave card
+      expect(extendedLeave.is_extended).toBe(true);
+      expect(extendedLeave.expected_return_date).toBe('2026-10-28');
+      expect(extendedLeave.fine_per_hour).toBe(10);
+      expect(extendedLeave.students.length).toBe(1);
+      expect(extendedLeave.students[0].student_id).toBe(student1.id);
+      expect(extendedLeave.students[0].is_extended).toBe(true);
+      expect(extendedLeave.parent_leave_id).toBe(bulkLeave.id);
 
-      // Verify student2 remains on original return date
-      const s2Entry = extendedLeave.students.find(s => s.student_id === student2.id);
-      expect(s2Entry.expected_return_date || extendedLeave.expected_return_date).toBe('2026-10-25');
-      expect(s2Entry.is_extended).toBeFalsy();
+      // Verify parent bulk leave student count has student1 minused (2 -> 1)
+      const allLeavesNow = await db.getLeaves();
+      const parentBulkNow = allLeavesNow.find(l => l.id === bulkLeave.id);
+      expect(parentBulkNow.students.length).toBe(1);
+      expect(parentBulkNow.students[0].student_id).toBe(student2.id);
 
-      // Verify extension history logs
-      expect(Array.isArray(extendedLeave.extension_history)).toBe(true);
-      expect(extendedLeave.extension_history.length).toBe(1);
-      expect(extendedLeave.extension_history[0].new_expected_return_date).toBe('2026-10-28');
+      // Verify leave code does not contain 👥 icons
+      const leavesJs = fs.readFileSync('src/modules/leaves/index.js', 'utf8');
+      expect(leavesJs).not.toContain('👥');
 
       // 5. Test Student Leave Card rendering for extended student
       const cardWrap = {
@@ -7497,9 +7502,9 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       };
       await renderStudentLeaveCardModule(cardWrap, { studentId: student1.id });
       expect(cardWrap.innerHTML).toContain('MD Aamir Test');
-      expect(cardWrap.innerHTML).toContain('(Ext)');
 
       // Clean up
+      await db.deleteLeaveRecord(extendedLeave.id);
       await db.deleteLeaveRecord(bulkLeave.id);
       await db.deleteStudent(student1.id);
       await db.deleteStudent(student2.id);

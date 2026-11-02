@@ -2283,6 +2283,7 @@ class DatabaseService {
     student_ids = null,
     new_expected_return_date,
     new_expected_return_time = '18:00',
+    fine_per_hour = 5,
     reason = 'Parent requested leave extension',
     approved_by = 'Hostel Office'
   }) {
@@ -2298,10 +2299,98 @@ class DatabaseService {
       : null;
 
     const hasStudents = Array.isArray(leave.students) && leave.students.length > 0;
-    const awayStudents = hasStudents ? leave.students.filter(s => !s.is_returned) : [];
-    const isAllSelected = !targetStudentIds || (awayStudents.length > 0 && awayStudents.every(s => targetStudentIds.has(s.student_id)));
+    const isBatch = Boolean(leave.is_batch || (hasStudents && leave.students.length > 1));
+    const appliedFineRate = Number(fine_per_hour) || Number(leave.fine_per_hour) || 5;
 
-    // Update individual students
+    // Check if separating students from bulk leave
+    if (isBatch && hasStudents && targetStudentIds && targetStudentIds.size > 0 && targetStudentIds.size < leave.students.length) {
+      const selectedStudentEntries = leave.students.filter(s => targetStudentIds.has(s.student_id));
+      
+      // 1. Separate selected students out of parent bulk leave pass (minus from bulk leave)
+      leave.students = leave.students.filter(s => !targetStudentIds.has(s.student_id));
+      leave.student_ids = (leave.student_ids || []).filter(id => !targetStudentIds.has(id));
+      if (Array.isArray(leave.student_names)) {
+        leave.student_names = leave.students.map(s => s.student_name || s.name || s.full_name).filter(Boolean);
+      }
+      leave.total_students = leave.students.length;
+      leave.all_students_count = leave.students.length;
+      leave.updated_at = nowIso;
+
+      // 2. Determine unique code for child extended pass
+      const parentCode = leave.leave_code || leave.leave_register_number || 'LV-2026';
+      const existingExts = leaves.filter(l => l.parent_leave_id === leave.id || (l.leave_code && l.leave_code.startsWith(parentCode + '-EXT')));
+      const extCode = `${parentCode}-EXT${existingExts.length > 0 ? (existingExts.length + 1) : ''}`;
+
+      const extStudentList = selectedStudentEntries.map(s => ({
+        ...s,
+        original_expected_return_date: s.expected_return_date || leave.expected_return_date,
+        original_expected_return_time: s.expected_return_time || leave.expected_return_time || '18:00',
+        expected_return_date: new_expected_return_date,
+        expected_return_time: new_expected_return_time,
+        is_extended: true,
+        is_returned: false,
+        extension_reason: reason,
+        extended_by: approved_by,
+        extended_at: nowIso
+      }));
+
+      // 3. Create distinct Expanded Leave Card record
+      const newExtLeave = {
+        id: 'lv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+        leave_code: extCode,
+        leave_register_number: extCode,
+        parent_leave_id: leave.id,
+        parent_leave_code: parentCode,
+        leave_type: leave.leave_type || 'Hostel Leave',
+        leave_category: leave.leave_category || 'General',
+        reason: `${leave.reason ? leave.reason + ' • ' : ''}Extended: ${reason}`,
+        departure_date: leave.departure_date,
+        departure_time: leave.departure_time,
+        original_expected_return_date: leave.expected_return_date,
+        original_expected_return_time: leave.expected_return_time,
+        expected_return_date: new_expected_return_date,
+        expected_return_time: new_expected_return_time,
+        fine_unit: 'hour',
+        fine_per_hour: appliedFineRate,
+        fine_per_hour_applied: appliedFineRate,
+        fine_per_day: appliedFineRate * 24,
+        fine_per_day_applied: appliedFineRate * 24,
+        status: 'Approved',
+        is_extended: true,
+        is_batch: extStudentList.length > 1,
+        total_students: extStudentList.length,
+        all_students_count: extStudentList.length,
+        students: extStudentList,
+        student_ids: extStudentList.map(s => s.student_id),
+        student_names: extStudentList.map(s => s.student_name || s.name || s.full_name).filter(Boolean),
+        student_id: extStudentList.length === 1 ? extStudentList[0].student_id : null,
+        student_name: extStudentList.length === 1 ? (extStudentList[0].student_name || extStudentList[0].name) : null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        extension_history: [{
+          extended_at: nowIso,
+          parent_leave_code: parentCode,
+          new_expected_return_date,
+          new_expected_return_time,
+          fine_per_hour: appliedFineRate,
+          reason,
+          approved_by,
+          student_ids: extStudentList.map(s => s.student_id)
+        }]
+      };
+
+      leaves[idx] = leave;
+      leaves.splice(idx + 1, 0, newExtLeave);
+      this.set('tps_leaves', leaves);
+      await this.pushCloudKey('tps_leaves', leaves);
+
+      this.logAudit('LEAVE_EXTENDED_SEPARATED', 'student_leave_records', newExtLeave.id,
+        `Separated ${extStudentList.length} student(s) into extended leave ${extCode} (due ${new_expected_return_date} @ ₹${appliedFineRate}/hr): ${reason}`);
+
+      return newExtLeave;
+    }
+
+    // Otherwise: all students on pass or single student pass being extended in place
     if (hasStudents) {
       leave.students.forEach(s => {
         if (!s.is_returned && (!targetStudentIds || targetStudentIds.has(s.student_id))) {
@@ -2317,14 +2406,15 @@ class DatabaseService {
       });
     }
 
-    // If all students or single pass, update top-level pass return schedule
-    if (isAllSelected || !leave.is_batch) {
-      leave.original_expected_return_date = leave.original_expected_return_date || leave.expected_return_date;
-      leave.original_expected_return_time = leave.original_expected_return_time || leave.expected_return_time;
-      leave.expected_return_date = new_expected_return_date;
-      leave.expected_return_time = new_expected_return_time;
-    }
-
+    leave.original_expected_return_date = leave.original_expected_return_date || leave.expected_return_date;
+    leave.original_expected_return_time = leave.original_expected_return_time || leave.expected_return_time;
+    leave.expected_return_date = new_expected_return_date;
+    leave.expected_return_time = new_expected_return_time;
+    leave.fine_unit = 'hour';
+    leave.fine_per_hour = appliedFineRate;
+    leave.fine_per_hour_applied = appliedFineRate;
+    leave.fine_per_day = appliedFineRate * 24;
+    leave.fine_per_day_applied = appliedFineRate * 24;
     leave.is_extended = true;
     leave.extension_reason = reason;
     leave.extended_by = approved_by;
@@ -2336,6 +2426,7 @@ class DatabaseService {
       extended_at: nowIso,
       new_expected_return_date,
       new_expected_return_time,
+      fine_per_hour: appliedFineRate,
       reason,
       approved_by,
       student_ids: targetStudentIds ? Array.from(targetStudentIds) : (leave.student_ids || [leave.student_id])
@@ -2346,7 +2437,7 @@ class DatabaseService {
     await this.pushCloudKey('tps_leaves', leaves);
 
     this.logAudit('LEAVE_EXTENDED', 'student_leave_records', leave.id,
-      `Leave extended to ${new_expected_return_date} for ${targetStudentIds ? targetStudentIds.size + ' student(s)' : 'all students'} by ${approved_by}: ${reason}`);
+      `Leave extended to ${new_expected_return_date} for ${targetStudentIds ? targetStudentIds.size + ' student(s)' : 'all students'} by ${approved_by} @ ₹${appliedFineRate}/hr: ${reason}`);
 
     return leave;
   }
