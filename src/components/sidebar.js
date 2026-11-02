@@ -23,7 +23,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
     },
     {
       title: 'Hostel Operations',
-      keys: ['leaves', 'leave_card', 'fines', 'discipline', 'discipline_card', 'hostel', 'maintenance']
+      keys: ['leaves', 'leave_card', 'fines', 'discipline', 'hostel', 'maintenance']
     },
     {
       title: 'Examinations & Results',

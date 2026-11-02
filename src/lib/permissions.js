@@ -20,7 +20,6 @@ export const MODULE_DEFINITIONS = [
   { key: 'leave_card', label: 'Student Leave Card', icon: 'id-card', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'student', 'hostel_leader'] },
   { key: 'fines', label: 'Late Fine Management', icon: 'receipt', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
   { key: 'discipline', label: 'Discipline & Black Marks', icon: 'alert-triangle', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
-  { key: 'discipline_card', label: 'Student Discipline Card', icon: 'shield-alert', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
   { key: 'exams', label: 'Exam Management', icon: 'file-text', roles: ['super_admin', 'admin', 'teacher', 'student'] },
   { key: 'marks', label: 'Marks & Results', icon: 'award', roles: ['super_admin', 'admin', 'teacher', 'parent', 'student'] },
   { key: 'hostel', label: 'Hostel Rooms & Beds', icon: 'bed', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'hostel_leader'] },
@@ -51,7 +50,6 @@ export const DEFAULT_RBAC_MATRIX = {
     leave_card: 'full',
     fines: 'full',
     discipline: 'full',
-    discipline_card: 'full',
     exams: 'full',
     marks: 'full',
     hostel: 'full',
@@ -72,7 +70,6 @@ export const DEFAULT_RBAC_MATRIX = {
     leave_card: 'full',
     fines: 'view',
     discipline: 'full',
-    discipline_card: 'full',
     hostel: 'full',
     notices: 'full',
     maintenance: 'full',
@@ -89,7 +86,6 @@ export const DEFAULT_RBAC_MATRIX = {
     leave_card: 'full',
     fines: 'view',
     discipline: 'full',
-    discipline_card: 'full',
     hostel: 'full',
     notices: 'full',
     maintenance: 'full',
@@ -106,7 +102,6 @@ export const DEFAULT_RBAC_MATRIX = {
     leave_card: 'full',
     fines: 'view',
     discipline: 'full',
-    discipline_card: 'full',
     hostel: 'full',
     notices: 'full',
     maintenance: 'full',
@@ -135,7 +130,6 @@ export const DEFAULT_RBAC_MATRIX = {
     leave_card: 'view',
     fines: 'view',
     discipline: 'view',
-    discipline_card: 'view',
     hostel: 'view',
     notices: 'view',
     maintenance: 'full'
@@ -149,7 +143,6 @@ export const DEFAULT_RBAC_MATRIX = {
     leave_card: 'view',
     fines: 'view',
     discipline: 'view',
-    discipline_card: 'view',
     marks: 'view',
     fees: 'view',
     notices: 'view'
@@ -309,6 +302,11 @@ export function getModuleAccessLevel(profile, moduleKey) {
 
   // Core administrative security modules reserved strictly for Super Admin
   if (moduleKey === 'audit') return 'off';
+
+  // Disciplinary module unification: discipline_card follows discipline
+  if (moduleKey === 'discipline_card') {
+    return getModuleAccessLevel(profile, 'discipline');
+  }
 
   // Custom user-level assigned modules override (if present on profile or in user custom storage)
   let userCustom = profile.custom_modules;
