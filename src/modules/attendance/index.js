@@ -511,16 +511,16 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         ` : ''}
 
         <!-- TIMETABLE SCHEDULE TABS -->
-        <div class="att-timetable-tabs">
-          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'today' ? 'is-active' : ''}" data-tab="today">
-            Today's Schedule (${todayList.length})
+        <div class="att-timetable-tabs" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; width: 100%; box-sizing: border-box; background: #F1F5F9; padding: 0.3rem; border-radius: 12px; margin-bottom: 1.25rem;">
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'today' ? 'is-active' : ''}" data-tab="today" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
+            Today (${todayList.length})
           </button>
-          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'weekly' ? 'is-active' : ''}" data-tab="weekly">
-            Full Weekly Timetable (${displayList.length})
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'weekly' ? 'is-active' : ''}" data-tab="weekly" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
+            Weekly (${displayList.length})
           </button>
-          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'live' ? 'is-active' : ''}" data-tab="live">
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'live' ? 'is-active' : ''}" data-tab="live" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
             ${liveList.length > 0 ? `<span class="live-pulse-dot" style="margin-right: 2px;"></span>` : ''}
-            Live In-Session (${liveList.length})
+            Live (${liveList.length})
           </button>
         </div>
 
@@ -624,8 +624,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               `;
             } else if (hasSessionRecorded) {
               const sessionRecord = allSessions.find(s => s.classroom_id === cls.id && s.session_date === sessionDate);
-              const isRecordedLate = sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15);
-              const lateM = sessionRecord?.late_submission_minutes || 0;
+              const punctInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sessionRecord, cls.start_time) : { isLate: sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15), lateMinutes: sessionRecord?.late_submission_minutes || 0 };
+              const isRecordedLate = punctInfo.isLate;
+              const lateM = punctInfo.lateMinutes;
               const subBy = sessionRecord?.submitted_by_name || sessionRecord?.teacher_name || teacherName;
 
               cardHeading = 'Attendance Recorded';
@@ -735,8 +736,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                     <span class="detail-label">Duty Punctuality</span>
                     ${(() => {
                       const sessionRecord = allSessions.find(s => s.classroom_id === cls.id && s.session_date === sessionDate);
-                      const isRecordedLate = sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15);
-                      const lateM = sessionRecord?.late_submission_minutes || 0;
+                      const punctInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sessionRecord, cls.start_time) : { isLate: sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15), lateMinutes: sessionRecord?.late_submission_minutes || 0 };
+              const isRecordedLate = punctInfo.isLate;
+                      const lateM = punctInfo.lateMinutes;
                       const subBy = sessionRecord?.submitted_by_name || sessionRecord?.teacher_name || teacherName;
                       if (!hasSessionRecorded) {
                         return '<span class="detail-value" style="color: #64748B;">Pending Live Session</span>';
@@ -1549,7 +1551,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         let isLateSubmission = false;
         let lateMinsCount = 0;
 
-        if (isTodaySession) {
+        if (hasExistingSession && existingSession) {
+          // Updating attendance (e.g. marking late students who arrived)
+          // Faculty punctuality is governed by the 1st attendance submission of the class
+          const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(existingSession, activeCls?.start_time) : { isLate: false, lateMinutes: 0 };
+          isLateSubmission = pInfo.isLate;
+          lateMinsCount = pInfo.lateMinutes;
+        } else if (isTodaySession) {
           const diffFromStart = currentMins - sMin;
           if (diffFromStart > 15) {
             isLateSubmission = true;
@@ -1563,7 +1571,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         }
 
         let confirmed = false;
-        if (isLateSubmission) {
+        if (hasExistingSession) {
+          confirmed = await confirmDialog({
+            title: 'Confirm Attendance Update',
+            message: `Update attendance records for ${activeCls?.name}? This records student presence and late arrivals. Faculty duty punctuality remains preserved from your initial class attendance.`,
+            confirmText: 'Save & Update Attendance'
+          });
+        } else if (isLateSubmission) {
           const graceEndMinutes = sMin + 15;
           const graceHour = Math.floor(graceEndMinutes / 60);
           const graceMinute = graceEndMinutes % 60;

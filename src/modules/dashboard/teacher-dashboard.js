@@ -133,7 +133,8 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
 
       const record = attendanceRecords.find(r => r.classroom_id === c.id && r.session_date === dateStr);
       if (record && Array.isArray(record.records) && record.records.length > 0) {
-        const isLate = record.submission_punctuality === 'late' || (Number(record.late_submission_minutes) > 15);
+        const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(record, c.start_time) : { isLate: record.submission_punctuality === 'late' || (Number(record.late_submission_minutes) > 15) };
+        const isLate = pInfo.isLate;
         if (isLate) {
           dayLate++;
         } else {

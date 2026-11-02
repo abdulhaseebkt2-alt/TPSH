@@ -293,7 +293,8 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       let missed = d.isMissedAttendance ? 1 : 0;
 
       if (sess && Array.isArray(sess.records) && sess.records.length > 0) {
-        const isLate = sess.submission_punctuality === 'late' || (Number(sess.late_submission_minutes) > 15);
+        const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sess, activeClass?.start_time) : { isLate: sess.submission_punctuality === 'late' || (Number(sess.late_submission_minutes) > 15) };
+        const isLate = pInfo.isLate;
         if (isLate) {
           late = 1;
         } else {

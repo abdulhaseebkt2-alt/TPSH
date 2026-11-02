@@ -1887,6 +1887,46 @@ class DatabaseService {
     return this.get('tps_attendance_unlocks') || [];
   }
 
+  getSessionPunctualityInfo(sessionRecord, classStartTime = '') {
+    if (!sessionRecord) return { isLate: false, lateMinutes: 0, punctuality: 'punctual' };
+
+    // 1. Explicit 1st attendance punctuality recorded on session
+    if (sessionRecord.first_submission_punctuality) {
+      const isLate = sessionRecord.first_submission_punctuality === 'late';
+      return {
+        isLate,
+        lateMinutes: Number(sessionRecord.first_late_submission_minutes) || 0,
+        punctuality: isLate ? 'late' : 'punctual'
+      };
+    }
+
+    // 2. Evaluate from initial/1st submission timestamp against scheduled class start time
+    const firstIso = sessionRecord.first_recorded_at || sessionRecord.created_at || sessionRecord.recorded_at;
+    const stTime = classStartTime || sessionRecord.class_start_time;
+    if (firstIso && stTime) {
+      const [sh, sm] = stTime.split(':').map(Number);
+      const startMins = (sh || 0) * 60 + (sm || 0);
+      const fDate = new Date(firstIso);
+      if (!isNaN(fDate.getTime())) {
+        const fMins = fDate.getHours() * 60 + fDate.getMinutes();
+        const diff = fMins - startMins;
+        if (diff <= 15) {
+          return { isLate: false, lateMinutes: Math.max(0, diff), punctuality: 'punctual' };
+        } else {
+          return { isLate: true, lateMinutes: diff, punctuality: 'late' };
+        }
+      }
+    }
+
+    // 3. Fallback to existing session fields
+    const isLate = sessionRecord.submission_punctuality === 'late' || (Number(sessionRecord.late_submission_minutes) > 15);
+    return {
+      isLate,
+      lateMinutes: Number(sessionRecord.late_submission_minutes) || 0,
+      punctuality: isLate ? 'late' : 'punctual'
+    };
+  }
+
   async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at, submission_punctuality = 'punctual', late_submission_minutes = 0, class_start_time = '', submitted_by_name = '' }) {
     const attendance = this.get('tps_attendance') || [];
     const nowIso = recorded_at || new Date().toISOString();
@@ -1898,24 +1938,50 @@ class DatabaseService {
     if (existingIndex >= 0) {
       // Update existing session
       const prev = attendance[existingIndex];
+
+      // Faculty duty punctuality is strictly determined from the FIRST attendance submission of the class
+      const firstRecordedAt = prev.first_recorded_at || prev.created_at || prev.recorded_at;
+      let firstPunctuality = prev.first_submission_punctuality || prev.submission_punctuality || 'punctual';
+      let firstLateMinutes = prev.first_late_submission_minutes !== undefined ? prev.first_late_submission_minutes : (prev.late_submission_minutes || 0);
+
+      // Verify if previous late flag was erroneously caused by a later update (e.g. marking late students)
+      if (firstRecordedAt && (class_start_time || prev.class_start_time)) {
+        const stTime = class_start_time || prev.class_start_time;
+        const [sh, sm] = stTime.split(':').map(Number);
+        const startMins = (sh || 0) * 60 + (sm || 0);
+        const fDate = new Date(firstRecordedAt);
+        if (!isNaN(fDate.getTime())) {
+          const fMins = fDate.getHours() * 60 + fDate.getMinutes();
+          const diff = fMins - startMins;
+          if (diff <= 15) {
+            firstPunctuality = 'punctual';
+            firstLateMinutes = Math.max(0, diff);
+          }
+        }
+      }
+
       targetSession = {
         ...prev,
         program_id: program_id || prev.program_id,
         teacher_id: teacher_id || prev.teacher_id,
         teacher_name: teacher_name || prev.teacher_name,
         records: records || prev.records,
-        recorded_at: nowIso,
+        recorded_at: prev.recorded_at || nowIso,
+        first_recorded_at: firstRecordedAt,
         updated_at: nowIso,
-        submission_punctuality: submission_punctuality || prev.submission_punctuality || 'punctual',
-        late_submission_minutes: late_submission_minutes !== undefined ? late_submission_minutes : (prev.late_submission_minutes || 0),
+        submission_punctuality: firstPunctuality,
+        late_submission_minutes: firstLateMinutes,
+        first_submission_punctuality: firstPunctuality,
+        first_late_submission_minutes: firstLateMinutes,
         class_start_time: class_start_time || prev.class_start_time || '',
-        submitted_by_name: submitted_by_name || teacher_name || prev.submitted_by_name || '',
+        submitted_by_name: prev.submitted_by_name || submitted_by_name || teacher_name || '',
+        last_updated_by_name: submitted_by_name || teacher_name || '',
         // Track students who were initially marked absent
         initial_absent_ids: prev.initial_absent_ids || prev.records?.filter(r => r.status === 'Absent').map(r => r.student_id) || []
       };
       attendance[existingIndex] = targetSession;
     } else {
-      // Create new session
+      // Create new session (1st attendance submission of the class)
       const sessionId = 'sess-' + Date.now();
       const initialAbsentIds = (records || []).filter(r => r.status === 'Absent').map(r => r.student_id);
       targetSession = {
@@ -1927,8 +1993,11 @@ class DatabaseService {
         teacher_name: teacher_name || '',
         recorded_at: nowIso,
         created_at: nowIso,
+        first_recorded_at: nowIso,
         submission_punctuality: submission_punctuality || 'punctual',
         late_submission_minutes: Number(late_submission_minutes) || 0,
+        first_submission_punctuality: submission_punctuality || 'punctual',
+        first_late_submission_minutes: Number(late_submission_minutes) || 0,
         class_start_time: class_start_time || '',
         submitted_by_name: submitted_by_name || teacher_name || '',
         initial_absent_ids: initialAbsentIds,

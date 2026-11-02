@@ -1680,6 +1680,54 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(updatedSession.records.find(r => r.student_id === 'st-1').status).toBe('Present');
   });
 
+  it('Faculty duty punctuality is strictly evaluated from 1st attendance of the class when updating attendance for late students', async () => {
+    const sessionDate = '2026-11-02';
+    const classroomId = 'cls-punctual-test';
+
+    // 1. Teacher takes attendance punctually when class begins (05:30 AM)
+    const initialSession = await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: classroomId,
+      session_date: sessionDate,
+      teacher_id: 'u-mubashir',
+      teacher_name: 'Muhammad Mubashir',
+      class_start_time: '05:30',
+      submission_punctuality: 'punctual',
+      late_submission_minutes: 0,
+      records: [
+        { student_id: 'st-1', status: 'Present' },
+        { student_id: 'st-2', status: 'Absent' }
+      ]
+    });
+
+    expect(initialSession.submission_punctuality).toBe('punctual');
+    expect(initialSession.late_submission_minutes).toBe(0);
+
+    // 2. Later (e.g. 221 minutes later), teacher updates attendance because student 2 arrived late
+    const updatedSession = await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: classroomId,
+      session_date: sessionDate,
+      teacher_id: 'u-mubashir',
+      teacher_name: 'Muhammad Mubashir',
+      class_start_time: '05:30',
+      submission_punctuality: 'late',
+      late_submission_minutes: 221,
+      records: [
+        { student_id: 'st-1', status: 'Present' },
+        { student_id: 'st-2', status: 'Late Present', late_minutes: 45 }
+      ]
+    });
+
+    // Punctuality must remain strictly governed by the teacher's 1st attendance submission:
+    expect(updatedSession.submission_punctuality).toBe('punctual');
+    expect(updatedSession.late_submission_minutes).toBe(0);
+
+    const punctInfo = db.getSessionPunctualityInfo(updatedSession, '05:30');
+    expect(punctInfo.isLate).toBe(false);
+    expect(punctInfo.punctuality).toBe('punctual');
+  });
+
   it('Cloud Database Synchronization guarantees identical unified classrooms, timings, and assignments across Desktop and Mobile', async () => {
     // Verify that getClassrooms returns the unified cloud state with Htl BB, 09:39 AM – 10:07 PM, and 9999
     const classrooms = await db.getClassrooms();
