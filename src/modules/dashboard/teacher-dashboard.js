@@ -2,6 +2,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
 import { formatTime, formatDate, formatDaysSingleLetters } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
+import { generatePunctualityChartHtml } from '../../components/punctuality-chart.js';
 
 export async function renderTeacherDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -107,6 +108,59 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   const totalStudentsTaught = students.filter(s => s.status === 'Active').length;
   const activeExam = exams[0] || { title: 'Mid-Term Examination 2026' };
   const myExamSubjects = examSubjects.slice(0, 2);
+
+  // Compute 14-day Faculty Attendance Punctuality timeline (Punctual <=15m, Late >15m, Missed)
+  const timelineDays = [];
+  for (let offset = 13; offset >= 0; offset--) {
+    const d = new Date(now.getTime() - offset * 24 * 3600 * 1000);
+    const dateStr = d.toISOString().split('T')[0];
+    const dayKey = DAY_KEYS[d.getDay()];
+    const isPast = dateStr < todayDateStr;
+    const isToday = dateStr === todayDateStr;
+
+    let dayPunctual = 0;
+    let dayLate = 0;
+    let dayMissed = 0;
+
+    myClassrooms.forEach(c => {
+      const days = Array.isArray(c.days) && c.days.length > 0 ? c.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      if (!days.includes(dayKey)) return;
+
+      // Check holiday or faculty leave
+      const offInfo = db.isClassSessionOffDueToHoliday(c, dateStr, academicCalendar);
+      const onLeave = db.isFacultyOnApprovedLeave(user, dateStr, facultyLeaves);
+      if (offInfo.isOff || onLeave) return;
+
+      const record = attendanceRecords.find(r => r.classroom_id === c.id && r.session_date === dateStr);
+      if (record && Array.isArray(record.records) && record.records.length > 0) {
+        const isLate = record.submission_punctuality === 'late' || (Number(record.late_submission_minutes) > 15);
+        if (isLate) {
+          dayLate++;
+        } else {
+          dayPunctual++;
+        }
+      } else {
+        const cEndMin = parseMinutes(c.end_time || '07:30');
+        if (isPast || (isToday && currentMinutes > cEndMin)) {
+          dayMissed++;
+        }
+      }
+    });
+
+    timelineDays.push({
+      dateStr,
+      dayLabel: `${d.getDate()} ${DAY_KEYS[d.getDay()]}`,
+      punctual: dayPunctual,
+      late: dayLate,
+      missed: dayMissed
+    });
+  }
+
+  const facultyPunctualityChartHtml = generatePunctualityChartHtml({
+    timelineDays,
+    title: 'My Attendance Punctuality & Duty Compliance',
+    subtitle: '3-line trend across your teaching sessions: Punctual (≤15m), Late (>15m), and Missed sessions (Last 14 Days)'
+  });
 
   container.innerHTML = `
   <div class="teacher-dashboard-wrap">
@@ -367,6 +421,9 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         </div>
       </div>
     </div>
+
+    <!-- FACULTY ATTENDANCE PUNCTUALITY & COMPLIANCE 3-LINE GRAPH -->
+    ${facultyPunctualityChartHtml}
 
     <!-- Main 2-Column Academic & Examination Duties Grid -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">

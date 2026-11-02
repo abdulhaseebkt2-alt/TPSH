@@ -274,6 +274,38 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
     <!-- DYNAMIC LIFECYCLE LEAVE & PASS BANNER -->
     ${isOverdue ? `
+      <!-- EXTENSION STATUS BANNER (If Parent Requested Leave Extension) -->
+      ${activeLeave?.extension_request?.status === 'pending' ? `
+        <div style="background: #FFFBEB; border: 1.5px solid #FCD34D; border-left: 5px solid #D97706; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.25rem;">⏳</span>
+            <div>
+              <div style="font-size: 0.86rem; font-weight: 800; color: #92400E;">Leave Extension Request Submitted (Pending Approval)</div>
+              <div style="font-size: 0.76rem; color: #B45309; margin-top: 1px;">
+                Requested Return: <strong>${formatDate(activeLeave.extension_request.requested_return_date)} at ${formatTime(activeLeave.extension_request.requested_return_time)}</strong>
+              </div>
+              <div style="font-size: 0.72rem; color: #78350F; font-style: italic; margin-top: 1px;">
+                Reason: "${activeLeave.extension_request.reason}"
+              </div>
+            </div>
+          </div>
+          <span class="badge" style="background: #FEF3C7; color: #92400E; font-weight: 800; font-size: 0.72rem; padding: 3px 8px; border-radius: 9999px;">
+            Awaiting Admin
+          </span>
+        </div>
+      ` : activeLeave?.extension_request?.status === 'approved' ? `
+        <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-left: 5px solid #059669; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.25rem;">✓</span>
+          <div>
+            <div style="font-size: 0.86rem; font-weight: 800; color: #065F46;">Leave Extension Approved by Administration</div>
+            <div style="font-size: 0.76rem; color: #047857; margin-top: 1px;">
+              Expected Return updated to <strong>${formatDate(activeLeave.expected_return_date)} at ${formatTime(activeLeave.expected_return_time)}</strong>
+              ${activeLeave.extension_request.admin_remarks ? ` • Note: ${activeLeave.extension_request.admin_remarks}` : ''}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
       <!-- 5. OVERDUE RETURN & LATE FINE CARD (Compact, Replaces Separate Fine Card) -->
       <div class="card-panel parent-overdue-alert" style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-left: 5px solid #DC2626; border-radius: 12px; padding: 0.65rem 0.85rem; margin-bottom: 1.15rem; box-shadow: 0 3px 8px rgba(220, 38, 38, 0.06); display: flex; align-items: center; gap: 0.75rem;">
         <div style="writing-mode: vertical-rl; transform: rotate(180deg); background: #FFFFFF; border: 1.5px solid #FECACA; border-radius: 10px; padding: 0.45rem 0.35rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(220,38,38,0.06); text-align: center; line-height: 1.15;">

@@ -3,6 +3,7 @@ import { formatDate, formatTime, formatDaysSingleLetters } from '../../lib/utils
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { openModal } from '../../lib/dialog.js';
+import { generatePunctualityChartHtml } from '../../components/punctuality-chart.js';
 
 export async function renderAttendanceReportModule(container, { onNavigate } = {}) {
   const user = getCurrentUser();
@@ -284,6 +285,37 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     const unlockedSessions = currentMonthDays.filter(d => d.isMissedAttendance && unlocks.includes(`${activeClass?.id}_${d.dateStr}`)).length;
     const allMonthMissedUnlocked = missedSessions > 0 && unlockedSessions === missedSessions;
 
+    // Build 3-line graph data (Punctual <=15m, Late >15m, Missed) for this class across the month
+    const timelineDays = currentMonthDays.map(d => {
+      const sess = attendanceSessions.find(s => s.classroom_id === activeClass?.id && s.session_date === d.dateStr);
+      let punctual = 0;
+      let late = 0;
+      let missed = d.isMissedAttendance ? 1 : 0;
+
+      if (sess && Array.isArray(sess.records) && sess.records.length > 0) {
+        const isLate = sess.submission_punctuality === 'late' || (Number(sess.late_submission_minutes) > 15);
+        if (isLate) {
+          late = 1;
+        } else {
+          punctual = 1;
+        }
+      }
+
+      return {
+        dateStr: d.dateStr,
+        dayLabel: String(d.dayNumber),
+        punctual,
+        late,
+        missed
+      };
+    });
+
+    const punctualityChartHtml = generatePunctualityChartHtml({
+      timelineDays,
+      title: `${activeClass?.name || 'Classroom'} Attendance Punctuality Trends`,
+      subtitle: `3-line analysis: Punctual (≤15 min), Late (>15 min), and Missed sessions for ${MONTH_NAMES[currentMonth - 1]} ${currentYear}`
+    });
+
     container.innerHTML = `
       <div class="attendance-report-container" style="padding-bottom: 2.5rem;">
         
@@ -448,6 +480,9 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
             <span style="font-size: 0.68rem; color: #B45309;">Permitted Missed</span>
           </div>
         </div>
+
+        <!-- 3-LINE ATTENDANCE PUNCTUALITY & COMPLIANCE TREND GRAPH -->
+        ${punctualityChartHtml}
 
         <!-- COMPACT VISUAL CALENDAR CARD (EXACT MATCHING ACADEMIC CALENDAR SCREENSHOT 2) -->
         <div class="cal-fluent-grid-card" style="margin-bottom: 1.5rem;">

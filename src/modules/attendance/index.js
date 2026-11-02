@@ -623,11 +623,23 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                 </span>
               `;
             } else if (hasSessionRecorded) {
+              const sessionRecord = allSessions.find(s => s.classroom_id === cls.id && s.session_date === sessionDate);
+              const isRecordedLate = sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15);
+              const lateM = sessionRecord?.late_submission_minutes || 0;
+              const subBy = sessionRecord?.submitted_by_name || sessionRecord?.teacher_name || teacherName;
+
               cardHeading = 'Attendance Recorded';
-              cardSubtitle = `Submitted for ${formatDate(sessionDate)}`;
-              statusBadgeHtml = `
-                <span class="badge badge-active" style="border-radius: 9999px; padding: 0.35rem 0.8rem; font-size: 0.74rem;">
-                  ✓ Attendance Recorded
+              cardSubtitle = isRecordedLate 
+                ? `Submitted ${lateM}m late by ${subBy}` 
+                : `Punctually submitted by ${subBy}`;
+
+              statusBadgeHtml = isRecordedLate ? `
+                <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1.5px solid #FECACA; border-radius: 9999px; padding: 0.35rem 0.8rem; font-size: 0.74rem; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                  ⚠️ Late (+${lateM}m) by ${subBy}
+                </span>
+              ` : `
+                <span class="badge badge-active" style="border-radius: 9999px; padding: 0.35rem 0.8rem; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                  ✓ Punctual by ${subBy}
                 </span>
               `;
             } else if (isBefore) {
@@ -718,6 +730,21 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                   <div class="upcoming-detail-cell">
                     <span class="detail-label">Enrolled Roster</span>
                     <span class="detail-value">${enrolledCount} Students</span>
+                  </div>
+                  <div class="upcoming-detail-cell">
+                    <span class="detail-label">Duty Punctuality</span>
+                    ${(() => {
+                      const sessionRecord = allSessions.find(s => s.classroom_id === cls.id && s.session_date === sessionDate);
+                      const isRecordedLate = sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15);
+                      const lateM = sessionRecord?.late_submission_minutes || 0;
+                      const subBy = sessionRecord?.submitted_by_name || sessionRecord?.teacher_name || teacherName;
+                      if (!hasSessionRecorded) {
+                        return '<span class="detail-value" style="color: #64748B;">Pending Live Session</span>';
+                      }
+                      return isRecordedLate 
+                        ? `<span class="detail-value" style="color: #DC2626; font-weight: 800;">⚠️ Late (+${lateM}m) by ${subBy}</span>`
+                        : `<span class="detail-value" style="color: #059669; font-weight: 800;">✓ Punctual (≤15m) by ${subBy}</span>`;
+                    })()}
                   </div>
                   <div class="upcoming-detail-cell">
                     <span class="detail-label">Scheduled Days</span>
@@ -1508,18 +1535,81 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           return;
         }
 
-        const confirmed = await confirmDialog({
-          title: 'Confirm Live Attendance Submission',
-          message: 'Submit attendance for this class session? This will record student presence, timestamp the exact time, and record your faculty duty attendance.',
-          confirmText: 'Submit Attendance'
-        });
+        const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
+        const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
+        const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
+        const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+
+        // Punctuality check: Attendance must be taken within 15 minutes after class started
+        const sMin = parseMinutes(activeCls?.start_time || '06:30');
+        const nowObj = new Date();
+        const currentMins = nowObj.getHours() * 60 + nowObj.getMinutes();
+        const isTodaySession = sessionDate === todayIso;
+
+        let isLateSubmission = false;
+        let lateMinsCount = 0;
+
+        if (isTodaySession) {
+          const diffFromStart = currentMins - sMin;
+          if (diffFromStart > 15) {
+            isLateSubmission = true;
+            lateMinsCount = diffFromStart;
+          } else {
+            lateMinsCount = Math.max(0, diffFromStart);
+          }
+        } else if (sessionDate < todayIso) {
+          isLateSubmission = true;
+          lateMinsCount = 60; // Flagged as late submission on unlocked past day
+        }
+
+        let confirmed = false;
+        if (isLateSubmission) {
+          const graceEndMinutes = sMin + 15;
+          const graceHour = Math.floor(graceEndMinutes / 60);
+          const graceMinute = graceEndMinutes % 60;
+          const graceTimeStr = `${String(graceHour).padStart(2, '0')}:${String(graceMinute).padStart(2, '0')}`;
+
+          confirmed = await confirmDialog({
+            title: '⚠️ Attendance Punctuality Reminder',
+            message: `
+              <div style="text-align: left; padding: 0.25rem 0;">
+                <div style="background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.45rem;">
+                    <strong style="color: #991B1B; font-size: 0.92rem;">Late Attendance Submission</strong>
+                    <span class="badge badge-danger" style="font-weight: 800; font-size: 0.74rem; padding: 2px 8px; border-radius: 9999px;">
+                      +${lateMinsCount} min late
+                    </span>
+                  </div>
+                  <div style="font-size: 0.8rem; color: #7F1D1D; line-height: 1.5;">
+                    <div>Faculty: <strong>${teacherDisplayName}</strong></div>
+                    <div>Class: <strong>${activeCls?.name || 'Classroom'}</strong> (${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')})</div>
+                    <div>15-Min Grace Window Ended: <strong>${formatTime(graceTimeStr)}</strong></div>
+                    <div style="margin-top: 3px; font-weight: 700; color: #DC2626;">
+                      Current Time: ${formatTime(nowObj.toTimeString().slice(0, 5))} (${lateMinsCount} minutes after class started)
+                    </div>
+                  </div>
+                </div>
+
+                <div style="font-size: 0.8rem; color: #475569; line-height: 1.5; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem;">
+                  📢 <strong>Punctuality Protocol:</strong> Faculty members are expected to record classroom attendance strictly within <strong>15 minutes</strong> after class commences.<br/>
+                  <span style="color: #64748B; font-size: 0.74rem; margin-top: 4px; display: inline-block;">
+                    Please take attendance promptly in future sessions. This record will be logged with your timestamp as Late (+${lateMinsCount}m) on the attendance card and duty reports.
+                  </span>
+                </div>
+              </div>
+            `,
+            confirmText: 'Acknowledge & Confirm Attendance',
+            cancelText: 'Cancel'
+          });
+        } else {
+          confirmed = await confirmDialog({
+            title: 'Confirm Live Attendance Submission',
+            message: `Submit punctual attendance for ${activeCls?.name}? This will record student presence, timestamp the exact time (${formatTime(new Date().toTimeString().slice(0, 5))}), and record your faculty duty attendance.`,
+            confirmText: 'Submit Attendance'
+          });
+        }
 
         if (confirmed) {
-          const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
-          const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
-          const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
-          const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
-
           const records = activeList.map(s => {
             const sid = s.id;
             const onLeave = isStudentOnLeave(s, sessionDate);
@@ -1540,6 +1630,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             teacher_id: activeCls?.teacher_id || user?.id || 'u-2',
             teacher_name: teacherDisplayName,
             recorded_at: recordedAtIso,
+            submission_punctuality: isLateSubmission ? 'late' : 'punctual',
+            late_submission_minutes: lateMinsCount,
+            class_start_time: activeCls?.start_time || '06:30',
+            submitted_by_name: teacherDisplayName,
             records
           });
 

@@ -1887,7 +1887,7 @@ class DatabaseService {
     return this.get('tps_attendance_unlocks') || [];
   }
 
-  async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at }) {
+  async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at, submission_punctuality = 'punctual', late_submission_minutes = 0, class_start_time = '', submitted_by_name = '' }) {
     const attendance = this.get('tps_attendance') || [];
     const nowIso = recorded_at || new Date().toISOString();
 
@@ -1906,6 +1906,10 @@ class DatabaseService {
         records: records || prev.records,
         recorded_at: nowIso,
         updated_at: nowIso,
+        submission_punctuality: submission_punctuality || prev.submission_punctuality || 'punctual',
+        late_submission_minutes: late_submission_minutes !== undefined ? late_submission_minutes : (prev.late_submission_minutes || 0),
+        class_start_time: class_start_time || prev.class_start_time || '',
+        submitted_by_name: submitted_by_name || teacher_name || prev.submitted_by_name || '',
         // Track students who were initially marked absent
         initial_absent_ids: prev.initial_absent_ids || prev.records?.filter(r => r.status === 'Absent').map(r => r.student_id) || []
       };
@@ -1923,6 +1927,10 @@ class DatabaseService {
         teacher_name: teacher_name || '',
         recorded_at: nowIso,
         created_at: nowIso,
+        submission_punctuality: submission_punctuality || 'punctual',
+        late_submission_minutes: Number(late_submission_minutes) || 0,
+        class_start_time: class_start_time || '',
+        submitted_by_name: submitted_by_name || teacher_name || '',
         initial_absent_ids: initialAbsentIds,
         records: records || []
       };
@@ -2295,6 +2303,107 @@ class DatabaseService {
 
     await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('REJECT_LEAVE', 'student_leave_records', leave_id, `Leave ${leave.leave_code} rejected by ${rejected_by}: ${reason}`);
+    return leave;
+  }
+
+  async requestLeaveExtension(leave_id, { requested_return_date, requested_return_time, reason, parent_name, parent_phone }) {
+    await this.pullCloudKeys(['tps_leaves'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+    const leave = leaves[idx];
+
+    leave.extension_request = {
+      id: 'ext-' + Date.now(),
+      status: 'pending',
+      requested_return_date,
+      requested_return_time: requested_return_time || '18:00',
+      reason: reason || 'Parent requested extension for genuine reason',
+      parent_name: parent_name || 'Parent',
+      parent_phone: parent_phone || '',
+      requested_at: new Date().toISOString()
+    };
+    leave.updated_at = new Date().toISOString();
+
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+    this.logAudit('REQUEST_LEAVE_EXTENSION', 'student_leave_records', leave_id, `Parent requested extension until ${requested_return_date} (${reason})`);
+    return leave;
+  }
+
+  async acceptLeaveExtension(leave_id, { approved_return_date, approved_return_time, admin_remarks = '', waive_fines = true, approved_by = 'Admin' } = {}) {
+    await this.pullCloudKeys(['tps_leaves'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+    const leave = leaves[idx];
+
+    const prevDate = leave.expected_return_date;
+    const prevTime = leave.expected_return_time;
+    const newDate = approved_return_date || leave.extension_request?.requested_return_date || prevDate;
+    const newTime = approved_return_time || leave.extension_request?.requested_return_time || prevTime || '18:00';
+
+    leave.expected_return_date = newDate;
+    leave.expected_return_time = newTime;
+
+    leave.extension_history = leave.extension_history || [];
+    leave.extension_history.push({
+      id: 'ext-hist-' + Date.now(),
+      approved_at: new Date().toISOString(),
+      approved_by,
+      previous_return_date: prevDate,
+      previous_return_time: prevTime,
+      extended_return_date: newDate,
+      extended_return_time: newTime,
+      reason: leave.extension_request?.reason || '',
+      admin_remarks
+    });
+
+    if (leave.extension_request) {
+      leave.extension_request.status = 'approved';
+      leave.extension_request.approved_at = new Date().toISOString();
+      leave.extension_request.approved_by = approved_by;
+      leave.extension_request.admin_remarks = admin_remarks;
+    }
+
+    // If leave was marked overdue, check if new expected return date/time is in the future
+    const now = new Date();
+    const newExp = new Date(newDate + 'T' + (newTime || '18:00:00'));
+    if (now < newExp && (leave.status === 'Overdue' || leave.status === 'overdue')) {
+      leave.status = 'Away';
+      if (waive_fines) {
+        leave.calculated_fine = 0;
+        leave.adjusted_fine = 0;
+        leave.late_hours = 0;
+        leave.late_days = 0;
+      }
+    }
+    leave.updated_at = new Date().toISOString();
+
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+    this.logAudit('ACCEPT_LEAVE_EXTENSION', 'student_leave_records', leave_id, `Leave extension approved until ${newDate} ${newTime}`);
+    return leave;
+  }
+
+  async rejectLeaveExtension(leave_id, { reason = 'Extension not approved', rejected_by = 'Admin' } = {}) {
+    await this.pullCloudKeys(['tps_leaves'], true);
+    const leaves = this.get('tps_leaves') || [];
+    const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
+    if (idx === -1) throw new Error('Leave record not found');
+    const leave = leaves[idx];
+
+    if (leave.extension_request) {
+      leave.extension_request.status = 'rejected';
+      leave.extension_request.rejected_at = new Date().toISOString();
+      leave.extension_request.rejected_by = rejected_by;
+      leave.extension_request.rejection_reason = reason;
+    }
+    leave.updated_at = new Date().toISOString();
+
+    this.set('tps_leaves', leaves);
+    await this.pushCloudKey('tps_leaves', leaves);
+    this.logAudit('REJECT_LEAVE_EXTENSION', 'student_leave_records', leave_id, `Leave extension rejected: ${reason}`);
     return leave;
   }
 
