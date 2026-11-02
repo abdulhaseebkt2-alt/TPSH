@@ -922,7 +922,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 </label>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                   <span style="font-weight: 700; color: #475569;">₹</span>
-                  <input type="number" id="approve-fine-rate" class="form-control" value="${leave.fine_per_hour || 50}" min="0" step="5" required style="height: 38px; font-weight: 700; font-size: 0.95rem; max-width: 130px;" />
+                  <input type="number" id="approve-fine-rate" class="form-control" value="${leave.fine_per_hour || 5}" min="0" step="1" required style="height: 38px; font-weight: 700; font-size: 0.95rem; max-width: 130px;" />
                   <span style="font-size: 0.8rem; color: #64748B;">/ hour late</span>
                 </div>
                 <p style="font-size: 0.74rem; color: #64748B; margin-top: 0.25rem;">
@@ -942,7 +942,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
         modal.querySelector('#btn-cancel-approve')?.addEventListener('click', close);
         modal.querySelector('#btn-confirm-approve')?.addEventListener('click', async () => {
-          const fineRateVal = Number(modal.querySelector('#approve-fine-rate')?.value) || 50;
+          const fineRateVal = Number(modal.querySelector('#approve-fine-rate')?.value) || 5;
           const depDateVal = modal.querySelector('#approve-dep-date')?.value || leave.departure_date;
           const depTimeVal = modal.querySelector('#approve-dep-time')?.value || leave.departure_time;
           const retDateVal = modal.querySelector('#approve-ret-date')?.value || leave.expected_return_date;
@@ -1092,17 +1092,17 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         } catch (_) {}
 
         const { container: deleteModal, close: closeDeleteModal } = openModal({
-          title: `Cancel Arrival Record - ${code}`,
+          title: `Delete Arrival Record - ${code}`,
           size: 'sm',
           contentHtml: `
             <div style="display: flex; flex-direction: column; gap: 0.85rem; padding: 0.25rem 0;">
               <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 0.85rem; color: #991B1B;">
                 <div style="font-weight: 800; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                  Cancel Arrival Batch
+                  Delete Arrival Batch
                 </div>
                 <p style="font-size: 0.82rem; margin: 0.4rem 0 0; line-height: 1.45; color: #7F1D1D;">
-                  Are you sure you want to cancel the arrival for these <strong>${studentIds.length} student(s)</strong> (${code})?
+                  Are you sure you want to delete the arrival record for these <strong>${studentIds.length} student(s)</strong> (${code})?
                 </p>
                 <p style="font-size: 0.76rem; margin: 0.35rem 0 0; color: #991B1B;">
                   These students will be moved back to <strong>Away</strong> status. The main leave pass and other arrival batches will remain completely safe!
@@ -1112,7 +1112,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
                 <button type="button" class="btn btn-outline" id="btn-cancel-arr-modal">Keep Arrived</button>
                 <button type="button" class="btn btn-danger" id="btn-confirm-cancel-arr" style="background: #DC2626; border-color: #DC2626; font-weight: 700; color: #FFFFFF;">
-                  Cancel Arrival Record
+                  Delete Arrival
                 </button>
               </div>
             </div>
@@ -1124,7 +1124,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           closeDeleteModal();
           try {
             await db.cancelArrivalBatch(parentId, batchKey, studentIds);
-            toast.success(`Arrival batch ${code} cancelled. Students marked away again.`);
+            toast.success(`Arrival batch ${code} deleted. Students marked away again.`);
             await reloadLeavesData();
             renderView();
           } catch (err) {
@@ -1363,7 +1363,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             <label class="form-label" style="font-size: 0.76rem; font-weight: 700; color: #0F172A;">Per-Hour Overdue Fine Rate (₹/hr)</label>
             <div style="display: flex; align-items: center; gap: 0.4rem;">
               <span style="font-weight: 700; color: #475569;">₹</span>
-              <input type="number" id="edit-fine-rate" class="form-control" value="${leave.fine_per_hour || 50}" min="0" step="5" style="height: 38px; font-size: 0.85rem; max-width: 120px;" />
+              <input type="number" id="edit-fine-rate" class="form-control" value="${leave.fine_per_hour || 5}" min="0" step="1" style="height: 38px; font-size: 0.85rem; max-width: 120px;" />
               <span style="font-size: 0.78rem; color: #64748B;">/ hour late</span>
             </div>
           </div>
@@ -1390,7 +1390,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       const depTime = modal.querySelector('#edit-dep-time')?.value;
       const retDate = modal.querySelector('#edit-ret-date')?.value;
       const retTime = modal.querySelector('#edit-ret-time')?.value;
-      const fineRate = Number(modal.querySelector('#edit-fine-rate')?.value) || 50;
+      const fineRate = Number(modal.querySelector('#edit-fine-rate')?.value) || 5;
       const reasonVal = modal.querySelector('#edit-leave-reason')?.value?.trim();
 
       if (!depDate || !retDate) {
@@ -1936,7 +1936,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       <span style="color: #64748B; font-size: 0.7rem; margin-left: 4px;">(${activeTarget.student.full_name})</span>
                     </div>
                     <span class="badge" style="background: #DBEAFE; color: #1D4ED8; font-weight: 700; font-size: 0.68rem; padding: 2px 7px;">
-                      Rate: ₹${activeTarget.leave.fine_per_hour || 50}/hr
+                      Rate: ₹${activeTarget.leave.fine_per_hour || 5}/hr
                     </span>
                   </div>
                 ` : ''}
@@ -2098,7 +2098,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               const targetLeave = activeTarget.leave;
               const isHourly = targetLeave.fine_unit === 'hour' || targetLeave.fine_unit === 'hourly' || (targetLeave.fine_unit !== 'daily' && !targetLeave.fine_per_day);
               const rate = isHourly
-                ? Number(targetLeave.fine_per_hour_applied || targetLeave.fine_per_hour || 50)
+                ? Number(targetLeave.fine_per_hour_applied || targetLeave.fine_per_hour || 5)
                 : Number(targetLeave.fine_per_day_applied || targetLeave.fine_per_day || 100);
 
               const calc = db.calculateReturnLate(
@@ -2339,7 +2339,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             const targetLeave = currentLeave;
             const isHourly = targetLeave.fine_unit === 'hour' || targetLeave.fine_unit === 'hourly' || (targetLeave.fine_unit !== 'daily' && !targetLeave.fine_per_day);
             const rate = isHourly
-              ? Number(targetLeave.fine_per_hour_applied || targetLeave.fine_per_hour || 50)
+              ? Number(targetLeave.fine_per_hour_applied || targetLeave.fine_per_hour || 5)
               : Number(targetLeave.fine_per_day_applied || targetLeave.fine_per_day || 100);
 
             const calc = db.calculateReturnLate(
@@ -2499,7 +2499,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           let savedRetDate = defaultReturn;
           let savedRetTime = '17:00';
           let savedLeaveType = 'hostel_leave';
-          let savedFineRate = 50;
+          let savedFineRate = 5;
           let savedReason = '';
 
           function getFiltered() {
@@ -2723,8 +2723,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   expected_return_date: retDate,
                   expected_return_time: retTime,
                   fine_unit: 'hour',
-                  fine_per_hour: Number(fineRate) || 50,
-                  fine_per_day: (Number(fineRate) || 50) * 24,
+                  fine_per_hour: Number(fineRate) || 5,
+                  fine_per_day: (Number(fineRate) || 5) * 24,
                   reason,
                   approved_by: user?.full_name || 'Hostel Warden'
                 });
@@ -2754,7 +2754,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
           let savedBatchRetDate = defaultReturn;
           let savedBatchRetTime = '17:00';
           let savedBatchLeaveType = 'vacation';
-          let savedBatchFineRate = 50;
+          let savedBatchFineRate = 5;
           let savedBatchReason = 'Term End Vacation';
 
           function saveBatchState() {
@@ -2771,7 +2771,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             if (retDateEl) savedBatchRetDate = retDateEl.value;
             if (retTimeEl) savedBatchRetTime = retTimeEl.value;
             if (typeEl) savedBatchLeaveType = typeEl.value;
-            if (fineEl) savedBatchFineRate = Number(fineEl.value) || 50;
+            if (fineEl) savedBatchFineRate = Number(fineEl.value) || 5;
             if (reasonEl) savedBatchReason = reasonEl.value;
           }
 
@@ -2829,7 +2829,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     </div>
                     <div class="form-group" style="margin: 0;">
                       <label class="form-label required" style="font-size: 0.72rem; font-weight: 600;">Late Fine / Hour (₹) *</label>
-                      <input type="number" id="batch-pass-fine-rate" class="form-control" value="${savedBatchFineRate}" min="0" step="5" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
+                      <input type="number" id="batch-pass-fine-rate" class="form-control" value="${savedBatchFineRate}" min="0" step="1" required style="width: 100%; height: 34px; font-size: 0.8rem;" />
                     </div>
                   </div>
 
@@ -2971,7 +2971,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               const retDate = modalBody.querySelector('#batch-pass-ret-date')?.value;
               const retTime = modalBody.querySelector('#batch-pass-ret-time')?.value;
               const leaveType = modalBody.querySelector('#batch-pass-type')?.value;
-              const fineRate = Number(modalBody.querySelector('#batch-pass-fine-rate')?.value) || 50;
+              const fineRate = Number(modalBody.querySelector('#batch-pass-fine-rate')?.value) || 5;
               const reason = modalBody.querySelector('#batch-pass-reason')?.value.trim();
 
               if (!depDate || !retDate || !reason) {
@@ -3163,7 +3163,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             ${canRecordReturn ? `
               <button type="button" class="btn btn-xs btn-outline-danger" id="btn-modal-cancel-arrival" style="color: #DC2626; border-color: #FCA5A5; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.65rem; border-radius: 8px;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                Cancel This Arrival Record
+                Delete Arrival
               </button>
             ` : '<div></div>'}
             <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -3326,7 +3326,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
             <div><strong>Leave Type:</strong> ${(leave.leave_type || 'Hostel Leave').replace(/_/g, ' ')}</div>
             <div><strong>Departure Date:</strong> ${leave.departure_date} (${leave.departure_time || '16:00'})</div>
             <div><strong>Expected Return:</strong> ${leave.expected_return_date} (${leave.expected_return_time || '17:00'})</div>
-            <div><strong>Late Fine Policy:</strong> ₹${leave.fine_unit === 'hour' || leave.fine_per_hour ? (leave.fine_per_hour || 50) + ' / hour' : (leave.fine_per_day || 100) + ' / day'}</div>
+            <div><strong>Late Fine Policy:</strong> ₹${leave.fine_unit === 'hour' || leave.fine_per_hour ? (leave.fine_per_hour || 5) + ' / hour' : (leave.fine_per_day || 120) + ' / day'}</div>
             <div style="grid-column: span 2;"><strong>Approved Purpose / Reason:</strong> ${leave.reason || 'General leave'}</div>
           </div>
 

@@ -1986,7 +1986,7 @@ class DatabaseService {
     return this.get('tps_leaves') || [];
   }
 
-  calculateReturnLate(expectedDateStr, expectedTimeStr, actualDateStr, actualTimeStr, fineRate = 50, rateType = 'daily') {
+  calculateReturnLate(expectedDateStr, expectedTimeStr, actualDateStr, actualTimeStr, fineRate = 5, rateType = 'daily') {
     if (!expectedDateStr || !actualDateStr) return { lateHours: 0, lateDays: 0, fineAmount: 0, blackMarks: 0 };
     const expDate = new Date(expectedDateStr + 'T00:00:00');
     const actDate = new Date(actualDateStr + 'T00:00:00');
@@ -2026,7 +2026,7 @@ class DatabaseService {
     return { lateHours, lateDays, fineAmount, blackMarks };
   }
 
-  calculateHourlyLate(expectedDateStr, expectedTimeStr, actualDateStr = null, actualTimeStr = null, hourlyRate = 50) {
+  calculateHourlyLate(expectedDateStr, expectedTimeStr, actualDateStr = null, actualTimeStr = null, hourlyRate = 5) {
     if (!expectedDateStr) return { lateHours: 0, late_hours: 0, lateMinutes: 0, chargedHours: 0, lateDays: 0, fineAmount: 0, calculated_fine: 0, isOverdue: false, remainingHours: 0, remainingMinutes: 0 };
     const expTime = (expectedTimeStr && expectedTimeStr.length === 5) ? `${expectedTimeStr}:00` : (expectedTimeStr || '18:00:00');
     const expFull = new Date(`${expectedDateStr}T${expTime}`);
@@ -2079,7 +2079,7 @@ class DatabaseService {
     reason,
     expected_return_date,
     expected_return_time,
-    fine_per_hour = 50,
+    fine_per_hour = 5,
     fine_per_day = null,
     fine_unit = null,
     escort_type = 'Parent / Guardian',
@@ -2111,7 +2111,7 @@ class DatabaseService {
 
     const effectiveStatus = status || (requester_role === 'parent' ? 'Pending' : 'Away');
     const effectiveUnit = fine_unit || (fine_per_day !== null ? 'daily' : 'hour');
-    const effectiveHourlyFine = Number(fine_per_hour) || 50;
+    const effectiveHourlyFine = Number(fine_per_hour) || 5;
     const effectiveDailyFine = Number(fine_per_day) || (effectiveHourlyFine * 24);
 
     const studentEntries = sIds.map(sid => ({
@@ -2185,7 +2185,7 @@ class DatabaseService {
     return [primaryRec];
   }
 
-  async approveLeaveRecord(leave_id, { approved_by = 'Hostel Warden', fine_per_hour = 50, departure_date, departure_time, expected_return_date, expected_return_time } = {}) {
+  async approveLeaveRecord(leave_id, { approved_by = 'Hostel Warden', fine_per_hour = 5, departure_date, departure_time, expected_return_date, expected_return_time } = {}) {
     await this.pullCloudKeys(['tps_leaves'], true);
     const leaves = this.get('tps_leaves');
     const idx = leaves.findIndex(l => l.id === leave_id || l.leave_code === leave_id);
@@ -2196,10 +2196,10 @@ class DatabaseService {
     leave.approved_by = approved_by || 'Hostel Warden';
     leave.approved_at = new Date().toISOString();
     leave.fine_unit = 'hour';
-    leave.fine_per_hour = Number(fine_per_hour) || 50;
-    leave.fine_per_hour_applied = Number(fine_per_hour) || 50;
-    leave.fine_per_day = (Number(fine_per_hour) || 50) * 24;
-    leave.fine_per_day_applied = (Number(fine_per_hour) || 50) * 24;
+    leave.fine_per_hour = Number(fine_per_hour) || 5;
+    leave.fine_per_hour_applied = Number(fine_per_hour) || 5;
+    leave.fine_per_day = (Number(fine_per_hour) || 5) * 24;
+    leave.fine_per_day_applied = (Number(fine_per_hour) || 5) * 24;
 
     if (departure_date) {
       leave.departure_date = departure_date;
@@ -2249,10 +2249,10 @@ class DatabaseService {
     if (updates.expected_return_date !== undefined) leave.expected_return_date = updates.expected_return_date;
     if (updates.expected_return_time !== undefined) leave.expected_return_time = updates.expected_return_time;
     if (updates.fine_per_hour !== undefined) {
-      leave.fine_per_hour = Number(updates.fine_per_hour) || 50;
-      leave.fine_per_hour_applied = Number(updates.fine_per_hour) || 50;
-      leave.fine_per_day = (Number(updates.fine_per_hour) || 50) * 24;
-      leave.fine_per_day_applied = (Number(updates.fine_per_hour) || 50) * 24;
+      leave.fine_per_hour = Number(updates.fine_per_hour) || 5;
+      leave.fine_per_hour_applied = Number(updates.fine_per_hour) || 5;
+      leave.fine_per_day = (Number(updates.fine_per_hour) || 5) * 24;
+      leave.fine_per_day_applied = (Number(updates.fine_per_hour) || 5) * 24;
     }
     if (updates.reason !== undefined) leave.reason = updates.reason;
     if (updates.leave_type !== undefined) leave.leave_type = updates.leave_type;
@@ -2567,7 +2567,7 @@ class DatabaseService {
     const leave = leaves[idx];
     const isHourly = leave.fine_unit === 'hour' || leave.fine_unit === 'hourly' || (leave.fine_unit !== 'daily' && !leave.fine_per_day);
     const rate = isHourly
-      ? (leave.fine_per_hour_applied || leave.fine_per_hour || 50)
+      ? (leave.fine_per_hour_applied || leave.fine_per_hour || 5)
       : (leave.fine_per_day_applied || leave.fine_per_day || 100);
 
     const calc = this.calculateReturnLate(
@@ -2813,7 +2813,7 @@ class DatabaseService {
     const leave = leaves[idx];
     const isHourly = leave.fine_unit === 'hour' || leave.fine_unit === 'hourly' || (leave.fine_unit !== 'daily' && !leave.fine_per_day);
     const rate = isHourly
-      ? Number(leave.fine_per_hour_applied || leave.fine_per_hour || 50)
+      ? Number(leave.fine_per_hour_applied || leave.fine_per_hour || 5)
       : Number(leave.fine_per_day_applied || leave.fine_per_day || 100);
 
     const calc = this.calculateReturnLate(

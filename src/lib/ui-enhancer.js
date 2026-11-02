@@ -1,6 +1,7 @@
 import { enhanceDateInput } from '../components/date-picker.js';
 import { enhanceSelect } from '../components/custom-select.js';
 import { initAllWheelTimePickers } from './wheelTimePicker.js';
+import { initGlobalFormValidation } from './validation.js';
 
 /**
  * Global Institutional UI Enhancer
@@ -38,6 +39,7 @@ export function initGlobalUIObserver() {
 
   // Run initial enhancement
   enhanceAllUI(document.body);
+  initGlobalFormValidation();
 
   // Observe all future DOM changes (modals, module switches, dynamic forms)
   const observer = new MutationObserver((mutations) => {

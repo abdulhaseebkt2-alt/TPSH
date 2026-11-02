@@ -9016,3 +9016,66 @@ body.tps-wheel-open {
     font-size: 0.64rem !important;
   }
 }
+
+/* ============================================================
+   MANDATORY FORM FIELD VALIDATION - RED INDICATION
+   ============================================================ */
+.is-invalid,
+.field-invalid,
+.has-error .form-control,
+.form-control.is-invalid,
+.form-control:user-invalid,
+.was-validated .form-control:invalid,
+form.was-validated :invalid,
+.was-validated input:invalid,
+.was-validated select:invalid,
+.was-validated textarea:invalid {
+  border-color: #EF4444 !important;
+  background-color: #FEF2F2 !important;
+  color: #991B1B !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+
+.is-invalid:focus,
+.field-invalid:focus,
+.form-control.is-invalid:focus {
+  border-color: #DC2626 !important;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.3) !important;
+}
+
+.has-error label,
+.form-group.has-error label,
+.form-group.has-error .form-label {
+  color: #DC2626 !important;
+}
+
+.has-error .tps-custom-select,
+.has-error .tps-custom-select-trigger,
+.is-invalid + .tps-custom-select-trigger,
+.field-invalid + .tps-custom-select-trigger,
+.has-error .tps-date-picker-wrap,
+.is-invalid.tps-date-input-field {
+  border-color: #EF4444 !important;
+  background-color: #FEF2F2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+
+@keyframes tpsFieldShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.field-invalid-shake {
+  animation: tpsFieldShake 0.35s ease-in-out !important;
+}
+
+.mandatory-error-msg {
+  font-size: 0.72rem;
+  color: #DC2626;
+  font-weight: 700;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

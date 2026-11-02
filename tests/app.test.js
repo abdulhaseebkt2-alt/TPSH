@@ -7266,5 +7266,63 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(s2.id);
     });
 
+    it('enforces default inbuilt fine of ₹5/hr across calculation engines and leave creation', async () => {
+      // 1. Hourly calculation with default rate: 2 hours overdue at default ₹5/hr = ₹10
+      const calcHourly = db.calculateReturnLate('2026-11-01', '10:00', '2026-11-01', '12:00', undefined, 'hourly');
+      expect(calcHourly.fineAmount).toBe(10);
+      expect(calcHourly.lateHours).toBe(2);
+
+      // 2. Hourly late engine default rate: 3 hours overdue at default ₹5/hr = ₹15
+      const calc3h = db.calculateHourlyLate('2026-11-01', '10:00', '2026-11-01', '13:00');
+      expect(calc3h.fineAmount).toBe(15);
+      expect(calc3h.chargedHours).toBe(3);
+
+      // 3. createLeaveRecord without specifying fine_per_hour defaults to 5
+      const s = await db.addStudent({
+        full_name: 'Default Fine Student',
+        admission_number: 'DFS-01',
+        gender: 'male',
+        school_class: 'VIII',
+        hostel_status: 'resident'
+      });
+      const [leave] = await db.createLeaveRecord({
+        student_id: s.id,
+        leave_type: 'hostel_leave',
+        reason: 'Weekend Visit',
+        departure_date: '2026-11-01',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-02',
+        expected_return_time: '18:00'
+      });
+      expect(leave.fine_per_hour).toBe(5);
+      expect(leave.fine_per_hour_applied).toBe(5);
+
+      await db.deleteLeaveRecord(leave.id);
+      await db.deleteStudent(s.id);
+    });
+
+    it('validates mandatory fields and marks empty inputs with red indication', async () => {
+      const { isFieldMandatory, isFieldEmpty } = await import('../src/lib/validation.js');
+
+      // 1. Mandatory detection
+      expect(isFieldMandatory({ hasAttribute: (a) => a === 'required', type: 'text' })).toBe(true);
+      expect(isFieldMandatory({ hasAttribute: () => false, getAttribute: (a) => a === 'aria-required' ? 'true' : null, type: 'text' })).toBe(true);
+      expect(isFieldMandatory({ hasAttribute: () => false, getAttribute: () => null, closest: () => null, type: 'text' })).toBe(false);
+
+      // 2. Empty check
+      expect(isFieldEmpty({ value: '', type: 'text' })).toBe(true);
+      expect(isFieldEmpty({ value: '   ', type: 'text' })).toBe(true);
+      expect(isFieldEmpty({ value: 'Valid', type: 'text' })).toBe(false);
+      expect(isFieldEmpty({ checked: false, type: 'checkbox' })).toBe(true);
+      expect(isFieldEmpty({ checked: true, type: 'checkbox' })).toBe(false);
+    });
+
+    it('verifies arrival details modal shows Delete Arrival button instead of Cancel This Arrival Record', async () => {
+      const fs = await import('fs');
+      const leavesIndexCode = fs.readFileSync('src/modules/leaves/index.js', 'utf8');
+      expect(leavesIndexCode).toContain('Delete Arrival');
+      expect(leavesIndexCode).not.toContain('Cancel This Arrival Record');
+    });
+
   });
 });
