@@ -2414,7 +2414,12 @@ class DatabaseService {
     if (targetIdx === -1) throw new Error('Leave record not found');
 
     const targetLeave = leaves[targetIdx];
-    const sIds = Array.isArray(targetLeave.student_ids) ? targetLeave.student_ids : [targetLeave.student_id];
+    const rawSIds = [
+      ...(Array.isArray(targetLeave.student_ids) ? targetLeave.student_ids : []),
+      ...(Array.isArray(targetLeave.students) ? targetLeave.students.map(s => s.student_id) : []),
+      targetLeave.student_id
+    ].filter(Boolean);
+    const sIds = Array.from(new Set(rawSIds));
 
     // 1. Remove leave from tps_leaves
     leaves = leaves.filter(l => l.id !== targetLeave.id && l.leave_code !== targetLeave.leave_code);
@@ -2460,6 +2465,7 @@ class DatabaseService {
       }
     }
 
+    this.reconcileStudentLeaveStatuses();
     this.logAudit('DELETE_LEAVE', 'student_leave_records', targetLeave.id, `Permanently deleted leave record ${targetLeave.leave_code || targetLeave.id}`);
     return targetLeave;
   }
@@ -2764,6 +2770,57 @@ class DatabaseService {
     await this.pushCloudKey('tps_leaves', leaves);
     this.logAudit('RECORD_BATCH_RETURN', 'student_leave_records', leave_id, `Batch return recorded for ${student_ids.length} student(s)`);
     return leave;
+  }
+
+
+  reconcileStudentLeaveStatuses(providedStudents = null) {
+    const leaves = this.get('tps_leaves') || [];
+    let students = providedStudents || this.get('tps_students') || [];
+    if (!Array.isArray(students) || students.length === 0) return students;
+
+    const todayIso = new Date().toISOString().split('T')[0];
+
+    // Find all student IDs that are genuinely on an active, unreturned leave
+    const genuinelyAwayIds = new Set();
+    leaves.forEach(l => {
+      const status = (l.status || '').toLowerCase();
+      if (status === 'pending' || status === 'rejected' || status === 'cancelled' || status === 'returned') return;
+      const departs = l.departure_date || l.leaving_date;
+      if (departs && departs > todayIso) return; // advance approved leave
+
+      if (Array.isArray(l.students) && l.students.length > 0) {
+        l.students.forEach(s => {
+          if (!s.is_returned && s.student_id) genuinelyAwayIds.add(s.student_id);
+        });
+      } else {
+        const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+        sIds.forEach(id => { if (id) genuinelyAwayIds.add(id); });
+      }
+    });
+
+    let hasChange = false;
+    const reconciled = students.map(s => {
+      if ((s.status === 'On Approved Leave' || s.status === 'Away') && !genuinelyAwayIds.has(s.id)) {
+        hasChange = true;
+        return { ...s, status: 'Active', hostel_status: 'resident' };
+      }
+      return s;
+    });
+
+    if (hasChange) {
+      this.set('tps_students', reconciled);
+      this.setStorageItem('tps_students', JSON.stringify(reconciled));
+      this._studentsCache = reconciled;
+      this._studentsCacheTime = Date.now();
+      if (this.supabase) {
+        const fixedIds = reconciled.filter((s, idx) => s.status !== students[idx]?.status).map(s => s.id);
+        if (fixedIds.length > 0) {
+          this.supabase.from('students').update({ status: 'Active', hostel_status: 'resident' }).in('id', fixedIds).then(() => {}).catch(err => console.warn('Supabase reconcile sync warning:', err));
+        }
+      }
+    }
+
+    return reconciled;
   }
 
   // --- HOSTEL & BED ALLOCATION ENGINE ---

@@ -6851,5 +6851,51 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteDisciplineIncident(incident.id);
       await db.deleteStudent(student.id);
     });
+
+    it('self-heals orphaned student leave statuses via reconcileStudentLeaveStatuses and updates dashboard hero card', async () => {
+      const bStudent = await db.addStudent({
+        full_name: 'Test Boy Resident',
+        gender: 'Male',
+        school_class: 'STD-V',
+        status: 'Active',
+        hostel_status: 'resident',
+        dob: '2013-05-10',
+        father_name: 'Father',
+        father_phone: '+91 91111 22222'
+      });
+      const gStudent = await db.addStudent({
+        full_name: 'Test Girl Resident',
+        gender: 'Female',
+        school_class: 'STD-VI',
+        status: 'Active',
+        hostel_status: 'resident',
+        dob: '2012-07-15',
+        father_name: 'Mother',
+        father_phone: '+91 92222 33333'
+      });
+
+      // Simulate an orphaned student leave status (e.g. leave record was deleted or lost)
+      await db.updateStudent(bStudent.id, { status: 'On Approved Leave', hostel_status: 'on_leave' });
+      // Reconcile heals orphaned leave status when student is not on any active unreturned leave pass
+      db.reconcileStudentLeaveStatuses();
+      let updatedB = (await db.getStudents(true)).find(s => s.id === bStudent.id);
+      expect(updatedB.status).toBe('Active');
+      expect(updatedB.hostel_status).toBe('resident');
+
+      // Test Admin Dashboard rendering with new Hero Card specs
+      const { renderAdminDashboard } = await import('../src/modules/dashboard/admin-dashboard.js');
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(container, { onNavigate: () => {} });
+
+      // Verify "Boys: X • Girls: Y" is rendered in place of the old occupancy percentage
+      expect(container.innerHTML).toMatch(/Boys:\s*\d+\s*•\s*Girls:\s*\d+/);
+      // Verify "Boys in Hostel" and "Girls in Hostel" labels are present
+      expect(container.innerHTML).toContain('Boys in Hostel');
+      expect(container.innerHTML).toContain('Girls in Hostel');
+
+      // Cleanup
+      await db.deleteStudent(bStudent.id);
+      await db.deleteStudent(gStudent.id);
+    });
   });
 });

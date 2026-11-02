@@ -145,6 +145,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     leaveAlertSubtext = '• Student and faculty leave requests awaiting authorization';
   }
 
+  // Self-heal any orphaned leave status so dashboard presence always matches active leave passes
+  db.reconcileStudentLeaveStatuses();
+
   // All actively enrolled residents in hostel (includes active residents on campus and residents on approved leave)
   const activeStudents = students.filter(s => s.status !== 'Inactive' && s.status !== 'Graduated' && s.status !== 'Withdrawn');
   const boysCount = students.filter(s => s.gender === 'Male' || s.gender === 'Boys').length;
@@ -165,19 +168,30 @@ export async function renderAdminDashboard(container, { onNavigate }) {
 
   const activeAwayStudentIds = new Set();
   activeUnreturnedLeaves.forEach(l => {
-    const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
-    sIds.forEach(sid => {
-      if (sid) {
-        if (Array.isArray(l.students)) {
-          const entry = l.students.find(e => e.student_id === sid);
-          if (entry && entry.is_returned) return;
-        }
-        activeAwayStudentIds.add(sid);
-      }
-    });
+    if (Array.isArray(l.students) && l.students.length > 0) {
+      l.students.forEach(s => {
+        if (!s.is_returned && s.student_id) activeAwayStudentIds.add(s.student_id);
+      });
+    } else {
+      const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
+      sIds.forEach(sid => {
+        if (sid) activeAwayStudentIds.add(sid);
+      });
+    }
   });
-  students.filter(s => s.status === 'On Approved Leave').forEach(s => activeAwayStudentIds.add(s.id));
   const studentsOnLeave = activeAwayStudentIds.size;
+
+  // Calculate gender breakdowns for enrolled students and active hostel residents
+  const boysOnLeave = Array.from(activeAwayStudentIds).filter(id => {
+    const st = students.find(s => s.id === id);
+    return st && (st.gender === 'Male' || st.gender === 'Boys' || (st.gender || '').toLowerCase() === 'male');
+  }).length;
+  const girlsOnLeave = Array.from(activeAwayStudentIds).filter(id => {
+    const st = students.find(s => s.id === id);
+    return st && (st.gender === 'Female' || st.gender === 'Girls' || (st.gender || '').toLowerCase() === 'female');
+  }).length;
+  const boysInHostel = Math.max(0, boysCount - boysOnLeave);
+  const girlsInHostel = Math.max(0, girlsCount - girlsOnLeave);
 
   let overdueReturns = 0;
   activeUnreturnedLeaves.forEach(l => {
@@ -292,7 +306,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             <span class="m-hero-unit">Active Students</span>
           </div>
           <div class="m-hero-trend-badge">
-            <span>▲ 98.4% Occupancy</span>
+            <span>Boys: ${boysCount} • Girls: ${girlsCount}</span>
             <span class="m-hero-trend-sep">•</span>
             <span>${classrooms.length} Divisions</span>
           </div>
@@ -300,13 +314,13 @@ export async function renderAdminDashboard(container, { onNavigate }) {
 
         <div class="m-hero-footer-stats">
           <div class="m-hero-f-stat">
-            <span class="m-hero-f-label">Boys Campus</span>
-            <span class="m-hero-f-val" id="m-hero-boys">${boysCount}</span>
+            <span class="m-hero-f-label">Boys in Hostel</span>
+            <span class="m-hero-f-val" id="m-hero-boys">${boysInHostel}</span>
           </div>
           <div class="m-hero-f-divider"></div>
           <div class="m-hero-f-stat">
-            <span class="m-hero-f-label">Girls Campus</span>
-            <span class="m-hero-f-val" id="m-hero-girls">${girlsCount}</span>
+            <span class="m-hero-f-label">Girls in Hostel</span>
+            <span class="m-hero-f-val" id="m-hero-girls">${girlsInHostel}</span>
           </div>
           <div class="m-hero-f-divider"></div>
           <div class="m-hero-f-stat" id="m-hero-live-att-stat" data-route="attendance" style="cursor: pointer;" title="${runningCount} currently running classes / ${receivedCount} classes attendance received (${receivedTodayCount} of ${todayClassrooms.length} attended today). Tap to view live timetable & attendance.">
