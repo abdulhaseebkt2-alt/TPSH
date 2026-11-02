@@ -411,33 +411,71 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       const studentLabel = totalStudents === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s) Arrived`;
                       const typeDisplay = (l.leave_type || 'Vacation').replace(/_/g, ' ');
 
+                      
+                    const expTime = (l.expected_return_time && l.expected_return_time.length === 5) ? `${l.expected_return_time}:00` : (l.expected_return_time || '18:00:00');
+                    const actTime = (l.actual_return_time && l.actual_return_time.length === 5) ? `${l.actual_return_time}:00` : (l.actual_return_time || '18:00:00');
+                    const expDt = l.expected_return_date ? new Date(`${l.expected_return_date}T${expTime}`) : null;
+                    const actDt = l.actual_return_date ? new Date(`${l.actual_return_date}T${actTime}`) : null;
+
+                    let isLateArrival = false;
+                    let delayLabel = '';
+
+                    if (actDt && expDt && !isNaN(actDt.getTime()) && !isNaN(expDt.getTime()) && actDt.getTime() > expDt.getTime()) {
+                      isLateArrival = true;
+                      const diffMs = actDt.getTime() - expDt.getTime();
+                      const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+                      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                      if (hrs >= 24) {
+                        const days = Math.floor(hrs / 24);
+                        const remH = hrs % 24;
+                        delayLabel = remH > 0 ? `${days}d ${remH}h late` : `${days}d late`;
+                      } else if (hrs > 0) {
+                        delayLabel = mins > 0 ? `${hrs}h ${mins}m late` : `${hrs}h late`;
+                      } else {
+                        delayLabel = `${mins}m late`;
+                      }
+                    } else if (Number(l.late_hours) > 0 || Number(l.late_days) > 0 || Number(l.calculated_fine) > 0) {
+                      isLateArrival = true;
+                      delayLabel = Number(l.late_days) > 0 ? `${l.late_days}d late` : `${l.late_hours || 1}h late`;
+                    } else if (Array.isArray(l.students) && l.students.some(s => Number(s.late_hours) > 0 || Number(s.late_days) > 0 || Number(s.fine_amount) > 0)) {
+                      isLateArrival = true;
+                      const maxLateHours = Math.max(...l.students.map(s => Number(s.late_hours) || (Number(s.late_days) || 0) * 24 || 0));
+                      delayLabel = maxLateHours >= 24 ? `${Math.floor(maxLateHours / 24)}d late` : `${maxLateHours}h late`;
+                    }
+
                       return `
-                        <tr style="border-bottom: 1px solid #E2E8F0; background: #F0FDF4; transition: background 0.15s ease;">
+                        <tr style="border-bottom: 1px solid #E2E8F0; background: ${isLateArrival ? '#FEF2F2' : '#F0FDF4'}; transition: background 0.15s ease;">
                           <td style="padding: 0.85rem 1rem;">
-                            <div style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: #047857;">${l.leave_code}</div>
-                            <div style="font-size: 0.7rem; color: #059669; font-weight: 600;">Batch from ${parentCode}</div>
+                            <div style="font-weight: 800; font-family: monospace; font-size: 0.88rem; color: ${isLateArrival ? '#DC2626' : '#047857'};">${l.leave_code}</div>
+                            <div style="font-size: 0.7rem; color: ${isLateArrival ? '#EF4444' : '#059669'}; font-weight: 600;">Batch from ${parentCode}</div>
                           </td>
                           <td style="padding: 0.85rem 1rem;">
                             <div style="font-weight: 700; color: #1E293B; text-transform: capitalize; font-size: 0.85rem;">${typeDisplay} (Arrival)</div>
-                            <div style="font-size: 0.76rem; color: #64748B; margin-top: 1px;">${l.arrival_remarks || l.reason || 'Safe return recorded'}</div>
+                            <div style="font-size: 0.76rem; color: #64748B; margin-top: 1px;">${l.arrival_remarks || l.reason || (isLateArrival ? 'Late arrival recorded' : 'Safe return recorded')}</div>
                           </td>
                           <td style="padding: 0.85rem 1rem;">
                             <div style="font-size: 0.82rem; font-weight: 600; color: #1E293B;">${l.departure_date || '-'}</div>
                             <div style="font-size: 0.72rem; color: #94A3B8;">Departed</div>
                           </td>
                           <td style="padding: 0.85rem 1rem;">
-                            <div style="font-size: 0.82rem; font-weight: 800; color: #047857;">${l.actual_return_date || '-'}</div>
-                            <div style="font-size: 0.72rem; color: #059669; font-weight: 600;">${formatTime(l.actual_return_time || '17:00')}</div>
+                            <div style="font-size: 0.82rem; font-weight: 800; color: ${isLateArrival ? '#DC2626' : '#047857'};">${l.actual_return_date || '-'}</div>
+                            <div style="font-size: 0.72rem; color: ${isLateArrival ? '#DC2626' : '#059669'}; font-weight: 600;">${formatTime(l.actual_return_time || '17:00')}</div>
                           </td>
                           <td style="padding: 0.85rem 1rem;">
-                            <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
-                              ✓ ${studentLabel}
+                            <span class="badge" style="background: ${isLateArrival ? '#FEE2E2' : '#DCFCE7'}; color: ${isLateArrival ? '#991B1B' : '#15803D'}; font-weight: 700; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
+                              ${isLateArrival ? '⚠️' : '✓'} ${studentLabel}
                             </span>
                           </td>
                           <td style="padding: 0.85rem 1rem;">
-                            <span class="badge badge-success" style="background: #ECFDF5; color: #047857; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
-                              Returned Safe
-                            </span>
+                            ${isLateArrival ? `
+                              <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                                ⚠️ Returned Late ${delayLabel ? `(${delayLabel})` : ''}
+                              </span>
+                            ` : `
+                              <span class="badge badge-success" style="background: #ECFDF5; color: #047857; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
+                                Returned Safe
+                              </span>
+                            `}
                           </td>
                           <td style="padding: 0.85rem 1rem; text-align: right;">
                             <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
@@ -563,40 +601,78 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                   const studentLabel = totalStudents === 1 && firstStudent ? firstStudent.full_name : `${totalStudents} Student(s) Arrived`;
                   const typeDisplay = (l.leave_type || 'Vacation').replace(/_/g, ' ');
 
+                  
+                    const expTime = (l.expected_return_time && l.expected_return_time.length === 5) ? `${l.expected_return_time}:00` : (l.expected_return_time || '18:00:00');
+                    const actTime = (l.actual_return_time && l.actual_return_time.length === 5) ? `${l.actual_return_time}:00` : (l.actual_return_time || '18:00:00');
+                    const expDt = l.expected_return_date ? new Date(`${l.expected_return_date}T${expTime}`) : null;
+                    const actDt = l.actual_return_date ? new Date(`${l.actual_return_date}T${actTime}`) : null;
+
+                    let isLateArrival = false;
+                    let delayLabel = '';
+
+                    if (actDt && expDt && !isNaN(actDt.getTime()) && !isNaN(expDt.getTime()) && actDt.getTime() > expDt.getTime()) {
+                      isLateArrival = true;
+                      const diffMs = actDt.getTime() - expDt.getTime();
+                      const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+                      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                      if (hrs >= 24) {
+                        const days = Math.floor(hrs / 24);
+                        const remH = hrs % 24;
+                        delayLabel = remH > 0 ? `${days}d ${remH}h late` : `${days}d late`;
+                      } else if (hrs > 0) {
+                        delayLabel = mins > 0 ? `${hrs}h ${mins}m late` : `${hrs}h late`;
+                      } else {
+                        delayLabel = `${mins}m late`;
+                      }
+                    } else if (Number(l.late_hours) > 0 || Number(l.late_days) > 0 || Number(l.calculated_fine) > 0) {
+                      isLateArrival = true;
+                      delayLabel = Number(l.late_days) > 0 ? `${l.late_days}d late` : `${l.late_hours || 1}h late`;
+                    } else if (Array.isArray(l.students) && l.students.some(s => Number(s.late_hours) > 0 || Number(s.late_days) > 0 || Number(s.fine_amount) > 0)) {
+                      isLateArrival = true;
+                      const maxLateHours = Math.max(...l.students.map(s => Number(s.late_hours) || (Number(s.late_days) || 0) * 24 || 0));
+                      delayLabel = maxLateHours >= 24 ? `${Math.floor(maxLateHours / 24)}d late` : `${maxLateHours}h late`;
+                    }
+
                   return `
-                    <div style="background: #FFFFFF; border: 1.5px solid #A7F3D0; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="background: #FFFFFF; border: 1.5px solid ${isLateArrival ? '#FCA5A5' : '#A7F3D0'}; border-radius: 14px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                       <!-- Top Row: Code + Status Badge -->
                       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                         <div>
-                          <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: #047857;">${l.leave_code}</span>
-                          <span style="font-size: 0.7rem; color: #059669; font-weight: 600; margin-left: 4px;">(${parentCode})</span>
+                          <span style="font-weight: 800; font-family: monospace; font-size: 0.9rem; color: ${isLateArrival ? '#DC2626' : '#047857'};">${l.leave_code}</span>
+                          <span style="font-size: 0.7rem; color: ${isLateArrival ? '#EF4444' : '#059669'}; font-weight: 600; margin-left: 4px;">(${parentCode})</span>
                         </div>
-                        <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
-                          Returned Safe
-                        </span>
+                        ${isLateArrival ? `
+                          <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
+                            ⚠️ Returned Late ${delayLabel ? `(${delayLabel})` : ''}
+                          </span>
+                        ` : `
+                          <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
+                            Returned Safe
+                          </span>
+                        `}
                       </div>
 
                       <!-- Reason & Type -->
                       <div style="font-weight: 700; font-size: 0.88rem; color: #1E293B; text-transform: capitalize;">${typeDisplay} (Arrival Batch)</div>
-                      <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${l.arrival_remarks || l.reason || 'Safe return recorded'}</div>
+                      <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${l.arrival_remarks || l.reason || (isLateArrival ? 'Late arrival recorded' : 'Safe return recorded')}</div>
 
                       <!-- Dates Specs -->
-                      <div style="margin-top: 0.65rem; padding: 0.5rem 0.65rem; background: #F0FDF4; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid #DCFCE7;">
+                      <div style="margin-top: 0.65rem; padding: 0.5rem 0.65rem; background: ${isLateArrival ? '#FEF2F2' : '#F0FDF4'}; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid ${isLateArrival ? '#FECACA' : '#DCFCE7'};">
                         <div>
                           <div style="color: #64748B; font-size: 0.7rem; font-weight: 600;">DEPARTURE</div>
                           <div style="font-weight: 700; color: #334155;">${l.departure_date || '-'}</div>
                         </div>
-                        <div style="color: #86EFAC;">→</div>
+                        <div style="color: ${isLateArrival ? '#F87171' : '#86EFAC'};">→</div>
                         <div style="text-align: right;">
-                          <div style="color: #047857; font-size: 0.7rem; font-weight: 700;">ACTUAL ARRIVAL</div>
-                          <div style="font-weight: 800; color: #047857;">${l.actual_return_date || '-'} at ${formatTime(l.actual_return_time || '17:00')}</div>
+                          <div style="color: ${isLateArrival ? '#DC2626' : '#047857'}; font-size: 0.7rem; font-weight: 700;">ACTUAL ARRIVAL</div>
+                          <div style="font-weight: 800; color: ${isLateArrival ? '#DC2626' : '#047857'};">${l.actual_return_date || '-'} at ${formatTime(l.actual_return_time || '17:00')}</div>
                         </div>
                       </div>
 
                       <!-- Footer Action Row -->
                       <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: #047857;">
-                          ✓ ${studentLabel}
+                        <span style="font-size: 0.8rem; font-weight: 700; color: ${isLateArrival ? '#DC2626' : '#047857'};">
+                          ${isLateArrival ? '⚠️' : '✓'} ${studentLabel} ${isLateArrival && delayLabel ? `(${delayLabel})` : ''}
                         </span>
                         <div style="display: flex; gap: 0.35rem; align-items: center;">
                           <button class="btn btn-xs btn-outline btn-view-arrival-card" data-card-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">

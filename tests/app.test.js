@@ -6904,5 +6904,52 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(bStudent.id);
       await db.deleteStudent(gStudent.id);
     });
+
+    it('renders late arrival cards with light red theme and Returned Late badge instead of light green', async () => {
+      const student = await db.addStudent({
+        full_name: 'Late Arriving Resident',
+        gender: 'Boys',
+        school_class: 'STD-VII',
+        status: 'Active',
+        hostel_status: 'resident',
+        dob: '2012-03-10',
+        father_name: 'Father',
+        father_phone: '+91 97777 88888'
+      });
+
+      // Create a leave pass with expected return 2026-11-01 at 17:00
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [student.id],
+        leave_type: 'Hostel Leave',
+        departure_date: '2026-11-01',
+        departure_time: '08:00',
+        expected_return_date: '2026-11-01',
+        expected_return_time: '17:00',
+        reason: 'Family event',
+        status: 'Away'
+      });
+
+      // Record return on next day (2026-11-02 at 10:10 AM) - Late arrival
+      await db.recordBatchReturn({
+        leave_id: leave.id,
+        student_ids: [student.id],
+        actual_return_date: '2026-11-02',
+        actual_return_time: '10:10',
+        remarks: 'Late batch return'
+      });
+
+      const { renderLeavesModule } = await import('../src/modules/leaves/index.js');
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderLeavesModule(container);
+
+      // Verify that late arrival card renders light red border (#FCA5A5) and background (#FEF2F2)
+      expect(container.innerHTML).toContain('#FCA5A5');
+      expect(container.innerHTML).toContain('#FEF2F2');
+      expect(container.innerHTML).toContain('Returned Late');
+
+      // Cleanup
+      await db.deleteLeaveRecord(leave.id);
+      await db.deleteStudent(student.id);
+    });
   });
 });
