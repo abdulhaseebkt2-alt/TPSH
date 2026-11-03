@@ -17,7 +17,7 @@ export function isStudentBoy(genderOrStudent, hostelUnit = '') {
 }
 
 import { db } from '../../lib/db.js';
-import { formatDate, formatTime, formatCurrency, printDocument } from '../../lib/utils.js';
+import { formatDate, formatTime, formatCurrency, printDocument, getTodayDateStr } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -548,7 +548,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                     const isRet = !isPend && !isRej && (l.status === 'Returned' || (l.has_existing_arrivals ? l.unreturned_count === 0 : unretCount === 0));
                     const isExt = Boolean(l.is_extended);
                     const departs = l.departure_date || l.leaving_date;
-                    const todayIso = new Date().toISOString().split('T')[0];
+                    const todayIso = getTodayDateStr();
                     const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
                     const code = l.leave_code || l.leave_register_number || 'LV-2026';
                     const typeDisplay = (l.leave_type || 'Hostel Leave').replace(/_/g, ' ');
@@ -751,7 +751,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                 const isRet = !isPend && !isRej && (l.status === 'Returned' || (l.has_existing_arrivals ? l.unreturned_count === 0 : unretCount === 0));
                 const isExt = Boolean(l.is_extended);
                 const departs = l.departure_date || l.leaving_date;
-                const todayIso = new Date().toISOString().split('T')[0];
+                const todayIso = getTodayDateStr();
                 const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
                 const code = l.leave_code || l.leave_register_number || 'LV-2026';
                 const totalStudents = l.has_existing_arrivals ? (l.all_students_count || l.total_students) : (l.total_students || (Array.isArray(l.student_ids) ? l.student_ids.length : 1));
@@ -1488,7 +1488,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
     const isBatch = Boolean(leave.is_batch || (hasStudents && leave.students.length > 1));
 
     // Calculate default new return date (+3 days from current expected return)
-    const currentExp = leave.expected_return_date || new Date().toISOString().split('T')[0];
+    const currentExp = leave.expected_return_date || getTodayDateStr();
     const curDateObj = new Date(currentExp);
     curDateObj.setDate(curDateObj.getDate() + 3);
     const defaultNewDate = !isNaN(curDateObj.getTime()) ? curDateObj.toISOString().split('T')[0] : currentExp;
@@ -2123,7 +2123,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateStr();
     const nowTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
     const uniqueClasses = [...new Set(unreturnedStudents.map(us => us.student.school_class).filter(Boolean))].sort();
 
@@ -2731,7 +2731,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
   // -------------------------------------------------------------
   function openLeavePassModal(defaultMode = 'individual') {
     let currentMode = defaultMode;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateStr();
     const defaultReturn = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().split('T')[0];
     const uniqueClasses = [...new Set(students.map(s => s.school_class).filter(Boolean))].sort();
 

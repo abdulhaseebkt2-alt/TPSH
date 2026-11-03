@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatCurrency, formatDate } from '../../lib/utils.js';
+import { formatCurrency, formatDate, getTodayDateStr } from '../../lib/utils.js';
 
 export async function renderAdminDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -30,7 +30,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
 
   // Live attendance & currently running classes calculation
   const now = new Date();
-  const todayIso = now.toISOString().split('T')[0];
+  const todayIso = getTodayDateStr(now);
   const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayKey = DAY_KEYS[now.getDay()];
   const currentMinutes = now.getHours() * 60 + now.getMinutes();

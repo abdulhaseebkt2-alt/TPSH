@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'fs';
-import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate } from '../src/lib/utils.js';
+import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate, getTodayDateStr } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions, isMentorRole, getMentorGenderScope } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour, attachWheelTimePicker, initAllWheelTimePickers } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
@@ -2824,6 +2824,31 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('teacher-upcoming-card');
     expect(container.innerHTML).toContain('Attendance Recorded');
     expect(container.innerHTML).toContain('btn-card-view-details');
+  });
+
+  it('Local Timezone & Teacher Update: getTodayDateStr respects local time and teachers can update today attendance for late students', async () => {
+    // 1. Verify getTodayDateStr extracts local calendar year, month, date
+    const d = new Date(2026, 10, 3, 5, 7, 0); // 3 Nov 2026, 05:07 AM
+    expect(getTodayDateStr(d)).toBe('2026-11-03');
+
+    // 2. deleteAttendanceSession cleanly removes recorded session and teacher duty
+    const testClass = 'cls-1';
+    const testDate = getTodayDateStr();
+    await db.saveAttendanceSession({
+      program_id: 'prog-1',
+      classroom_id: testClass,
+      session_date: testDate,
+      teacher_id: 'u-2',
+      teacher_name: 'Rashid Sir',
+      records: [{ student_id: 'st-1', status: 'Present' }]
+    });
+
+    const beforeReset = await db.getAttendanceRecords();
+    expect(beforeReset.some(s => s.classroom_id === testClass && s.session_date === testDate)).toBe(true);
+
+    await db.deleteAttendanceSession(testClass, testDate);
+    const afterReset = await db.getAttendanceRecords();
+    expect(afterReset.some(s => s.classroom_id === testClass && s.session_date === testDate)).toBe(false);
   });
 
   it('Faculty Tenure & Attendance Duties: missed attendance is only shown from assigned date, and ends when removed by admin', async () => {

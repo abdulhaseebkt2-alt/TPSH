@@ -43,6 +43,15 @@ export function parseDate(dateInput) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+export function getTodayDateStr(d = new Date()) {
+  const dateObj = d instanceof Date ? d : new Date(d);
+  if (isNaN(dateObj.getTime())) return new Date().toISOString().split('T')[0];
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function formatDate(dateString) {
   if (!dateString) return '—';
   try {

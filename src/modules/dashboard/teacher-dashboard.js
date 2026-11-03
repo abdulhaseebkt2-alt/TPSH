@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatTime, formatDate, formatDaysSingleLetters } from '../../lib/utils.js';
+import { formatTime, formatDate, formatDaysSingleLetters, getTodayDateStr } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { generatePunctualityChartHtml } from '../../components/punctuality-chart.js';
 
@@ -92,7 +92,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   });
 
   // Check if this teacher is currently on authorized faculty leave today
-  const todayDateStr = now.toISOString().split('T')[0];
+  const todayDateStr = getTodayDateStr(now);
   const activeFacultyLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
 
   // Calculate pending attendance for today's scheduled classes
@@ -113,7 +113,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   const timelineDays = [];
   for (let offset = 13; offset >= 0; offset--) {
     const d = new Date(now.getTime() - offset * 24 * 3600 * 1000);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getTodayDateStr(d);
     const dayKey = DAY_KEYS[d.getDay()];
     const isPast = dateStr < todayDateStr;
     const isToday = dateStr === todayDateStr;

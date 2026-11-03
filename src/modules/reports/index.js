@@ -1,5 +1,5 @@
 import { db } from '../../lib/db.js';
-import { formatDate, formatCurrency, exportToExcel, exportToCSV, printDocument, formatTime } from '../../lib/utils.js';
+import { formatDate, formatCurrency, exportToExcel, exportToCSV, printDocument, formatTime, getTodayDateStr } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { isViewOnlyModule } from '../../lib/permissions.js';
@@ -92,7 +92,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
   let selectedTeacherId = eligibleTeachers[0]?.id || 'u-2';
   let selectedSectionId = 'all';
   let selectedClassroomId = classrooms[0]?.id || 'all';
-  let selectedDate = new Date().toISOString().split('T')[0];
+  let selectedDate = getTodayDateStr();
   let selectedMonth = '2026-10';
   let selectedYear = '2026-2027';
 
@@ -842,7 +842,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
             }
 
             const att = dayAttendanceMap[cell.dateStr] || { status: 'none', label: '', icon: '' };
-            const isToday = cell.dateStr === new Date().toISOString().split('T')[0];
+            const isToday = cell.dateStr === getTodayDateStr();
 
             let cellBg = '#FFFFFF';
             let badgeBg = '#F1F5F9';

@@ -1,5 +1,5 @@
 import { supabase, isTestEnv } from './supabase.js';
-import { calculateLateDays, calculateLateFine, normalizeClassPattern, compressImage, normalizeDate, normalizeGender, normalizeStatus, normalizeHostelStatus } from './utils.js';
+import { calculateLateDays, calculateLateFine, normalizeClassPattern, compressImage, normalizeDate, normalizeGender, normalizeStatus, normalizeHostelStatus, getTodayDateStr } from './utils.js';
 import { savePhotoToIDB, getPhotoFromIDB, getAllPhotosFromIDB } from './idb.js';
 
 export function isDummyStudent(s) {
@@ -648,7 +648,7 @@ class DatabaseService {
       return { success: true, count: 0, dbCount: 0, message: 'Ignored dummy/test student records' };
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayDateStr();
 
     const normalizedList = cleanList.map((s, idx) => {
       const rawAdm = s.admission_number && String(s.admission_number).trim();
@@ -793,7 +793,7 @@ class DatabaseService {
             full_name: (s.full_name && String(s.full_name).trim()) || ('Student ' + adm),
             gender: normalizeGender(s.gender),
             dob: normalizeDate(s.dob, '2012-05-15'),
-            admission_date: normalizeDate(s.admission_date, new Date().toISOString().split('T')[0]),
+            admission_date: normalizeDate(s.admission_date, getTodayDateStr()),
             school_class: normalizeClassPattern(s.school_class),
             school_section: s.school_section || 'A',
             hostel_status: normalizeHostelStatus(s.hostel_status),
@@ -990,7 +990,7 @@ class DatabaseService {
       full_name: studentData.full_name,
       gender: normalizeGender(studentData.gender),
       dob: normalizeDate(studentData.dob, '2012-05-15'),
-      admission_date: normalizeDate(studentData.admission_date, new Date().toISOString().split('T')[0]),
+      admission_date: normalizeDate(studentData.admission_date, getTodayDateStr()),
       school_class: normalizeClassPattern(studentData?.school_class),
       school_section: studentData.school_section || 'A',
       hostel_status: normalizeHostelStatus(studentData.hostel_status),
@@ -1124,7 +1124,7 @@ class DatabaseService {
     return this.updateStudent(studentId, {
       status: 'Active',
       hostel_status: 'resident',
-      break_rejoin_date: new Date().toISOString().split('T')[0]
+      break_rejoin_date: getTodayDateStr()
     });
   }
 
@@ -1825,7 +1825,7 @@ class DatabaseService {
     return this.get('tps_teacher_attendance') || [];
   }
 
-  async unlockAttendanceWindow(classroomId, date = new Date().toISOString().split('T')[0]) {
+  async unlockAttendanceWindow(classroomId, date = getTodayDateStr()) {
     const unlocks = this.get('tps_attendance_unlocks') || [];
     const key = `${classroomId}_${date}`;
     if (!unlocks.includes(key)) {
@@ -1854,7 +1854,7 @@ class DatabaseService {
     return true;
   }
 
-  async lockAttendanceWindow(classroomId, date = new Date().toISOString().split('T')[0]) {
+  async lockAttendanceWindow(classroomId, date = getTodayDateStr()) {
     let unlocks = this.get('tps_attendance_unlocks') || [];
     const key = `${classroomId}_${date}`;
     unlocks = unlocks.filter(k => k !== key);
@@ -1876,10 +1876,29 @@ class DatabaseService {
     return true;
   }
 
-  async isAttendanceWindowUnlocked(classroomId, date = new Date().toISOString().split('T')[0]) {
+  async isAttendanceWindowUnlocked(classroomId, date = getTodayDateStr()) {
     await this.pullCloudKeys(['tps_attendance_unlocks']);
     const unlocks = this.get('tps_attendance_unlocks') || [];
     return unlocks.includes(`${classroomId}_${date}`);
+  }
+
+  async deleteAttendanceSession(classroomId, sessionDate) {
+    let attendance = this.get('tps_attendance') || [];
+    const beforeCount = attendance.length;
+    attendance = attendance.filter(s => !(s.classroom_id === classroomId && s.session_date === sessionDate));
+    if (attendance.length !== beforeCount) {
+      this.set('tps_attendance', attendance);
+    }
+    
+    let teacherAtt = this.get('tps_teacher_attendance') || [];
+    const beforeTCount = teacherAtt.length;
+    teacherAtt = teacherAtt.filter(s => !(s.classroom_id === classroomId && s.session_date === sessionDate));
+    if (teacherAtt.length !== beforeTCount) {
+      this.set('tps_teacher_attendance', teacherAtt);
+    }
+
+    this.logAudit('RESET_ATTENDANCE_SESSION', 'attendance', `${classroomId}_${sessionDate}`, `Attendance session for ${sessionDate} reset/cleared.`);
+    return true;
   }
 
   async getAttendanceUnlocks() {
@@ -2283,7 +2302,7 @@ class DatabaseService {
 
     const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
     const departs = leave.departure_date || leave.leaving_date;
-    const todayIso = new Date().toISOString().split('T')[0];
+    const todayIso = getTodayDateStr();
     // Only mark student profile "On Approved Leave" if leave starts today or earlier; future leaves remain Active
     if (departs && departs <= todayIso) {
       for (const sid of sIds) {
@@ -2330,7 +2349,7 @@ class DatabaseService {
     // If leave is approved, update student presence status based on modified dates
     if (leave.status === 'Approved') {
       const departs = leave.departure_date || leave.leaving_date;
-      const todayIso = new Date().toISOString().split('T')[0];
+      const todayIso = getTodayDateStr();
       const sIds = Array.isArray(leave.student_ids) ? leave.student_ids : [leave.student_id];
       if (departs && departs <= todayIso) {
         for (const sid of sIds) {
@@ -3214,7 +3233,7 @@ class DatabaseService {
     let students = providedStudents || this.get('tps_students') || [];
     if (!Array.isArray(students) || students.length === 0) return students;
 
-    const todayIso = new Date().toISOString().split('T')[0];
+    const todayIso = getTodayDateStr();
 
     // Find all student IDs that are genuinely on an active, unreturned leave
     const genuinelyAwayIds = new Set();
@@ -3481,7 +3500,7 @@ class DatabaseService {
     const idx = fines.findIndex(f => f.id === fineId || f.fine_no === fineId);
     if (idx >= 0) {
       fines[idx].status = 'paid';
-      fines[idx].paid_date = paidDate || new Date().toISOString().split('T')[0];
+      fines[idx].paid_date = paidDate || getTodayDateStr();
       fines[idx].received_by = receivedBy || 'Accounts / Warden';
       this.set('tps_fines', fines);
       return fines[idx];
@@ -3575,7 +3594,7 @@ class DatabaseService {
       student_id: target_student_id || leave.student_id || (Array.isArray(leave.student_ids) ? leave.student_ids[0] : null),
       student_name: targetStudent?.student_name || leave.student_name || '',
       amount: paidAmt,
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: getTodayDateStr(),
       payment_method,
       reference_number,
       receipt_number: 'RCPT-' + Date.now().toString().slice(-6),
@@ -3637,7 +3656,7 @@ class DatabaseService {
       fines[fineIdx].status = isFull ? 'paid' : 'partial';
       fines[fineIdx].paid_amount = cumulativePaid;
       fines[fineIdx].remaining_amount = remaining;
-      fines[fineIdx].paid_date = new Date().toISOString().split('T')[0];
+      fines[fineIdx].paid_date = getTodayDateStr();
       fines[fineIdx].received_by = received_by;
       this.set('tps_fines', fines);
     }
@@ -3650,7 +3669,7 @@ class DatabaseService {
       incident_id,
       student_id: incident.student_id,
       amount: paidAmount,
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: getTodayDateStr(),
       payment_method,
       reference_number,
       receipt_no,
@@ -3690,7 +3709,7 @@ class DatabaseService {
       student_id,
       category,
       severity: severity || 'Minor',
-      incident_date: incident_date || new Date().toISOString().split('T')[0],
+      incident_date: incident_date || getTodayDateStr(),
       description,
       black_marks_awarded: Number(black_marks) || 1,
       monetary_fine: Number(fine) || 0,

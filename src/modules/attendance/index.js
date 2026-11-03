@@ -3,7 +3,7 @@ import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
-import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters } from '../../lib/utils.js';
+import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters, getTodayDateStr } from '../../lib/utils.js';
 import { openMobileWheelPicker, formatDateYMD } from '../../components/date-picker.js';
 
 function parseMinutes(timeStr) {
@@ -82,7 +82,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   // Today's Date & Time Check
   const now = new Date();
-  const todayIso = now.toISOString().split('T')[0];
+  const todayIso = getTodayDateStr(now);
   let sessionDate = initialDate || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tps_active_att_date')) || todayIso;
   if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('tps_active_att_date');
 
@@ -151,23 +151,25 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const hasExisting = Boolean(existingSession && Array.isArray(existingSession.records) && existingSession.records.length > 0);
 
     // RULE 1: If attendance is already taken:
-    // Teachers CANNOT edit taken attendance (Admin permission only).
-    // Admin CAN edit taken attendance.
+    // Teachers CAN update taken attendance on today's session / during class window / when unlocked (to mark late arrivals).
+    // Admin CAN always edit taken attendance.
     if (hasExisting) {
-      if (isTeacher) {
+      if (isAdmin || isUnlockedByAdmin || (isTeacher && (isInWindow || isToday))) {
+        return {
+          canTake: true,
+          status: isAdmin ? 'admin_edit_taken' : 'teacher_update_allowed',
+          message: isAdmin 
+            ? `Admin Override Mode: Editing recorded attendance for ${formatDate(targetDate)}.`
+            : `Attendance already recorded on ${formatDate(targetDate)}. You can update attendance for late-arriving students. Duty punctuality is preserved from your 1st submission.`,
+          badgeClass: 'is-live',
+          isTaken: true
+        };
+      } else if (isTeacher && isPast) {
         return {
           canTake: false,
           status: 'taken_locked_for_teacher',
-          message: `Attendance already submitted on ${formatDate(targetDate)}. Only Administrators are permitted to edit recorded attendance.`,
+          message: `Attendance submitted on ${formatDate(targetDate)}. Past attendance is locked. Requires Administrator permission to edit.`,
           badgeClass: 'is-locked-after',
-          isTaken: true
-        };
-      } else if (isAdmin) {
-        return {
-          canTake: true,
-          status: 'admin_edit_taken',
-          message: `Admin Override Mode: Editing previously recorded attendance for ${formatDate(targetDate)}.`,
-          badgeClass: 'is-live',
           isTaken: true
         };
       }
@@ -278,6 +280,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   let studentLateMinutes = {};
   let initialAbsentStudentIds = new Set();
   let hasExistingSession = false;
+  let loadedExistingSession = null;
 
   // Helper to determine if a student is on approved leave on target date
   function isStudentOnLeave(studentOrId, dateStr = sessionDate) {
@@ -366,6 +369,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const existingSession = attendanceSessions.find(s => 
       s.classroom_id === activeClassroomId && s.session_date === sessionDate
     );
+    loadedExistingSession = (existingSession && Array.isArray(existingSession.records) && existingSession.records.length > 0) ? existingSession : null;
 
     const activeList = getEligibleStudents(activeClassroomId);
     studentLateMinutes = {};
@@ -410,6 +414,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     } else {
       // Fresh attendance opening: Default to ABSENT, except students on approved leave
       hasExistingSession = false;
+      loadedExistingSession = null;
       initialAbsentStudentIds = new Set();
       activeList.forEach(s => {
         const onLeave = isStudentOnLeave(s, sessionDate);
@@ -577,7 +582,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             const isClassHolidayOff = holidayOffInfo.isOff;
 
             // Attendance taking strictly requires the class to meet on this date, not on leave, and not on holiday/weekend off
-            const canTakeNow = isClassScheduledOnDate && !isFacultyOnLeaveForCard && !isClassHolidayOff && (isLive || (isAdmin && (hasSessionRecorded || isAfter)) || isUnlocked);
+            const canTakeNow = isClassScheduledOnDate && !isFacultyOnLeaveForCard && !isClassHolidayOff && (
+              isLive || 
+              isUnlocked || 
+              (isAdmin && (hasSessionRecorded || isAfter)) ||
+              (isTeacher && hasSessionRecorded && (isLive || sessionDate === todayIso))
+            );
 
             // Enrolled students count
             const enrolledStudents = getEligibleStudents(cls.id);
@@ -801,8 +811,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                             data-cls-id="${cls.id}"
                             data-can-take="${canTakeNow ? 'true' : 'false'}"
                             style="font-weight: 800; border-radius: 10px; padding: 0.55rem 1.35rem; font-size: 0.88rem; ${canTakeNow ? 'background: #059669; border-color: #047857; color: #FFFFFF; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); cursor: pointer;' : 'background: #F1F5F9; color: #64748B; border-color: #CBD5E1; opacity: 0.8; cursor: not-allowed;'}"
-                            title="${canTakeNow ? 'Take live attendance for this session' : `Attendance window locked outside class hours (${formatTime(cls.start_time)} – ${formatTime(cls.end_time)}). Tap to view class details.`}">
-                      ${canTakeNow ? 'Take Attendance →' : 'Attendance Closed'}
+                            title="${canTakeNow ? (hasSessionRecorded ? 'Update recorded attendance for this session' : 'Take live attendance for this session') : (hasSessionRecorded ? 'Attendance recorded for this session. Tap to view.' : `Attendance window locked outside class hours (${formatTime(cls.start_time)} – ${formatTime(cls.end_time)}). Tap to view class details.`)}">
+                      ${canTakeNow ? (hasSessionRecorded ? 'Update Attendance →' : 'Take Attendance →') : (hasSessionRecorded ? 'Recorded (View Only)' : 'Attendance Closed')}
                     </button>
                   `}
                 </div>
@@ -1090,12 +1100,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         </div>
 
         <!-- Bottom Submit Bar -->
-        <div class="att-submit-bar">
-          <div class="att-submit-info">
+        <div class="att-submit-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+          <div class="att-submit-info" style="flex: 1; min-width: 240px;">
             ${canInteract
-              ? `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`
+              ? (hasExistingSession
+                  ? `* Updating attendance records presence and late-arriving students. Faculty duty punctuality is preserved from your 1st submission.`
+                  : `* Submitting attendance officially records student presence for this session, saves exact timestamp, and logs your faculty duty attendance (${teacherDisplayName}).`)
               : (hasExistingSession && isTeacher
-                  ? `* Attendance already submitted on this date. Only Administrators are permitted to edit recorded attendance.`
+                  ? `* Attendance submitted on ${formatDate(sessionDate)}. Past attendance is locked. Only Administrators are permitted to edit recorded attendance.`
                   : (isCurrentUserOnLeave
                       ? `* You are currently on authorized faculty leave (${facultyLeaveRecord?.leave_type || 'Leave'}). Attendance duty is waived by Administration.`
                       : (isViewOnly 
@@ -1103,10 +1115,18 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                           : '* Attendance window closed: Session ended.')))}
           </div>
           ${canInteract ? `
-            <button class="btn btn-primary" id="btn-submit-attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Confirm & Submit Attendance
-            </button>
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              ${(hasExistingSession && (isAdmin || sessionDate === todayIso)) ? `
+                <button type="button" class="btn btn-outline btn-sm" id="btn-reset-attendance-session" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; border-radius: 10px; padding: 0.65rem 1rem; display: flex; align-items: center; gap: 0.4rem;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  Reset / Retake Fresh
+                </button>
+              ` : ''}
+              <button class="btn btn-primary" id="btn-submit-attendance" title="Confirm & Submit Attendance" style="padding: 0.75rem 1.6rem; font-weight: 700; background: #059669; border-color: #047857; display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; font-size: 0.92rem;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                ${hasExistingSession ? 'Confirm & Update Attendance' : 'Confirm & Submit Attendance'}
+              </button>
+            </div>
           ` : `
             <button class="btn btn-outline" disabled style="padding: 0.75rem 1.6rem; font-weight: 700; opacity: 0.6; cursor: not-allowed; border-radius: 12px; background: #F1F5F9; color: #64748B;">
               ${hasExistingSession && isTeacher
@@ -1520,6 +1540,24 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     container.querySelector('#btn-mark-all-absent')?.addEventListener('click', handleClearAttendance);
 
     if (canInteract) {
+      // Reset attendance session button (Admins or teachers on today's session)
+      container.querySelector('#btn-reset-attendance-session')?.addEventListener('click', async () => {
+        const confirmed = await confirmDialog({
+          title: 'Reset Attendance Session?',
+          message: `Are you sure you want to clear and reset the attendance session for ${activeCls?.name} on ${formatDate(sessionDate)}? This will delete the recorded attendance and allow recording fresh attendance from scratch.`,
+          confirmText: 'Yes, Reset Session',
+          cancelText: 'Cancel'
+        });
+
+        if (confirmed) {
+          await db.deleteAttendanceSession(activeClassroomId, sessionDate);
+          toast.success(`Attendance session for ${formatDate(sessionDate)} reset. You can now take fresh attendance.`);
+          hasExistingSession = false;
+          loadedExistingSession = null;
+          await renderClassRosterUI();
+        }
+      });
+
       // Toggle switches
       container.querySelectorAll('.att-2way-switch').forEach(sw => {
         sw.addEventListener('click', (e) => {
@@ -1551,10 +1589,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         let isLateSubmission = false;
         let lateMinsCount = 0;
 
-        if (hasExistingSession && existingSession) {
+        if (hasExistingSession && loadedExistingSession) {
           // Updating attendance (e.g. marking late students who arrived)
-          // Faculty punctuality is governed by the 1st attendance submission of the class
-          const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(existingSession, activeCls?.start_time) : { isLate: false, lateMinutes: 0 };
+          // Faculty punctuality is strictly governed by the 1st attendance submission of the class
+          const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(loadedExistingSession, activeCls?.start_time) : { isLate: false, lateMinutes: 0 };
           isLateSubmission = pInfo.isLate;
           lateMinsCount = pInfo.lateMinutes;
         } else if (isTodaySession) {
@@ -1643,15 +1681,17 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             session_date: sessionDate,
             teacher_id: activeCls?.teacher_id || user?.id || 'u-2',
             teacher_name: teacherDisplayName,
-            recorded_at: recordedAtIso,
-            submission_punctuality: isLateSubmission ? 'late' : 'punctual',
-            late_submission_minutes: lateMinsCount,
+            recorded_at: loadedExistingSession?.first_recorded_at || loadedExistingSession?.recorded_at || recordedAtIso,
+            submission_punctuality: loadedExistingSession?.first_submission_punctuality || loadedExistingSession?.submission_punctuality || (isLateSubmission ? 'late' : 'punctual'),
+            late_submission_minutes: loadedExistingSession?.first_late_submission_minutes !== undefined ? loadedExistingSession.first_late_submission_minutes : (isLateSubmission ? lateMinsCount : 0),
             class_start_time: activeCls?.start_time || '06:30',
-            submitted_by_name: teacherDisplayName,
+            submitted_by_name: loadedExistingSession?.submitted_by_name || teacherDisplayName,
             records
           });
 
-          toast.success(`Attendance submitted! Exact time (${formatTime(new Date().toTimeString().slice(0, 5))}) stored and faculty duty marked Present.`);
+          toast.success(hasExistingSession
+            ? 'Attendance updated! Late-arriving students recorded and faculty punctuality preserved.'
+            : `Attendance submitted! Exact time (${formatTime(new Date().toTimeString().slice(0, 5))}) stored and faculty duty marked Present.`);
           hasExistingSession = true;
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.removeItem('tps_active_att_cls');

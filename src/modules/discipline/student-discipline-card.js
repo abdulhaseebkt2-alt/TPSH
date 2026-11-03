@@ -2,7 +2,7 @@ import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
-import { formatDate, formatCurrency, printDocument } from '../../lib/utils.js';
+import { formatDate, formatCurrency, printDocument, getTodayDateStr } from '../../lib/utils.js';
 import { getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 
 export function renderFineStatusBadge(d) {
@@ -967,7 +967,7 @@ export async function renderStudentDisciplineCardModule(container, options = {})
     // MODAL: RECORD INCIDENT FOR SPECIFIC STUDENT
     // -------------------------------------------------------------
     function openRecordIncidentForStudentModal(student) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateStr();
 
       openModal({
         title: `Record Misconduct — ${student.full_name}`,

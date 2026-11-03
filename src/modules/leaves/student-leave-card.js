@@ -2,7 +2,7 @@ import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
-import { formatDate, formatTime } from '../../lib/utils.js';
+import { formatDate, formatTime, getTodayDateStr } from '../../lib/utils.js';
 
 function parseDateTimeSafe(dateStr, timeStr) {
   if (!dateStr) return null;
@@ -415,7 +415,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
                       const isRej = (l.status || '').toLowerCase() === 'rejected';
                       const isPend = (l.status || '').toLowerCase() === 'pending';
                       const departs = l.departure_date || l.leaving_date;
-                      const todayIso = new Date().toISOString().split('T')[0];
+                      const todayIso = getTodayDateStr();
                       const isUpcoming = !isPend && !isRej && !isRet && departs && departs > todayIso;
 
                       // Determine arrival status pill (Single Word concise labels)
@@ -996,7 +996,7 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       modalBody.querySelector('#btn-popup-extend-leave')?.addEventListener('click', () => {
         close();
         const code = leave.leave_code || leave.leave_register_number || 'Pass';
-        const curExpDate = studentEntry?.expected_return_date || leave.expected_return_date || new Date().toISOString().split('T')[0];
+        const curExpDate = studentEntry?.expected_return_date || leave.expected_return_date || getTodayDateStr();
         const curExpTime = studentEntry?.expected_return_time || leave.expected_return_time || '18:00';
 
         const { container: extModal, close: closeExtModal } = openModal({

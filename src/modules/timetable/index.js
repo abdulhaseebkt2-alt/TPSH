@@ -1,7 +1,7 @@
 import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { formatTime, formatDaysSingleLetters } from '../../lib/utils.js';
+import { formatTime, formatDaysSingleLetters, getTodayDateStr } from '../../lib/utils.js';
 
 const DAYS_MAP = {
   Sun: 'Sunday',
@@ -77,7 +77,7 @@ export async function renderTimetableModule(container, { onNavigate }) {
   }
 
   // Strict Scoping: Teachers can ONLY see cards for their own assigned classes
-  const todayIso = new Date().toISOString().split('T')[0];
+  const todayIso = getTodayDateStr();
   let visibleClassrooms = [];
 
   if (isTeacher) {
@@ -221,7 +221,7 @@ export async function renderTimetableModule(container, { onNavigate }) {
               const isUpcoming = isScheduledToday && currentMinutes < sMin;
               const isClosed = isScheduledToday && currentMinutes > eMin;
 
-              const todayDateStr = now.toISOString().split('T')[0];
+              const todayDateStr = getTodayDateStr(now);
               const isFacultyOnLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
 
               let statusBadgeHtml = '';
@@ -341,7 +341,7 @@ export async function renderTimetableModule(container, { onNavigate }) {
     `;
 
     // Clicking anywhere on the timetable card enters attendance for that class
-    const todayDateStr = now.toISOString().split('T')[0];
+    const todayDateStr = getTodayDateStr(now);
     const isFacultyOnLeaveToday = db.isFacultyOnApprovedLeave(user, todayDateStr, facultyLeaves);
 
     container.querySelectorAll('.teacher-upcoming-card').forEach(card => {
