@@ -2,7 +2,7 @@ import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
-import { formatDate, formatTime, getTodayDateStr } from '../../lib/utils.js';
+import { formatDate, formatTime, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
 
 function parseDateTimeSafe(dateStr, timeStr) {
   if (!dateStr) return null;
@@ -53,8 +53,8 @@ export async function renderStudentLeaveCardModule(container, options = {}) {
       db.getLeaves(true)
     ]);
 
-    // Role-based student accessibility
-    let accessibleStudents = [...(allStudents || [])];
+    // Role-based student accessibility - strictly active students only
+    let accessibleStudents = (allStudents || []).filter(s => isStudentActive(s));
     if (isBoysMentor) {
       accessibleStudents = accessibleStudents.filter(s => (s.gender || '').toLowerCase() === 'boy' || (s.gender || '').toLowerCase() === 'boys' || (s.gender || '').toLowerCase() === 'male');
     } else if (isGirlsMentor) {

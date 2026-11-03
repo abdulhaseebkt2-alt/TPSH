@@ -24,7 +24,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
 
-  const [allPrograms, allClassrooms, students, users, leaves, facultyLeaves, academicCalendar] = await Promise.all([
+  const [allPrograms, allClassrooms, rawStudents, users, leaves, facultyLeaves, academicCalendar] = await Promise.all([
     db.getPrograms(),
     db.getClassrooms(),
     db.getStudents(),
@@ -33,6 +33,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     db.getFacultyLeaves(),
     db.getAcademicCalendar()
   ]);
+
+  // Strictly filter to active students only (exclude temporary break, dropped out, inactive)
+  const students = (rawStudents || []).filter(s => isStudentActive(s));
 
   // Eligible teachers list for Admin filter
   const eligibleTeachers = users.filter(u => 

@@ -222,6 +222,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     if (Array.isArray(l.students) && l.students.length > 0) {
       l.students.forEach(s => {
         if (!s.is_returned && s.student_id) {
+          const st = students.find(item => item.id === s.student_id);
+          if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
           if (isExtPass || s.is_extended) {
             extendedStudentIds.add(s.student_id);
           } else if (isOver) {
@@ -235,6 +237,8 @@ export async function renderAdminDashboard(container, { onNavigate }) {
       const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
       sIds.forEach(sid => {
         if (sid) {
+          const st = students.find(item => item.id === sid);
+          if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
           if (isExtPass) {
             extendedStudentIds.add(sid);
           } else if (isOver) {

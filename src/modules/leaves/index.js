@@ -104,8 +104,15 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
     const st = (leave.status || '').toLowerCase();
     if (st === 'pending' || st === 'rejected') return 0;
     if (Array.isArray(leave.students) && leave.students.length > 0) {
-      return leave.students.filter(s => !s.is_returned).length;
+      return leave.students.filter(s => {
+        if (s.is_returned) return false;
+        const studentObj = (allStudents || students || []).find(item => item.id === s.student_id);
+        return !studentObj || isStudentActive(studentObj);
+      }).length;
     }
+    const sid = leave.student_id || (Array.isArray(leave.student_ids) ? leave.student_ids[0] : null);
+    const studentObj = (allStudents || students || []).find(item => item.id === sid);
+    if (studentObj && !isStudentActive(studentObj)) return 0;
     return leave.status === 'Returned' ? 0 : 1;
   }
 
@@ -140,15 +147,27 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       }
 
       const hasStudentsArray = Array.isArray(l.students) && l.students.length > 0;
-      const returnedStudents = hasStudentsArray ? l.students.filter(s => s.is_returned) : [];
-      const awayStudents = hasStudentsArray ? l.students.filter(s => !s.is_returned) : [];
+      // Filter students array to strictly only include active students (exclude temporary break, dropped out)
+      const validStudents = hasStudentsArray 
+        ? l.students.filter(s => {
+            const st = (allStudents || students || []).find(item => item.id === s.student_id);
+            return !st || isStudentActive(st);
+          })
+        : (l.student_id ? (!(allStudents || students || []).find(item => item.id === l.student_id) || isStudentActive((allStudents || students || []).find(item => item.id === l.student_id)) ? [l.student_id] : []) : []);
+
+      // If a non-pending/rejected leave record has no active students remaining, omit it from active leave view
+      if (hasStudentsArray && validStudents.length === 0 && !isPend && !isRej) return;
+      if (!hasStudentsArray && l.student_id && validStudents.length === 0 && !isPend && !isRej) return;
+
+      const returnedStudents = hasStudentsArray ? validStudents.filter(s => s.is_returned) : [];
+      const awayStudents = hasStudentsArray ? validStudents.filter(s => !s.is_returned) : [];
       const extendedAwayStudents = awayStudents.filter(s => s.is_extended);
       const hasArrivals = hasStudentsArray
         ? (returnedStudents.length > 0)
         : (l.status === 'Returned' || Boolean(l.actual_return_date));
 
       const totalStudentsCount = hasStudentsArray
-        ? l.students.length
+        ? validStudents.length
         : (Array.isArray(l.student_ids) ? l.student_ids.length : 1);
       const unretCount = hasStudentsArray
         ? awayStudents.length
@@ -164,8 +183,8 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
         id: l.id,
         is_arrival_card: false,
         has_existing_arrivals: hasArrivals,
-        students: l.students, // Preserves ALL enrolled students
-        student_ids: l.student_ids || (hasStudentsArray ? l.students.map(s => s.student_id) : (l.student_id ? [l.student_id] : [])),
+        students: hasStudentsArray ? validStudents : l.students, // Only active students
+        student_ids: hasStudentsArray ? validStudents.map(s => s.student_id) : (l.student_id ? [l.student_id] : []),
         total_students: totalStudentsCount,
         all_students_count: totalStudentsCount,
         unreturned_count: unretCount,
@@ -255,11 +274,11 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       if (Array.isArray(l.students) && l.students.length > 0) {
         const ret = l.students.filter(s => {
           const st = (allStudents || students || []).find(item => item.id === s.student_id);
-          return isStudentActive(st) && s.is_returned;
+          return (!st || isStudentActive(st)) && s.is_returned;
         }).length;
         const away = l.students.filter(s => {
           const st = (allStudents || students || []).find(item => item.id === s.student_id);
-          return isStudentActive(st) && !s.is_returned;
+          return (!st || isStudentActive(st)) && !s.is_returned;
         }).length;
         returnedCount += ret;
         awayStudentsCount += away;
@@ -844,13 +863,15 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                               Reject
                             </button>
                           ` : ''}
-                          ${!isRet && !isRej && !isPend ? `
+                          ${!isRet && !isRej ? `
                             <button class="btn btn-xs btn-outline btn-edit-leave" data-id="${l.id}" style="color: #2563EB; border-color: #93C5FD; font-weight: 600; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Edit requested date & time schedule">
                               Edit
                             </button>
-                            <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Expand/extend return date for student(s)">
-                              Extend
-                            </button>
+                            ${!isPend ? `
+                              <button class="btn btn-xs btn-outline btn-extend-leave" data-id="${l.id}" style="color: #7C3AED; border-color: #DDD6FE; font-weight: 700; border-radius: 9999px; padding: 0.25rem 0.65rem; font-size: 0.74rem;" title="Expand/extend return date for student(s)">
+                                Extend
+                              </button>
+                            ` : ''}
                           ` : ''}
                         ` : ''}
 

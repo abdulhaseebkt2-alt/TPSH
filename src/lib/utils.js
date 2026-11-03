@@ -402,8 +402,8 @@ export function normalizeStatus(statusStr) {
   const s = statusStr.trim().toLowerCase();
   if (s.includes('leave')) return 'On Approved Leave';
   if (s.includes('break')) return 'Temporary Break';
-  if (s.includes('drop')) return 'Dropped Out';
-  if (s.includes('inact') || s.includes('withdrawn') || s.includes('graduat') || s.includes('suspend')) return 'Inactive';
+  if (s.includes('drop') || s.includes('withdrawn')) return 'Dropped Out';
+  if (s.includes('inact') || s.includes('graduat') || s.includes('suspend') || s.includes('transfer')) return 'Inactive';
   return 'Active';
 }
 

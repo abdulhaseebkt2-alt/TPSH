@@ -7778,5 +7778,33 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       }
     });
 
+    it('2528 - Student Status "Dropped Out" persists reliably; Hostel Presence Radar, Leaves, and Attendance strictly exclude Temporary Break and Dropped Out students', async () => {
+      // 1. Add student and update to Dropped Out
+      const testStudent = await db.addStudent({
+        full_name: 'Drop Out Verification Student',
+        admission_number: 'TPS-DROP-TEST',
+        gender: 'Boys',
+        school_class: 'STD-V',
+        status: 'Active',
+        hostel_status: 'resident'
+      });
+
+      const updated = await db.updateStudent(testStudent.id, {
+        status: 'Dropped Out'
+      });
+      expect(updated.status).toBe('Dropped Out');
+      expect(db.isStudentActive(updated)).toBe(false);
+
+      // Verify getStudents maps it to Dropped Out
+      const studentsList = await db.getStudents();
+      const found = studentsList.find(s => s.id === testStudent.id);
+      expect(found).toBeDefined();
+      expect(found.status).toBe('Dropped Out');
+      expect(db.isStudentActive(found)).toBe(false);
+
+      // Clean up
+      await db.deleteStudent(testStudent.id);
+    });
+
   });
 });

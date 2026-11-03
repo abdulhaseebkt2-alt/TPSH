@@ -549,7 +549,10 @@ class DatabaseService {
               .select('*')
               .order('admission_number');
             if (!error && Array.isArray(data)) {
-              supabaseStudents = data.filter(s => !isDummyStudent(s));
+              supabaseStudents = data.filter(s => !isDummyStudent(s)).map(s => ({
+                ...s,
+                status: s.status === 'Withdrawn' ? 'Dropped Out' : normalizeStatus(s.status)
+              }));
             } else if (error) {
               console.warn('Supabase getStudents query error:', error);
             }
@@ -1081,11 +1084,16 @@ class DatabaseService {
     if (supabase) {
       try {
         const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+        const supabaseUpdates = { ...sanitizedUpdates };
+        // Map 'Dropped Out' to 'Withdrawn' for Supabase schema CHECK constraint
+        if (supabaseUpdates.status === 'Dropped Out') {
+          supabaseUpdates.status = 'Withdrawn';
+        }
         let updateRes;
         if (isUuid) {
-          updateRes = await supabase.from('students').update(sanitizedUpdates).eq('id', id);
+          updateRes = await supabase.from('students').update(supabaseUpdates).eq('id', id);
         } else if (sanitizedUpdates.admission_number) {
-          updateRes = await supabase.from('students').update(sanitizedUpdates).eq('admission_number', sanitizedUpdates.admission_number);
+          updateRes = await supabase.from('students').update(supabaseUpdates).eq('admission_number', sanitizedUpdates.admission_number);
         }
         if (updateRes?.error) {
           console.warn('Supabase updateStudent error:', updateRes.error);
@@ -1100,6 +1108,45 @@ class DatabaseService {
     if (idx >= 0) {
       students[idx] = { ...students[idx], ...sanitizedUpdates, updated_at: new Date().toISOString() };
       this.set('tps_students', students);
+
+      // If student is placed on Temporary Break, Dropped Out, or Inactive, automatically detach from active leave passes
+      if (sanitizedUpdates.status && !isStudentActive(sanitizedUpdates.status)) {
+        try {
+          let leaves = this.get('tps_leaves') || [];
+          let leavesChanged = false;
+          leaves.forEach(l => {
+            if (l.status === 'Returned' || l.status === 'Cancelled' || l.status === 'Rejected') return;
+            if (Array.isArray(l.students)) {
+              const hasStudent = l.students.some(s => s.student_id === id);
+              if (hasStudent) {
+                l.students = l.students.filter(s => s.student_id !== id);
+                if (Array.isArray(l.student_ids)) {
+                  l.student_ids = l.student_ids.filter(sid => sid !== id);
+                }
+                l.total_students = l.students.length;
+                if (l.student_id === id) {
+                  l.student_id = l.students[0]?.student_id || null;
+                  l.student_name = l.students[0]?.student_name || '';
+                }
+                if (l.students.length === 0) {
+                  l.status = 'Returned';
+                }
+                leavesChanged = true;
+              }
+            } else if (l.student_id === id || (Array.isArray(l.student_ids) && l.student_ids.includes(id))) {
+              l.status = 'Returned';
+              leavesChanged = true;
+            }
+          });
+          if (leavesChanged) {
+            this.set('tps_leaves', leaves);
+            this.pushCloudKey('tps_leaves', leaves).catch(e => console.warn('Push tps_leaves err:', e));
+          }
+        } catch (cErr) {
+          console.warn('Auto detach leave on break/drop error:', cErr);
+        }
+      }
+
       this.logAudit('STUDENT_UPDATE', 'students', id, `Updated student record`);
       return students[idx];
     }
