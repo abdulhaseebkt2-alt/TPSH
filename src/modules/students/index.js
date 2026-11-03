@@ -229,14 +229,25 @@ export async function renderStudentsModule(container, { onNavigate }) {
               // Status Badge Formatting
               const statusLower = (s.status || 'active').toLowerCase();
               let statusBadge = '';
-              if (statusLower === 'active') {
+              let nameColor = '#065F46';
+              let mobileNameColor = '#0F172A';
+
+              if (statusLower.includes('break')) {
+                nameColor = '#D97706';
+                mobileNameColor = '#D97706';
+                statusBadge = `<span style="color: #CBD5E1; font-weight: 600;">—</span>`;
+              } else if (statusLower.includes('drop')) {
+                nameColor = '#DC2626';
+                mobileNameColor = '#DC2626';
+                statusBadge = `<span style="color: #CBD5E1; font-weight: 600;">—</span>`;
+              } else if (statusLower.includes('inact') || !isStudentActive(s)) {
+                nameColor = '#DC2626';
+                mobileNameColor = '#DC2626';
+                statusBadge = `<span style="color: #CBD5E1; font-weight: 600;">—</span>`;
+              } else if (statusLower === 'active') {
                 statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">active</span>`;
               } else if (statusLower.includes('leave')) {
                 statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">on leave</span>`;
-              } else if (statusLower.includes('break')) {
-                statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">break</span>`;
-              } else if (statusLower.includes('drop')) {
-                statusBadge = `<span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">dropped out</span>`;
               } else {
                 statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">${s.status}</span>`;
               }
@@ -258,7 +269,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
                         `}
                       </div>
                       <div>
-                        <strong style="color: #065F46; font-size: 0.875rem; font-weight: 700; display: block; line-height: 1.3; white-space: nowrap;">${s.full_name}</strong>
+                        <strong style="color: ${nameColor}; font-size: 0.875rem; font-weight: 700; display: block; line-height: 1.3; white-space: nowrap;">${s.full_name}</strong>
                         <span style="color: #64748B; font-size: 0.72rem; white-space: nowrap;">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '2012-05-15'}</span>
                       </div>
                     </div>
@@ -311,10 +322,6 @@ export async function renderStudentsModule(container, { onNavigate }) {
                   <!-- Status Column -->
                   <td style="padding: 0.85rem 1rem; white-space: nowrap;">
                     ${statusBadge}
-                    ${(() => {
-                      const sDate = s.status_date || s.break_start_date || s.dropout_date || s.inactive_date;
-                      return (!isStudentActive(s) && sDate) ? `<div style="font-size: 0.68rem; color: #64748B; margin-top: 3px; font-weight: 600;">📅 ${formatDate(sDate)}</div>` : '';
-                    })()}
                   </td>
 
                   <!-- Checkbox Column -->
@@ -360,6 +367,12 @@ export async function renderStudentsModule(container, { onNavigate }) {
             const isGirl = (s.gender || '').toLowerCase().startsWith('g') || (s.gender || '').toLowerCase().startsWith('f');
             const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
             const statusLower = (s.status || 'active').toLowerCase();
+            let mobileNameColor = '#0F172A';
+            if (statusLower.includes('break')) {
+              mobileNameColor = '#D97706';
+            } else if (statusLower.includes('drop') || statusLower.includes('inact') || !isStudentActive(s)) {
+              mobileNameColor = '#DC2626';
+            }
             return `
               <div class="student-mobile-card-row" data-id="${s.id}" role="button" tabindex="0" title="Tap to view full student details">
                 <!-- Left: Avatar + Full Name + Gender/DOB -->
@@ -375,16 +388,9 @@ export async function renderStudentsModule(container, { onNavigate }) {
                     `}
                   </div>
                   <div class="student-mobile-details">
-                    <span class="student-mobile-name">${s.full_name}</span>
+                    <span class="student-mobile-name" style="color: ${mobileNameColor}; font-weight: 700;">${s.full_name}</span>
                     <span class="student-mobile-sub">
                       ${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '—'}
-                      ${(() => {
-                        if (isStudentActive(s)) return '';
-                        const sDate = s.status_date || s.break_start_date || s.dropout_date || s.inactive_date;
-                        const dateSuffix = sDate ? ` (${formatDate(sDate)})` : '';
-                        const colorStyle = statusLower.includes('break') ? 'color: #D97706;' : (statusLower.includes('drop') ? 'color: #DC2626;' : 'color: #64748B;');
-                        return ` • <span style="font-weight: 700; ${colorStyle}">${s.status || 'Inactive'}${dateSuffix}</span>`;
-                      })()}
                     </span>
                   </div>
                 </div>
@@ -531,7 +537,13 @@ export async function renderStudentsModule(container, { onNavigate }) {
           </div>
           <div style="flex: 1; min-width: 0; box-sizing: border-box;">
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
-              <h3 style="font-size: 1.25rem; font-weight: 800; color: #065F46; margin: 0; word-break: break-word;">${student.full_name}</h3>
+              ${(() => {
+                const stLower = (student.status || 'active').toLowerCase();
+                let nameCol = '#065F46';
+                if (stLower.includes('break')) nameCol = '#D97706';
+                else if (stLower.includes('drop') || stLower.includes('inact') || !isStudentActive(student)) nameCol = '#DC2626';
+                return `<h3 style="font-size: 1.25rem; font-weight: 800; color: ${nameCol}; margin: 0; word-break: break-word;">${student.full_name}</h3>`;
+              })()}
               ${(() => {
                 const stLower = (student.status || 'active').toLowerCase();
                 let bStyle = 'background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;';

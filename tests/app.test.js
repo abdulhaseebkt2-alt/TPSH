@@ -4586,8 +4586,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await expect(renderStudentsModule(container, { onNavigate: () => {} })).resolves.not.toThrow();
       expect(tableContainer.innerHTML).toContain('Break Student Test');
       expect(tableContainer.innerHTML).toContain('Drop Student Test');
-      expect(tableContainer.innerHTML).toContain('Temporary Break');
-      expect(tableContainer.innerHTML).toContain('Dropped Out');
+      // Names styled orange and red, but status texts/badges not written in list
+      expect(tableContainer.innerHTML).toContain('color: #D97706');
+      expect(tableContainer.innerHTML).toContain('color: #DC2626');
+      expect(tableContainer.innerHTML).not.toContain('>Temporary Break<');
+      expect(tableContainer.innerHTML).not.toContain('>Dropped Out<');
 
       await db.deleteStudent(breakStudent.id);
       await db.deleteStudent(dropStudent.id);
@@ -7855,7 +7858,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(updatedInactive.status_date).toBe(inactiveDate);
       expect(updatedInactive.inactive_date).toBe(inactiveDate);
 
-      // 5. Verify Student Directory displays effective date in both table and mobile card
+      // 5. Verify Student Directory does NOT write inactive/dropout/break dates or text in students list, but colors name red
       const tableContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
       const topBar = { querySelector: () => null };
       const dirContainer = {
@@ -7868,8 +7871,9 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         querySelectorAll: () => []
       };
       await renderStudentsModule(dirContainer, { onNavigate: () => {} });
-      expect(tableContainer.innerHTML).toContain('05.Nov.2026');
-      expect(tableContainer.innerHTML).toContain('📅 05.Nov.2026');
+      expect(tableContainer.innerHTML).not.toContain('📅 05.Nov.2026');
+      expect(tableContainer.innerHTML).not.toContain('>Inactive<');
+      expect(tableContainer.innerHTML).toContain('color: #DC2626');
 
       // Clean up
       await db.deleteStudent(student.id);
