@@ -1230,8 +1230,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
               <span class="att-compact-name" style="${onLeave ? 'color: #475569;' : ''}">${s.full_name}</span>
               ${onLeave ? `
-                <span class="badge att-on-leave-pill" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 3px;">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+                <span class="badge att-on-leave-pill" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 9999px; display: inline-flex; align-items: center;">
                   On Leave
                 </span>
               ` : ''}

@@ -192,8 +192,8 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
         <!-- Top Portion: Leave Heading, Icon & Waived Status Badge -->
         <div class="upcoming-card-top">
           <div class="upcoming-card-title-group">
-            <div class="upcoming-card-icon-pill" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; font-size: 1.25rem;">
-              ✈️
+            <div class="upcoming-card-icon-pill" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; font-size: 1.25rem; display: flex; align-items: center; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
             </div>
             <div>
               <h3 class="upcoming-card-heading" style="color: #065F46;">Faculty Leave Active</h3>

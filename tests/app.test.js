@@ -7028,6 +7028,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('#FCA5A5');
       expect(container.innerHTML).toContain('#FEF2F2');
       expect(container.innerHTML).toContain('Returned Late');
+      expect(container.innerHTML).not.toContain('⚠️ Returned Late');
 
       // Cleanup
       await db.deleteLeaveRecord(leave.id);

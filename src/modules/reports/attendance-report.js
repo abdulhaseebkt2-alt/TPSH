@@ -828,7 +828,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               <div>
                 <span style="color: #64748B; font-size: 0.74rem;">Hostel Leaves:</span>
                 <div style="font-weight: 700; color: ${isHostelLeave ? '#EF4444' : '#64748B'};">
-                  ${isHostelLeave ? '✈ Active (Fade Red Text Only)' : 'None'}
+                  ${isHostelLeave ? 'Active (Fade Red Text Only)' : 'None'}
                 </div>
               </div>
             </div>
@@ -879,7 +879,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
                         <strong style="color: #0F172A;">${st?.full_name || 'Student'}</strong>
                         ${isOnLeave ? `
                           <div style="font-size: 0.7rem; color: #2563EB; font-weight: 700; margin-top: 1px;">
-                            ✈️ Approved Hostel Leave
+                            Approved Hostel Leave
                           </div>
                         ` : ''}
                         ${isLate && isAdmin ? `
@@ -891,7 +891,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
                       <div>
                         ${isOnLeave ? `
                           <span class="badge" style="background: #DBEAFE; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 0.7rem;">
-                            ✈️ On Leave
+                            On Leave
                           </span>
                         ` : isLate ? `
                           <span class="att-late-badge" style="font-size: 0.7rem;">

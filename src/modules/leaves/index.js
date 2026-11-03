@@ -516,13 +516,13 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                           </td>
                           <td style="padding: 0.85rem 1rem;">
                             <span class="badge" style="background: ${isLateArrival ? '#FEE2E2' : '#DCFCE7'}; color: ${isLateArrival ? '#991B1B' : '#15803D'}; font-weight: 700; border-radius: 9999px; padding: 2px 8px; font-size: 0.75rem;">
-                              ${isLateArrival ? '⚠️' : '✓'} ${studentLabel}
+                              ${studentLabel}
                             </span>
                           </td>
                           <td style="padding: 0.85rem 1rem;">
                             ${isLateArrival ? `
                               <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
-                                ⚠️ Returned Late ${delayLabel ? `(${delayLabel})` : ''}
+                                Returned Late
                               </span>
                             ` : `
                               <span class="badge badge-success" style="background: #ECFDF5; color: #047857; font-size: 0.75rem; padding: 3px 8px; border-radius: 9999px; font-weight: 700;">
@@ -703,7 +703,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                         </div>
                         ${isLateArrival ? `
                           <span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">
-                            ⚠️ Returned Late ${delayLabel ? `(${delayLabel})` : ''}
+                            Returned Late
                           </span>
                         ` : `
                           <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">
@@ -732,7 +732,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
                       <!-- Footer Action Row -->
                       <div style="margin-top: 0.75rem; padding-top: 0.55rem; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 0.8rem; font-weight: 700; color: ${isLateArrival ? '#DC2626' : '#047857'};">
-                          ${isLateArrival ? '⚠️' : '✓'} ${studentLabel} ${isLateArrival && delayLabel ? `(${delayLabel})` : ''}
+                          ${studentLabel} ${isLateArrival && delayLabel ? `(${delayLabel})` : ''}
                         </span>
                         <div style="display: flex; gap: 0.35rem; align-items: center;">
                           <button class="btn btn-xs btn-outline btn-view-arrival-card" data-card-id="${l.id}" style="border-radius: 9999px; padding: 0.28rem 0.65rem; font-size: 0.74rem;">
@@ -3381,7 +3381,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
               </div>
             </div>
             <span class="badge" style="background: ${isLateArrival ? '#FEE2E2' : '#DCFCE7'}; color: ${isLateArrival ? '#991B1B' : '#15803D'}; font-weight: 800; padding: 4px 10px; border-radius: 9999px; font-size: 0.78rem;">
-              ${isLateArrival ? `⚠️ Returned Late (${delayLabel || 'Late'})` : '✓ Returned Safe (On-Time)'}
+              ${isLateArrival ? 'Returned Late' : '✓ Returned Safe (On-Time)'}
             </span>
           </div>
 

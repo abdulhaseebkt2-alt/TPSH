@@ -427,7 +427,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
 
                 if (isLeave) {
                   // FADED HOSTEL LEAVE CELL
-                  return `<td class="matrix-cell-faded-leave" title="Approved Hostel Leave">✈</td>`;
+                  return `<td class="matrix-cell-faded-leave" title="Approved Hostel Leave">L</td>`;
                 }
 
                 // Regular Working Day
@@ -527,7 +527,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
             }
             if (isLeave) {
               leaveCount++;
-              return { dayNum: d.dayNumStr, status: 'leave', icon: '✈', label: 'Approved Leave' };
+              return { dayNum: d.dayNumStr, status: 'leave', icon: 'L', label: 'Approved Leave' };
             }
 
             const sess = attendanceSessions.find(as => as.classroom_id === classId && as.session_date === dateStr);
@@ -577,7 +577,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
                 <span style="color: #CBD5E1;">•</span>
                 <span style="color: #DC2626; font-weight: 700;">✕ ${absentCount} Absent</span>
                 <span style="color: #CBD5E1;">•</span>
-                <span style="color: #2563EB; font-weight: 600;">✈ ${leaveCount} Leave</span>
+                <span style="color: #2563EB; font-weight: 600;">${leaveCount} Leave</span>
                 <span style="color: #CBD5E1;">•</span>
                 <span style="color: #64748B;">🌴 ${holidayCount} Off</span>
               </div>
@@ -694,7 +694,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
         dayAttendanceMap[dateStr] = {
           status: 'leave',
           label: 'Approved Leave',
-          icon: '✈'
+          icon: 'L'
         };
         return;
       }
@@ -811,7 +811,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
           <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid #F1F5F9; font-size: 0.78rem;">
             <span style="color: #047857; font-weight: 700; background: #ECFDF5; padding: 2px 8px; border-radius: 4px; border: 1px solid #A7F3D0;">✓ ${presentCount} Present</span>
             <span style="color: #DC2626; font-weight: 700; background: #FEF2F2; padding: 2px 8px; border-radius: 4px; border: 1px solid #FECACA;">✕ ${absentCount} Absent</span>
-            <span style="color: #2563EB; font-weight: 600; background: #EFF6FF; padding: 2px 8px; border-radius: 4px; border: 1px solid #BFDBFE;">✈ ${leaveCount} Hostel Leave</span>
+            <span style="color: #2563EB; font-weight: 600; background: #EFF6FF; padding: 2px 8px; border-radius: 4px; border: 1px solid #BFDBFE;">${leaveCount} Hostel Leave</span>
             <span style="color: #64748B; font-weight: 600; background: #F8FAFC; padding: 2px 8px; border-radius: 4px; border: 1px solid #E2E8F0;">🌴 ${holidayCount} Off / Holidays</span>
           </div>
         </div>
@@ -942,7 +942,7 @@ export async function renderReportsModule(container, { onNavigate, initialTab } 
     } else if (isLeave) {
       status = 'leave';
       title = 'Approved Hostel Leave';
-      icon = '✈';
+      icon = 'L';
       description = 'Student has an authorized hostel gate pass / outing record for this date.';
       bgTheme = '#EFF6FF';
       borderTheme = '#BFDBFE';
