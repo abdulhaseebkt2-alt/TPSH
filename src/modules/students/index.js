@@ -355,6 +355,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
           ${filtered.map(s => {
             const isGirl = (s.gender || '').toLowerCase().startsWith('g') || (s.gender || '').toLowerCase().startsWith('f');
             const normalizedCls = normalizeClassPattern(s.school_class) || 'STD-I';
+            const statusLower = (s.status || 'active').toLowerCase();
             return `
               <div class="student-mobile-card-row" data-id="${s.id}" role="button" tabindex="0" title="Tap to view full student details">
                 <!-- Left: Avatar + Full Name + Gender/DOB -->

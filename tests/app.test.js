@@ -4558,6 +4558,40 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(container.innerHTML).toContain('Female (Girls Only)');
       expect(container.innerHTML).not.toContain('Male (Boys Only)');
     });
+
+    it('2411 - Students Directory renders active and inactive (break/dropout) students in mobile view without statusLower reference errors', async () => {
+      updateCurrentUserProfile({
+        id: 'd0000000-0000-0000-0000-000000000001',
+        email: 'abdulhaseebkt2@gmail.com',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      });
+
+      const breakStudent = await db.addStudent({ full_name: 'Break Student Test', admission_number: 'TPS-BRK-1', status: 'Temporary Break', hostel_status: 'resident' });
+      const dropStudent = await db.addStudent({ full_name: 'Drop Student Test', admission_number: 'TPS-DRP-1', status: 'Dropped Out', hostel_status: 'resident' });
+      
+      const tableContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      const topBar = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      const container = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#students-table-container') return tableContainer;
+          if (sel === '#card-top-bar') return topBar;
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+
+      await expect(renderStudentsModule(container, { onNavigate: () => {} })).resolves.not.toThrow();
+      expect(tableContainer.innerHTML).toContain('Break Student Test');
+      expect(tableContainer.innerHTML).toContain('Drop Student Test');
+      expect(tableContainer.innerHTML).toContain('Temporary Break');
+      expect(tableContainer.innerHTML).toContain('Dropped Out');
+
+      await db.deleteStudent(breakStudent.id);
+      await db.deleteStudent(dropStudent.id);
+    });
   });
   describe('25. Parent Leave Request, Countdown/Countup & Hourly Fine System Tests', () => {
     it('2501 - db.calculateHourlyLate correctly assesses overdue hours and hourly fine', () => {
