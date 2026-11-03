@@ -7584,5 +7584,63 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(student2.id);
     });
 
+    it('Discipline Pay Fine & Dashboard Radar Roundness: replaces Card with Pay Fine on misconduct card and rounds Presence Radar segments', async () => {
+      // 1. Setup student and incident with fine
+      const testStudent = await db.addStudent({
+        full_name: 'Radar Discipline Student',
+        admission_number: 'TPS-TEST-RADAR-1',
+        gender: 'Male',
+        school_class: 'STD-VI'
+      });
+
+      const inc = await db.logDisciplineIncident({
+        student_id: testStudent.id,
+        category: 'Breaking window glass',
+        severity: 'Major',
+        incident_date: '2026-11-03',
+        description: 'Broken window in hallway',
+        black_marks: 2,
+        fine: 50,
+        action_taken: 'Glass repair fine assessed',
+        reported_by: 'Hostel Warden'
+      });
+
+      expect(inc.id).toBeDefined();
+      expect(inc.monetary_fine).toBe(50);
+      expect(inc.fine_remaining_amount).toBe(50);
+
+      // 2. Render discipline register: card shows Pay Fine button instead of generic Card button
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderDisciplineModule(container);
+      expect(container.innerHTML).toContain('btn-settle-fine');
+      expect(container.innerHTML).toContain('Pay Fine (₹50)');
+      expect(container.innerHTML).not.toContain('🪪 Card');
+
+      // 3. Admin Dashboard Presence Radar uses stroke-linecap="round" on active segments
+      const [leave] = await db.createLeaveRecord({
+        student_ids: [testStudent.id],
+        leave_type: 'vacation',
+        departure_date: '2026-11-01',
+        expected_return_date: '2026-11-05',
+        status: 'Away'
+      });
+      await db.extendLeaveRecord(leave.id, {
+        new_expected_date: '2026-11-10',
+        new_expected_time: '18:00',
+        reason: 'Medical extension'
+      });
+
+      const dashContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(dashContainer, { onNavigate: () => {} });
+      expect(dashContainer.innerHTML).toContain('Hostel Presence Radar');
+      expect(dashContainer.innerHTML).toContain('stroke="#8B5CF6" stroke-width="18" stroke-linecap="round"');
+      expect(dashContainer.innerHTML).toContain('stroke="#059669" stroke-width="18" stroke-linecap="round"');
+
+      // Clean up
+      if (leave && leave.id) await db.deleteLeaveRecord(leave.id);
+      await db.deleteDisciplineIncident(inc.id);
+      await db.deleteStudent(testStudent.id);
+    });
+
   });
 });

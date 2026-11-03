@@ -475,11 +475,11 @@ export async function renderAdminDashboard(container, { onNavigate }) {
               ` : ''}
               <!-- 2. On Leave segment (Blue) -->
               ${onLeaveArc > 0 ? `
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="18" stroke-linecap="${(extendedArc === 0 && overdueArc === 0) ? 'round' : 'butt'}" stroke-dasharray="${onLeaveArc} 251.3" stroke-dashoffset="-${inHostelArc}"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="18" stroke-linecap="round" stroke-dasharray="${onLeaveArc} 251.3" stroke-dashoffset="-${inHostelArc}"/>
               ` : ''}
               <!-- 3. Extended Leave segment (Violet) -->
               ${extendedArc > 0 ? `
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#8B5CF6" stroke-width="18" stroke-linecap="${overdueArc === 0 ? 'round' : 'butt'}" stroke-dasharray="${extendedArc} 251.3" stroke-dashoffset="-${inHostelArc + onLeaveArc}"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#8B5CF6" stroke-width="18" stroke-linecap="round" stroke-dasharray="${extendedArc} 251.3" stroke-dashoffset="-${inHostelArc + onLeaveArc}"/>
               ` : ''}
               <!-- 4. Overdue segment (Red - No floating circle dot) -->
               ${overdueArc > 0 ? `

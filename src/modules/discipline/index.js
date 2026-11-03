@@ -63,7 +63,14 @@ export async function renderDisciplineModule(container, options = {}) {
   let statusFilter = 'all'; // 'all', 'open', 'resolved'
 
   async function reloadData() {
-    const updated = await db.getDisciplineIncidents();
+    const [freshStudents, updated] = await Promise.all([
+      db.getStudents(),
+      db.getDisciplineIncidents()
+    ]);
+    if (freshStudents && freshStudents.length > 0) {
+      students.length = 0;
+      students.push(...freshStudents);
+    }
     rawIncidents.length = 0;
     rawIncidents.push(...(updated || []));
     displayIncidents.length = 0;
@@ -75,7 +82,7 @@ export async function renderDisciplineModule(container, options = {}) {
       : mentorGender
         ? rawIncidents.filter(d => {
             const st = students.find(s => s.id === d.student_id);
-            return st && (st.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase();
+            return !st || (st.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase();
           })
         : rawIncidents;
     displayIncidents.push(...reFiltered);
@@ -277,7 +284,13 @@ export async function renderDisciplineModule(container, options = {}) {
                         <td style="padding: 0.75rem 0.85rem; text-align: right;">
                           <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
                             <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.25rem 0.6rem; font-size: 0.74rem; font-weight: 600; border-radius: 6px;">Details</button>
-                            <button class="btn btn-outline btn-xs btn-goto-student-card" data-student-id="${d.student_id}" style="padding: 0.25rem 0.55rem; font-size: 0.74rem; font-weight: 700; border-radius: 6px; color: #DC2626; border-color: #FECACA;">🪪 Card</button>
+                            ${(Number(d.fine_remaining_amount) == null ? (d.fine_payment_status === 'paid' ? 0 : Number(d.monetary_fine) || 0) : Number(d.fine_remaining_amount)) > 0 && canManage ? `
+                              <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.25rem 0.65rem; font-size: 0.74rem; font-weight: 700; border-radius: 6px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; white-space: nowrap;">
+                                💳 ${(Number(d.fine_paid_amount) || 0) > 0 ? `Pay Rem (₹${(Number(d.fine_remaining_amount) || 0).toFixed(0)})` : `Pay Fine (₹${(Number(d.monetary_fine) || 0).toFixed(0)})`}
+                              </button>
+                            ` : (Number(d.fine_paid_amount) || 0) > 0 ? `
+                              <button class="btn btn-outline btn-xs btn-view-receipt" data-id="${d.id}" style="padding: 0.25rem 0.55rem; font-size: 0.74rem; font-weight: 700; border-radius: 6px; color: #047857; border-color: #A7F3D0; white-space: nowrap;">Receipt</button>
+                            ` : ''}
                             ${canManage && !isRes ? `
                               <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.25rem 0.55rem; font-size: 0.74rem; font-weight: 600; border-radius: 6px; color: #059669; border-color: #A7F3D0;">Resolve</button>
                             ` : ''}
@@ -355,22 +368,18 @@ export async function renderDisciplineModule(container, options = {}) {
                       <button class="btn btn-outline btn-xs btn-view-incident" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 600; border-radius: 8px;">
                         Details
                       </button>
-                      <button class="btn btn-outline btn-xs btn-goto-student-card" data-student-id="${d.student_id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #DC2626; border-color: #FECACA;">
-                        🪪 Card
-                      </button>
+                      ${(Number(d.fine_remaining_amount) == null ? (d.fine_payment_status === 'paid' ? 0 : Number(d.monetary_fine) || 0) : Number(d.fine_remaining_amount)) > 0 && canManage ? `
+                        <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.32rem 0.75rem; font-size: 0.75rem; font-weight: 800; border-radius: 8px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                          💳 ${(Number(d.fine_paid_amount) || 0) > 0 ? `Pay Rem (₹${(Number(d.fine_remaining_amount) || 0).toFixed(0)})` : `Pay Fine (₹${(Number(d.monetary_fine) || 0).toFixed(0)})`}
+                        </button>
+                      ` : (Number(d.fine_paid_amount) || 0) > 0 ? `
+                        <button class="btn btn-outline btn-xs btn-view-receipt" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #047857; border-color: #A7F3D0; display: inline-flex; align-items: center; gap: 4px;">
+                          ✓ Receipt
+                        </button>
+                      ` : ''}
                       ${canManage && !isRes ? `
                         <button class="btn btn-xs btn-outline-success btn-resolve-incident" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #059669; border-color: #A7F3D0;">
                           Resolve
-                        </button>
-                      ` : ''}
-                      ${(Number(d.fine_paid_amount) || 0) > 0 ? `
-                        <button class="btn btn-outline btn-xs btn-view-receipt" data-id="${d.id}" style="padding: 0.32rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 8px; color: #047857; border-color: #A7F3D0;">
-                          Receipt
-                        </button>
-                      ` : ''}
-                      ${(Number(d.fine_remaining_amount) == null ? (d.fine_payment_status === 'paid' ? 0 : Number(d.monetary_fine) || 0) : Number(d.fine_remaining_amount)) > 0 && canManage ? `
-                        <button class="btn btn-xs btn-settle-fine" data-id="${d.id}" style="padding: 0.32rem 0.75rem; font-size: 0.75rem; font-weight: 800; border-radius: 8px; background: #F59E0B; border: 1.5px solid #F59E0B; color: #FFFFFF; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
-                          💳 ${(Number(d.fine_paid_amount) || 0) > 0 ? `Pay Rem (₹${(Number(d.fine_remaining_amount) || 0).toFixed(0)})` : `Settle Fine (₹${(Number(d.monetary_fine) || 0).toFixed(0)})`}
                         </button>
                       ` : ''}
                       ${canManage ? `
@@ -621,7 +630,7 @@ export async function renderDisciplineModule(container, options = {}) {
           }
 
           try {
-            await db.logDisciplineIncident({
+            const newInc = await db.logDisciplineIncident({
               student_id: sid,
               category,
               severity,
@@ -633,10 +642,17 @@ export async function renderDisciplineModule(container, options = {}) {
               reported_by: user?.full_name || 'Staff'
             });
 
-            toast.success('Disciplinary incident recorded and black mark ledger updated.');
+            toast.success('Disciplinary incident recorded.');
             close();
             await reloadData();
             renderView();
+
+            // Automatically pop up fine settlement modal if monetary fine was assessed
+            if (newInc && Number(newInc.monetary_fine) > 0) {
+              setTimeout(() => {
+                openSettleFineModal(newInc.id);
+              }, 250);
+            }
           } catch (err) {
             toast.error(err.message || 'Error recording incident');
           }

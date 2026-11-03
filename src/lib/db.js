@@ -3698,12 +3698,14 @@ class DatabaseService {
 
   // --- DISCIPLINE & BLACK MARKS ---
   async getDisciplineIncidents() {
-    return this.get('tps_discipline');
+    await this.pullCloudKeys(['tps_discipline', 'tps_discipline_fine_payments'], false);
+    return this.get('tps_discipline') || [];
   }
 
   async logDisciplineIncident({ student_id, category, severity, incident_date, description, black_marks, fine, action_taken, reported_by }) {
-    const incidents = this.get('tps_discipline');
-    const students = this.get('tps_students');
+    await this.pullCloudKeys(['tps_discipline', 'tps_fines', 'tps_black_marks'], false);
+    const incidents = this.get('tps_discipline') || [];
+    const monetaryFine = Number(fine) || 0;
     const newInc = {
       id: 'disc-' + Date.now(),
       student_id,
@@ -3712,7 +3714,10 @@ class DatabaseService {
       incident_date: incident_date || getTodayDateStr(),
       description,
       black_marks_awarded: Number(black_marks) || 1,
-      monetary_fine: Number(fine) || 0,
+      monetary_fine: monetaryFine,
+      fine_payment_status: monetaryFine > 0 ? 'unpaid' : 'none',
+      fine_paid_amount: 0,
+      fine_remaining_amount: monetaryFine,
       action_taken,
       reported_by: reported_by || 'Staff',
       resolution_status: 'Open'
@@ -3721,6 +3726,7 @@ class DatabaseService {
     this.set('tps_discipline', incidents);
 
     // Update student's cumulative black marks
+    const students = await this.getStudents();
     const sidx = students.findIndex(s => s.id === student_id);
     if (sidx >= 0) {
       students[sidx].black_marks = (students[sidx].black_marks || 0) + newInc.black_marks_awarded;
