@@ -2,7 +2,7 @@ import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { formatTime } from '../../lib/utils.js';
+import { formatTime, isStudentActive } from '../../lib/utils.js';
 
 export const WEEK_DAYS = [
   { key: 'Sun', short: 'S', full: 'Sunday' },
@@ -909,7 +909,8 @@ export async function renderSectionsModule(container, { onNavigate }) {
     if (!cls) return;
 
     const prog = programs.find(p => p.id === (cls.program_id || selectedProgramId));
-    const allStudents = await db.getStudents();
+    const rawStudents = await db.getStudents();
+    const allStudents = rawStudents.filter(s => isStudentActive(s));
     // Sort students by admission number for natural sequence
     allStudents.sort((a, b) => {
       const admA = a.admission_number || '';

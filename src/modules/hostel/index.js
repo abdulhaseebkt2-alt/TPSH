@@ -1,4 +1,5 @@
 import { db } from '../../lib/db.js';
+import { isStudentActive } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -54,6 +55,7 @@ export async function renderHostelModule(container, { onNavigate }) {
   const allowedHostelIds = new Set(hostels.map(h => h.id));
 
   const students = allStudents.filter(s => {
+    if (!isStudentActive(s)) return false; // Strictly remove students on temporary break, dropped out, or inactive
     if (isGirlsMentor) return s.gender === 'Girls' || s.gender === 'Female' || (s.hostel_unit && s.hostel_unit.includes('Girls'));
     if (isBoysMentor) return s.gender === 'Boys' || s.gender === 'Male' || (s.hostel_unit && s.hostel_unit.includes('Boys'));
     return true;

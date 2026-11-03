@@ -3,7 +3,7 @@ import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
-import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters, getTodayDateStr } from '../../lib/utils.js';
+import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
 import { openMobileWheelPicker, formatDateYMD } from '../../components/date-picker.js';
 
 function parseMinutes(timeStr) {
@@ -261,13 +261,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   // Determine eligible students for an active class
   function getEligibleStudents(clsId = activeClassroomId) {
     const targetCls = allClassrooms.find(c => c.id === clsId) || availableClassrooms.find(c => c.id === clsId);
-    let list = students;
+    // Strictly filter out non-active students (break, drop out, inactive)
+    let list = students.filter(s => isStudentActive(s));
     if (targetCls && Array.isArray(targetCls.student_ids) && targetCls.student_ids.length > 0) {
       const assignedSet = new Set(targetCls.student_ids);
-      const filtered = students.filter(s => assignedSet.has(s.id));
-      if (filtered.length > 0) list = filtered;
+      const filtered = students.filter(s => assignedSet.has(s.id) && isStudentActive(s));
+      list = filtered;
     } else if (targetCls?.gender_eligibility && targetCls.gender_eligibility !== 'Mixed') {
-      list = students.filter(s => (s.gender || 'Boys').toLowerCase() === targetCls.gender_eligibility.toLowerCase());
+      list = list.filter(s => (s.gender || 'Boys').toLowerCase() === targetCls.gender_eligibility.toLowerCase());
     }
     if (isMentor && mentorGender) {
       list = list.filter(s => (s.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase());
@@ -286,7 +287,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   function isStudentOnLeave(studentOrId, dateStr = sessionDate) {
     if (!studentOrId) return false;
     const s = typeof studentOrId === 'object' ? studentOrId : students.find(item => item.id === studentOrId);
-    if (!s) return false;
+    if (!s || !isStudentActive(s)) return false;
 
     // Active leave records in tps_leaves covering dateStr
     if (Array.isArray(leaves) && leaves.length > 0) {

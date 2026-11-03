@@ -402,8 +402,20 @@ export function normalizeStatus(statusStr) {
   const s = statusStr.trim().toLowerCase();
   if (s.includes('leave')) return 'On Approved Leave';
   if (s.includes('break')) return 'Temporary Break';
-  if (s.includes('drop') || s.includes('inact')) return 'Inactive';
+  if (s.includes('drop')) return 'Dropped Out';
+  if (s.includes('inact') || s.includes('withdrawn') || s.includes('graduat') || s.includes('suspend')) return 'Inactive';
   return 'Active';
+}
+
+export function isStudentActive(studentOrStatus) {
+  if (!studentOrStatus) return false;
+  const raw = typeof studentOrStatus === 'object' ? studentOrStatus.status : studentOrStatus;
+  if (!raw || typeof raw !== 'string') return true; // defaults to active if unspecified
+  const s = raw.trim().toLowerCase();
+  if (s.includes('break') || s.includes('drop') || s.includes('inact') || s.includes('withdrawn') || s.includes('graduat') || s.includes('suspend')) {
+    return false;
+  }
+  return s === 'active' || s === 'on approved leave' || s === 'away';
 }
 
 export function normalizeHostelStatus(statusStr) {

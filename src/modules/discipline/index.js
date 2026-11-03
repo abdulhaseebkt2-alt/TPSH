@@ -1,5 +1,5 @@
 import { db } from '../../lib/db.js';
-import { formatDate, formatCurrency, printDocument } from '../../lib/utils.js';
+import { formatDate, formatCurrency, printDocument, isStudentActive } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -22,10 +22,10 @@ export async function renderDisciplineModule(container, options = {}) {
   const mentorGender = isMentor ? getMentorGenderScope(user) : null;
   const canManage = Boolean(user?.is_super_admin || user?.role === 'admin' || isMentor);
 
-  // Scope students if mentor
+  // Scope students if mentor (Active students only for incident recording)
   const scopedStudents = mentorGender
-    ? students.filter(s => (s.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase())
-    : students;
+    ? students.filter(s => isStudentActive(s) && (s.gender || 'Boys').toLowerCase() === mentorGender.toLowerCase())
+    : students.filter(s => isStudentActive(s));
 
   const isParent = user?.role === 'parent';
   const displayIncidents = (isParent

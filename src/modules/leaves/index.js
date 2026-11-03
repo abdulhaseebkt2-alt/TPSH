@@ -17,7 +17,7 @@ export function isStudentBoy(genderOrStudent, hostelUnit = '') {
 }
 
 import { db } from '../../lib/db.js';
-import { formatDate, formatTime, formatCurrency, printDocument, getTodayDateStr } from '../../lib/utils.js';
+import { formatDate, formatTime, formatCurrency, printDocument, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
 import { toast } from '../../lib/toast.js';
 import { openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -253,8 +253,14 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
       const isRej = (l.status || '').toLowerCase() === 'rejected';
       if (isPend || isRej) return;
       if (Array.isArray(l.students) && l.students.length > 0) {
-        const ret = l.students.filter(s => s.is_returned).length;
-        const away = l.students.filter(s => !s.is_returned).length;
+        const ret = l.students.filter(s => {
+          const st = (allStudents || students || []).find(item => item.id === s.student_id);
+          return isStudentActive(st) && s.is_returned;
+        }).length;
+        const away = l.students.filter(s => {
+          const st = (allStudents || students || []).find(item => item.id === s.student_id);
+          return isStudentActive(st) && !s.is_returned;
+        }).length;
         returnedCount += ret;
         awayStudentsCount += away;
         if (isLeaveOverdue(l) && away > 0) overdueCount += away;
@@ -2783,6 +2789,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
           function getFiltered() {
             return students.filter(s => {
+              if (!isStudentActive(s)) return false; // Break/dropped out/inactive cannot apply for hostel leave
               const q = indSearch.toLowerCase().trim();
               const nameMatch = !q || s.full_name?.toLowerCase().includes(q) || s.admission_number?.toLowerCase().includes(q);
               const gMatch = genderFilter === 'all' || 
@@ -3055,6 +3062,7 @@ export async function renderLeavesModule(container, { onNavigate = () => {} } = 
 
           function getBatchFiltered() {
             return students.filter(s => {
+              if (!isStudentActive(s)) return false; // Break/dropped out/inactive cannot apply for hostel leave
               const gMatch = batchGender === 'all' || 
                 (batchGender === 'male' && isStudentBoy(s)) || (batchGender === 'female' && !isStudentBoy(s));
               const cMatch = batchClass === 'all' || s.school_class === batchClass;

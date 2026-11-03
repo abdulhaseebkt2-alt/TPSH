@@ -1,5 +1,5 @@
 import { supabase, isTestEnv } from './supabase.js';
-import { calculateLateDays, calculateLateFine, normalizeClassPattern, compressImage, normalizeDate, normalizeGender, normalizeStatus, normalizeHostelStatus, getTodayDateStr } from './utils.js';
+import { calculateLateDays, calculateLateFine, normalizeClassPattern, compressImage, normalizeDate, normalizeGender, normalizeStatus, normalizeHostelStatus, isStudentActive, getTodayDateStr } from './utils.js';
 import { savePhotoToIDB, getPhotoFromIDB, getAllPhotosFromIDB } from './idb.js';
 
 export function isDummyStudent(s) {
@@ -4340,10 +4340,15 @@ class DatabaseService {
     return { isOff: false };
   }
 
+  isStudentActive(studentOrStatus) {
+    return isStudentActive(studentOrStatus);
+  }
+
   // --- AUDIT LOGS ---
   async getAuditLogs() {
     return this.get('tps_audit');
   }
 }
 
+export { isStudentActive } from './utils.js';
 export const db = new DatabaseService();

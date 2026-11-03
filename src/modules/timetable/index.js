@@ -1,7 +1,7 @@
 import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
-import { formatTime, formatDaysSingleLetters, getTodayDateStr } from '../../lib/utils.js';
+import { formatTime, formatDaysSingleLetters, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
 
 const DAYS_MAP = {
   Sun: 'Sunday',
@@ -67,12 +67,16 @@ export async function renderTimetableModule(container, { onNavigate }) {
     });
   }
 
-  // Calculate enrolled student count per classroom
+  // Calculate enrolled student count per classroom (Active students only)
   function getEnrolledCount(cls) {
     if (Array.isArray(cls.student_ids) && cls.student_ids.length > 0) {
-      return cls.student_ids.length;
+      const activeEnrolled = cls.student_ids.filter(sid => {
+        const s = students.find(item => item.id === sid);
+        return s ? isStudentActive(s) : true;
+      });
+      return activeEnrolled.length;
     }
-    const filtered = students.filter(s => s.classroom_id === cls.id || (s.program_id && s.program_id === cls.program_id));
+    const filtered = students.filter(s => isStudentActive(s) && (s.classroom_id === cls.id || (s.program_id && s.program_id === cls.program_id)));
     return filtered.length > 0 ? filtered.length : 8;
   }
 

@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatCurrency, formatDate, getTodayDateStr } from '../../lib/utils.js';
+import { formatCurrency, formatDate, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
 
 export async function renderAdminDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -149,10 +149,10 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   db.reconcileStudentLeaveStatuses();
 
   // All actively enrolled residents in hostel (includes active residents on campus and residents on approved leave)
-  const activeStudents = students.filter(s => s.status !== 'Inactive' && s.status !== 'Graduated' && s.status !== 'Withdrawn');
-  const boysCount = students.filter(s => s.gender === 'Male' || s.gender === 'Boys').length;
-  const girlsCount = students.filter(s => s.gender === 'Female' || s.gender === 'Girls').length;
-  const hostelResidents = students.filter(s => s.hostel_status === 'resident' || s.hostel_status === 'hostel');
+  const activeStudents = students.filter(s => isStudentActive(s));
+  const boysCount = activeStudents.filter(s => s.gender === 'Male' || s.gender === 'Boys' || (s.gender || '').toLowerCase() === 'male').length;
+  const girlsCount = activeStudents.filter(s => s.gender === 'Female' || s.gender === 'Girls' || (s.gender || '').toLowerCase() === 'female').length;
+  const hostelResidents = activeStudents.filter(s => s.hostel_status === 'resident' || s.hostel_status === 'hostel');
 
   // Active unreturned leaves (Approved, Away, Overdue)
   const activeUnreturnedLeaves = (leaves || []).filter(l => {
@@ -170,12 +170,20 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   activeUnreturnedLeaves.forEach(l => {
     if (Array.isArray(l.students) && l.students.length > 0) {
       l.students.forEach(s => {
-        if (!s.is_returned && s.student_id) activeAwayStudentIds.add(s.student_id);
+        if (!s.is_returned && s.student_id) {
+          const st = students.find(item => item.id === s.student_id);
+          if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
+          activeAwayStudentIds.add(s.student_id);
+        }
       });
     } else {
       const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
       sIds.forEach(sid => {
-        if (sid) activeAwayStudentIds.add(sid);
+        if (sid) {
+          const st = students.find(item => item.id === sid);
+          if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
+          activeAwayStudentIds.add(sid);
+        }
       });
     }
   });
@@ -762,7 +770,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
             </div>
           </div>
-          <div class="stat-value">${hostelResidents.length || students.length}</div>
+          <div class="stat-value">${hostelResidents.length || activeStudents.length}</div>
           <div class="stat-footer">
             <span>Boys Block: <strong>${boysCount}</strong> • Girls Campus: <strong>${girlsCount}</strong></span>
           </div>

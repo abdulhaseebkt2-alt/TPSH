@@ -1,5 +1,5 @@
 import { db } from '../../lib/db.js';
-import { formatDate, exportToCSV, STANDARD_CLASSES, normalizeClassPattern, compressImage, parseStudentsCSV } from '../../lib/utils.js';
+import { formatDate, exportToCSV, STANDARD_CLASSES, normalizeClassPattern, compressImage, parseStudentsCSV, isStudentActive } from '../../lib/utils.js';
 import * as XLSX from 'xlsx';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
@@ -95,8 +95,9 @@ export async function renderStudentsModule(container, { onNavigate }) {
         <select id="filter-status">
           <option value="all">All Statuses</option>
           <option value="active">Active</option>
-          <option value="On Approved Leave">On Approved Leave</option>
           <option value="Temporary Break">Temporary Break</option>
+          <option value="Dropped Out">Dropped Out</option>
+          <option value="On Approved Leave">On Approved Leave</option>
           <option value="inactive">Inactive</option>
         </select>
 
@@ -137,9 +138,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
         s.gender === selectedGender ||
         (selectedGender === 'Male' && s.gender === 'Boys') ||
         (selectedGender === 'Female' && s.gender === 'Girls');
+      const sLower = (s.status || 'active').toLowerCase();
       const matchStatus =
         selectedStatus === 'all' ||
-        (s.status || '').toLowerCase() === selectedStatus.toLowerCase();
+        (selectedStatus === 'active' ? isStudentActive(s) : sLower === selectedStatus.toLowerCase());
 
       const studentClass = normalizeClassPattern(s.school_class || '');
       const matchClass =
@@ -152,12 +154,13 @@ export async function renderStudentsModule(container, { onNavigate }) {
 
     const isAllSelected = filtered.length > 0 && filtered.every(s => selectedIds.has(s.id));
     const hasSelection = selectedIds.size > 0;
+    const activeFound = filtered.filter(s => isStudentActive(s)).length;
 
     // Render Card Top Bar (Image 2 vs Image 3)
     topBar.innerHTML = `
       <div class="card-title-group">
         <h3>Enrolled Hostel Students</h3>
-        <span class="count-text">(${filtered.length} found)</span>
+        <span class="count-text">(${activeFound} Active${filtered.length !== activeFound ? ` • ${filtered.length} Total` : ''})</span>
       </div>
 
       ${hasSelection && canDeleteStudents ? `
@@ -227,13 +230,15 @@ export async function renderStudentsModule(container, { onNavigate }) {
               const statusLower = (s.status || 'active').toLowerCase();
               let statusBadge = '';
               if (statusLower === 'active') {
-                statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">active</span>`;
+                statusBadge = `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">active</span>`;
               } else if (statusLower.includes('leave')) {
-                statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">on leave</span>`;
+                statusBadge = `<span class="badge" style="background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">on leave</span>`;
               } else if (statusLower.includes('break')) {
-                statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">break</span>`;
+                statusBadge = `<span class="badge" style="background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">break</span>`;
+              } else if (statusLower.includes('drop')) {
+                statusBadge = `<span class="badge" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">dropped out</span>`;
               } else {
-                statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; display: inline-block;">${s.status}</span>`;
+                statusBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block;">${s.status}</span>`;
               }
 
               return `
@@ -366,7 +371,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
                   </div>
                   <div class="student-mobile-details">
                     <span class="student-mobile-name">${s.full_name}</span>
-                    <span class="student-mobile-sub">${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '—'}</span>
+                    <span class="student-mobile-sub">
+                      ${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '—'}
+                      ${!isStudentActive(s) ? ` • <span style="font-weight: 700; ${statusLower.includes('break') ? 'color: #D97706;' : (statusLower.includes('drop') ? 'color: #DC2626;' : 'color: #64748B;')}">${s.status || 'Inactive'}</span>` : ''}
+                    </span>
                   </div>
                 </div>
 
@@ -513,7 +521,15 @@ export async function renderStudentsModule(container, { onNavigate }) {
           <div style="flex: 1; min-width: 0; box-sizing: border-box;">
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
               <h3 style="font-size: 1.25rem; font-weight: 800; color: #065F46; margin: 0; word-break: break-word;">${student.full_name}</h3>
-              <span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; border-radius: 9999px; padding: 0.2rem 0.65rem; font-size: 0.72rem; font-weight: 600;">${student.status || 'active'}</span>
+              ${(() => {
+                const stLower = (student.status || 'active').toLowerCase();
+                let bStyle = 'background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;';
+                if (stLower.includes('break')) bStyle = 'background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A;';
+                else if (stLower.includes('drop')) bStyle = 'background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA;';
+                else if (stLower.includes('leave')) bStyle = 'background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE;';
+                else if (stLower.includes('inact')) bStyle = 'background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1;';
+                return `<span class="badge" style="${bStyle} border-radius: 9999px; padding: 0.2rem 0.65rem; font-size: 0.72rem; font-weight: 700;">${student.status || 'Active'}</span>`;
+              })()}
               <span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #1E293B; font-weight: 700;">${student.admission_number}</span>
             </div>
             <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; word-break: break-word;">
@@ -687,10 +703,11 @@ export async function renderStudentsModule(container, { onNavigate }) {
             <div class="form-group">
               <label class="form-label required">Status</label>
               <select id="edit-status" class="form-control" required>
-                <option value="active" ${student.status === 'active' || student.status === 'Active' ? 'selected' : ''}>Active</option>
-                <option value="On Approved Leave" ${student.status === 'On Approved Leave' ? 'selected' : ''}>On Approved Leave</option>
-                <option value="Temporary Break" ${student.status === 'Temporary Break' ? 'selected' : ''}>Temporary Break</option>
-                <option value="inactive" ${student.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                <option value="Active" ${(student.status || 'active').toLowerCase() === 'active' ? 'selected' : ''}>Active</option>
+                <option value="Temporary Break" ${(student.status || '').toLowerCase().includes('break') ? 'selected' : ''}>Temporary Break</option>
+                <option value="Dropped Out" ${(student.status || '').toLowerCase().includes('drop') ? 'selected' : ''}>Dropped Out</option>
+                <option value="On Approved Leave" ${(student.status || '').toLowerCase().includes('leave') ? 'selected' : ''}>On Approved Leave</option>
+                <option value="Inactive" ${(student.status || '').toLowerCase().includes('inact') ? 'selected' : ''}>Inactive</option>
               </select>
             </div>
           </div>

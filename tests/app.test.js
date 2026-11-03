@@ -7642,5 +7642,47 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(testStudent.id);
     });
 
+    it('Student Status Exclusion: Temporary Break and Dropped Out students are excluded from attendance, leaves, total counts, and hostel presence radar until restored to Active', async () => {
+      // 1. Create active student
+      const testStudent = await db.addStudent({
+        full_name: 'Break Test Student',
+        admission_number: 'TPS-TEST-BREAK-01',
+        gender: 'Male',
+        school_class: 'STD-V',
+        status: 'Active',
+        hostel_status: 'resident'
+      });
+
+      expect(db.isStudentActive(testStudent)).toBe(true);
+
+      // 2. Put student on Temporary Break
+      await db.updateStudent(testStudent.id, {
+        status: 'Temporary Break'
+      });
+
+      const updatedBreak = (await db.getStudents()).find(s => s.id === testStudent.id);
+      expect(updatedBreak.status).toBe('Temporary Break');
+      expect(db.isStudentActive(updatedBreak)).toBe(false);
+
+      // 3. Put student on Dropped Out
+      await db.updateStudent(testStudent.id, {
+        status: 'Dropped Out'
+      });
+      const updatedDrop = (await db.getStudents()).find(s => s.id === testStudent.id);
+      expect(updatedDrop.status).toBe('Dropped Out');
+      expect(db.isStudentActive(updatedDrop)).toBe(false);
+
+      // 4. Restore student to Active
+      await db.updateStudent(testStudent.id, {
+        status: 'Active'
+      });
+      const restored = (await db.getStudents()).find(s => s.id === testStudent.id);
+      expect(restored.status).toBe('Active');
+      expect(db.isStudentActive(restored)).toBe(true);
+
+      // Clean up
+      await db.deleteStudent(testStudent.id);
+    });
+
   });
 });
