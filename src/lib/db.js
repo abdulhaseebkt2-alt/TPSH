@@ -549,10 +549,28 @@ class DatabaseService {
               .select('*')
               .order('admission_number');
             if (!error && Array.isArray(data)) {
-              supabaseStudents = data.filter(s => !isDummyStudent(s)).map(s => ({
-                ...s,
-                status: s.status === 'Withdrawn' ? 'Dropped Out' : normalizeStatus(s.status)
-              }));
+              supabaseStudents = data.filter(s => !isDummyStudent(s)).map(s => {
+                const mappedStatus = s.status === 'Withdrawn' ? 'Dropped Out' : normalizeStatus(s.status);
+                let sDate = s.break_start_date || null;
+                let cleanRemarks = s.remarks || '';
+                if (cleanRemarks && cleanRemarks.includes('[DATE:')) {
+                  const m = cleanRemarks.match(/\[DATE:(\d{4}-\d{2}-\d{2})\]/);
+                  if (m) {
+                    sDate = m[1];
+                    cleanRemarks = cleanRemarks.replace(/\[DATE:\d{4}-\d{2}-\d{2}\]\s*/g, '').trim();
+                  }
+                }
+                return {
+                  ...s,
+                  status: mappedStatus,
+                  remarks: cleanRemarks,
+                  status_reason: s.break_reason || cleanRemarks || '',
+                  status_date: sDate,
+                  dropout_date: mappedStatus === 'Dropped Out' ? (sDate || null) : null,
+                  inactive_date: mappedStatus === 'Inactive' ? (sDate || null) : null,
+                  break_start_date: mappedStatus === 'Temporary Break' ? (sDate || null) : (s.break_start_date || null)
+                };
+              });
             } else if (error) {
               console.warn('Supabase getStudents query error:', error);
             }
@@ -570,7 +588,22 @@ class DatabaseService {
         // Safely reconcile Cloud and Local records
         let mergedStudents = [];
         if (supabaseStudents && supabaseStudents.length > 0) {
-          mergedStudents = supabaseStudents;
+          const localMap = new Map((localStudents || []).map(s => [s.admission_number || s.id, s]));
+          mergedStudents = supabaseStudents.map(s => {
+            const loc = localMap.get(s.admission_number) || localMap.get(s.id);
+            const statusDate = s.status_date || loc?.status_date || loc?.dropout_date || loc?.inactive_date || loc?.break_start_date || null;
+            const statusReason = s.status_reason || loc?.status_reason || loc?.break_reason || loc?.remarks || '';
+            const remarks = s.remarks || loc?.remarks || '';
+            return {
+              ...s,
+              status_date: statusDate,
+              dropout_date: s.status === 'Dropped Out' ? (statusDate || loc?.dropout_date || null) : (loc?.dropout_date || null),
+              inactive_date: s.status === 'Inactive' ? (statusDate || loc?.inactive_date || null) : (loc?.inactive_date || null),
+              break_start_date: s.status === 'Temporary Break' ? (statusDate || loc?.break_start_date || null) : (s.break_start_date || null),
+              status_reason: statusReason,
+              remarks: remarks
+            };
+          });
           // Preserve any genuinely locally added student (created offline, never synced to Supabase)
           if (localStudents.length > 0) {
             const dbAdmSet = new Set(supabaseStudents.map(s => s.admission_number));
@@ -581,7 +614,7 @@ class DatabaseService {
               (typeof s.id === 'string' && s.id.startsWith('s-'))
             );
             if (missingFromDb.length > 0) {
-              mergedStudents = [...supabaseStudents, ...missingFromDb];
+              mergedStudents = [...mergedStudents, ...missingFromDb];
               // Asynchronously sync missing records to Supabase in background
               this.importStudents(missingFromDb).catch(err => console.warn('Background sync error:', err));
             }
@@ -1061,16 +1094,31 @@ class DatabaseService {
     if (sanitizedUpdates.school_class !== undefined) {
       sanitizedUpdates.school_class = normalizeClassPattern(sanitizedUpdates.school_class);
     }
+
+    // Unify status_date across all status types
+    const statusDate = sanitizedUpdates.status_date || sanitizedUpdates.dropout_date || sanitizedUpdates.inactive_date || sanitizedUpdates.break_start_date || null;
+
     if (sanitizedUpdates.status === 'Temporary Break') {
-      sanitizedUpdates.break_start_date = sanitizedUpdates.status_date || sanitizedUpdates.break_start_date || null;
+      sanitizedUpdates.status_date = statusDate;
+      sanitizedUpdates.break_start_date = statusDate;
       if (sanitizedUpdates.status_reason && !sanitizedUpdates.break_reason) {
         sanitizedUpdates.break_reason = sanitizedUpdates.status_reason;
       }
     } else if (sanitizedUpdates.status === 'Dropped Out') {
-      sanitizedUpdates.dropout_date = sanitizedUpdates.status_date || sanitizedUpdates.dropout_date || null;
+      sanitizedUpdates.status_date = statusDate;
+      sanitizedUpdates.dropout_date = statusDate;
     } else if (sanitizedUpdates.status === 'Inactive') {
-      sanitizedUpdates.inactive_date = sanitizedUpdates.status_date || sanitizedUpdates.inactive_date || null;
+      sanitizedUpdates.status_date = statusDate;
+      sanitizedUpdates.inactive_date = statusDate;
+    } else if (sanitizedUpdates.status === 'Active') {
+      sanitizedUpdates.status_date = null;
+      sanitizedUpdates.dropout_date = null;
+      sanitizedUpdates.inactive_date = null;
+      sanitizedUpdates.break_start_date = null;
+      sanitizedUpdates.break_reason = null;
+      sanitizedUpdates.status_reason = null;
     }
+
     if (sanitizedUpdates.photo_url) {
       if (sanitizedUpdates.photo_url.length > 25000 && sanitizedUpdates.photo_url.startsWith('data:')) {
         sanitizedUpdates.photo_url = await compressImage(sanitizedUpdates.photo_url, 280, 320, 0.75);
@@ -1099,14 +1147,25 @@ class DatabaseService {
         if (supabaseUpdates.status === 'Dropped Out') {
           supabaseUpdates.status = 'Withdrawn';
         }
+
+        // Store status date reliably in Supabase break_start_date & remarks tag
+        if (statusDate) {
+          supabaseUpdates.break_start_date = statusDate;
+          const tag = `[DATE:${statusDate}]`;
+          const rawNote = (sanitizedUpdates.status_reason || sanitizedUpdates.remarks || supabaseUpdates.remarks || '').replace(/\[DATE:\d{4}-\d{2}-\d{2}\]\s*/g, '').trim();
+          supabaseUpdates.remarks = rawNote ? `${tag} ${rawNote}` : tag;
+        } else if (sanitizedUpdates.status === 'Active') {
+          supabaseUpdates.break_start_date = null;
+          supabaseUpdates.break_reason = null;
+          if (supabaseUpdates.remarks) {
+            supabaseUpdates.remarks = supabaseUpdates.remarks.replace(/\[DATE:\d{4}-\d{2}-\d{2}\]\s*/g, '').trim();
+          }
+        }
+
         if (supabaseUpdates.status === 'Temporary Break') {
-          supabaseUpdates.break_start_date = sanitizedUpdates.status_date || sanitizedUpdates.break_start_date || null;
           if (sanitizedUpdates.status_reason) {
             supabaseUpdates.break_reason = sanitizedUpdates.status_reason;
           }
-        }
-        if (sanitizedUpdates.status_reason && !supabaseUpdates.remarks) {
-          supabaseUpdates.remarks = sanitizedUpdates.status_reason;
         }
 
         // Clean up client-only fields that do not exist on the Supabase 'students' table

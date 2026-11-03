@@ -7879,5 +7879,49 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(student.id);
     });
 
+    it('2530 - Dropped Out student date persistence and profile rendering verification', async () => {
+      // 1. Create a student
+      const student = await db.addStudent({
+        full_name: 'Mafuja Khatun Test',
+        admission_number: 'TPS-2026-016-TEST',
+        gender: 'Girls',
+        school_class: 'STD-V',
+        status: 'Active',
+        hostel_status: 'resident'
+      });
+
+      // 2. Set status to Dropped Out with date and reason
+      const dropDate = '2026-11-04';
+      const updated = await db.updateStudent(student.id, {
+        status: 'Dropped Out',
+        status_date: dropDate,
+        status_reason: 'Family relocated'
+      });
+
+      expect(updated.status).toBe('Dropped Out');
+      expect(updated.status_date).toBe(dropDate);
+      expect(updated.dropout_date).toBe(dropDate);
+      expect(updated.status_reason).toBe('Family relocated');
+
+      // 3. Ensure getStudents() returns the student with status_date and dropout_date intact
+      const allStudents = await db.getStudents();
+      const fetched = allStudents.find(s => s.id === student.id || s.admission_number === 'TPS-2026-016-TEST');
+      expect(fetched).toBeDefined();
+      expect(fetched.status).toBe('Dropped Out');
+      expect(fetched.status_date).toBe(dropDate);
+      expect(fetched.dropout_date).toBe(dropDate);
+
+      // 4. Reactivate and verify dates are reset
+      const reactivated = await db.updateStudent(student.id, {
+        status: 'Active'
+      });
+      expect(reactivated.status).toBe('Active');
+      expect(reactivated.status_date).toBeNull();
+      expect(reactivated.dropout_date).toBeNull();
+
+      // Clean up
+      await db.deleteStudent(student.id);
+    });
+
   });
 });

@@ -591,14 +591,14 @@ export async function renderStudentsModule(container, { onNavigate }) {
                 label = 'Inactive Since';
               }
 
-              const reason = student.status_reason || student.break_reason || student.remarks;
+              let reason = (student.status_reason || student.break_reason || student.remarks || '').replace(/\[DATE:\d{4}-\d{2}-\d{2}\]\s*/g, '').trim();
 
               return `
                 <div class="student-status-date-banner" style="margin-top: 0.65rem; padding: 0.55rem 0.85rem; border-radius: 8px; background: ${bannerBg}; border: 1.5px solid ${bannerBorder}; color: ${bannerColor}; font-size: 0.825rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; width: 100%; box-sizing: border-box;">
                   <div style="display: flex; align-items: center; gap: 0.45rem;">
                     <span style="font-size: 1rem;">${icon}</span>
                     <span style="font-weight: 700;">${label}:</span>
-                    <strong style="font-weight: 800; font-size: 0.85rem; text-decoration: underline;">${statusDate ? formatDate(statusDate) : 'Not specified'}</strong>
+                    <strong style="font-weight: 800; font-size: 0.85rem; text-decoration: underline;">${statusDate ? formatDate(statusDate) : '<span role="button" class="btn-set-status-date-direct" style="cursor: pointer; color: #2563EB; text-decoration: underline;">Set Date</span>'}</strong>
                   </div>
                   ${reason ? `<div style="font-size: 0.76rem; opacity: 0.95; font-style: italic;">Note: <strong>${reason}</strong></div>` : ''}
                 </div>
@@ -644,6 +644,11 @@ export async function renderStudentsModule(container, { onNavigate }) {
         ` : ''}
       `,
       onMount: ({ container: modalBody, close }) => {
+        modalBody.querySelector('.btn-set-status-date-direct')?.addEventListener('click', () => {
+          close();
+          showEditStudentModal(student);
+        });
+
         modalBody.querySelector('#modal-btn-edit-student')?.addEventListener('click', () => {
           close();
           showEditStudentModal(student);
@@ -836,7 +841,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
           }
 
           const performSave = async (extraStatusData = {}) => {
-            await db.updateStudent(student.id, {
+            const finalDate = extraStatusData.status_date || (['Dropped Out', 'Temporary Break', 'Inactive'].includes(updatedStatus) ? (student.status_date || student.dropout_date || student.break_start_date || student.inactive_date) : null);
+            const finalReason = extraStatusData.status_reason !== undefined ? extraStatusData.status_reason : (student.status_reason || student.remarks || '');
+
+            const updatedRecord = await db.updateStudent(student.id, {
               full_name: updatedName,
               admission_number: updatedAdm,
               dob: updatedDob,
@@ -850,13 +858,33 @@ export async function renderStudentsModule(container, { onNavigate }) {
               father_phone: updatedPhone,
               status: updatedStatus,
               photo_url: currentPhotoBase64,
-              status_date: extraStatusData.status_date || null,
-              break_start_date: updatedStatus === 'Temporary Break' ? (extraStatusData.status_date || student.break_start_date || null) : null,
-              dropout_date: updatedStatus === 'Dropped Out' ? (extraStatusData.status_date || student.dropout_date || null) : null,
-              inactive_date: updatedStatus === 'Inactive' ? (extraStatusData.status_date || student.inactive_date || null) : null,
-              status_reason: extraStatusData.status_reason || '',
-              remarks: extraStatusData.status_reason || student.remarks || ''
+              status_date: finalDate,
+              break_start_date: updatedStatus === 'Temporary Break' ? finalDate : null,
+              dropout_date: updatedStatus === 'Dropped Out' ? finalDate : null,
+              inactive_date: updatedStatus === 'Inactive' ? finalDate : null,
+              status_reason: finalReason,
+              remarks: finalReason
             });
+
+            if (updatedRecord) {
+              Object.assign(student, updatedRecord);
+            } else {
+              Object.assign(student, {
+                full_name: updatedName,
+                admission_number: updatedAdm,
+                dob: updatedDob,
+                gender: updatedGender,
+                school_class: normalizeClassPattern(updatedClass),
+                category: updatedCat,
+                status: updatedStatus,
+                status_date: finalDate,
+                dropout_date: updatedStatus === 'Dropped Out' ? finalDate : null,
+                break_start_date: updatedStatus === 'Temporary Break' ? finalDate : null,
+                inactive_date: updatedStatus === 'Inactive' ? finalDate : null,
+                status_reason: finalReason,
+                remarks: finalReason
+              });
+            }
 
             toast.success(`Record for ${updatedName} updated successfully.`);
             close();
@@ -872,7 +900,7 @@ export async function renderStudentsModule(container, { onNavigate }) {
             const isInactive = updatedStatus === 'Inactive';
 
             const defaultDate = student.status_date || student.break_start_date || student.dropout_date || student.inactive_date || getTodayDateStr();
-            const defaultReason = student.status_reason || student.break_reason || student.remarks || '';
+            let defaultReason = (student.status_reason || student.break_reason || student.remarks || '').replace(/\[DATE:\d{4}-\d{2}-\d{2}\]\s*/g, '').trim();
 
             const themeColor = isDrop ? '#DC2626' : (isBreak ? '#D97706' : '#475569');
             const themeBg = isDrop ? '#FEF2F2' : (isBreak ? '#FFFBEB' : '#F1F5F9');
