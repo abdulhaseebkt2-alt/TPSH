@@ -3679,12 +3679,12 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       });
 
       // Also create an active leave record in tps_leaves
-      const todayIso = new Date().toISOString().split('T')[0];
+      const todayIso = getTodayDateStr();
       const [leave] = await db.createLeaveRecord({
         student_ids: [student.id],
         leave_type: 'hostel_leave',
         departure_date: todayIso,
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-05',
         expected_return_time: '18:00',
         reason: 'Authorized Family Wedding',
@@ -3753,7 +3753,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     });
 
     it('Bulk actions skip student on leave, and submitting attendance persists status as "Leave"', async () => {
-      const todayIso = new Date().toISOString().split('T')[0];
+      const todayIso = getTodayDateStr();
 
       // Add student on leave
       const leaveStudent = await db.addStudent({
@@ -4064,7 +4064,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         is_multiple_days: false,
         start_date: '2026-11-20',
         end_date: '2026-11-20',
-        departure_time: '08:00',
+        departure_time: '00:01',
         return_time: '16:00',
         leave_type: 'Sick / Medical Leave',
         reason: 'Consulting Doctor for Throat Infection',
@@ -4164,7 +4164,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     });
 
     it('2306 - Faculty on Leave: Incapable of taking attendance and suppressed dashboard alerts during leave period', async () => {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getTodayDateStr();
 
       // 1. Create an approved faculty leave for teacher u-2 (Rashid Sir) covering today
       const todayLeave = await db.applyFacultyLeave({
@@ -4174,7 +4174,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         is_multiple_days: false,
         start_date: todayStr,
         end_date: todayStr,
-        departure_time: '08:00',
+        departure_time: '00:01',
         return_time: '17:00',
         leave_type: 'Official Duty Leave',
         reason: 'State Education Board Evaluation Duty',
@@ -5125,7 +5125,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         is_multiple_days: true,
         start_date: '2026-10-30',
         end_date: '2026-11-03',
-        departure_time: '08:00',
+        departure_time: '00:01',
         return_time: '16:30',
         leave_type: 'Casual Leave',
         reason: 'Outstation Personal Work',
@@ -5383,7 +5383,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         admission_number: testStudent.admission_number,
         leave_type: 'hostel_leave',
         departure_date: '2026-11-01',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-03',
         expected_return_time: '18:00',
         reason: 'Family Event',
@@ -5583,8 +5583,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       }
 
       // 2. Setup future approved leave: Departure is tomorrow (2026-11-02), Return day after tomorrow (2026-11-03)
-      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-      const dayAfter = new Date(Date.now() + 172800000).toISOString().split('T')[0];
+      const tomorrow = getTodayDateStr(new Date(Date.now() + 86400000));
+      const dayAfter = getTodayDateStr(new Date(Date.now() + 172800000));
 
       const advanceLeave = {
         id: 'leave-advance-2516',
@@ -5617,7 +5617,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(html).toContain('Official Outing Gate Pass will activate automatically on departure day');
 
       // 4. Test Departure Day Exit Gate Pass: Today is departure date and time is past departure time
-      const todayIso = new Date().toISOString().split('T')[0];
+      const todayIso = getTodayDateStr();
       advanceLeave.departure_date = todayIso;
       advanceLeave.departure_time = '00:01';
       advanceLeave.expected_return_date = dayAfter;
@@ -5952,7 +5952,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         localStorage.setItem('tps_parent_active_child', student.id);
       }
 
-      const todayIso = new Date().toISOString().split('T')[0];
+      const todayIso = getTodayDateStr();
       const now = new Date();
 
       // Case A: 30 minutes past departure time (within 1-hour window for single-day leave)
@@ -6726,7 +6726,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         student_name: student.full_name,
         leave_type: 'hostel_leave',
         departure_date: '2026-11-01',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-03',
         expected_return_time: '18:00',
         reason: 'Family Function'
@@ -6837,7 +6837,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         student_ids: [s1.id, s2.id],
         leave_type: 'hostel_leave',
         departure_date: '2026-11-01',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-03',
         expected_return_time: '18:00',
         reason: 'Weekend Holiday'
@@ -6866,7 +6866,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         student_ids: [s1.id, s2.id, s3.id],
         leave_type: 'vacation',
         departure_date: '2026-10-15',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-10-25',
         expected_return_time: '18:00',
         reason: 'Puja Vacation'
@@ -7038,7 +7038,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         student_ids: [student.id],
         leave_type: 'Hostel Leave',
         departure_date: '2026-11-01',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-01',
         expected_return_time: '17:00',
         reason: 'Family event',
@@ -7315,7 +7315,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         leave_type: 'Hostel Leave',
         reason: 'Weekend Home Visit',
         departure_date: '2026-10-30',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-01',
         expected_return_time: '10:00',
         fine_unit: 'hourly',
@@ -7407,7 +7407,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         leave_type: 'hostel_leave',
         reason: 'Weekend Visit',
         departure_date: '2026-11-01',
-        departure_time: '08:00',
+        departure_time: '00:01',
         expected_return_date: '2026-11-02',
         expected_return_time: '18:00'
       });
@@ -7804,6 +7804,75 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Clean up
       await db.deleteStudent(testStudent.id);
+    });
+
+    it('2529 - Effective Date on Student Profile: Dropped Out, Temporary Break, and Inactive students persist status_date and display date banner on profile', async () => {
+      // 1. Create a student
+      const student = await db.addStudent({
+        full_name: 'Status Date Test Student',
+        admission_number: 'TPS-DATE-001',
+        gender: 'Girls',
+        school_class: 'STD-VII',
+        status: 'Active',
+        hostel_status: 'resident'
+      });
+
+      // 2. Update to Temporary Break with status_date and reason
+      const breakDate = '2026-11-03';
+      const updatedBreak = await db.updateStudent(student.id, {
+        status: 'Temporary Break',
+        status_date: breakDate,
+        status_reason: 'Medical recovery leave'
+      });
+
+      expect(updatedBreak.status).toBe('Temporary Break');
+      expect(updatedBreak.status_date).toBe(breakDate);
+      expect(updatedBreak.break_start_date).toBe(breakDate);
+      expect(updatedBreak.status_reason).toBe('Medical recovery leave');
+
+      // 3. Update to Dropped Out with status_date
+      const dropoutDate = '2026-11-04';
+      const updatedDrop = await db.updateStudent(student.id, {
+        status: 'Dropped Out',
+        status_date: dropoutDate,
+        status_reason: 'Transferred to hometown school'
+      });
+
+      expect(updatedDrop.status).toBe('Dropped Out');
+      expect(updatedDrop.status_date).toBe(dropoutDate);
+      expect(updatedDrop.dropout_date).toBe(dropoutDate);
+      expect(updatedDrop.status_reason).toBe('Transferred to hometown school');
+
+      // 4. Update to Inactive with status_date
+      const inactiveDate = '2026-11-05';
+      const updatedInactive = await db.updateStudent(student.id, {
+        status: 'Inactive',
+        status_date: inactiveDate,
+        status_reason: 'Admission suspended'
+      });
+
+      expect(updatedInactive.status).toBe('Inactive');
+      expect(updatedInactive.status_date).toBe(inactiveDate);
+      expect(updatedInactive.inactive_date).toBe(inactiveDate);
+
+      // 5. Verify Student Directory displays effective date in both table and mobile card
+      const tableContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      const topBar = { querySelector: () => null };
+      const dirContainer = {
+        innerHTML: '',
+        querySelector: (sel) => {
+          if (sel === '#students-table-container') return tableContainer;
+          if (sel === '#card-top-bar') return topBar;
+          return null;
+        },
+        querySelectorAll: () => []
+      };
+      await renderStudentsModule(dirContainer, { onNavigate: () => {} });
+      expect(tableContainer.innerHTML).toContain('05.Nov.2026');
+      expect(tableContainer.innerHTML).toContain('📅 05.Nov.2026');
+
+      // Clean up
+      await db.deleteStudent(student.id);
     });
 
   });

@@ -1061,6 +1061,16 @@ class DatabaseService {
     if (sanitizedUpdates.school_class !== undefined) {
       sanitizedUpdates.school_class = normalizeClassPattern(sanitizedUpdates.school_class);
     }
+    if (sanitizedUpdates.status === 'Temporary Break') {
+      sanitizedUpdates.break_start_date = sanitizedUpdates.status_date || sanitizedUpdates.break_start_date || null;
+      if (sanitizedUpdates.status_reason && !sanitizedUpdates.break_reason) {
+        sanitizedUpdates.break_reason = sanitizedUpdates.status_reason;
+      }
+    } else if (sanitizedUpdates.status === 'Dropped Out') {
+      sanitizedUpdates.dropout_date = sanitizedUpdates.status_date || sanitizedUpdates.dropout_date || null;
+    } else if (sanitizedUpdates.status === 'Inactive') {
+      sanitizedUpdates.inactive_date = sanitizedUpdates.status_date || sanitizedUpdates.inactive_date || null;
+    }
     if (sanitizedUpdates.photo_url) {
       if (sanitizedUpdates.photo_url.length > 25000 && sanitizedUpdates.photo_url.startsWith('data:')) {
         sanitizedUpdates.photo_url = await compressImage(sanitizedUpdates.photo_url, 280, 320, 0.75);
@@ -1089,6 +1099,22 @@ class DatabaseService {
         if (supabaseUpdates.status === 'Dropped Out') {
           supabaseUpdates.status = 'Withdrawn';
         }
+        if (supabaseUpdates.status === 'Temporary Break') {
+          supabaseUpdates.break_start_date = sanitizedUpdates.status_date || sanitizedUpdates.break_start_date || null;
+          if (sanitizedUpdates.status_reason) {
+            supabaseUpdates.break_reason = sanitizedUpdates.status_reason;
+          }
+        }
+        if (sanitizedUpdates.status_reason && !supabaseUpdates.remarks) {
+          supabaseUpdates.remarks = sanitizedUpdates.status_reason;
+        }
+
+        // Clean up client-only fields that do not exist on the Supabase 'students' table
+        delete supabaseUpdates.status_date;
+        delete supabaseUpdates.dropout_date;
+        delete supabaseUpdates.inactive_date;
+        delete supabaseUpdates.status_reason;
+
         let updateRes;
         if (isUuid) {
           updateRes = await supabase.from('students').update(supabaseUpdates).eq('id', id);

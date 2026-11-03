@@ -1,5 +1,5 @@
 import { db } from '../../lib/db.js';
-import { formatDate, exportToCSV, STANDARD_CLASSES, normalizeClassPattern, compressImage, parseStudentsCSV, isStudentActive } from '../../lib/utils.js';
+import { formatDate, exportToCSV, STANDARD_CLASSES, normalizeClassPattern, compressImage, parseStudentsCSV, isStudentActive, getTodayDateStr } from '../../lib/utils.js';
 import * as XLSX from 'xlsx';
 import { toast } from '../../lib/toast.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
@@ -311,6 +311,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
                   <!-- Status Column -->
                   <td style="padding: 0.85rem 1rem; white-space: nowrap;">
                     ${statusBadge}
+                    ${(() => {
+                      const sDate = s.status_date || s.break_start_date || s.dropout_date || s.inactive_date;
+                      return (!isStudentActive(s) && sDate) ? `<div style="font-size: 0.68rem; color: #64748B; margin-top: 3px; font-weight: 600;">📅 ${formatDate(sDate)}</div>` : '';
+                    })()}
                   </td>
 
                   <!-- Checkbox Column -->
@@ -374,7 +378,13 @@ export async function renderStudentsModule(container, { onNavigate }) {
                     <span class="student-mobile-name">${s.full_name}</span>
                     <span class="student-mobile-sub">
                       ${isGirl ? 'Girl' : 'Boy'} • DOB: ${s.dob || '—'}
-                      ${!isStudentActive(s) ? ` • <span style="font-weight: 700; ${statusLower.includes('break') ? 'color: #D97706;' : (statusLower.includes('drop') ? 'color: #DC2626;' : 'color: #64748B;')}">${s.status || 'Inactive'}</span>` : ''}
+                      ${(() => {
+                        if (isStudentActive(s)) return '';
+                        const sDate = s.status_date || s.break_start_date || s.dropout_date || s.inactive_date;
+                        const dateSuffix = sDate ? ` (${formatDate(sDate)})` : '';
+                        const colorStyle = statusLower.includes('break') ? 'color: #D97706;' : (statusLower.includes('drop') ? 'color: #DC2626;' : 'color: #64748B;');
+                        return ` • <span style="font-weight: 700; ${colorStyle}">${s.status || 'Inactive'}${dateSuffix}</span>`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -537,6 +547,51 @@ export async function renderStudentsModule(container, { onNavigate }) {
               <div>Gender: <strong>${student.gender}</strong> • DOB: <strong>${formatDate(student.dob)}</strong> • Class: <strong>${normalizeClassPattern(student.school_class)}</strong></div>
               <div>Hostel: <strong>${student.hostel_unit || (student.hostel_status === 'day_scholar' ? 'Day Scholar' : 'Hostel Resident')}</strong> • Room: <strong>${student.hostel_room || 'Not assigned'}</strong> • Bed: <strong>${student.hostel_bed || 'Not assigned'}</strong></div>
             </div>
+            ${(() => {
+              const stLower = (student.status || '').toLowerCase();
+              const isInactive = !isStudentActive(student);
+              const statusDate = student.status_date || student.break_start_date || student.dropout_date || student.inactive_date;
+              if (!isInactive && !statusDate) return '';
+
+              let bannerBg = '#FFFBEB';
+              let bannerBorder = '#FDE68A';
+              let bannerColor = '#B45309';
+              let icon = '⏸️';
+              let label = 'Status Effective Date';
+
+              if (stLower.includes('drop')) {
+                bannerBg = '#FEF2F2';
+                bannerBorder = '#FECACA';
+                bannerColor = '#DC2626';
+                icon = '🛑';
+                label = 'Dropped Out Date';
+              } else if (stLower.includes('break')) {
+                bannerBg = '#FFFBEB';
+                bannerBorder = '#FDE68A';
+                bannerColor = '#D97706';
+                icon = '⏸️';
+                label = 'Temporary Break Date';
+              } else if (stLower.includes('inact')) {
+                bannerBg = '#F1F5F9';
+                bannerBorder = '#CBD5E1';
+                bannerColor = '#475569';
+                icon = '💤';
+                label = 'Inactive Since';
+              }
+
+              const reason = student.status_reason || student.break_reason || student.remarks;
+
+              return `
+                <div class="student-status-date-banner" style="margin-top: 0.65rem; padding: 0.55rem 0.85rem; border-radius: 8px; background: ${bannerBg}; border: 1.5px solid ${bannerBorder}; color: ${bannerColor}; font-size: 0.825rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; width: 100%; box-sizing: border-box;">
+                  <div style="display: flex; align-items: center; gap: 0.45rem;">
+                    <span style="font-size: 1rem;">${icon}</span>
+                    <span style="font-weight: 700;">${label}:</span>
+                    <strong style="font-weight: 800; font-size: 0.85rem; text-decoration: underline;">${statusDate ? formatDate(statusDate) : 'Not specified'}</strong>
+                  </div>
+                  ${reason ? `<div style="font-size: 0.76rem; opacity: 0.95; font-style: italic;">Note: <strong>${reason}</strong></div>` : ''}
+                </div>
+              `;
+            })()}
           </div>
         </div>
 
@@ -768,26 +823,107 @@ export async function renderStudentsModule(container, { onNavigate }) {
             return;
           }
 
-          await db.updateStudent(student.id, {
-            full_name: updatedName,
-            admission_number: updatedAdm,
-            dob: updatedDob,
-            gender: updatedGender,
-            school_class: normalizeClassPattern(updatedClass),
-            category: updatedCat,
-            hostel_unit: student.hostel_unit || '',
-            hostel_room: student.hostel_room || '',
-            hostel_bed: student.hostel_bed || '',
-            father_name: updatedParent,
-            father_phone: updatedPhone,
-            status: updatedStatus,
-            photo_url: currentPhotoBase64
-          });
+          const performSave = async (extraStatusData = {}) => {
+            await db.updateStudent(student.id, {
+              full_name: updatedName,
+              admission_number: updatedAdm,
+              dob: updatedDob,
+              gender: updatedGender,
+              school_class: normalizeClassPattern(updatedClass),
+              category: updatedCat,
+              hostel_unit: student.hostel_unit || '',
+              hostel_room: student.hostel_room || '',
+              hostel_bed: student.hostel_bed || '',
+              father_name: updatedParent,
+              father_phone: updatedPhone,
+              status: updatedStatus,
+              photo_url: currentPhotoBase64,
+              status_date: extraStatusData.status_date || null,
+              break_start_date: updatedStatus === 'Temporary Break' ? (extraStatusData.status_date || student.break_start_date || null) : null,
+              dropout_date: updatedStatus === 'Dropped Out' ? (extraStatusData.status_date || student.dropout_date || null) : null,
+              inactive_date: updatedStatus === 'Inactive' ? (extraStatusData.status_date || student.inactive_date || null) : null,
+              status_reason: extraStatusData.status_reason || '',
+              remarks: extraStatusData.status_reason || student.remarks || ''
+            });
 
-          toast.success(`Record for ${updatedName} updated successfully.`);
-          close();
-          students = await db.getStudents();
-          renderTable();
+            toast.success(`Record for ${updatedName} updated successfully.`);
+            close();
+            students = await db.getStudents();
+            renderTable();
+          };
+
+          const requiresStatusDate = ['Dropped Out', 'Temporary Break', 'Inactive'].includes(updatedStatus);
+
+          if (requiresStatusDate) {
+            const isBreak = updatedStatus === 'Temporary Break';
+            const isDrop = updatedStatus === 'Dropped Out';
+            const isInactive = updatedStatus === 'Inactive';
+
+            const defaultDate = student.status_date || student.break_start_date || student.dropout_date || student.inactive_date || getTodayDateStr();
+            const defaultReason = student.status_reason || student.break_reason || student.remarks || '';
+
+            const themeColor = isDrop ? '#DC2626' : (isBreak ? '#D97706' : '#475569');
+            const themeBg = isDrop ? '#FEF2F2' : (isBreak ? '#FFFBEB' : '#F1F5F9');
+            const themeBorder = isDrop ? '#FECACA' : (isBreak ? '#FDE68A' : '#CBD5E1');
+            const themeIcon = isDrop ? '🛑' : (isBreak ? '⏸️' : '💤');
+
+            openModal({
+              title: `Specify Date — ${updatedStatus}`,
+              size: 'md',
+              contentHtml: `
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                  <div style="background: ${themeBg}; border: 1.5px solid ${themeBorder}; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: flex-start; gap: 0.75rem;">
+                    <div style="font-size: 1.4rem; line-height: 1;">${themeIcon}</div>
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-weight: 800; color: ${themeColor}; font-size: 0.95rem;">
+                        ${updatedStatus} Confirmation: ${updatedName}
+                      </div>
+                      <div style="font-size: 0.78rem; color: #475569; margin-top: 0.2rem; line-height: 1.4;">
+                        Please specify the official effective date for this status. This date will be displayed directly on the student profile and official registers.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group" style="margin: 0;">
+                    <label class="form-label required" style="font-weight: 700; color: #1E293B;">
+                      ${updatedStatus} Effective Date
+                    </label>
+                    <input type="date" id="status-effective-date" class="form-control" value="${defaultDate}" required style="font-size: 0.92rem; font-weight: 600;" />
+                  </div>
+
+                  <div class="form-group" style="margin: 0;">
+                    <label class="form-label" style="font-weight: 600; color: #1E293B;">
+                      Reason / Notes (Optional)
+                    </label>
+                    <input type="text" id="status-effective-reason" class="form-control" placeholder="e.g. Relocation, Medical reasons, Transfer..." value="${defaultReason}" style="font-size: 0.88rem;" />
+                  </div>
+
+                  <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-outline" id="btn-cancel-status-popup">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirm-status-save" style="background: ${themeColor}; border-color: ${themeColor}; font-weight: 700;">Confirm & Save</button>
+                  </div>
+                </div>
+              `,
+              onMount: ({ container: dateModalBody, close: closeDateModal }) => {
+                dateModalBody.querySelector('#btn-cancel-status-popup')?.addEventListener('click', closeDateModal);
+                dateModalBody.querySelector('#btn-confirm-status-save')?.addEventListener('click', async () => {
+                  const pickedDate = dateModalBody.querySelector('#status-effective-date').value;
+                  if (!pickedDate) {
+                    toast.error('Please specify the effective date.');
+                    return;
+                  }
+                  const reason = dateModalBody.querySelector('#status-effective-reason').value.trim();
+                  closeDateModal();
+                  await performSave({
+                    status_date: pickedDate,
+                    status_reason: reason
+                  });
+                });
+              }
+            });
+          } else {
+            await performSave();
+          }
         });
       }
     });

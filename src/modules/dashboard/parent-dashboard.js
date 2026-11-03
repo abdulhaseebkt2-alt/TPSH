@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatDate, formatTime, formatCurrency } from '../../lib/utils.js';
+import { formatDate, formatTime, formatCurrency, getTodayDateStr } from '../../lib/utils.js';
 import { openModal } from '../../lib/dialog.js';
 import { toast } from '../../lib/toast.js';
 import { enhanceModalInputs } from '../../lib/ui-enhancer.js';
@@ -100,7 +100,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
   });
 
   const now = new Date();
-  const todayIso = now.toISOString().split('T')[0];
+  const todayIso = getTodayDateStr(now);
 
   let isPending = false;
   let isApprovedAdvance = false;
@@ -830,8 +830,8 @@ export async function renderParentDashboard(container, { onNavigate }) {
 
   // Parent Leave Modal Function
   function openParentLeaveModal() {
-    const defaultDate = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const defaultDate = getTodayDateStr();
+    const tomorrow = getTodayDateStr(new Date(Date.now() + 86400000));
 
     openModal({
       title: 'Request Hostel Leave Pass',
