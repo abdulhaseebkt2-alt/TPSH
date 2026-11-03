@@ -552,8 +552,8 @@ export async function renderStudentsModule(container, { onNavigate }) {
           <div style="min-width: 0; word-break: break-word;">
             <h4 style="font-size: 0.825rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Native Address</h4>
             <div style="font-size: 0.85rem; line-height: 1.6;">
-              <div>Village / Town: <strong>${student.village || '—'}</strong>, Dist: <strong>${student.district || 'Malappuram'}</strong></div>
-              <div>State: <strong>${student.state || 'Kerala'}</strong> • PIN: <strong>${student.pin_code || '—'}</strong></div>
+              <div>Village / Town: <strong>${student.village || '—'}</strong>, Dist: <strong>${student.district || '—'}</strong></div>
+              <div>State: <strong>${student.state || '—'}</strong> • PIN: <strong>${student.pin_code || '—'}</strong></div>
             </div>
           </div>
         </div>

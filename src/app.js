@@ -154,7 +154,9 @@ export function getMobileBrandFullLogoMarkup() {
 class App {
   constructor() {
     this.appEl = document.getElementById('app');
-    this.activeModule = this.getHashRoute() || 'dashboard';
+    const hashRoute = this.getHashRoute();
+    const storedRoute = localStorage.getItem('tps_last_active_route');
+    this.activeModule = hashRoute || (storedRoute && MODULE_ROUTERS[storedRoute] ? storedRoute : 'dashboard');
     this.sidebarMobileOpen = false;
     this.sidebarCollapsed = localStorage.getItem('tps_sidebar_collapsed') === 'true';
     this.setupGlobalShortcuts();
@@ -271,6 +273,9 @@ class App {
   navigate(moduleKey) {
     this.activeModule = moduleKey;
     window.location.hash = moduleKey;
+    try {
+      localStorage.setItem('tps_last_active_route', moduleKey);
+    } catch (e) {}
     const user = getCurrentUser();
     this.render(user);
   }

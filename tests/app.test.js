@@ -27,6 +27,7 @@ import { renderLeavesModule, isStudentBoy } from '../src/modules/leaves/index.js
 import { renderStudentLeaveCardModule } from '../src/modules/leaves/student-leave-card.js';
 import { renderHostelModule } from '../src/modules/hostel/index.js';
 import { renderDisciplineModule } from '../src/modules/discipline/index.js';
+import { renderAdmissionsModule } from '../src/modules/admissions/index.js';
 import { renderFinesModule } from '../src/modules/fines/index.js';
 import { renderFacultyLeavesModule } from '../src/modules/faculty-leaves/index.js';
 import { renderUsersModule } from '../src/modules/users/index.js';
@@ -7682,6 +7683,64 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       // Clean up
       await db.deleteStudent(testStudent.id);
+    });
+
+    it('Admissions Form Draft Persistence & Blank Defaults: preserves filled content across app-switches and leaves district/state blank', async () => {
+      const mockStore = {};
+      const fakeStorage = {
+        getItem: (k) => mockStore[k] || null,
+        setItem: (k, v) => { mockStore[k] = String(v); },
+        removeItem: (k) => { delete mockStore[k]; },
+        clear: () => { Object.keys(mockStore).forEach(k => delete mockStore[k]); }
+      };
+      const prevStorage = globalThis.localStorage;
+      globalThis.localStorage = fakeStorage;
+
+      try {
+        // 1. Initially render without draft: district and state inputs must have blank values (not Malappuram or Kerala)
+        const container1 = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+        await renderAdmissionsModule(container1, { onNavigate: () => {} });
+        expect(container1.innerHTML).toContain('id="adm-district" placeholder="District name" value=""');
+        expect(container1.innerHTML).toContain('id="adm-state" placeholder="State name" value=""');
+        expect(container1.innerHTML).not.toContain('value="Malappuram"');
+        expect(container1.innerHTML).not.toContain('value="Kerala"');
+
+        // 2. Simulate user filling form and switching apps (saved draft in localStorage)
+        const userDraft = {
+          fullName: 'Afrin Sarkar',
+          gender: 'Male',
+          dob: '2012-04-10',
+          admissionDate: '2026-11-03',
+          schoolClass: 'STD-VIII',
+          schoolSection: 'A',
+          hostelStatus: 'resident',
+          village: 'Khochapukur',
+          postOffice: 'Ramchandrapur',
+          district: 'D.Dinajpur',
+          state: 'West Bengal',
+          pinCode: '733127',
+          fatherName: 'Abdul Kuddos',
+          fatherPhone: '9526964799',
+          motherName: 'Shani',
+          motherPhone: '6987954563',
+          whatsapp: '9526964799'
+        };
+        fakeStorage.setItem('tps_admission_form_draft', JSON.stringify(userDraft));
+
+        // 3. Re-render (simulating returning from another app): content must be restored intact
+        const container2 = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+        await renderAdmissionsModule(container2, { onNavigate: () => {} });
+        expect(container2.innerHTML).toContain('value="Afrin Sarkar"');
+        expect(container2.innerHTML).toContain('value="Khochapukur"');
+        expect(container2.innerHTML).toContain('value="D.Dinajpur"');
+        expect(container2.innerHTML).toContain('value="West Bengal"');
+        expect(container2.innerHTML).toContain('value="733127"');
+        expect(container2.innerHTML).toContain('value="Abdul Kuddos"');
+        expect(container2.innerHTML).toContain('value="9526964799"');
+        expect(container2.innerHTML).toContain('Auto-Saved Draft Restored');
+      } finally {
+        globalThis.localStorage = prevStorage;
+      }
     });
 
   });
