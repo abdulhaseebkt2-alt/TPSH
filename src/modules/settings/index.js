@@ -20,6 +20,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
     return;
   }
 
+  await db.pullCloudKeys(['tps_institution_logo', 'tps_mobile_front_logo']);
   let currentLogo = localStorage.getItem('tps_institution_logo') || '';
   let currentMobileLogo = localStorage.getItem('tps_mobile_front_logo') || '';
 
@@ -60,6 +61,10 @@ export async function renderSettingsModule(container, { onNavigate }) {
             <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
               Upload your official institution logo. You can crop to 1:1 square or keep the full original image as-is.
             </p>
+            <div style="font-size: 0.74rem; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.15rem;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Updating logo automatically synchronizes web favicon, app icons, and cloud settings.</span>
+            </div>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.25rem; flex-wrap: wrap;">
               <button class="btn btn-sm btn-outline" id="btn-trigger-upload">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -273,20 +278,22 @@ export async function renderSettingsModule(container, { onNavigate }) {
   });
 
   // Remove logo button handler
-  container.querySelector('#btn-remove-logo')?.addEventListener('click', () => {
+  container.querySelector('#btn-remove-logo')?.addEventListener('click', async () => {
     localStorage.removeItem('tps_institution_logo');
     currentLogo = '';
     updateSidebarLogo(null);
     applyInstitutionalAppIcon(null);
+    await db.pushCloudKey('tps_institution_logo', null);
     toast.success('Institution logo removed. Default badge restored.');
     renderSettingsModule(container, { onNavigate });
   });
 
-  function saveAndApplyLogo(logoUrl) {
+  async function saveAndApplyLogo(logoUrl) {
     currentLogo = logoUrl;
     localStorage.setItem('tps_institution_logo', logoUrl);
     updateSidebarLogo(logoUrl);
     applyInstitutionalAppIcon(logoUrl);
+    await db.pushCloudKey('tps_institution_logo', logoUrl);
     renderSettingsModule(container, { onNavigate });
   }
 
@@ -306,9 +313,9 @@ export async function renderSettingsModule(container, { onNavigate }) {
     }
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const dataUrl = evt.target.result;
-      saveAndApplyMobileLogo(dataUrl);
+      await saveAndApplyMobileLogo(dataUrl);
       toast.success('Mobile view front logo applied successfully (any aspect ratio supported)!');
     };
 
@@ -316,18 +323,20 @@ export async function renderSettingsModule(container, { onNavigate }) {
     mobileFileInput.value = '';
   });
 
-  container.querySelector('#btn-reset-mobile-logo')?.addEventListener('click', () => {
+  container.querySelector('#btn-reset-mobile-logo')?.addEventListener('click', async () => {
     localStorage.removeItem('tps_mobile_front_logo');
     currentMobileLogo = '';
     applyInstitutionalAppIcon(null);
+    await db.pushCloudKey('tps_mobile_front_logo', null);
     toast.success('Mobile front logo reset to official default Thaiba emblem.');
     renderSettingsModule(container, { onNavigate });
   });
 
-  function saveAndApplyMobileLogo(logoUrl) {
+  async function saveAndApplyMobileLogo(logoUrl) {
     currentMobileLogo = logoUrl;
     localStorage.setItem('tps_mobile_front_logo', logoUrl);
     applyInstitutionalAppIcon(logoUrl);
+    await db.pushCloudKey('tps_mobile_front_logo', logoUrl);
     renderSettingsModule(container, { onNavigate });
   }
 

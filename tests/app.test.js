@@ -7923,5 +7923,45 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteStudent(student.id);
     });
 
+    it('2531 - Institution Logo & Favicon Sync: applyInstitutionalAppIcon updates link rel icon and apple-touch-icon', () => {
+      // Create mock link elements in document.head
+      const mockFavicon = { href: '', type: '', rel: 'icon' };
+      const mockAppleIcon = { href: '', rel: 'apple-touch-icon' };
+      const mockManifest = { href: '', rel: 'manifest' };
+
+      const prevDoc = globalThis.document;
+      const fakeDoc = {
+        querySelector: (sel) => {
+          if (sel === 'link[rel="icon"]') return mockFavicon;
+          if (sel === 'link[rel="apple-touch-icon"]') return mockAppleIcon;
+          if (sel === 'link[rel="manifest"]') return mockManifest;
+          return null;
+        },
+        createElement: (tag) => ({ href: '', rel: '', type: '' }),
+        head: { appendChild: () => {} }
+      };
+
+      globalThis.document = fakeDoc;
+
+      try {
+        const testLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        applyInstitutionalAppIcon(testLogo);
+
+        expect(mockFavicon.href).toBe(testLogo);
+        expect(mockFavicon.type).toBe('image/png');
+        expect(mockAppleIcon.href).toBe(testLogo);
+
+        // Reset to null
+        applyInstitutionalAppIcon(null);
+        expect(mockFavicon.href).toBeTruthy();
+      } finally {
+        if (prevDoc !== undefined) {
+          globalThis.document = prevDoc;
+        } else {
+          delete globalThis.document;
+        }
+      }
+    });
+
   });
 });

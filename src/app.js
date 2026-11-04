@@ -76,20 +76,26 @@ export function applyInstitutionalAppIcon(customLogoUrl = null) {
 
   // 1. Update <link rel="icon">
   let favIcon = document.querySelector('link[rel="icon"]');
-  if (favIcon) {
-    favIcon.href = activeLogo;
-    if (activeLogo.startsWith('data:image/svg') || activeLogo.endsWith('.svg')) {
-      favIcon.type = 'image/svg+xml';
-    } else {
-      favIcon.type = 'image/png';
-    }
+  if (!favIcon) {
+    favIcon = document.createElement('link');
+    favIcon.rel = 'icon';
+    document.head.appendChild(favIcon);
+  }
+  favIcon.href = activeLogo;
+  if (activeLogo.startsWith('data:image/svg') || activeLogo.endsWith('.svg')) {
+    favIcon.type = 'image/svg+xml';
+  } else {
+    favIcon.type = 'image/png';
   }
 
   // 2. Update <link rel="apple-touch-icon">
   let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-  if (appleIcon) {
-    appleIcon.href = activeLogo;
+  if (!appleIcon) {
+    appleIcon = document.createElement('link');
+    appleIcon.rel = 'apple-touch-icon';
+    document.head.appendChild(appleIcon);
   }
+  appleIcon.href = activeLogo;
 
   // 3. Update dynamic PWA manifest so Install App dialog renders the exact institutional logo
   try {
@@ -109,10 +115,10 @@ export function applyInstitutionalAppIcon(customLogoUrl = null) {
           purpose: "any maskable"
         },
         {
-          src: "/tps-logo.png",
+          src: activeLogo,
           sizes: "192x192 256x256 512x512",
-          type: "image/png",
-          purpose: "any maskable"
+          type: activeLogo.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+          purpose: "any"
         }
       ]
     };
@@ -127,6 +133,10 @@ export function applyInstitutionalAppIcon(customLogoUrl = null) {
   } catch (e) {
     // Silently continue in environments where dynamic manifest is not supported
   }
+}
+
+if (typeof window !== 'undefined') {
+  window.__applyInstitutionalAppIcon = applyInstitutionalAppIcon;
 }
 
 export function getInstitutionalLogo(size = 46) {
@@ -218,6 +228,9 @@ class App {
   init() {
     // Synchronize Institutional App Icon, Favicon & PWA Manifest
     applyInstitutionalAppIcon();
+    db.pullCloudKeys(['tps_institution_logo', 'tps_mobile_front_logo']).then(() => {
+      applyInstitutionalAppIcon();
+    }).catch(() => {});
 
     // Register PWA service worker if supported
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {

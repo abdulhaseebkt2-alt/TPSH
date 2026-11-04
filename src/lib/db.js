@@ -471,6 +471,8 @@ class DatabaseService {
   }
 
   async pullCloudKeys(keys = [
+    'tps_institution_logo',
+    'tps_mobile_front_logo',
     'tps_programs',
     'tps_sections',
     'tps_classrooms',
@@ -496,11 +498,18 @@ class DatabaseService {
     try {
       const { data, error } = await supabase.from('app_settings').select('key, value').in('key', keys);
       if (!error && Array.isArray(data)) {
+        let hasLogoUpdate = false;
         for (const row of data) {
           if (row.key && row.value !== undefined && row.value !== null) {
             this.setStorageItem(row.key, JSON.stringify(row.value));
             this._pulledKeysTime.set(row.key, Date.now());
+            if (row.key === 'tps_institution_logo' || row.key === 'tps_mobile_front_logo') {
+              hasLogoUpdate = true;
+            }
           }
+        }
+        if (hasLogoUpdate && typeof window !== 'undefined' && typeof window.__applyInstitutionalAppIcon === 'function') {
+          window.__applyInstitutionalAppIcon();
         }
         for (const k of keys) {
           if (!this._pulledKeysTime.has(k)) {
