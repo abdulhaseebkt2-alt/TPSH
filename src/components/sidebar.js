@@ -1,18 +1,19 @@
 import { getCurrentUser, signOut, switchDevRole, canSwitchRoles } from '../lib/auth.js';
 import { getVisibleModules } from '../lib/permissions.js';
+import { getSavedLogo } from '../lib/logo-utils.js';
 
 export function updateSidebarLogo(logoUrl) {
   const logoEl = document?.querySelector ? document.querySelector('#sidebar-inst-logo') : null;
   if (!logoEl) return;
-  const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem('tps_institution_logo') || localStorage.getItem('tps_mobile_front_logo')) : null;
-  const effective = logoUrl || saved || '/tps-logo.png';
-  logoEl.outerHTML = `<img src="${effective}" class="institution-logo" style="object-fit: contain; background: #FFFFFF; padding: 2px; border-radius: var(--radius-md);" alt="Logo" id="sidebar-inst-logo" />`;
+  const saved = getSavedLogo('tps_institution_logo') || getSavedLogo('tps_mobile_front_logo');
+  const effective = (logoUrl && logoUrl !== 'null') ? logoUrl : (saved || '/tps-logo.png');
+  logoEl.outerHTML = `<img src="${effective}" class="institution-logo" onerror="this.onerror=null; this.src='/tps-logo.png';" style="object-fit: contain; background: #FFFFFF; padding: 2px; border-radius: var(--radius-md);" alt="Logo" id="sidebar-inst-logo" />`;
 }
 
 export function renderSidebar(container, { activeModule, isCollapsed = false, onToggleCollapse, onNavigate, onCloseMobile }) {
   const user = getCurrentUser();
-  const savedLogo = typeof localStorage !== 'undefined' ? (localStorage.getItem('tps_institution_logo') || localStorage.getItem('tps_mobile_front_logo')) : null;
-  const logoHtml = `<img src="${savedLogo || '/tps-logo.png'}" class="institution-logo" style="object-fit: contain; background: #FFFFFF; padding: 2px; border-radius: var(--radius-md);" alt="Logo" id="sidebar-inst-logo" />`;
+  const savedLogo = getSavedLogo('tps_institution_logo') || getSavedLogo('tps_mobile_front_logo');
+  const logoHtml = `<img src="${savedLogo || '/tps-logo.png'}" class="institution-logo" onerror="this.onerror=null; this.src='/tps-logo.png';" style="object-fit: contain; background: #FFFFFF; padding: 2px; border-radius: var(--radius-md);" alt="Logo" id="sidebar-inst-logo" />`;
   const visibleModules = getVisibleModules(user);
 
   // Group modules into logical sections

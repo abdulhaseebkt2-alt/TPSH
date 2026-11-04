@@ -4,6 +4,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { openCropModal } from '../../components/crop-modal.js';
 import { updateSidebarLogo } from '../../components/sidebar.js';
 import { applyInstitutionalAppIcon } from '../../app.js';
+import { getSavedLogo } from '../../lib/logo-utils.js';
 
 export async function renderSettingsModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -21,8 +22,8 @@ export async function renderSettingsModule(container, { onNavigate }) {
   }
 
   await db.pullCloudKeys(['tps_institution_logo', 'tps_mobile_front_logo']);
-  let currentLogo = localStorage.getItem('tps_institution_logo') || '';
-  let currentMobileLogo = localStorage.getItem('tps_mobile_front_logo') || '';
+  let currentLogo = getSavedLogo('tps_institution_logo');
+  let currentMobileLogo = getSavedLogo('tps_mobile_front_logo');
 
   container.innerHTML = `
     <div class="page-header">
@@ -45,7 +46,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
         <div style="display: flex; align-items: center; gap: 1.5rem; padding: 1.15rem; background: var(--bg-surface-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem; flex-wrap: wrap;">
           <div style="position: relative;">
             <div id="inst-logo-preview" style="width: 88px; height: 88px; border-radius: var(--radius-md); background: #FFFFFF; border: 2px solid var(--border-medium); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: var(--shadow-sm);">
-              ${currentLogo ? `<img src="${currentLogo}" style="width: 100%; height: 100%; object-fit: cover;" alt="Institution Logo" />` : `<img src="/tps-logo.png" style="width: 100%; height: 100%; object-fit: contain;" alt="Default Logo" />`}
+              ${currentLogo ? `<img src="${currentLogo}" onerror="this.onerror=null; this.src='/tps-logo.png';" style="width: 100%; height: 100%; object-fit: cover;" alt="Institution Logo" />` : `<img src="/tps-logo.png" style="width: 100%; height: 100%; object-fit: contain;" alt="Default Logo" />`}
             </div>
             <label for="inst-logo-file-input" style="position: absolute; bottom: -6px; right: -6px; width: 30px; height: 30px; border-radius: 50%; background: #059669; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);" title="Upload & Crop Logo">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -87,7 +88,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
         <div style="display: flex; align-items: center; gap: 1.5rem; padding: 1.15rem; background: var(--bg-surface-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem; flex-wrap: wrap;">
           <div style="position: relative;">
             <div id="mobile-logo-preview" style="width: 140px; height: 76px; border-radius: var(--radius-md); background: #FFFFFF; border: 2px solid var(--border-medium); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: var(--shadow-sm); padding: 4px;">
-              <img src="${currentMobileLogo || '/tps-logo.png'}" style="width: 100%; height: 100%; object-fit: contain;" alt="Mobile Front Logo" />
+              <img src="${currentMobileLogo || '/tps-logo.png'}" onerror="this.onerror=null; this.src='/tps-logo.png';" style="width: 100%; height: 100%; object-fit: contain;" alt="Mobile Front Logo" />
             </div>
             <label for="mobile-logo-file-input" style="position: absolute; bottom: -6px; right: -6px; width: 30px; height: 30px; border-radius: 50%; background: #059669; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);" title="Upload Mobile Front Logo">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>

@@ -17,8 +17,20 @@ async function syncIcons() {
 
     if (!error && Array.isArray(data) && data.length > 0) {
       const instRow = data.find(r => r.key === 'tps_institution_logo');
-      const mobRow = data.find(r => r.key === 'tps_mobile_front_logo');
-      const logoVal = (instRow && instRow.value) || (mobRow && mobRow.value);
+      let logoVal = instRow && instRow.value;
+
+      if (typeof logoVal === 'string') {
+        logoVal = logoVal.trim();
+        while ((logoVal.startsWith('"') && logoVal.endsWith('"')) || (logoVal.startsWith("'") && logoVal.endsWith("'"))) {
+          try {
+            const parsed = JSON.parse(logoVal);
+            if (typeof parsed === 'string') logoVal = parsed.trim();
+            else break;
+          } catch {
+            logoVal = logoVal.slice(1, -1).trim();
+          }
+        }
+      }
 
       if (logoVal && typeof logoVal === 'string' && logoVal.startsWith('data:image/')) {
         const parts = logoVal.split(',');

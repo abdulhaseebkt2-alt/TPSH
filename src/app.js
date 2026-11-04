@@ -1,4 +1,5 @@
 import { db } from './lib/db.js';
+import { getSavedLogo } from './lib/logo-utils.js';
 import { initAuth, onAuthStateChanged, signInWithGoogle, signInWithEmail, signOut, switchDevRole, canSwitchRoles, getCurrentUser, refreshUserProfile } from './lib/auth.js';
 import { canAccessModule } from './lib/permissions.js';
 import { renderNavbar } from './components/navbar.js';
@@ -66,13 +67,14 @@ const MODULE_ROUTERS = {
   rbac: (container, props) => renderUsersModule(container, { ...props, initialTab: 'rbac' })
 };
 
+export { getSavedLogo };
+
 export function applyInstitutionalAppIcon(customLogoUrl = null) {
   if (typeof document === 'undefined') return;
-  const storage = typeof localStorage !== 'undefined' ? localStorage : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
-  const activeLogo = customLogoUrl || 
-    (storage ? storage.getItem('tps_institution_logo') : null) || 
-    (storage ? storage.getItem('tps_mobile_front_logo') : null) || 
-    '/tps-logo.png';
+  const activeLogo = (customLogoUrl && customLogoUrl !== 'null' && customLogoUrl !== 'undefined') ? customLogoUrl : 
+    (getSavedLogo('tps_institution_logo') || 
+     getSavedLogo('tps_mobile_front_logo') || 
+     '/tps-logo.png');
 
   // 1. Update <link rel="icon">
   let favIcon = document.querySelector('link[rel="icon"]');
@@ -140,25 +142,25 @@ if (typeof window !== 'undefined') {
 }
 
 export function getInstitutionalLogo(size = 46) {
-  const customLogo = localStorage.getItem('tps_mobile_front_logo') || localStorage.getItem('tps_institution_logo');
+  const customLogo = getSavedLogo('tps_institution_logo') || getSavedLogo('tps_mobile_front_logo');
   if (customLogo) {
-    return `<img src="${customLogo}" alt="Thaiba Public School" style="width: ${size}px; height: ${size}px; object-fit: contain; display: block;" />`;
+    return `<img src="${customLogo}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-logo.png';" style="width: ${size}px; height: ${size}px; object-fit: contain; display: block;" />`;
   }
   // Official Thaiba Public School Golden Emblem
-  return `<img src="/tps-logo.png" alt="Thaiba Public School" style="width: ${size}px; height: ${size}px; object-fit: contain; display: block;" />`;
+  return `<img src="/tps-logo.png" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-logo.png';" style="width: ${size}px; height: ${size}px; object-fit: contain; display: block;" />`;
 }
 
 export function getMobileBrandFullLogoMarkup() {
-  const customMobile = localStorage.getItem('tps_mobile_front_logo');
+  const customMobile = getSavedLogo('tps_mobile_front_logo');
   if (customMobile) {
-    return `<img src="${customMobile}" alt="Thaiba Public School" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
+    return `<img src="${customMobile}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-full-logo.png';" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
   }
-  const customInst = localStorage.getItem('tps_institution_logo');
+  const customInst = getSavedLogo('tps_institution_logo');
   if (customInst) {
-    return `<img src="${customInst}" alt="Thaiba Public School" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
+    return `<img src="${customInst}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-full-logo.png';" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
   }
   // Official Thaiba Public School horizontal brand logo
-  return `<img src="/tps-full-logo.png" alt="Thaiba Public School" style="max-height: 50px; max-width: 240px; object-fit: contain; display: block;" />`;
+  return `<img src="/tps-full-logo.png" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-logo.png';" style="max-height: 50px; max-width: 240px; object-fit: contain; display: block;" />`;
 }
 
 class App {

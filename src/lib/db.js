@@ -453,7 +453,14 @@ class DatabaseService {
   }
 
   async pushCloudKey(key, val) {
-    this.set(key, val);
+    if (val === null || val === undefined) {
+      this.removeStorageItem(key);
+    } else if (typeof val === 'string') {
+      this.setStorageItem(key, val);
+    } else {
+      this.set(key, val);
+    }
+    this._pulledKeysTime.set(key, Date.now());
     if (supabase && !isTestEnv) {
       try {
         const { error } = await supabase.from('app_settings').upsert({
@@ -501,7 +508,22 @@ class DatabaseService {
         let hasLogoUpdate = false;
         for (const row of data) {
           if (row.key && row.value !== undefined && row.value !== null) {
-            this.setStorageItem(row.key, JSON.stringify(row.value));
+            let cleanVal = row.value;
+            if (typeof cleanVal === 'string') {
+              cleanVal = cleanVal.trim();
+              while ((cleanVal.startsWith('"') && cleanVal.endsWith('"')) || (cleanVal.startsWith("'") && cleanVal.endsWith("'"))) {
+                try {
+                  const parsed = JSON.parse(cleanVal);
+                  if (typeof parsed === 'string') cleanVal = parsed.trim();
+                  else break;
+                } catch {
+                  cleanVal = cleanVal.slice(1, -1).trim();
+                }
+              }
+              this.setStorageItem(row.key, cleanVal);
+            } else {
+              this.setStorageItem(row.key, JSON.stringify(cleanVal));
+            }
             this._pulledKeysTime.set(row.key, Date.now());
             if (row.key === 'tps_institution_logo' || row.key === 'tps_mobile_front_logo') {
               hasLogoUpdate = true;

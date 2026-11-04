@@ -20,7 +20,7 @@ import { renderCalendarModule } from '../src/modules/calendar/index.js';
 import { renderStudentsModule } from '../src/modules/students/index.js';
 import { renderAttendanceReportModule } from '../src/modules/reports/attendance-report.js';
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
-import { applyInstitutionalAppIcon } from '../src/app.js';
+import { applyInstitutionalAppIcon, getMobileBrandFullLogoMarkup, getInstitutionalLogo, getSavedLogo } from '../src/app.js';
 import { enhanceSelect } from '../src/components/custom-select.js';
 import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
 import { renderLeavesModule, isStudentBoy } from '../src/modules/leaves/index.js';
@@ -2938,6 +2938,17 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       applyInstitutionalAppIcon();
       expect(mockFavicon.href).toBe('/tps-logo.png');
       expect(mockAppleIcon.href).toBe('/tps-logo.png');
+
+      // 4. Robust handling of double-quoted / corrupted stored values
+      fakeStorage.setItem('tps_mobile_front_logo', JSON.stringify(customLogoData));
+      applyInstitutionalAppIcon();
+      expect(mockFavicon.href).toBe(customLogoData);
+      expect(mockAppleIcon.href).toBe(customLogoData);
+
+      const markup = getMobileBrandFullLogoMarkup();
+      expect(markup).toContain(`src="${customLogoData}"`);
+      expect(markup).toContain('onerror=');
+      expect(markup).not.toContain('src=""');
     } finally {
       globalThis.document = prevDoc;
       globalThis.localStorage = prevStorage;
