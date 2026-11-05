@@ -33,6 +33,10 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
     {
       title: 'Administration & Reports',
       keys: ['users', 'fees', 'notices', 'reports', 'audit', 'settings']
+    },
+    {
+      title: 'Fleet & Transport',
+      keys: ['vehicles', 'vehicle_trips']
     }
   ];
 

@@ -8109,6 +8109,43 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(canAccessModule(superAdmin, 'vehicle_trips')).toBe(true);
       expect(canAccessModule(admin, 'vehicles')).toBe(true);
       expect(canAccessModule(admin, 'vehicle_trips')).toBe(true);
+
+      // Verify strict UI isolation in Sidebar
+      const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+
+      // Admin has Fleet & Transport with vehicles and vehicle_trips
+      updateCurrentUserProfile({ role: 'admin', approval_status: 'approved', is_super_admin: false });
+      renderSidebar(container, { activeModule: 'dashboard' });
+      expect(container.innerHTML).toContain('Fleet & Transport');
+      expect(container.innerHTML).toContain('data-module="vehicles"');
+      expect(container.innerHTML).toContain('data-module="vehicle_trips"');
+
+      // Teacher has Fleet & Transport with vehicle_trips ONLY
+      updateCurrentUserProfile({ role: 'teacher', approval_status: 'approved', is_super_admin: false });
+      renderSidebar(container, { activeModule: 'dashboard' });
+      expect(container.innerHTML).toContain('Fleet & Transport');
+      expect(container.innerHTML).toContain('data-module="vehicle_trips"');
+      expect(container.innerHTML).not.toContain('data-module="vehicles"');
+
+      // Vehicle User has Fleet & Transport with vehicle_trips ONLY
+      updateCurrentUserProfile({ role: 'vehicle_user', approval_status: 'approved', is_super_admin: false });
+      renderSidebar(container, { activeModule: 'vehicle_trips' });
+      expect(container.innerHTML).toContain('Fleet & Transport');
+      expect(container.innerHTML).toContain('data-module="vehicle_trips"');
+      expect(container.innerHTML).not.toContain('data-module="vehicles"');
+
+      // Students & Parents NEVER see Fleet & Transport
+      updateCurrentUserProfile({ role: 'student', approval_status: 'approved', is_super_admin: false });
+      renderSidebar(container, { activeModule: 'dashboard' });
+      expect(container.innerHTML).not.toContain('Fleet & Transport');
+      expect(container.innerHTML).not.toContain('data-module="vehicles"');
+      expect(container.innerHTML).not.toContain('data-module="vehicle_trips"');
+
+      updateCurrentUserProfile({ role: 'parent', approval_status: 'approved', is_super_admin: false });
+      renderSidebar(container, { activeModule: 'dashboard' });
+      expect(container.innerHTML).not.toContain('Fleet & Transport');
+      expect(container.innerHTML).not.toContain('data-module="vehicles"');
+      expect(container.innerHTML).not.toContain('data-module="vehicle_trips"');
     });
 
     it('Admin Billing Parity & Immutable Audit Ledger: Admin trip is billed, and payment records receiving admin ID', async () => {
