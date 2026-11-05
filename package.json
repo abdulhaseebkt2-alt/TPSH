@@ -1,7 +1,7 @@
 {
   "name": "tps-hostel-irp",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.9.28",
   "type": "module",
   "scripts": {
     "dev": "vite",
