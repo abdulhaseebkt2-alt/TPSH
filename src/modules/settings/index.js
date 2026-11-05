@@ -4,7 +4,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { openCropModal } from '../../components/crop-modal.js';
 import { updateSidebarLogo } from '../../components/sidebar.js';
 import { applyInstitutionalAppIcon } from '../../app.js';
-import { getSavedLogo } from '../../lib/logo-utils.js';
+import { getSavedLogo, optimizeLogoImage } from '../../lib/logo-utils.js';
 
 export async function renderSettingsModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -51,7 +51,7 @@ export async function renderSettingsModule(container, { onNavigate }) {
             <label for="inst-logo-file-input" style="position: absolute; bottom: -6px; right: -6px; width: 30px; height: 30px; border-radius: 50%; background: #059669; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);" title="Upload & Crop Logo">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </label>
-            <input type="file" id="inst-logo-file-input" accept="image/*" style="display: none;" />
+            <input type="file" id="inst-logo-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*" style="position: absolute; opacity: 0; width: 0.1px; height: 0.1px; pointer-events: none;" />
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 240px;">
@@ -67,10 +67,10 @@ export async function renderSettingsModule(container, { onNavigate }) {
               <span>Updating logo automatically synchronizes web favicon, app icons, and cloud settings.</span>
             </div>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.25rem; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-outline" id="btn-trigger-upload">
+              <label for="inst-logo-file-input" class="btn btn-sm btn-outline" id="btn-trigger-upload" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Upload Logo
-              </button>
+              </label>
               ${currentLogo ? `
                 <button class="btn btn-sm btn-secondary" id="btn-recrop-logo">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>
@@ -88,12 +88,12 @@ export async function renderSettingsModule(container, { onNavigate }) {
         <div style="display: flex; align-items: center; gap: 1.5rem; padding: 1.15rem; background: var(--bg-surface-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem; flex-wrap: wrap;">
           <div style="position: relative;">
             <div id="mobile-logo-preview" style="width: 140px; height: 76px; border-radius: var(--radius-md); background: #FFFFFF; border: 2px solid var(--border-medium); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: var(--shadow-sm); padding: 4px;">
-              <img src="${currentMobileLogo || '/tps-logo.png'}" onerror="this.onerror=null; this.src='/tps-logo.png';" style="width: 100%; height: 100%; object-fit: contain;" alt="Mobile Front Logo" />
+              <img src="${currentMobileLogo || '/tps-full-logo.png'}" onerror="this.onerror=null; this.src='/tps-full-logo.png'; this.onerror=function(){this.src='/tps-logo.png';};" style="width: 100%; height: 100%; object-fit: contain;" alt="Mobile Front Logo" />
             </div>
             <label for="mobile-logo-file-input" style="position: absolute; bottom: -6px; right: -6px; width: 30px; height: 30px; border-radius: 50%; background: #059669; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);" title="Upload Mobile Front Logo">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </label>
-            <input type="file" id="mobile-logo-file-input" accept="image/*" style="display: none;" />
+            <input type="file" id="mobile-logo-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*" style="position: absolute; opacity: 0; width: 0.1px; height: 0.1px; pointer-events: none;" />
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 240px;">
@@ -105,10 +105,10 @@ export async function renderSettingsModule(container, { onNavigate }) {
               Upload your institutional logo for the mobile view and front login portal. Any aspect ratio (horizontal, banner, or square) is accepted directly without restriction.
             </p>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.25rem; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-outline" id="btn-trigger-mobile-upload">
+              <label for="mobile-logo-file-input" class="btn btn-sm btn-outline" id="btn-trigger-mobile-upload" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Upload Mobile Front Logo
-              </button>
+              </label>
               ${currentMobileLogo ? `
                 <button class="btn btn-sm btn-outline" id="btn-reset-mobile-logo" style="color: #DC2626; border-color: #FECACA;">
                   Reset to Default
@@ -220,18 +220,17 @@ export async function renderSettingsModule(container, { onNavigate }) {
     fileInput?.click();
   });
 
-  fileInput?.addEventListener('change', (e) => {
+  fileInput?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Logo image must be smaller than 5MB');
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Logo image must be smaller than 15MB');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const dataUrl = evt.target.result;
+    try {
+      const optimizedDataUrl = await optimizeLogoImage(file, { maxWidth: 600, maxHeight: 600 });
       const testImg = new Image();
 
       testImg.onload = () => {
@@ -243,11 +242,11 @@ export async function renderSettingsModule(container, { onNavigate }) {
         const isSquare = Math.abs(ratio - 1) < 0.02;
 
         if (isSquare) {
-          saveAndApplyLogo(dataUrl);
+          saveAndApplyLogo(optimizedDataUrl);
           toast.success(`Institution logo applied successfully! (${w}×${h} px)`);
         } else {
           openCropModal({
-            imageUrl: dataUrl,
+            imageUrl: optimizedDataUrl,
             title: 'Crop or Keep Original Institution Logo',
             onCropped: (resultDataUrl) => {
               saveAndApplyLogo(resultDataUrl);
@@ -257,12 +256,13 @@ export async function renderSettingsModule(container, { onNavigate }) {
         }
       };
 
-      testImg.src = dataUrl;
-    };
-
-    reader.readAsDataURL(file);
-    // Reset file input value so selecting the same file again triggers change
-    fileInput.value = '';
+      testImg.src = optimizedDataUrl;
+    } catch (err) {
+      console.error('Error loading logo:', err);
+      toast.error('Could not process image file: ' + (err.message || 'Unknown error'));
+    } finally {
+      fileInput.value = '';
+    }
   });
 
   // Re-crop button handler
@@ -280,7 +280,9 @@ export async function renderSettingsModule(container, { onNavigate }) {
 
   // Remove logo button handler
   container.querySelector('#btn-remove-logo')?.addEventListener('click', async () => {
-    localStorage.removeItem('tps_institution_logo');
+    try {
+      localStorage.removeItem('tps_institution_logo');
+    } catch (e) {}
     currentLogo = '';
     updateSidebarLogo(null);
     applyInstitutionalAppIcon(null);
@@ -291,7 +293,11 @@ export async function renderSettingsModule(container, { onNavigate }) {
 
   async function saveAndApplyLogo(logoUrl) {
     currentLogo = logoUrl;
-    localStorage.setItem('tps_institution_logo', logoUrl);
+    try {
+      localStorage.setItem('tps_institution_logo', logoUrl);
+    } catch (err) {
+      console.warn('LocalStorage quota warning for inst logo:', err);
+    }
     updateSidebarLogo(logoUrl);
     applyInstitutionalAppIcon(logoUrl);
     await db.pushCloudKey('tps_institution_logo', logoUrl);
@@ -304,28 +310,38 @@ export async function renderSettingsModule(container, { onNavigate }) {
     mobileFileInput?.click();
   });
 
-  mobileFileInput?.addEventListener('change', (e) => {
+  mobileFileInput?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Logo image must be smaller than 5MB');
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Logo image must be smaller than 15MB');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const dataUrl = evt.target.result;
-      await saveAndApplyMobileLogo(dataUrl);
-      toast.success('Mobile view front logo applied successfully (any aspect ratio supported)!');
-    };
+    const uploadBtn = container.querySelector('#btn-trigger-mobile-upload');
+    const prevHtml = uploadBtn ? uploadBtn.innerHTML : '';
+    if (uploadBtn) {
+      uploadBtn.innerHTML = `<span>Optimizing & Applying...</span>`;
+    }
 
-    reader.readAsDataURL(file);
-    mobileFileInput.value = '';
+    try {
+      const optimizedDataUrl = await optimizeLogoImage(file, { maxWidth: 800, maxHeight: 320 });
+      await saveAndApplyMobileLogo(optimizedDataUrl);
+      toast.success('Mobile view front logo applied successfully (any aspect ratio supported)!');
+    } catch (err) {
+      console.error('Error optimizing mobile logo:', err);
+      toast.error('Failed to apply mobile front logo: ' + (err.message || 'Unknown error'));
+      if (uploadBtn) uploadBtn.innerHTML = prevHtml;
+    } finally {
+      mobileFileInput.value = '';
+    }
   });
 
   container.querySelector('#btn-reset-mobile-logo')?.addEventListener('click', async () => {
-    localStorage.removeItem('tps_mobile_front_logo');
+    try {
+      localStorage.removeItem('tps_mobile_front_logo');
+    } catch (e) {}
     currentMobileLogo = '';
     applyInstitutionalAppIcon(null);
     await db.pushCloudKey('tps_mobile_front_logo', null);
@@ -335,7 +351,11 @@ export async function renderSettingsModule(container, { onNavigate }) {
 
   async function saveAndApplyMobileLogo(logoUrl) {
     currentMobileLogo = logoUrl;
-    localStorage.setItem('tps_mobile_front_logo', logoUrl);
+    try {
+      localStorage.setItem('tps_mobile_front_logo', logoUrl);
+    } catch (err) {
+      console.warn('LocalStorage quota warning for mobile logo:', err);
+    }
     applyInstitutionalAppIcon(logoUrl);
     await db.pushCloudKey('tps_mobile_front_logo', logoUrl);
     renderSettingsModule(container, { onNavigate });

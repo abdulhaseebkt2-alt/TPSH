@@ -34,6 +34,8 @@ import { renderFacultyLeavesModule } from './modules/faculty-leaves/index.js';
 import { renderCalendarModule } from './modules/calendar/index.js';
 import { renderAuditModule } from './modules/audit/index.js';
 import { renderSettingsModule } from './modules/settings/index.js';
+import { renderVehicleManagementModule } from './modules/vehicles/index.js';
+import { renderUserVehicleTripsModule } from './modules/vehicles/user-trips.js';
 
 const MODULE_ROUTERS = {
   dashboard: renderDashboard,
@@ -64,6 +66,8 @@ const MODULE_ROUTERS = {
   reports: renderReportsModule,
   audit: renderAuditModule,
   settings: renderSettingsModule,
+  vehicles: renderVehicleManagementModule,
+  vehicle_trips: renderUserVehicleTripsModule,
   rbac: (container, props) => renderUsersModule(container, { ...props, initialTab: 'rbac' })
 };
 
@@ -153,11 +157,11 @@ export function getInstitutionalLogo(size = 46) {
 export function getMobileBrandFullLogoMarkup() {
   const customMobile = getSavedLogo('tps_mobile_front_logo');
   if (customMobile) {
-    return `<img src="${customMobile}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-full-logo.png';" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
+    return `<img src="${customMobile}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-full-logo.png'; this.onerror=function(){this.src='/tps-logo.png';};" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
   }
   const customInst = getSavedLogo('tps_institution_logo');
   if (customInst) {
-    return `<img src="${customInst}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-full-logo.png';" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
+    return `<img src="${customInst}" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-full-logo.png'; this.onerror=function(){this.src='/tps-logo.png';};" style="max-height: 54px; max-width: 240px; object-fit: contain; display: block;" />`;
   }
   // Official Thaiba Public School horizontal brand logo
   return `<img src="/tps-full-logo.png" alt="Thaiba Public School" onerror="this.onerror=null; this.src='/tps-logo.png';" style="max-height: 50px; max-width: 240px; object-fit: contain; display: block;" />`;
@@ -324,7 +328,10 @@ class App {
   }
 
   renderModuleInPlace(profile, contentEl, sidebarEl) {
-    if (!canAccessModule(profile, this.activeModule)) {
+    if (profile.role === 'vehicle_user' && (this.activeModule === 'dashboard' || !canAccessModule(profile, this.activeModule))) {
+      this.activeModule = 'vehicle_trips';
+      window.location.hash = 'vehicle_trips';
+    } else if (!canAccessModule(profile, this.activeModule)) {
       this.activeModule = 'dashboard';
       window.location.hash = 'dashboard';
     }
@@ -1029,7 +1036,10 @@ class App {
 
   renderAuthenticatedShell(profile) {
     // If active module is not accessible by role, default to dashboard
-    if (!canAccessModule(profile, this.activeModule)) {
+    if (profile.role === 'vehicle_user' && (this.activeModule === 'dashboard' || !canAccessModule(profile, this.activeModule))) {
+      this.activeModule = 'vehicle_trips';
+      window.location.hash = 'vehicle_trips';
+    } else if (!canAccessModule(profile, this.activeModule)) {
       this.activeModule = 'dashboard';
       window.location.hash = 'dashboard';
     }

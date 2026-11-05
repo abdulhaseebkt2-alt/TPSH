@@ -356,8 +356,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       }
     }
 
-    // Direct student profile status flag fallback (only if date matches today and profile specifically marked)
-    if (s.status === 'On Approved Leave' && (dateStr === todayIso || !dateStr)) {
+    // Direct student profile status flag fallback
+    if (s.status === 'On Approved Leave') {
       const studentLeaves = (Array.isArray(leaves) ? leaves : []).filter(l => 
         l.student_id === s.id || (Array.isArray(l.student_ids) && l.student_ids.includes(s.id))
       );

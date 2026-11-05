@@ -21,6 +21,7 @@ import { renderStudentsModule } from '../src/modules/students/index.js';
 import { renderAttendanceReportModule } from '../src/modules/reports/attendance-report.js';
 import { formatDateYMD, parseDateString, isMobileDatePicker, getFieldTitle, openMobileWheelPicker } from '../src/components/date-picker.js';
 import { applyInstitutionalAppIcon, getMobileBrandFullLogoMarkup, getInstitutionalLogo, getSavedLogo } from '../src/app.js';
+import { isValidImageUri } from '../src/lib/logo-utils.js';
 import { enhanceSelect } from '../src/components/custom-select.js';
 import { getBottomNavItems, renderBottomNav } from '../src/components/bottom-nav.js';
 import { renderLeavesModule, isStudentBoy } from '../src/modules/leaves/index.js';
@@ -31,6 +32,7 @@ import { renderAdmissionsModule } from '../src/modules/admissions/index.js';
 import { renderFinesModule } from '../src/modules/fines/index.js';
 import { renderFacultyLeavesModule } from '../src/modules/faculty-leaves/index.js';
 import { renderUsersModule } from '../src/modules/users/index.js';
+import { calculateBillToBillMileage, calculateDynamicRatePerKm, calculateTripBill, getDocumentExpiryStatus } from '../src/lib/fleet-engine.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -3764,7 +3766,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     });
 
     it('Bulk actions skip student on leave, and submitting attendance persists status as "Leave"', async () => {
-      const todayIso = getTodayDateStr();
+      const todayIso = '2026-11-04';
 
       // Add student on leave
       const leaveStudent = await db.addStudent({
@@ -7962,6 +7964,12 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         expect(mockFavicon.type).toBe('image/png');
         expect(mockAppleIcon.href).toBe(testLogo);
 
+        // Malformed image rejection & validation
+        expect(isValidImageUri('broken_string')).toBe(false);
+        expect(isValidImageUri('data:image/png;base64,broken')).toBe(false);
+        expect(isValidImageUri(testLogo)).toBe(true);
+        expect(isValidImageUri('/tps-full-logo.png')).toBe(true);
+
         // Reset to null
         applyInstitutionalAppIcon(null);
         expect(mockFavicon.href).toBeTruthy();
@@ -7974,5 +7982,205 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       }
     });
 
+  });
+
+  describe('26. Fleet Management & Usage Billing Module Tests (Master Blueprint)', () => {
+    it('Formula A: Bill-to-Bill Fuel Efficiency Engine calculates exact real-time mileage per fuel fill', () => {
+      // First fuel fill (baseline)
+      const baselineResult = calculateBillToBillMileage('v-test', 15000, 40, []);
+      expect(baselineResult.isInitialBaseline).toBe(true);
+      expect(baselineResult.distance).toBeNull();
+      expect(baselineResult.mileage).toBeNull();
+
+      // Second fuel fill: drove 450 km on 30 Liters
+      const priorLogs = [
+        { id: 'exp-1', vehicle_id: 'v-test', expense_type: 'Fuel', odometer_at_expense: 15000, created_at: '2026-10-01' }
+      ];
+      const secondResult = calculateBillToBillMileage('v-test', 15450, 30, priorLogs);
+      expect(secondResult.isInitialBaseline).toBe(false);
+      expect(secondResult.distance).toBe(450);
+      expect(secondResult.mileage).toBe(15); // 450 km / 30 L = 15.0 km/L
+
+      // Third fuel fill with non-round decimal (e.g. 520 km on 35 L = 14.86 km/L)
+      priorLogs.unshift({ id: 'exp-2', vehicle_id: 'v-test', expense_type: 'Fuel', odometer_at_expense: 15450, created_at: '2026-10-15' });
+      const thirdResult = calculateBillToBillMileage('v-test', 15970, 35, priorLogs);
+      expect(thirdResult.distance).toBe(520);
+      expect(thirdResult.mileage).toBe(14.86);
+    });
+
+    it('Formula B: Rolling 3-Month (90-Day) Cost-Per-KM Billing Formula dynamically computes rate with buffer and fallback', () => {
+      const vehicle = {
+        id: 'v-test',
+        fallback_rate_per_km: 12.0,
+        buffer_percentage: 10.0 // 10% markup buffer
+      };
+
+      // Case 1: Empty history -> defaults to fallback_rate_per_km
+      const fallbackRate = calculateDynamicRatePerKm(vehicle, [], []);
+      expect(fallbackRate.isFallback).toBe(true);
+      expect(fallbackRate.rate).toBe(12.0);
+
+      // Case 2: Expenses = ₹12,000, Total KM = 1,000 km in last 90 days
+      const now = new Date('2026-11-05T12:00:00Z');
+      const recentExpenses = [
+        { vehicle_id: 'v-test', amount: 8000, date: '2026-10-10' },
+        { vehicle_id: 'v-test', amount: 4000, date: '2026-09-15' }
+      ];
+      const recentTrips = [
+        { vehicle_id: 'v-test', status: 'Completed', total_km: 600, end_time: '2026-10-12T09:00:00Z' },
+        { vehicle_id: 'v-test', status: 'Completed', total_km: 400, end_time: '2026-09-20T09:00:00Z' }
+      ];
+
+      // Base rate = 12000 / 1000 = ₹12.00
+      // With 10% buffer = 12.00 * 1.10 = ₹13.20/km
+      const dynamicRate = calculateDynamicRatePerKm(vehicle, recentExpenses, recentTrips, now);
+      expect(dynamicRate.isFallback).toBe(false);
+      expect(dynamicRate.baseRate).toBe(12.0);
+      expect(dynamicRate.rate).toBe(13.2);
+
+      // Case 3: Expenses older than 90 days are excluded
+      const staleExpenses = [
+        { vehicle_id: 'v-test', amount: 50000, date: '2026-05-01' } // > 180 days ago
+      ];
+      const staleTrips = [
+        { vehicle_id: 'v-test', status: 'Completed', total_km: 500, end_time: '2026-05-02T09:00:00Z' }
+      ];
+      const expiredRate = calculateDynamicRatePerKm(vehicle, staleExpenses, staleTrips, now);
+      expect(expiredRate.isFallback).toBe(true);
+      expect(expiredRate.rate).toBe(12.0);
+    });
+
+    it('Document Compliance Engine returns warning when <30 days and expired when past due date', () => {
+      const today = new Date('2026-11-05T00:00:00');
+
+      // Valid > 30 days away (e.g. 60 days)
+      const validDoc = getDocumentExpiryStatus('2027-01-04', today);
+      expect(validDoc.status).toBe('healthy');
+      expect(validDoc.isExpired).toBe(false);
+
+      // Warning < 30 days away (e.g. 15 days)
+      const warningDoc = getDocumentExpiryStatus('2026-11-20', today);
+      expect(warningDoc.status).toBe('warning');
+      expect(warningDoc.isWarning).toBe(true);
+      expect(warningDoc.isExpired).toBe(false);
+      expect(warningDoc.label).toContain('Expires in 15d');
+
+      // Expired (e.g. 5 days ago)
+      const expiredDoc = getDocumentExpiryStatus('2026-10-31', today);
+      expect(expiredDoc.status).toBe('expired');
+      expect(expiredDoc.isExpired).toBe(true);
+      expect(expiredDoc.label).toContain('Expired');
+    });
+
+    it('100% Billable Usage: Calculates trip bill based on exact kilometers and dynamic rate without free toggle', () => {
+      // 85 kilometers driven at ₹14.50/km rate
+      const bill = calculateTripBill(10000, 10085, 14.5);
+      expect(bill.totalKm).toBe(85);
+      expect(bill.appliedRate).toBe(14.5);
+      expect(bill.totalAmount).toBe(1232.5); // 85 * 14.50 = 1232.50
+    });
+
+    it('Strict Role Isolation: Students and parents have zero access, vehicle_user and teacher have vehicle_trips, admin has full', () => {
+      const student = { role: 'student', approval_status: 'approved' };
+      const parent = { role: 'parent', approval_status: 'approved' };
+      const vehicleUser = { role: 'vehicle_user', approval_status: 'approved' };
+      const teacher = { role: 'teacher', approval_status: 'approved' };
+      const superAdmin = { role: 'super_admin', approval_status: 'approved', is_super_admin: true };
+      const admin = { role: 'admin', approval_status: 'approved' };
+
+      // Students have 0 access
+      expect(canAccessModule(student, 'vehicles')).toBe(false);
+      expect(canAccessModule(student, 'vehicle_trips')).toBe(false);
+
+      // Parents have 0 access
+      expect(canAccessModule(parent, 'vehicles')).toBe(false);
+      expect(canAccessModule(parent, 'vehicle_trips')).toBe(false);
+
+      // vehicle_user has full access to vehicle_trips, but off for vehicles (admin management)
+      expect(canAccessModule(vehicleUser, 'vehicle_trips')).toBe(true);
+      expect(canAccessModule(vehicleUser, 'vehicles')).toBe(false);
+
+      // Teacher has full access to vehicle_trips, but off for vehicles
+      expect(canAccessModule(teacher, 'vehicle_trips')).toBe(true);
+      expect(canAccessModule(teacher, 'vehicles')).toBe(false);
+
+      // Super admin and admin have full access to both
+      expect(canAccessModule(superAdmin, 'vehicles')).toBe(true);
+      expect(canAccessModule(superAdmin, 'vehicle_trips')).toBe(true);
+      expect(canAccessModule(admin, 'vehicles')).toBe(true);
+      expect(canAccessModule(admin, 'vehicle_trips')).toBe(true);
+    });
+
+    it('Admin Billing Parity & Immutable Audit Ledger: Admin trip is billed, and payment records receiving admin ID', async () => {
+      // 1. Create a trip for an Admin user (Haseeb Sir)
+      const adminTrip = await db.saveTripLog({
+        vehicle_id: 'veh-1',
+        vehicle_name: 'Mahindra Bolero Neo (KL-10-AZ-1122)',
+        user_id: 'u-1',
+        user_name: 'Abdul Haseeb',
+        user_role: 'super_admin',
+        destination: 'Airport Pickup / Official Transit',
+        purpose: 'Personal Billable Use',
+        start_km: 15000,
+        end_km: 15060, // 60 km
+        total_km: 60,
+        rate_per_km: 13.5,
+        total_bill: 810.0,
+        status: 'Completed',
+        payment_status: 'Unpaid',
+        is_paid: false
+      });
+
+      expect(adminTrip.total_bill).toBe(810.0);
+      expect(adminTrip.is_paid).toBe(false);
+
+      // 2. Settle the bill via another admin (e.g. u-admin-audit)
+      const settlement = await db.recordVehiclePayment({
+        trip_id: adminTrip.id,
+        user_id: 'u-1',
+        user_name: 'Abdul Haseeb',
+        user_role: 'super_admin',
+        amount: 810.0,
+        payment_method: 'Cash',
+        payment_notes: 'Paid at front desk cash counter',
+        received_by_admin_id: 'u-admin-2',
+        received_by_admin_name: 'Mustafa Admin'
+      });
+
+      expect(settlement).toBeDefined();
+      expect(settlement.received_by_admin_id).toBe('u-admin-2');
+      expect(settlement.received_by_admin_name).toBe('Mustafa Admin');
+      expect(settlement.amount).toBe(810.0);
+
+      // 3. Verify trip log is marked paid
+      const trips = await db.getTripLogs();
+      const updatedTrip = trips.find(t => t.id === adminTrip.id);
+      expect(updatedTrip.is_paid).toBe(true);
+      expect(updatedTrip.payment_status).toBe('Paid');
+      expect(updatedTrip.paid_at).toBeDefined();
+
+      // 4. Verify payment appears in immutable audit ledger
+      const payments = await db.getVehiclePayments();
+      const auditEntry = payments.find(p => p.trip_id === adminTrip.id);
+      expect(auditEntry).toBeDefined();
+      expect(auditEntry.received_by_admin_name).toBe('Mustafa Admin');
+
+      // Clean up
+      await db.deleteTripLog(adminTrip.id);
+    });
+
+    it('Zero Main Dashboard Clutter: Admin and general dashboards contain zero vehicle cards, widgets, or banners', () => {
+      const adminDashHtml = fs.readFileSync('src/modules/dashboard/admin-dashboard.js', 'utf8');
+      const mainDashHtml = fs.readFileSync('src/modules/dashboard/index.js', 'utf8');
+
+      expect(adminDashHtml).not.toContain('tps_vehicles');
+      expect(adminDashHtml).not.toContain('vehicle_expenses');
+      expect(adminDashHtml).not.toContain('trip_logs');
+      expect(adminDashHtml).not.toContain('Vehicle Management');
+
+      expect(mainDashHtml).not.toContain('tps_vehicles');
+      expect(mainDashHtml).not.toContain('vehicle_expenses');
+      expect(mainDashHtml).not.toContain('trip_logs');
+    });
   });
 });

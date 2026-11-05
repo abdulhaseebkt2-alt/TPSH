@@ -580,6 +580,19 @@ export function getDevProfile(role) {
       blood_group: 'B+',
       phone: '+91 98470 12345'
     },
+    vehicle_user: {
+      id: 'd0000000-0000-0000-0000-000000000010',
+      email: 'driver@thaibaschool.edu.in',
+      full_name: 'Sameer Driver',
+      role: 'vehicle_user',
+      approval_status: 'approved',
+      is_super_admin: false,
+      profile_completed: true,
+      is_dev_profile: true,
+      tps_id: 'VUS001',
+      blood_group: 'O+',
+      phone: '+91 98470 99887'
+    },
     pending: {
       id: 'd0000000-0000-0000-0000-000000000007',
       email: 'new_applicant@gmail.com',

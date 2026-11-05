@@ -186,6 +186,176 @@ export const INITIAL_FACULTY_LEAVES = [
   }
 ];
 
+export const INITIAL_VEHICLES = [
+  {
+    id: 'veh-1',
+    vehicle_name: 'Thaiba School Traveler 1',
+    reg_number: 'KL-55-AB-1234',
+    vehicle_type: 'Van / Minibus',
+    current_odometer: 42500,
+    fallback_rate_per_km: 18.00,
+    buffer_percentage: 10,
+    status: 'Available',
+    created_at: '2026-08-01T08:00:00.000Z'
+  },
+  {
+    id: 'veh-2',
+    vehicle_name: 'Staff Executive Sedan',
+    reg_number: 'KL-55-CD-5678',
+    vehicle_type: 'Car / Sedan',
+    current_odometer: 28400,
+    fallback_rate_per_km: 14.00,
+    buffer_percentage: 10,
+    status: 'Available',
+    created_at: '2026-08-01T08:00:00.000Z'
+  },
+  {
+    id: 'veh-3',
+    vehicle_name: 'Campus Utility Bolero',
+    reg_number: 'KL-55-EF-9012',
+    vehicle_type: 'Utility Vehicle',
+    current_odometer: 61200,
+    fallback_rate_per_km: 16.00,
+    buffer_percentage: 12,
+    status: 'Available',
+    created_at: '2026-08-01T08:00:00.000Z'
+  }
+];
+
+export const INITIAL_VEHICLE_DOCUMENTS = [
+  { id: 'vdoc-1', vehicle_id: 'veh-1', document_type: 'RC', document_number: 'KL55AB1234-RC', expiry_date: '2032-05-15', notes: 'Permanent registration certificate', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-2', vehicle_id: 'veh-1', document_type: 'Insurance', document_number: 'INS-HDFC-99124', expiry_date: '2027-04-10', notes: 'Comprehensive commercial policy', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-3', vehicle_id: 'veh-1', document_type: 'Pollution (PUC)', document_number: 'PUC-KL-2026-44', expiry_date: '2026-11-20', notes: 'Green emissions clearance (Amber: expires soon)', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-4', vehicle_id: 'veh-1', document_type: 'Road Tax', document_number: 'TAX-2026-881', expiry_date: '2027-03-31', notes: 'Kerala state road transport tax', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-5', vehicle_id: 'veh-1', document_type: 'Fitness Certificate', document_number: 'FC-2026-0091', expiry_date: '2027-01-15', notes: 'Annual vehicle mechanical fitness', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-6', vehicle_id: 'veh-1', document_type: 'Permit', document_number: 'PRM-SCH-2026-1', expiry_date: '2028-06-30', notes: 'Educational institution transport permit', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-7', vehicle_id: 'veh-2', document_type: 'RC', document_number: 'KL55CD5678-RC', expiry_date: '2034-08-20', notes: 'Staff car registration', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-8', vehicle_id: 'veh-2', document_type: 'Insurance', document_number: 'INS-NIC-88219', expiry_date: '2026-10-30', notes: 'Renewal pending with agent (Red: Expired)', created_at: '2026-08-01T08:00:00.000Z' },
+  { id: 'vdoc-9', vehicle_id: 'veh-2', document_type: 'Pollution (PUC)', document_number: 'PUC-KL-2026-92', expiry_date: '2027-02-18', notes: 'PUC valid', created_at: '2026-08-01T08:00:00.000Z' }
+];
+
+export const INITIAL_VEHICLE_EXPENSES = [
+  { id: 'vexp-1', vehicle_id: 'veh-1', expense_type: 'Fuel', amount: 4500, date: '2026-09-10', fuel_liters: 45, odometer_at_expense: 41800, calculated_mileage_kmpl: null, notes: 'Full tank fuel fill', logged_by: 'Abdul Haseeb', created_at: '2026-09-10T09:00:00.000Z' },
+  { id: 'vexp-2', vehicle_id: 'veh-1', expense_type: 'Fuel', amount: 4200, date: '2026-09-25', fuel_liters: 42, odometer_at_expense: 42220, calculated_mileage_kmpl: 10.00, notes: 'Full tank fuel fill - 420km / 42L', logged_by: 'Abdul Haseeb', created_at: '2026-09-25T11:00:00.000Z' },
+  { id: 'vexp-3', vehicle_id: 'veh-2', expense_type: 'Fuel', amount: 3200, date: '2026-09-15', fuel_liters: 32, odometer_at_expense: 27900, calculated_mileage_kmpl: null, notes: 'Full tank fuel fill', logged_by: 'Abdul Haseeb', created_at: '2026-09-15T10:30:00.000Z' },
+  { id: 'vexp-4', vehicle_id: 'veh-2', expense_type: 'Fuel', amount: 3500, date: '2026-10-05', fuel_liters: 35, odometer_at_expense: 28355, calculated_mileage_kmpl: 13.00, notes: 'Full tank fuel fill - 455km / 35L', logged_by: 'Abdul Haseeb', created_at: '2026-10-05T14:15:00.000Z' },
+  { id: 'vexp-5', vehicle_id: 'veh-1', expense_type: 'Maintenance', amount: 2800, date: '2026-10-12', fuel_liters: null, odometer_at_expense: 42350, calculated_mileage_kmpl: null, notes: 'Brake pads replacement and coolant top-up', logged_by: 'Abdul Haseeb', created_at: '2026-10-12T16:00:00.000Z' }
+];
+
+export const INITIAL_TRIP_LOGS = [
+  {
+    id: 'trip-1',
+    trip_id: 'TRIP-2026-001',
+    vehicle_id: 'veh-2',
+    user_id: 'u-1',
+    user_name: 'Abdul Haseeb',
+    user_role: 'super_admin',
+    destination: 'Calicut University Campus',
+    purpose: 'Personal trip - Attending educational convocation',
+    start_time: '2026-10-18T08:00:00.000Z',
+    end_time: '2026-10-18T15:30:00.000Z',
+    status: 'Completed',
+    start_km: 28000,
+    end_km: 28120,
+    total_km: 120,
+    applied_rate_per_km: 14.00,
+    total_amount: 1680.00,
+    payment_status: 'Paid',
+    rejection_reason: null,
+    approved_by: 'Abdul Haseeb',
+    approved_at: '2026-10-17T18:00:00.000Z',
+    completed_at: '2026-10-18T15:30:00.000Z',
+    created_at: '2026-10-17T14:00:00.000Z'
+  },
+  {
+    id: 'trip-2',
+    trip_id: 'TRIP-2026-002',
+    vehicle_id: 'veh-1',
+    user_id: 'u-2',
+    user_name: 'Rashid Sir',
+    user_role: 'teacher',
+    destination: 'Manjeri Town & Railway Station',
+    purpose: 'Personal travel with family',
+    start_time: '2026-10-24T09:00:00.000Z',
+    end_time: '2026-10-24T18:00:00.000Z',
+    status: 'Completed',
+    start_km: 42300,
+    end_km: 42410,
+    total_km: 110,
+    applied_rate_per_km: 18.00,
+    total_amount: 1980.00,
+    payment_status: 'Unpaid',
+    rejection_reason: null,
+    approved_by: 'Abdul Haseeb',
+    approved_at: '2026-10-23T19:00:00.000Z',
+    completed_at: '2026-10-24T18:00:00.000Z',
+    created_at: '2026-10-23T12:00:00.000Z'
+  },
+  {
+    id: 'trip-3',
+    trip_id: 'TRIP-2026-003',
+    vehicle_id: 'veh-3',
+    user_id: 'vu-1',
+    user_name: 'Sameer Driver',
+    user_role: 'vehicle_user',
+    destination: 'Kottakkal Ayurvedic Center',
+    purpose: 'Family clinic visit and personal errands',
+    start_time: '2026-11-06T09:30:00.000Z',
+    end_time: '2026-11-06T16:00:00.000Z',
+    status: 'Pending Approval',
+    start_km: null,
+    end_km: null,
+    total_km: null,
+    applied_rate_per_km: 16.00,
+    total_amount: 0,
+    payment_status: 'Unpaid',
+    rejection_reason: null,
+    approved_by: null,
+    approved_at: null,
+    completed_at: null,
+    created_at: '2026-11-05T10:00:00.000Z'
+  }
+];
+
+export const INITIAL_VEHICLE_PAYMENTS = [
+  {
+    id: 'vpay-1',
+    trip_id: 'trip-1',
+    amount_paid: 1680.00,
+    payment_method: 'UPI / GPay',
+    payment_date: '2026-10-18T16:00:00.000Z',
+    received_by_admin_id: 'u-1',
+    received_by_admin_name: 'Abdul Haseeb',
+    notes: 'UPI Ref: 429188201921 - Settled directly at office',
+    created_at: '2026-10-18T16:00:00.000Z'
+  }
+];
+
+export const INITIAL_VEHICLE_USERS = [
+  {
+    id: 'vu-1',
+    full_name: 'Sameer Driver',
+    phone: '+91 98470 99887',
+    email: 'driver@thaibaschool.edu.in',
+    tps_id: 'VUS001',
+    designation: 'Senior Campus Driver',
+    status: 'Active',
+    notes: 'Heavy vehicle driving license valid through 2030',
+    created_at: '2026-08-01T08:00:00.000Z'
+  },
+  {
+    id: 'vu-2',
+    full_name: 'Moideen K.',
+    phone: '+91 98471 22334',
+    email: 'moideen.transport@thaibaschool.edu.in',
+    tps_id: 'VUS002',
+    designation: 'Transport & Logistics Staff',
+    status: 'Active',
+    notes: 'Secondary utility driver & transport coordinator',
+    created_at: '2026-08-01T08:00:00.000Z'
+  }
+];
+
 export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
   if (isTestEnv) {
     const cleanId = String(identifier || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -403,6 +573,24 @@ class DatabaseService {
     if (!this.getStorageItem('tps_faculty_leaves')) {
       this.setStorageItem('tps_faculty_leaves', JSON.stringify(INITIAL_FACULTY_LEAVES));
     }
+    if (!this.getStorageItem('tps_vehicles')) {
+      this.setStorageItem('tps_vehicles', JSON.stringify(INITIAL_VEHICLES));
+    }
+    if (!this.getStorageItem('tps_vehicle_documents')) {
+      this.setStorageItem('tps_vehicle_documents', JSON.stringify(INITIAL_VEHICLE_DOCUMENTS));
+    }
+    if (!this.getStorageItem('tps_vehicle_expenses')) {
+      this.setStorageItem('tps_vehicle_expenses', JSON.stringify(INITIAL_VEHICLE_EXPENSES));
+    }
+    if (!this.getStorageItem('tps_trip_logs')) {
+      this.setStorageItem('tps_trip_logs', JSON.stringify(INITIAL_TRIP_LOGS));
+    }
+    if (!this.getStorageItem('tps_vehicle_payments')) {
+      this.setStorageItem('tps_vehicle_payments', JSON.stringify(INITIAL_VEHICLE_PAYMENTS));
+    }
+    if (!this.getStorageItem('tps_vehicle_users')) {
+      this.setStorageItem('tps_vehicle_users', JSON.stringify(INITIAL_VEHICLE_USERS));
+    }
     if (!this.getStorageItem('tps_users')) {
       this.setStorageItem('tps_users', JSON.stringify([
         { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true },
@@ -410,7 +598,8 @@ class DatabaseService {
         { id: 'u-3', email: 'mentor@thaibaschool.edu.in', full_name: 'Usthad Usman', role: 'boys_mentor', mentor_type: 'boys', gender: 'Boys', hostel_unit: 'Thaiba Boys Hostel Block A', approval_status: 'approved', is_super_admin: false },
         { id: 'u-4', email: 'parent@example.com', full_name: 'Ahmad K.T.', role: 'parent', approval_status: 'approved', is_super_admin: false },
         { id: 'u-5', email: 'applicant@gmail.com', full_name: 'New Applicant', role: null, approval_status: 'pending', is_super_admin: false },
-        { id: 'u-6', email: 'girls_mentor@thaibaschool.edu.in', full_name: 'Usthada Mariyam', role: 'girls_mentor', mentor_type: 'girls', gender: 'Girls', hostel_unit: 'Thaiba Girls Hostel Campus', approval_status: 'approved', is_super_admin: false }
+        { id: 'u-6', email: 'girls_mentor@thaibaschool.edu.in', full_name: 'Usthada Mariyam', role: 'girls_mentor', mentor_type: 'girls', gender: 'Girls', hostel_unit: 'Thaiba Girls Hostel Campus', approval_status: 'approved', is_super_admin: false },
+        { id: 'u-7', email: 'driver@thaibaschool.edu.in', full_name: 'Sameer Driver', role: 'vehicle_user', approval_status: 'approved', is_super_admin: false }
       ]));
     }
   }
@@ -492,7 +681,13 @@ class DatabaseService {
     'tps_discipline',
     'tps_fines',
     'tps_black_marks',
-    'tps_parent_assignments'
+    'tps_parent_assignments',
+    'tps_vehicles',
+    'tps_vehicle_documents',
+    'tps_vehicle_expenses',
+    'tps_trip_logs',
+    'tps_vehicle_payments',
+    'tps_vehicle_users'
   ], force = false) {
     if (!supabase || isTestEnv) return;
     const now = Date.now();
@@ -4505,6 +4700,301 @@ class DatabaseService {
 
   isStudentActive(studentOrStatus) {
     return isStudentActive(studentOrStatus);
+  }
+
+  // --- VEHICLE & FLEET MANAGEMENT ---
+  async getVehicles() {
+    await this.pullCloudKeys(['tps_vehicles'], false);
+    return this.get('tps_vehicles') || [];
+  }
+
+  async saveVehicle(vehicleData) {
+    const list = this.get('tps_vehicles') || [];
+    let saved;
+    if (vehicleData.id) {
+      const idx = list.findIndex(v => v.id === vehicleData.id);
+      if (idx >= 0) {
+        saved = { ...list[idx], ...vehicleData, updated_at: new Date().toISOString() };
+        list[idx] = saved;
+      } else {
+        saved = { ...vehicleData, created_at: vehicleData.created_at || new Date().toISOString() };
+        list.push(saved);
+      }
+    } else {
+      saved = {
+        id: 'veh-' + Date.now(),
+        ...vehicleData,
+        created_at: new Date().toISOString()
+      };
+      list.push(saved);
+    }
+    this.set('tps_vehicles', list);
+    await this.pushCloudKey('tps_vehicles', list);
+    return saved;
+  }
+
+  async deleteVehicle(id) {
+    const list = this.get('tps_vehicles') || [];
+    const filtered = list.filter(v => v.id !== id);
+    this.set('tps_vehicles', filtered);
+    await this.pushCloudKey('tps_vehicles', filtered);
+    return true;
+  }
+
+  // --- VEHICLE DOCUMENTS ---
+  async getVehicleDocuments(vehicleId = null) {
+    await this.pullCloudKeys(['tps_vehicle_documents'], false);
+    const docs = this.get('tps_vehicle_documents') || [];
+    if (vehicleId) {
+      return docs.filter(d => d.vehicle_id === vehicleId);
+    }
+    return docs;
+  }
+
+  async saveVehicleDocument(docData) {
+    const list = this.get('tps_vehicle_documents') || [];
+    let saved;
+    if (docData.id) {
+      const idx = list.findIndex(d => d.id === docData.id);
+      if (idx >= 0) {
+        saved = { ...list[idx], ...docData, updated_at: new Date().toISOString() };
+        list[idx] = saved;
+      } else {
+        saved = { ...docData, created_at: docData.created_at || new Date().toISOString() };
+        list.push(saved);
+      }
+    } else {
+      saved = {
+        id: 'vdoc-' + Date.now(),
+        ...docData,
+        created_at: new Date().toISOString()
+      };
+      list.push(saved);
+    }
+    this.set('tps_vehicle_documents', list);
+    await this.pushCloudKey('tps_vehicle_documents', list);
+    return saved;
+  }
+
+  async deleteVehicleDocument(id) {
+    const list = this.get('tps_vehicle_documents') || [];
+    const filtered = list.filter(d => d.id !== id);
+    this.set('tps_vehicle_documents', filtered);
+    await this.pushCloudKey('tps_vehicle_documents', filtered);
+    return true;
+  }
+
+  // --- VEHICLE EXPENSES ---
+  async getVehicleExpenses(vehicleId = null) {
+    await this.pullCloudKeys(['tps_vehicle_expenses'], false);
+    const list = this.get('tps_vehicle_expenses') || [];
+    if (vehicleId) {
+      return list.filter(e => e.vehicle_id === vehicleId);
+    }
+    return list;
+  }
+
+  async saveVehicleExpense(expData) {
+    const list = this.get('tps_vehicle_expenses') || [];
+    let saved;
+    if (expData.id) {
+      const idx = list.findIndex(e => e.id === expData.id);
+      if (idx >= 0) {
+        saved = { ...list[idx], ...expData, updated_at: new Date().toISOString() };
+        list[idx] = saved;
+      } else {
+        saved = { ...expData, created_at: expData.created_at || new Date().toISOString() };
+        list.push(saved);
+      }
+    } else {
+      saved = {
+        id: 'vexp-' + Date.now(),
+        ...expData,
+        created_at: new Date().toISOString()
+      };
+      list.unshift(saved);
+    }
+    this.set('tps_vehicle_expenses', list);
+    await this.pushCloudKey('tps_vehicle_expenses', list);
+
+    // If an odometer reading is logged and greater than current vehicle odometer, update vehicle's odometer
+    if (saved.odometer_at_expense && saved.vehicle_id) {
+      const vehicles = this.get('tps_vehicles') || [];
+      const veh = vehicles.find(v => v.id === saved.vehicle_id);
+      if (veh && Number(saved.odometer_at_expense) > Number(veh.current_odometer || 0)) {
+        veh.current_odometer = Number(saved.odometer_at_expense);
+        this.set('tps_vehicles', vehicles);
+        await this.pushCloudKey('tps_vehicles', vehicles);
+      }
+    }
+    return saved;
+  }
+
+  async deleteVehicleExpense(id) {
+    const list = this.get('tps_vehicle_expenses') || [];
+    const filtered = list.filter(e => e.id !== id);
+    this.set('tps_vehicle_expenses', filtered);
+    await this.pushCloudKey('tps_vehicle_expenses', filtered);
+    return true;
+  }
+
+  // --- TRIP LOGS ---
+  async getTripLogs(filter = {}) {
+    await this.pullCloudKeys(['tps_trip_logs'], false);
+    let list = this.get('tps_trip_logs') || [];
+    if (filter.user_id) {
+      list = list.filter(t => t.user_id === filter.user_id);
+    }
+    if (filter.vehicle_id) {
+      list = list.filter(t => t.vehicle_id === filter.vehicle_id);
+    }
+    if (filter.status) {
+      list = list.filter(t => t.status === filter.status);
+    }
+    if (filter.payment_status) {
+      list = list.filter(t => t.payment_status === filter.payment_status);
+    }
+    return list;
+  }
+
+  async saveTripLog(tripData) {
+    const list = this.get('tps_trip_logs') || [];
+    let saved;
+    if (tripData.id) {
+      const idx = list.findIndex(t => t.id === tripData.id);
+      if (idx >= 0) {
+        saved = { ...list[idx], ...tripData, updated_at: new Date().toISOString() };
+        list[idx] = saved;
+      } else {
+        saved = { ...tripData, created_at: tripData.created_at || new Date().toISOString() };
+        list.push(saved);
+      }
+    } else {
+      const count = list.length + 1;
+      const tripCode = `TRIP-${new Date().getFullYear()}-${String(count).padStart(3, '0')}`;
+      saved = {
+        id: 'trip-' + Date.now(),
+        trip_id: tripCode,
+        status: 'Pending Approval',
+        payment_status: 'Unpaid',
+        ...tripData,
+        created_at: new Date().toISOString()
+      };
+      list.unshift(saved);
+    }
+    this.set('tps_trip_logs', list);
+    await this.pushCloudKey('tps_trip_logs', list);
+    return saved;
+  }
+
+  async deleteTripLog(id) {
+    const list = this.get('tps_trip_logs') || [];
+    const filtered = list.filter(t => t.id !== id);
+    this.set('tps_trip_logs', filtered);
+    await this.pushCloudKey('tps_trip_logs', filtered);
+    return true;
+  }
+
+  // --- VEHICLE PAYMENTS (IMMUTABLE SETTLEMENT LEDGER) ---
+  async getVehiclePayments(tripId = null) {
+    await this.pullCloudKeys(['tps_vehicle_payments'], false);
+    const list = this.get('tps_vehicle_payments') || [];
+    if (tripId) {
+      return list.filter(p => p.trip_id === tripId);
+    }
+    return list;
+  }
+
+  async recordVehiclePayment(paymentData) {
+    const list = this.get('tps_vehicle_payments') || [];
+    const record = {
+      id: 'vpay-' + Date.now(),
+      payment_date: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      ...paymentData
+    };
+    list.unshift(record);
+    this.set('tps_vehicle_payments', list);
+    await this.pushCloudKey('tps_vehicle_payments', list);
+
+    // Automatically mark the referenced trip as Paid
+    if (record.trip_id) {
+      const trips = this.get('tps_trip_logs') || [];
+      const targetTrip = trips.find(t => t.id === record.trip_id || t.trip_id === record.trip_id);
+      if (targetTrip) {
+        targetTrip.payment_status = 'Paid';
+        targetTrip.is_paid = true;
+        targetTrip.paid_at = record.payment_date;
+        targetTrip.payment_id = record.id;
+        targetTrip.payment_received_by = record.received_by_admin_name;
+        targetTrip.payment_method = record.payment_method;
+        this.set('tps_trip_logs', trips);
+        await this.pushCloudKey('tps_trip_logs', trips);
+      }
+    }
+
+    return record;
+  }
+
+  // --- VEHICLE USERS DIRECTORY ---
+  async getVehicleUsers() {
+    await this.pullCloudKeys(['tps_vehicle_users'], false);
+    return this.get('tps_vehicle_users') || [];
+  }
+
+  async saveVehicleUser(userData) {
+    const list = this.get('tps_vehicle_users') || [];
+    let saved;
+    if (userData.id) {
+      const idx = list.findIndex(u => u.id === userData.id);
+      if (idx >= 0) {
+        saved = { ...list[idx], ...userData, updated_at: new Date().toISOString() };
+        list[idx] = saved;
+      } else {
+        saved = { ...userData, created_at: userData.created_at || new Date().toISOString() };
+        list.push(saved);
+      }
+    } else {
+      const count = list.length + 1;
+      saved = {
+        id: 'vu-' + Date.now(),
+        tps_id: userData.tps_id || `VUS${String(count).padStart(3, '0')}`,
+        status: 'Active',
+        ...userData,
+        created_at: new Date().toISOString()
+      };
+      list.push(saved);
+    }
+    this.set('tps_vehicle_users', list);
+    await this.pushCloudKey('tps_vehicle_users', list);
+
+    // Also ensure they are represented in tps_users with role: 'vehicle_user'
+    const users = this.get('tps_users') || [];
+    const existingUser = users.find(u => (u.email && u.email === saved.email) || u.id === saved.id);
+    if (!existingUser) {
+      users.push({
+        id: saved.id,
+        email: saved.email || `driver_${Date.now()}@thaibaschool.edu.in`,
+        full_name: saved.full_name,
+        role: 'vehicle_user',
+        approval_status: 'approved',
+        phone: saved.phone,
+        tps_id: saved.tps_id,
+        is_super_admin: false
+      });
+      this.set('tps_users', users);
+      await this.pushCloudKey('tps_users', users);
+    }
+
+    return saved;
+  }
+
+  async deleteVehicleUser(id) {
+    const list = this.get('tps_vehicle_users') || [];
+    const filtered = list.filter(u => u.id !== id);
+    this.set('tps_vehicle_users', filtered);
+    await this.pushCloudKey('tps_vehicle_users', filtered);
+    return true;
   }
 
   // --- AUDIT LOGS ---
