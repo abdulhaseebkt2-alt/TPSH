@@ -193,7 +193,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 </div>
 
                 <!-- Odometer & Fuel Mileage Box -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-surface-subtle); padding: 0.75rem; border-radius: 8px; margin: 0.75rem 0; border: 1px solid var(--border-subtle);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-surface-subtle); padding: 0.75rem; border-radius: 8px; margin: 0.75rem 0 0.5rem; border: 1px solid var(--border-subtle);">
                   <div>
                     <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Current Odometer</div>
                     <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
@@ -206,6 +206,19 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                       ${latestMileage?.calculated_mileage_kmpl ? `${latestMileage.calculated_mileage_kmpl} <span style="font-size: 0.75rem; font-weight: normal;">km/L</span>` : '<span style="font-size: 0.85rem; color: var(--text-muted);">Awaiting fills</span>'}
                     </div>
                   </div>
+                </div>
+
+                <!-- Instant Short Ride Permission Tag -->
+                <div style="margin-bottom: 0.75rem;">
+                  ${v.allow_instant_short_ride !== false ? `
+                    <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem;">
+                      <span>⚡</span> Instant Short Ride (No Approval Needed)
+                    </span>
+                  ` : `
+                    <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem;">
+                      <span>🔒</span> Trip Request & Approval Required
+                    </span>
+                  `}
                 </div>
 
                 <!-- Document Expiry Warning Banners -->
@@ -965,7 +978,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1.25rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
               <input type="number" id="v-buffer" class="form-control" required min="0" max="50" value="10" style="width: 100%;" />
@@ -978,6 +991,19 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+          </div>
+
+          <!-- Instant Short Ride Permission Setting -->
+          <div style="margin-bottom: 1.25rem; padding: 0.75rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+            <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
+              <input type="checkbox" id="v-instant-ride" checked style="margin-top: 0.2rem; width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer;" />
+              <div>
+                <span style="font-weight: 700; font-size: 0.85rem; color: #1E293B;">Allow Instant Short Ride Without Admin Approval</span>
+                <p style="margin: 0.2rem 0 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
+                  If checked, drivers and staff can take instant meter-to-meter rides immediately. If unchecked, every trip requires submitting a request and waiting for admin approval.
+                </p>
+              </div>
+            </label>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
@@ -1019,6 +1045,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       const vBuffer = parseFloat(modalOverlay.querySelector('#v-buffer').value) || 10;
       const vStatus = modalOverlay.querySelector('#v-status').value;
 
+      const vAllowInstant = modalOverlay.querySelector('#v-instant-ride')?.checked ?? true;
+
       await db.saveVehicle({
         vehicle_name: vName,
         reg_number: vReg,
@@ -1027,7 +1055,9 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         current_odometer: vOdo,
         fallback_rate_per_km: vRate,
         buffer_percentage: vBuffer,
-        status: vStatus
+        status: vStatus,
+        allow_instant_short_ride: modalOverlay.querySelector('#ev-instant-ride')?.checked ?? true,
+        allow_instant_short_ride: vAllowInstant
       });
 
       vehicles = await db.getVehicles();
@@ -1097,7 +1127,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1.25rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
               <input type="number" id="ev-buffer" class="form-control" required min="0" max="50" value="${v.buffer_percentage || 10}" style="width: 100%;" />
@@ -1111,6 +1141,19 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <option value="Inactive" ${v.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
               </select>
             </div>
+          </div>
+
+          <!-- Instant Short Ride Permission Setting -->
+          <div style="margin-bottom: 1.25rem; padding: 0.75rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+            <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
+              <input type="checkbox" id="ev-instant-ride" ${v.allow_instant_short_ride !== false ? 'checked' : ''} style="margin-top: 0.2rem; width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer;" />
+              <div>
+                <span style="font-weight: 700; font-size: 0.85rem; color: #1E293B;">Allow Instant Short Ride Without Admin Approval</span>
+                <p style="margin: 0.2rem 0 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
+                  If checked, drivers and staff can take instant meter-to-meter rides immediately. If unchecked, every trip requires submitting a request and waiting for admin approval.
+                </p>
+              </div>
+            </label>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
@@ -1161,7 +1204,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         current_odometer: vOdo,
         fallback_rate_per_km: vRate,
         buffer_percentage: vBuffer,
-        status: vStatus
+        status: vStatus,
+        allow_instant_short_ride: modalOverlay.querySelector('#ev-instant-ride')?.checked ?? true
       });
 
       vehicles = await db.getVehicles();

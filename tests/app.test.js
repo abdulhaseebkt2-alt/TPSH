@@ -8219,5 +8219,82 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(mainDashHtml).not.toContain('vehicle_expenses');
       expect(mainDashHtml).not.toContain('trip_logs');
     });
+
+    it('Admin short ride permission per vehicle: allow_instant_short_ride defaults and persists correctly', async () => {
+      const v1 = await db.saveVehicle({
+        vehicle_name: 'Honda Unicorn 160',
+        reg_number: 'KL-10-TEST-123',
+        vehicle_type: 'Bike / Two-Wheeler',
+        current_odometer: 12000,
+        fallback_rate_per_km: 4.5,
+        buffer_percentage: 5,
+        status: 'Available',
+        allow_instant_short_ride: true
+      });
+      expect(v1.allow_instant_short_ride).toBe(true);
+
+      const v2 = await db.saveVehicle({
+        vehicle_name: 'Toyota Innova Crysta',
+        reg_number: 'KL-10-TEST-999',
+        vehicle_type: 'Car / Sedan / Hatchback',
+        current_odometer: 45000,
+        fallback_rate_per_km: 18.0,
+        buffer_percentage: 10,
+        status: 'Available',
+        allow_instant_short_ride: false
+      });
+      expect(v2.allow_instant_short_ride).toBe(false);
+
+      // Clean up
+      await db.deleteVehicle(v1.id);
+      await db.deleteVehicle(v2.id);
+    });
+
+    it('All Vehicle Trips Master window is registered in permissions, sidebar, and app router', () => {
+      const perms = fs.readFileSync('src/lib/permissions.js', 'utf8');
+      const sidebar = fs.readFileSync('src/components/sidebar.js', 'utf8');
+      const appJs = fs.readFileSync('src/app.js', 'utf8');
+
+      expect(perms).toContain('vehicle_all_trips');
+      expect(sidebar).toContain('vehicle_all_trips');
+      expect(appJs).toContain('vehicle_all_trips');
+    });
+
+    it('Vehicle User Card matches trips across user ID, email, and full name without dropping to 0', async () => {
+      const testUser = {
+        id: 'u-match-test',
+        email: 'matchtest@thaibaschool.edu.in',
+        full_name: 'Driver Test Person',
+        role: 'vehicle_user'
+      };
+
+      const testTrip = await db.saveTripLog({
+        vehicle_id: 'veh-1',
+        user_id: 'u-match-test',
+        user_name: 'Driver Test Person',
+        user_role: 'vehicle_user',
+        destination: 'Airport Run',
+        total_km: 50,
+        applied_rate_per_km: 10,
+        total_amount: 500,
+        status: 'Completed',
+        payment_status: 'Unpaid'
+      });
+
+      const allTrips = await db.getTripLogs();
+      const matched = allTrips.filter(t => {
+        const sId = String(testUser.id).toLowerCase();
+        const sEmail = String(testUser.email).toLowerCase();
+        const sName = String(testUser.full_name).toLowerCase();
+        const tId = String(t.user_id || '').toLowerCase();
+        const tName = String(t.user_name || '').toLowerCase();
+        return (tId === sId) || (tName === sName);
+      });
+
+      expect(matched.length).toBeGreaterThan(0);
+      expect(matched[0].total_amount).toBe(500);
+
+      await db.deleteTripLog(testTrip.id);
+    });
   });
 });

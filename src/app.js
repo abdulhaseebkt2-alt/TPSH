@@ -37,6 +37,7 @@ import { renderSettingsModule } from './modules/settings/index.js';
 import { renderVehicleManagementModule } from './modules/vehicles/index.js';
 import { renderUserVehicleTripsModule } from './modules/vehicles/user-trips.js';
 import { renderVehicleUserCardModule } from './modules/vehicles/user-card.js';
+import { renderAllVehicleTripsModule } from './modules/vehicles/all-trips.js';
 
 const MODULE_ROUTERS = {
   dashboard: renderDashboard,
@@ -71,6 +72,7 @@ const MODULE_ROUTERS = {
   vehicle_requests: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'requests' }),
   vehicle_expenses: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'expenses' }),
   vehicle_billing: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'billing' }),
+  vehicle_all_trips: renderAllVehicleTripsModule,
   vehicle_staff: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'users' }),
   vehicle_card: renderVehicleUserCardModule,
   vehicle_trips: renderUserVehicleTripsModule,

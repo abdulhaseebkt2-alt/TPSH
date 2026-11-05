@@ -196,6 +196,7 @@ export const INITIAL_VEHICLES = [
     fallback_rate_per_km: 18.00,
     buffer_percentage: 10,
     status: 'Available',
+    allow_instant_short_ride: true,
     created_at: '2026-08-01T08:00:00.000Z'
   },
   {
@@ -207,6 +208,7 @@ export const INITIAL_VEHICLES = [
     fallback_rate_per_km: 14.00,
     buffer_percentage: 10,
     status: 'Available',
+    allow_instant_short_ride: false,
     created_at: '2026-08-01T08:00:00.000Z'
   },
   {
@@ -218,6 +220,7 @@ export const INITIAL_VEHICLES = [
     fallback_rate_per_km: 16.00,
     buffer_percentage: 12,
     status: 'Available',
+    allow_instant_short_ride: false,
     created_at: '2026-08-01T08:00:00.000Z'
   }
 ];

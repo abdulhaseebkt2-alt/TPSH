@@ -3,8 +3,10 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { formatDate, formatCurrency, getTodayDateStr } from '../../lib/utils.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
+import { openModal } from '../../lib/dialog.js';
 
 export async function renderVehicleUserCardModule(container, options = {}) {
+  const onNavigate = options.onNavigate;
   container.innerHTML = `
     <div style="display: flex; align-items: center; justify-content: center; min-height: 280px;">
       <div class="loading-spinner" style="width: 36px; height: 36px; border: 3px solid #E2E8F0; border-top-color: #4F46E5; border-radius: 50%; animation: tpsSpin 0.8s linear infinite;"></div>
@@ -26,14 +28,36 @@ export async function renderVehicleUserCardModule(container, options = {}) {
   const eligibleUsers = users.filter(u => ['vehicle_user', 'teacher', 'admin', 'super_admin'].includes(u.role));
 
   // Determine currently selected user:
-  // If non-admin, always force currentUser
-  let selectedUserId = options.userId || (isAdmin ? (eligibleUsers[0]?.id || currentUser?.id) : currentUser?.id);
-  let selectedUser = eligibleUsers.find(u => u.id === selectedUserId) || currentUser;
+  // ALWAYS default to passed userId option or currentUser (so it never opens for a random user with 0 trips!)
+  let selectedUserId = options.userId || currentUser?.id || eligibleUsers[0]?.id;
+  let selectedUser = eligibleUsers.find(u => 
+    u.id === selectedUserId || 
+    (u.tps_id && u.tps_id === selectedUserId) || 
+    (u.email && u.email === selectedUserId) || 
+    (u.full_name && u.full_name === selectedUserId)
+  ) || currentUser;
 
   function render() {
-    // Current user's trips
+    // Current user's trips: Robust matching by ID, TPS ID, Email, or Full Name
     const userTrips = allTrips
-      .filter(t => t.user_id === selectedUser.id || (selectedUser.email && t.user_id === selectedUser.email) || t.user_name === selectedUser.full_name)
+      .filter(t => {
+        if (!t) return false;
+        const sId = String(selectedUser?.id || '').trim().toLowerCase();
+        const sTpsId = String(selectedUser?.tps_id || '').trim().toLowerCase();
+        const sEmail = String(selectedUser?.email || '').trim().toLowerCase();
+        const sName = String(selectedUser?.full_name || '').trim().toLowerCase();
+        
+        const tUserId = String(t.user_id || '').trim().toLowerCase();
+        const tUserEmail = String(t.user_email || '').trim().toLowerCase();
+        const tUserName = String(t.user_name || '').trim().toLowerCase();
+        
+        return (
+          (sId && tUserId === sId) ||
+          (sTpsId && tUserId === sTpsId) ||
+          (sEmail && (tUserId === sEmail || tUserEmail === sEmail)) ||
+          (sName && tUserName === sName)
+        );
+      })
       .sort((a, b) => new Date(b.created_at || b.start_time || 0) - new Date(a.created_at || a.start_time || 0));
 
     // Calculate User KPI Metrics
@@ -47,31 +71,66 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
         <div class="page-title-group">
           <div style="display: flex; align-items: center; gap: 0.65rem;">
-            <div style="width: 36px; height: 36px; border-radius: 8px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M14 10h4"/><path d="M14 14h3"/></svg>
             </div>
             <div>
-              <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Vehicle User Ledger & Usage Card</h2>
+              <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Vehicle User Ledger & Card</h2>
               <p style="margin: 0.15rem 0 0; color: var(--text-muted); font-size: 0.85rem;">
-                Official trip history, distance logs, and bill settlement card (Mirroring student leave card format)
+                Trip history, distance logs, and bill settlement ledger (Student Leave Card format)
               </p>
             </div>
           </div>
         </div>
 
-        ${isAdmin ? `
-          <div class="page-actions" style="display: flex; gap: 0.5rem; align-items: center;">
-            <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted);">Select Staff / Driver:</label>
-            <select id="user-card-selector" class="form-control" style="font-weight: 600; min-width: 200px;">
-              ${eligibleUsers.map(u => `
-                <option value="${u.id}" ${u.id === selectedUser.id ? 'selected' : ''}>
-                  ${u.full_name} (${u.role === 'vehicle_user' ? 'Driver / Staff' : u.role})
-                </option>
-              `).join('')}
-            </select>
-          </div>
-        ` : ''}
+        <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="btn-card-book-trip" style="font-weight: 600;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Book / Short Ride
+          </button>
+          ${isAdmin ? `
+            <button class="btn btn-secondary" id="btn-card-all-trips" style="font-weight: 600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              All Trips Master
+            </button>
+            <button class="btn btn-secondary" id="btn-card-fleet-admin" style="font-weight: 600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+              Fleet Console
+            </button>
+          ` : ''}
+        </div>
       </div>
+
+      <!-- 1. SECTION-STYLE USER SELECTOR CARD (MATCHES SECTION & CLASSROOMS DESIGN PATTERN) -->
+      ${isAdmin && eligibleUsers.length > 1 ? `
+        <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 1.25rem;">
+          <button type="button" class="rbac-mobile-role-trigger" id="sec-user-trigger" aria-label="Select staff or driver to view ledger">
+            <div class="rbac-trigger-left" style="gap: 0.85rem;">
+              <div class="rbac-trigger-icon" style="background: #EEF2FF; color: #4F46E5; border: 1.5px solid #C7D2FE; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 800; flex-shrink: 0;">
+                ${(selectedUser.full_name || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div class="rbac-trigger-text">
+                <span class="rbac-trigger-kicker">VIEWING USAGE CARD FOR</span>
+                <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
+                  <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedUser.full_name}</span>
+                  <span class="rbac-trigger-badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-weight: 700;">
+                    ${selectedUser.role === 'vehicle_user' ? 'Driver / Staff' : selectedUser.role.toUpperCase()}
+                  </span>
+                  <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
+                    ${selectedUser.tps_id || 'TPS-VUS'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="rbac-trigger-right">
+              <span class="rbac-trigger-action-pill">
+                <span>Switch</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+          </button>
+        </div>
+      ` : ''}
 
       <!-- User Profile Header Card -->
       <div class="card-panel" style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); color: #FFFFFF; border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 4px 14px rgba(49, 46, 129, 0.2);">
@@ -124,7 +183,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
            Col 4: Paid or Not Paid (Clean status badge with Partial support)
            Col 5: Admin Action (Mark Paid / Partial Settle)
       -->
-      <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm);">
+      <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
           <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Vehicle Usage & Settlement Ledger</h3>
           <span style="font-size: 0.8rem; color: var(--text-muted);">
@@ -284,15 +343,90 @@ export async function renderVehicleUserCardModule(container, options = {}) {
   }
 
   function attachEvents() {
-    // Admin selector to switch user
-    const userSelector = container.querySelector('#user-card-selector');
-    userSelector?.addEventListener('change', (e) => {
-      const uId = e.target.value;
-      const found = eligibleUsers.find(u => u.id === uId);
-      if (found) {
-        selectedUser = found;
-        render();
-      }
+    // Navigation handlers
+    container.querySelector('#btn-card-book-trip')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('vehicle_trips');
+    });
+    container.querySelector('#btn-card-all-trips')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('vehicle_all_trips');
+    });
+    container.querySelector('#btn-card-fleet-admin')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('vehicles');
+    });
+
+    // 1. SECTION-STYLE USER SELECTOR MODAL DIALOG (MATCHING SECTION & CLASSROOMS MODAL PATTERN)
+    container.querySelector('#sec-user-trigger')?.addEventListener('click', () => {
+      openModal({
+        title: 'Select Staff / Driver',
+        modalClass: 'role-picker-modal-dialog',
+        contentHtml: `
+          <div style="margin-bottom: 0.5rem;">
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+              Select an authorized staff member or driver to view their personal trip ledger:
+            </p>
+            <div class="role-picker-list">
+              ${eligibleUsers.map(u => {
+                const isSelected = u.id === selectedUser.id;
+                const uTrips = allTrips.filter(t => {
+                  const sId = String(u.id || '').trim().toLowerCase();
+                  const sTpsId = String(u.tps_id || '').trim().toLowerCase();
+                  const sEmail = String(u.email || '').trim().toLowerCase();
+                  const sName = String(u.full_name || '').trim().toLowerCase();
+                  const tId = String(t.user_id || '').trim().toLowerCase();
+                  const tEmail = String(t.user_email || '').trim().toLowerCase();
+                  const tName = String(t.user_name || '').trim().toLowerCase();
+                  return (sId && tId === sId) || (sTpsId && tId === sTpsId) || (sEmail && (tId === sEmail || tEmail === sEmail)) || (sName && tName === sName);
+                });
+                const dueCount = uTrips.filter(t => t.status === 'Completed' && t.payment_status !== 'Paid').length;
+
+                return `
+                  <div class="role-picker-item ${isSelected ? 'active' : ''}" data-user-id="${u.id}" role="button" tabindex="0" style="cursor: pointer; padding: 0.85rem 1rem;">
+                    <div class="role-picker-item-left" style="gap: 0.85rem;">
+                      <div class="role-picker-item-icon" style="background: #EEF2FF; color: #4F46E5; border: 1.5px solid #C7D2FE; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0;">
+                        ${(u.full_name || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div class="role-picker-item-info">
+                        <div class="role-picker-item-title-row" style="gap: 0.45rem; flex-wrap: wrap;">
+                          <span class="role-picker-item-name" style="font-weight: 700; font-size: 0.92rem;">${u.full_name}</span>
+                          ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">CURRENT</span>` : ''}
+                          <span class="badge" style="font-size: 0.65rem; background: #F1F5F9; color: #475569;">
+                            ${u.role === 'vehicle_user' ? 'Driver / Staff' : u.role.toUpperCase()}
+                          </span>
+                        </div>
+                        <span class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                          <span>${uTrips.length} Trips logged</span>
+                          <span>•</span>
+                          ${dueCount > 0 ? `<span style="color: #DC2626; font-weight: 700;">${dueCount} payment due</span>` : '<span style="color: #059669; font-weight: 600;">✓ No dues</span>'}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="role-picker-item-radio">
+                      <div class="role-radio-circle ${isSelected ? 'active' : ''}">
+                        ${isSelected ? `<div class="role-radio-dot"></div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `,
+        onMount: ({ container: modalBody, close }) => {
+          modalBody.querySelectorAll('.role-picker-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const uid = item.getAttribute('data-user-id');
+              if (uid && uid !== selectedUser.id) {
+                selectedUserId = uid;
+                selectedUser = eligibleUsers.find(u => u.id === uid) || currentUser;
+                close();
+                render();
+              } else {
+                close();
+              }
+            });
+          });
+        }
+      });
     });
 
     // Settle / Pay Button (Supports Full and Partial Payments)
