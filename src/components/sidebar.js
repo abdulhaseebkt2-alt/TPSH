@@ -36,7 +36,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
     },
     {
       title: 'Fleet & Transport',
-      keys: ['vehicles', 'vehicle_requests', 'vehicle_expenses', 'vehicle_billing', 'vehicle_staff', 'vehicle_trips']
+      keys: ['vehicles', 'vehicle_requests', 'vehicle_expenses', 'vehicle_billing', 'vehicle_staff', 'vehicle_card', 'vehicle_trips']
     }
   ];
 

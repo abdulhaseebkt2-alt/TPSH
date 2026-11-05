@@ -4917,13 +4917,25 @@ class DatabaseService {
     this.set('tps_vehicle_payments', list);
     await this.pushCloudKey('tps_vehicle_payments', list);
 
-    // Automatically mark the referenced trip as Paid
+    // Automatically update the referenced trip with partial or full payment status
     if (record.trip_id) {
       const trips = this.get('tps_trip_logs') || [];
       const targetTrip = trips.find(t => t.id === record.trip_id || t.trip_id === record.trip_id);
       if (targetTrip) {
-        targetTrip.payment_status = 'Paid';
-        targetTrip.is_paid = true;
+        const totalAmount = Number(targetTrip.total_amount) || 0;
+        const previousPaid = Number(targetTrip.amount_paid) || 0;
+        const currentPay = Number(record.amount_paid) || 0;
+        const newPaidTotal = previousPaid + currentPay;
+        targetTrip.amount_paid = newPaidTotal;
+
+        if (newPaidTotal >= totalAmount) {
+          targetTrip.payment_status = 'Paid';
+          targetTrip.is_paid = true;
+        } else {
+          targetTrip.payment_status = 'Partial';
+          targetTrip.is_paid = false;
+        }
+
         targetTrip.paid_at = record.payment_date;
         targetTrip.payment_id = record.id;
         targetTrip.payment_received_by = record.received_by_admin_name;

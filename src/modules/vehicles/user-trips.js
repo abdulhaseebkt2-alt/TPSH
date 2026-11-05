@@ -127,12 +127,22 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
 
       <!-- SECTION 1: BOOK A VEHICLE (FORM & REAL-TIME AVAILABILITY) -->
       <div id="section-book-vehicle" class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem; box-shadow: var(--shadow-sm);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
           <div>
-            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Section 1: Book a Vehicle for Personal Trip</h3>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Book a Vehicle or Start Instant Ride</h3>
             <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
-              Select an available school vehicle. Real-time rates are dynamically calculated based on rolling expenses and odometer history.
+              Choose between standard scheduled booking or an instant Short Ride (meter-to-meter).
             </p>
+          </div>
+
+          <!-- Ride Mode Toggle: Scheduled vs Short Ride -->
+          <div style="display: flex; background: #F1F5F9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-medium);">
+            <button type="button" class="btn-trip-mode active" data-mode="short" style="border: none; background: #4F46E5; color: #FFF; font-weight: 700; font-size: 0.78rem; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
+              ⚡ Instant Short Ride
+            </button>
+            <button type="button" class="btn-trip-mode" data-mode="scheduled" style="border: none; background: transparent; color: #64748B; font-weight: 600; font-size: 0.78rem; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
+              📅 Scheduled Trip
+            </button>
           </div>
         </div>
 
@@ -141,24 +151,39 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
             <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.35rem;">
               Choose Vehicle * (Shows Real-Time Live Status, Current Odometer, and Dynamic ₹/KM Rate)
             </label>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;">
-              ${vehicles.filter(v => v.status !== 'Inactive').map(v => {
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 0.85rem;">
+              ${vehicles.filter(v => v.status !== 'Inactive').map((v, vIdx) => {
                 const dynamic = calculateDynamicRatePerKm(v, expenses, allTrips);
                 const isAvail = v.status === 'Available';
+                const isBike = (v.vehicle_type || '').toLowerCase().includes('bike');
 
                 return `
-                  <label style="cursor: ${isAvail ? 'pointer' : 'not-allowed'}; border: 2px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; background: ${isAvail ? 'var(--bg-surface)' : 'var(--bg-surface-subtle)'}; opacity: ${isAvail ? '1' : '0.6'}; display: block;" class="vehicle-select-card">
-                    <input type="radio" name="selected_vehicle_id" value="${v.id}" data-rate="${dynamic.rate}" data-odo="${v.current_odometer}" ${isAvail ? '' : 'disabled'} style="margin-right: 0.5rem;" required />
-                    <strong>${v.vehicle_name}</strong>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem; font-size: 0.78rem;">
-                      <span style="font-family: monospace; background: #0F172A; color: #FFF; padding: 1px 6px; border-radius: 4px;">${v.reg_number}</span>
-                      <span style="font-weight: 700; color: #4F46E5;">₹${dynamic.rate.toFixed(2)}/km</span>
+                  <label style="cursor: ${isAvail ? 'pointer' : 'not-allowed'}; border: 2px solid var(--border-medium); border-radius: 10px; padding: 0.85rem; background: ${isAvail ? '#FFFFFF' : 'var(--bg-surface-subtle)'}; opacity: ${isAvail ? '1' : '0.6'}; display: flex; gap: 0.75rem; align-items: center; transition: all 0.15s ease;" class="vehicle-select-card" id="v-card-${v.id}">
+                    <input type="radio" name="selected_vehicle_id" value="${v.id}" data-rate="${dynamic.rate}" data-odo="${v.current_odometer}" ${isAvail ? '' : 'disabled'} ${isAvail && vIdx === 0 ? 'checked' : ''} style="accent-color: #4F46E5; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer;" />
+                    
+                    <!-- Vehicle Photo Thumbnail -->
+                    <div style="width: 58px; height: 50px; border-radius: 8px; background: #F1F5F9; border: 1px solid var(--border-subtle); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                      ${v.photo_url ? `
+                        <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                      ` : `
+                        <span style="font-size: 1.5rem;">${isBike ? '🏍️' : '🚗'}</span>
+                      `}
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem; font-size: 0.74rem; color: var(--text-muted);">
-                      <span>Odo: ${Number(v.current_odometer || 0).toLocaleString('en-IN')} KM</span>
-                      <span class="badge" style="font-size: 0.7rem; ${isAvail ? 'background: #ECFDF5; color: #059669;' : 'background: #FEF3C7; color: #D97706;'}">
-                        ${v.status || 'Available'}
-                      </span>
+
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.25rem;">
+                        <strong style="font-size: 0.9rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${v.vehicle_name}</strong>
+                        <span style="font-weight: 800; color: #4F46E5; font-size: 0.85rem; flex-shrink: 0;">₹${dynamic.rate.toFixed(2)}/km</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem; font-size: 0.74rem;">
+                        <span style="font-family: monospace; background: #0F172A; color: #FFF; padding: 1px 5px; border-radius: 3px;">${v.reg_number}</span>
+                        <span class="badge" style="font-size: 0.68rem; padding: 1px 6px; ${isAvail ? 'background: #ECFDF5; color: #059669;' : 'background: #FEF3C7; color: #D97706;'}">
+                          ${v.status || 'Available'}
+                        </span>
+                      </div>
+                      <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        Odo: ${Number(v.current_odometer || 0).toLocaleString('en-IN')} KM
+                      </div>
                     </div>
                   </label>
                 `;
@@ -166,16 +191,42 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-            <div>
-              <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Destination / Route *</label>
-              <input type="text" id="trip-destination" class="form-control" required placeholder="e.g. Kozhikode Medical College & Return" style="width: 100%;" />
+          <!-- Short Ride Instant Box (Default mode) -->
+          <div id="short-ride-box" style="background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <span style="font-size: 1.2rem;">⚡</span>
+              <strong style="color: #3730A3; font-size: 0.95rem;">Short Ride Mode (Instant Meter-to-Meter Ride)</strong>
             </div>
-            <div>
-              <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Purpose of Personal Travel *</label>
-              <input type="text" id="trip-purpose" class="form-control" required placeholder="e.g. Family medical appointment / Personal errand" style="width: 100%;" />
+            <p style="font-size: 0.78rem; color: #4338CA; margin: 0 0 0.85rem; line-height: 1.4;">
+              Simply select your vehicle, enter your current starting meter reading (KM), and start driving. When your ride ends, enter the ending meter reading and a popup window will instantly show how much to pay!
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; align-items: flex-end;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E1B4B; margin-bottom: 0.25rem;">
+                  Current Meter Reading (Start KM) *
+                </label>
+                <input type="number" id="short-ride-start-km" class="form-control" placeholder="Enter starting odometer KM" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1rem;" />
+              </div>
+              <div>
+                <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="width: 100%; padding: 0.65rem; font-weight: 700; background: #4F46E5;">
+                  🚀 Start Instant Short Ride
+                </button>
+              </div>
             </div>
           </div>
+
+          <!-- Scheduled Booking Box (Hidden in Short Ride mode) -->
+          <div id="scheduled-booking-box" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Destination / Route *</label>
+                <input type="text" id="trip-destination" class="form-control" placeholder="e.g. Kozhikode Medical College & Return" style="width: 100%;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Purpose of Personal Travel *</label>
+                <input type="text" id="trip-purpose" class="form-control" placeholder="e.g. Family medical appointment / Personal errand" style="width: 100%;" />
+              </div>
+            </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
             <!-- Departure Schedule -->
@@ -222,10 +273,11 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end;">
-            <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 700;">
-              Submit Trip Request for Admin Approval
-            </button>
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 700;">
+                Submit Trip Request for Admin Approval
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -440,6 +492,94 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
   }
 
   function attachEvents(activeTrip) {
+    // Ride Mode Toggle: Short Ride vs Scheduled
+    let currentMode = 'short';
+    const shortBox = container.querySelector('#short-ride-box');
+    const scheduledBox = container.querySelector('#scheduled-booking-box');
+    const startKmInput = container.querySelector('#short-ride-start-km');
+
+    // Auto-populate default start KM from selected vehicle
+    function syncSelectedVehicleOdo() {
+      const checkedRadio = container.querySelector('input[name="selected_vehicle_id"]:checked');
+      if (checkedRadio && startKmInput) {
+        const odo = checkedRadio.getAttribute('data-odo');
+        if (odo && !startKmInput.value) {
+          startKmInput.value = odo;
+        }
+      }
+    }
+    syncSelectedVehicleOdo();
+
+    container.querySelectorAll('input[name="selected_vehicle_id"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const odo = radio.getAttribute('data-odo');
+        if (startKmInput) startKmInput.value = odo || '';
+      });
+    });
+
+    container.querySelectorAll('.btn-trip-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentMode = btn.getAttribute('data-mode');
+        container.querySelectorAll('.btn-trip-mode').forEach(b => {
+          const isActive = b.getAttribute('data-mode') === currentMode;
+          b.style.background = isActive ? '#4F46E5' : 'transparent';
+          b.style.color = isActive ? '#FFF' : '#64748B';
+          b.style.fontWeight = isActive ? '700' : '600';
+        });
+
+        if (shortBox) shortBox.style.display = currentMode === 'short' ? 'block' : 'none';
+        if (scheduledBox) scheduledBox.style.display = currentMode === 'scheduled' ? 'block' : 'none';
+      });
+    });
+
+    // Start Instant Short Ride (Direct In Progress, no queue waiting)
+    container.querySelector('#btn-start-short-ride')?.addEventListener('click', async () => {
+      if (activeTrip) {
+        toast.error('You already have an active trip in progress. Please complete it first.');
+        return;
+      }
+
+      const selectedRadio = container.querySelector('input[name="selected_vehicle_id"]:checked');
+      if (!selectedRadio) {
+        toast.error('Please select an available vehicle.');
+        return;
+      }
+
+      const vehicleId = selectedRadio.value;
+      const startKm = parseFloat(startKmInput.value);
+      const veh = vehicles.find(v => v.id === vehicleId);
+
+      if (isNaN(startKm) || startKm < Number(veh?.current_odometer || 0)) {
+        toast.error(`Start meter reading cannot be less than vehicle odometer (${veh?.current_odometer || 0} KM).`);
+        return;
+      }
+
+      const dynamicRateInfo = calculateDynamicRatePerKm(veh, expenses, allTrips);
+
+      const newTrip = await db.saveTripLog({
+        vehicle_id: vehicleId,
+        user_id: currentUser.id,
+        user_name: currentUser.full_name,
+        user_role: currentUser.role,
+        destination: 'Short Ride (Campus / Local)',
+        purpose: 'Personal Short Travel',
+        start_time: new Date().toISOString(),
+        start_km: startKm,
+        applied_rate_per_km: dynamicRateInfo.rate,
+        status: 'In Progress',
+        payment_status: 'Unpaid'
+      });
+
+      // Update vehicle status
+      veh.status = 'On Trip';
+      await db.saveVehicle(veh);
+
+      allTrips = await db.getTripLogs();
+      vehicles = await db.getVehicles();
+      toast.success('Short ride started! Meter logged at ' + startKm + ' KM.');
+      render();
+    });
+
     // Enhance date & wheel time pickers for booking form
     const sDateEl = container.querySelector('#trip-start-date');
     const eDateEl = container.querySelector('#trip-end-date');

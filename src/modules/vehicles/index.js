@@ -6,7 +6,7 @@ import {
   calculateDynamicRatePerKm, 
   getDocumentExpiryStatus 
 } from '../../lib/fleet-engine.js';
-import { formatCurrency, formatDate } from '../../lib/utils.js';
+import { formatCurrency, formatDate, compressImage } from '../../lib/utils.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
 
 export async function renderVehicleManagementModule(container, { onNavigate, initialTab = 'fleet' }) {
@@ -47,9 +47,21 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
             </div>
             <div>
-              <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Vehicle Fleet Management & Usage Billing</h2>
+              <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">${
+                activeTab === 'fleet' ? 'Fleet Overview & Documents' :
+                activeTab === 'requests' ? 'Trip Approval Queue' :
+                activeTab === 'expenses' ? 'Fuel & Maintenance Logs' :
+                activeTab === 'billing' ? 'Usage Billing & Settlement Ledger' :
+                'Authorized Drivers & Staff'
+              }</h2>
               <p style="margin: 0.15rem 0 0; color: var(--text-muted); font-size: 0.85rem;">
-                Fleet compliance, dynamic ₹/KM billing rates, fuel efficiency, and admin settlement ledger
+                ${
+                  activeTab === 'fleet' ? 'Vehicle master registry, photos, live odometers, and compliance document tracking' :
+                  activeTab === 'requests' ? 'Review and approve/reject vehicle travel requests from staff and drivers' :
+                  activeTab === 'expenses' ? 'Real-time bill-to-bill fuel efficiency (km/L) and maintenance expenses' :
+                  activeTab === 'billing' ? 'Unpaid trip dues settlement (with partial payment support) and immutable audit ledger' :
+                  'Directory of campus drivers and transport personnel'
+                }
               </p>
             </div>
           </div>
@@ -67,26 +79,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         </div>
       </div>
 
-      <!-- Tab Navigation Navigation Header -->
-      <div class="tps-tabs-bar" style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--border-subtle); margin: 1rem 0 1.5rem; overflow-x: auto;">
-        <button class="tab-btn ${activeTab === 'fleet' ? 'active' : ''}" data-tab="fleet" style="padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.88rem; background: none; border: none; border-bottom: 2px solid ${activeTab === 'fleet' ? '#4F46E5' : 'transparent'}; color: ${activeTab === 'fleet' ? '#4F46E5' : 'var(--text-muted)'}; cursor: pointer;">
-          Fleet & Documents
-        </button>
-        <button class="tab-btn ${activeTab === 'requests' ? 'active' : ''}" data-tab="requests" style="padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.88rem; background: none; border: none; border-bottom: 2px solid ${activeTab === 'requests' ? '#4F46E5' : 'transparent'}; color: ${activeTab === 'requests' ? '#4F46E5' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-          Trip Requests
-          ${pendingTripsCount > 0 ? `<span class="badge" style="background: #FEE2E2; color: #DC2626; border-radius: 12px; font-size: 0.72rem; padding: 1px 6px;">${pendingTripsCount}</span>` : ''}
-        </button>
-        <button class="tab-btn ${activeTab === 'expenses' ? 'active' : ''}" data-tab="expenses" style="padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.88rem; background: none; border: none; border-bottom: 2px solid ${activeTab === 'expenses' ? '#4F46E5' : 'transparent'}; color: ${activeTab === 'expenses' ? '#4F46E5' : 'var(--text-muted)'}; cursor: pointer;">
-          Fuel & Maintenance
-        </button>
-        <button class="tab-btn ${activeTab === 'billing' ? 'active' : ''}" data-tab="billing" style="padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.88rem; background: none; border: none; border-bottom: 2px solid ${activeTab === 'billing' ? '#4F46E5' : 'transparent'}; color: ${activeTab === 'billing' ? '#4F46E5' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-          Billing & Payments
-          ${unpaidTripsCount > 0 ? `<span class="badge" style="background: #FEF3C7; color: #D97706; border-radius: 12px; font-size: 0.72rem; padding: 1px 6px;">${unpaidTripsCount} Due</span>` : ''}
-        </button>
-        <button class="tab-btn ${activeTab === 'users' ? 'active' : ''}" data-tab="users" style="padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.88rem; background: none; border: none; border-bottom: 2px solid ${activeTab === 'users' ? '#4F46E5' : 'transparent'}; color: ${activeTab === 'users' ? '#4F46E5' : 'var(--text-muted)'}; cursor: pointer;">
-          Vehicle Users Directory
-        </button>
-      </div>
+      <div style="margin: 0.75rem 0 1.25rem;"></div>
 
       <!-- Tab Content Area -->
       <div id="vehicle-tab-content">
@@ -159,29 +152,43 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm); position: relative;">
               <div>
                 <!-- Top Card Header -->
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-                  <div>
-                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                      <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700;">${v.vehicle_name}</h4>
-                      <span class="badge" style="background: ${sc.bg}; color: ${sc.text}; border: 1px solid ${sc.border}; font-weight: 600; font-size: 0.75rem;">
-                        ${v.status || 'Available'}
-                      </span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem;">
-                      <span style="font-family: monospace; font-size: 0.9rem; font-weight: 700; background: #0F172A; color: #F8FAFC; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px;">
-                        ${v.reg_number}
-                      </span>
-                      <span style="font-size: 0.8rem; color: var(--text-muted);">${v.vehicle_type || 'Vehicle'}</span>
-                    </div>
+                <!-- Top Card Header with Vehicle Photo -->
+                <div style="display: flex; gap: 0.85rem; align-items: flex-start; margin-bottom: 0.75rem;">
+                  <!-- Vehicle Photo Thumbnail -->
+                  <div style="width: 72px; height: 60px; border-radius: 8px; background: #F1F5F9; border: 1px solid var(--border-medium); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative;">
+                    ${v.photo_url ? `
+                      <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                    ` : `
+                      <span style="font-size: 1.75rem;">${(v.vehicle_type || '').toLowerCase().includes('bike') ? '🏍️' : '🚗'}</span>
+                    `}
                   </div>
 
-                  <div style="text-align: right;">
-                    <div style="font-size: 1.15rem; font-weight: 800; color: #4F46E5;">
-                      ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">/km</span>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.35rem;">
+                      <div style="min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                          <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${v.vehicle_name}</h4>
+                          <span class="badge" style="background: ${sc.bg}; color: ${sc.text}; border: 1px solid ${sc.border}; font-weight: 600; font-size: 0.7rem; padding: 1px 6px;">
+                            ${v.status || 'Available'}
+                          </span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; flex-wrap: wrap;">
+                          <span style="font-family: monospace; font-size: 0.82rem; font-weight: 700; background: #0F172A; color: #F8FAFC; padding: 1px 6px; border-radius: 4px;">
+                            ${v.reg_number}
+                          </span>
+                          <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 600;">${v.vehicle_type || 'Vehicle'}</span>
+                        </div>
+                      </div>
+
+                      <div style="text-align: right; flex-shrink: 0;">
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #4F46E5; line-height: 1.1;">
+                          ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">/km</span>
+                        </div>
+                        <span class="badge" style="font-size: 0.65rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'}; padding: 1px 4px;">
+                          ${dynamicRateInfo.isFallback ? 'Fallback' : 'Rolling 90d'}
+                        </span>
+                      </div>
                     </div>
-                    <span class="badge" style="font-size: 0.68rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'};">
-                      ${dynamicRateInfo.isFallback ? 'Fallback Rate' : '90-Day Rolling Rate'}
-                    </span>
                   </div>
                 </div>
 
@@ -914,7 +921,18 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         <form id="form-create-vehicle" style="padding: 1.5rem;">
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Display Name *</label>
-            <input type="text" id="v-name" class="form-control" required placeholder="e.g. Thaiba Traveler Bus 2" style="width: 100%;" />
+            <input type="text" id="v-name" class="form-control" required placeholder="e.g. Campus Honda Unicorn or Tata Winger" style="width: 100%;" />
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Photo (Upload Image)</label>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="file" id="v-photo-file" accept="image/*" class="form-control" style="width: 100%; font-size: 0.8rem;" />
+              <div id="v-photo-preview" style="width: 50px; height: 40px; border-radius: 6px; background: #F1F5F9; border: 1px dashed #CBD5E1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                <span style="font-size: 1.1rem;">🚗</span>
+              </div>
+            </div>
+            <input type="hidden" id="v-photo-data" />
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
@@ -925,11 +943,13 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
               <select id="v-type" class="form-control" required style="width: 100%;">
-                <option value="Van / Minibus">Van / Minibus</option>
-                <option value="Car / Sedan">Car / Sedan</option>
-                <option value="SUV">SUV</option>
-                <option value="Utility Vehicle">Utility Vehicle</option>
-                <option value="School Bus">School Bus</option>
+                <option value="Bike / Two-Wheeler (e.g. Honda Unicorn)">Bike / Two-Wheeler (e.g. Honda Unicorn)</option>
+                <option value="Maruti Omni / Eeco (Van)">Maruti Omni / Eeco (Van)</option>
+                <option value="Tata Magic / Passenger Van">Tata Magic / Passenger Van</option>
+                <option value="Tata Winger / Traveler Bus">Tata Winger / Traveler Bus</option>
+                <option value="Car / Sedan / Hatchback">Car / Sedan / Hatchback</option>
+                <option value="Utility Vehicle / Bolero">Utility Vehicle / Bolero</option>
+                <option value="Heavy Bus / Transport">Heavy Bus / Transport</option>
               </select>
             </div>
           </div>
@@ -974,6 +994,21 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       b.addEventListener('click', () => modalOverlay.remove());
     });
 
+    const photoFileInput = modalOverlay.querySelector('#v-photo-file');
+    const photoHidden = modalOverlay.querySelector('#v-photo-data');
+    const photoPreview = modalOverlay.querySelector('#v-photo-preview');
+
+    photoFileInput?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const compressed = await compressImage(file, 400, 300, 0.75);
+        if (compressed) {
+          photoHidden.value = compressed;
+          if (photoPreview) photoPreview.innerHTML = `<img src="${compressed}" style="width: 100%; height: 100%; object-fit: cover;" />`;
+        }
+      }
+    });
+
     modalOverlay.querySelector('#form-create-vehicle').addEventListener('submit', async (e) => {
       e.preventDefault();
       const vName = modalOverlay.querySelector('#v-name').value.trim();
@@ -988,6 +1023,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         vehicle_name: vName,
         reg_number: vReg,
         vehicle_type: vType,
+        photo_url: modalOverlay.querySelector('#v-photo-data')?.value || '',
         current_odometer: vOdo,
         fallback_rate_per_km: vRate,
         buffer_percentage: vBuffer,
@@ -1020,6 +1056,17 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <input type="text" id="ev-name" class="form-control" required value="${v.vehicle_name}" style="width: 100%;" />
           </div>
 
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Photo</label>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="file" id="ev-photo-file" accept="image/*" class="form-control" style="width: 100%; font-size: 0.8rem;" />
+              <div id="ev-photo-preview" style="width: 50px; height: 40px; border-radius: 6px; background: #F1F5F9; border: 1px dashed #CBD5E1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                ${v.photo_url ? `<img src="${v.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : '<span style="font-size: 1.1rem;">🚗</span>'}
+              </div>
+            </div>
+            <input type="hidden" id="ev-photo-data" value="${v.photo_url || ''}" />
+          </div>
+
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
@@ -1028,11 +1075,13 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
               <select id="ev-type" class="form-control" required style="width: 100%;">
-                <option value="Van / Minibus" ${v.vehicle_type === 'Van / Minibus' ? 'selected' : ''}>Van / Minibus</option>
-                <option value="Car / Sedan" ${v.vehicle_type === 'Car / Sedan' ? 'selected' : ''}>Car / Sedan</option>
-                <option value="SUV" ${v.vehicle_type === 'SUV' ? 'selected' : ''}>SUV</option>
-                <option value="Utility Vehicle" ${v.vehicle_type === 'Utility Vehicle' ? 'selected' : ''}>Utility Vehicle</option>
-                <option value="School Bus" ${v.vehicle_type === 'School Bus' ? 'selected' : ''}>School Bus</option>
+                <option value="Bike / Two-Wheeler (e.g. Honda Unicorn)" ${(v.vehicle_type || '').includes('Bike') ? 'selected' : ''}>Bike / Two-Wheeler (e.g. Honda Unicorn)</option>
+                <option value="Maruti Omni / Eeco (Van)" ${(v.vehicle_type || '').includes('Omni') ? 'selected' : ''}>Maruti Omni / Eeco (Van)</option>
+                <option value="Tata Magic / Passenger Van" ${(v.vehicle_type || '').includes('Magic') ? 'selected' : ''}>Tata Magic / Passenger Van</option>
+                <option value="Tata Winger / Traveler Bus" ${(v.vehicle_type || '').includes('Winger') ? 'selected' : ''}>Tata Winger / Traveler Bus</option>
+                <option value="Car / Sedan / Hatchback" ${(v.vehicle_type || '').includes('Car') || (v.vehicle_type || '').includes('Sedan') ? 'selected' : ''}>Car / Sedan / Hatchback</option>
+                <option value="Utility Vehicle / Bolero" ${(v.vehicle_type || '').includes('Bolero') || (v.vehicle_type || '').includes('Utility') ? 'selected' : ''}>Utility Vehicle / Bolero</option>
+                <option value="Heavy Bus / Transport" ${(v.vehicle_type || '').includes('Bus') ? 'selected' : ''}>Heavy Bus / Transport</option>
               </select>
             </div>
           </div>
@@ -1078,6 +1127,21 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       b.addEventListener('click', () => modalOverlay.remove());
     });
 
+    const evPhotoInput = modalOverlay.querySelector('#ev-photo-file');
+    const evPhotoHidden = modalOverlay.querySelector('#ev-photo-data');
+    const evPhotoPreview = modalOverlay.querySelector('#ev-photo-preview');
+
+    evPhotoInput?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const compressed = await compressImage(file, 400, 300, 0.75);
+        if (compressed) {
+          evPhotoHidden.value = compressed;
+          if (evPhotoPreview) evPhotoPreview.innerHTML = `<img src="${compressed}" style="width: 100%; height: 100%; object-fit: cover;" />`;
+        }
+      }
+    });
+
     modalOverlay.querySelector('#form-edit-vehicle').addEventListener('submit', async (e) => {
       e.preventDefault();
       const vName = modalOverlay.querySelector('#ev-name').value.trim();
@@ -1093,6 +1157,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         vehicle_name: vName,
         reg_number: vReg,
         vehicle_type: vType,
+        photo_url: modalOverlay.querySelector('#ev-photo-data')?.value || v.photo_url || '',
         current_odometer: vOdo,
         fallback_rate_per_km: vRate,
         buffer_percentage: vBuffer,
@@ -1270,6 +1335,11 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
   // --- MODAL: MARK AS PAID (STRICT AUDIT LEDGER) ---
   function openMarkPaidModal({ tripId, amount, userName, tripCode }) {
+    const targetTrip = trips.find(t => t.id === tripId || t.trip_id === tripCode);
+    const totalAmount = Number(targetTrip?.total_amount || amount);
+    const alreadyPaid = Number(targetTrip?.amount_paid || 0);
+    const remainingDue = Math.max(0, totalAmount - alreadyPaid);
+
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
     modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
@@ -1277,7 +1347,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     modalOverlay.innerHTML = `
       <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-xl); overflow: hidden;">
         <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Trip Bill Settlement</h3>
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Payment / Partial Settle</h3>
           <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
         </div>
 
@@ -1290,8 +1360,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <div style="font-size: 0.8rem; color: #047857;">User: ${userName}</div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">AMOUNT DUE</div>
-                <div style="font-size: 1.35rem; font-weight: 800; color: #065F46;">${formatCurrency(amount)}</div>
+                <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
+                <div style="font-size: 1.35rem; font-weight: 800; color: #065F46;">${formatCurrency(remainingDue)}</div>
               </div>
             </div>
           </div>
@@ -1299,6 +1369,12 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           <!-- Strict Financial Audit Notice -->
           <div style="font-size: 0.78rem; color: #3730A3; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 6px; padding: 0.65rem; margin-bottom: 1rem;">
             <strong>Audit Record:</strong> This payment will be permanently logged with your name (<strong>${currentUser?.full_name || 'Admin'}</strong>) as the receiving officer.
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Received (₹) * (Full or Partial)</label>
+            <input type="number" id="pay-amount-input" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.1rem; font-weight: 700; color: #059669;" />
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Enter full or partial amount to settle.</div>
           </div>
 
           <div class="form-group" style="margin-bottom: 0.85rem;">
@@ -1319,7 +1395,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
             <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">
-              Confirm Settlement & Mark Paid
+              Confirm Payment
             </button>
           </div>
         </form>
@@ -1334,12 +1410,18 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
     modalOverlay.querySelector('#form-settle-payment').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const amountToPay = parseFloat(modalOverlay.querySelector('#pay-amount-input').value) || 0;
       const method = modalOverlay.querySelector('#pay-method').value;
       const notes = modalOverlay.querySelector('#pay-notes').value.trim();
 
+      if (amountToPay <= 0 || amountToPay > remainingDue) {
+        toast.error(`Please enter a valid amount up to ${formatCurrency(remainingDue)}.`);
+        return;
+      }
+
       await db.recordVehiclePayment({
         trip_id: tripId,
-        amount_paid: amount,
+        amount_paid: amountToPay,
         payment_method: method,
         received_by_admin_id: currentUser?.id || 'admin',
         received_by_admin_name: currentUser?.full_name || 'Admin',
@@ -1349,7 +1431,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       trips = await db.getTripLogs();
       payments = await db.getVehiclePayments();
       modalOverlay.remove();
-      toast.success(`Trip ${tripCode} marked as Paid! Audit record logged.`);
+      toast.success(`Payment of ${formatCurrency(amountToPay)} recorded for trip ${tripCode}!`);
       render();
     });
   }

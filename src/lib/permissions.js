@@ -32,6 +32,7 @@ export const MODULE_DEFINITIONS = [
   { key: 'vehicle_expenses', label: 'Fuel & Maintenance', icon: 'wrench', roles: ['super_admin', 'admin'] },
   { key: 'vehicle_billing', label: 'Usage Billing & Ledger', icon: 'credit-card', roles: ['super_admin', 'admin'] },
   { key: 'vehicle_staff', label: 'Drivers & Staff', icon: 'users', roles: ['super_admin', 'admin'] },
+  { key: 'vehicle_card', label: 'Vehicle User Card', icon: 'id-card', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
   { key: 'vehicle_trips', label: 'My Vehicle Trips', icon: 'car', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
   { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
@@ -68,6 +69,7 @@ export const DEFAULT_RBAC_MATRIX = {
     vehicle_expenses: 'full',
     vehicle_billing: 'full',
     vehicle_staff: 'full',
+    vehicle_card: 'full',
     vehicle_trips: 'full',
     settings: 'full'
   },
@@ -132,6 +134,7 @@ export const DEFAULT_RBAC_MATRIX = {
     exams: 'view',
     marks: 'full',
     notices: 'view',
+    vehicle_card: 'full',
     vehicle_trips: 'full',
     vehicles: 'off'
   },
@@ -163,6 +166,7 @@ export const DEFAULT_RBAC_MATRIX = {
   },
   vehicle_user: {
     dashboard: 'full',
+    vehicle_card: 'full',
     vehicle_trips: 'full',
     vehicles: 'off'
   },
