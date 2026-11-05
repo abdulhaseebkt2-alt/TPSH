@@ -66,7 +66,11 @@ const MODULE_ROUTERS = {
   reports: renderReportsModule,
   audit: renderAuditModule,
   settings: renderSettingsModule,
-  vehicles: renderVehicleManagementModule,
+  vehicles: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'fleet' }),
+  vehicle_requests: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'requests' }),
+  vehicle_expenses: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'expenses' }),
+  vehicle_billing: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'billing' }),
+  vehicle_staff: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'users' }),
   vehicle_trips: renderUserVehicleTripsModule,
   rbac: (container, props) => renderUsersModule(container, { ...props, initialTab: 'rbac' })
 };
@@ -328,10 +332,7 @@ class App {
   }
 
   renderModuleInPlace(profile, contentEl, sidebarEl) {
-    if (profile.role === 'vehicle_user' && (this.activeModule === 'dashboard' || !canAccessModule(profile, this.activeModule))) {
-      this.activeModule = 'vehicle_trips';
-      window.location.hash = 'vehicle_trips';
-    } else if (!canAccessModule(profile, this.activeModule)) {
+    if (!canAccessModule(profile, this.activeModule)) {
       this.activeModule = 'dashboard';
       window.location.hash = 'dashboard';
     }
@@ -1036,10 +1037,7 @@ class App {
 
   renderAuthenticatedShell(profile) {
     // If active module is not accessible by role, default to dashboard
-    if (profile.role === 'vehicle_user' && (this.activeModule === 'dashboard' || !canAccessModule(profile, this.activeModule))) {
-      this.activeModule = 'vehicle_trips';
-      window.location.hash = 'vehicle_trips';
-    } else if (!canAccessModule(profile, this.activeModule)) {
+    if (!canAccessModule(profile, this.activeModule)) {
       this.activeModule = 'dashboard';
       window.location.hash = 'dashboard';
     }

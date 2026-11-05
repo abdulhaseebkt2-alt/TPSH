@@ -4,12 +4,17 @@ import { renderTeacherDashboard } from './teacher-dashboard.js';
 import { renderMentorDashboard } from './mentor-dashboard.js';
 import { renderParentDashboard } from './parent-dashboard.js';
 import { renderStudentDashboard } from './student-dashboard.js';
+import { renderVehicleUserDashboard } from './vehicle-user-dashboard.js';
 
 export async function renderDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
   const role = user?.role || 'admin';
 
   switch (role) {
+    case 'vehicle_user':
+      await renderVehicleUserDashboard(container, { onNavigate });
+      break;
+
     case 'teacher':
       await renderTeacherDashboard(container, { onNavigate });
       break;

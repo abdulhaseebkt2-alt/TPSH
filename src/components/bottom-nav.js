@@ -54,7 +54,8 @@ export function getBottomNavItems(profile) {
     ];
   } else if (role === 'vehicle_user') {
     candidates = [
-      { key: 'vehicle_trips', label: 'My Trips', icon: 'car' }
+      { key: 'dashboard', label: 'Home', icon: 'home' },
+      { key: 'vehicle_trips', label: 'Book & Trips', icon: 'car' }
     ];
   } else {
     candidates = [

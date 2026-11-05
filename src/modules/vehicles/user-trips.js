@@ -5,7 +5,9 @@ import {
   calculateDynamicRatePerKm, 
   calculateTripBill 
 } from '../../lib/fleet-engine.js';
-import { formatCurrency, formatDate } from '../../lib/utils.js';
+import { formatCurrency, formatDate, getTodayDateStr } from '../../lib/utils.js';
+import { enhanceDateInput } from '../../components/date-picker.js';
+import { attachWheelTimePicker } from '../../lib/wheelTimePicker.js';
 
 export async function renderUserVehicleTripsModule(container, { onNavigate }) {
   const currentUser = getCurrentUser();
@@ -69,11 +71,11 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- Policy Banner: 100% Billable Usage (Strictly Personal / Billable Use) -->
-      <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.65rem;">
-        <span style="font-size: 1.25rem;">ℹ️</span>
-        <div style="font-size: 0.82rem; color: #92400E; line-height: 1.4;">
-          <strong>Institutional Vehicle Policy:</strong> All vehicle usage in this module is strictly for <strong>Personal / Billable Use</strong>. Completed trips automatically compute personal dues based on actual kilometers driven and the vehicle's dynamic rate. Settle dues with school administration.
+      <!-- Policy Chip: 100% Billable Usage -->
+      <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 0.5rem 0.85rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1rem;">ℹ️</span>
+        <div style="font-size: 0.78rem; color: #92400E; line-height: 1.3;">
+          <strong>Billable Usage Policy:</strong> All vehicle trips are strictly personal and billable based on dynamic ₹/KM rates. Settle dues with school administration.
         </div>
       </div>
 
@@ -175,18 +177,48 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-            <div>
-              <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Departure Date & Time *</label>
-              <input type="datetime-local" id="trip-start-time" class="form-control" required style="width: 100%;" />
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+            <!-- Departure Schedule -->
+            <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                🚀 Departure Schedule *
+              </label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <div>
+                  <label style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.2rem;">Date</label>
+                  <input type="date" id="trip-start-date" class="form-control" required value="${getTodayDateStr()}" style="width: 100%;" />
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.2rem;">Time</label>
+                  <input type="time" id="trip-start-clock" class="form-control" required value="08:00" style="width: 100%;" />
+                </div>
+              </div>
             </div>
-            <div>
-              <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Expected Return Date & Time *</label>
-              <input type="datetime-local" id="trip-end-time" class="form-control" required style="width: 100%;" />
+
+            <!-- Expected Return Schedule -->
+            <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                🏁 Expected Return *
+              </label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <div>
+                  <label style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.2rem;">Date</label>
+                  <input type="date" id="trip-end-date" class="form-control" required value="${getTodayDateStr()}" style="width: 100%;" />
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.2rem;">Time</label>
+                  <input type="time" id="trip-end-clock" class="form-control" required value="17:00" style="width: 100%;" />
+                </div>
+              </div>
             </div>
-            <div>
-              <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Estimated Round Distance (KM)</label>
-              <input type="number" id="trip-est-km" class="form-control" min="1" placeholder="e.g. 75" style="width: 100%;" />
+
+            <!-- Est KM -->
+            <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem; display: flex; flex-direction: column; justify-content: center;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.25rem;">
+                Estimated Distance (KM)
+              </label>
+              <input type="number" id="trip-est-km" class="form-control" min="1" placeholder="e.g. 75" style="width: 100%; margin-top: 0.25rem;" />
+              <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Approximate round-trip distance</span>
             </div>
           </div>
 
@@ -408,6 +440,17 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
   }
 
   function attachEvents(activeTrip) {
+    // Enhance date & wheel time pickers for booking form
+    const sDateEl = container.querySelector('#trip-start-date');
+    const eDateEl = container.querySelector('#trip-end-date');
+    const sTimeEl = container.querySelector('#trip-start-clock');
+    const eTimeEl = container.querySelector('#trip-end-clock');
+
+    if (sDateEl) enhanceDateInput(sDateEl);
+    if (eDateEl) enhanceDateInput(eDateEl);
+    if (sTimeEl) attachWheelTimePicker(sTimeEl);
+    if (eTimeEl) attachWheelTimePicker(eTimeEl);
+
     // Back to fleet admin console (for admins)
     container.querySelector('#btn-back-fleet-admin')?.addEventListener('click', () => {
       if (onNavigate) onNavigate('vehicles');
@@ -447,8 +490,12 @@ export async function renderUserVehicleTripsModule(container, { onNavigate }) {
       const vehicleId = selectedRadio.value;
       const destination = container.querySelector('#trip-destination').value.trim();
       const purpose = container.querySelector('#trip-purpose').value.trim();
-      const startTime = container.querySelector('#trip-start-time').value;
-      const endTime = container.querySelector('#trip-end-time').value;
+      const sDate = container.querySelector('#trip-start-date')?.value || getTodayDateStr();
+      const sTime = container.querySelector('#trip-start-clock')?.value || '08:00';
+      const eDate = container.querySelector('#trip-end-date')?.value || sDate;
+      const eTime = container.querySelector('#trip-end-clock')?.value || '17:00';
+      const startTime = `${sDate}T${sTime}`;
+      const endTime = `${eDate}T${eTime}`;
       const estKm = parseFloat(container.querySelector('#trip-est-km').value) || null;
 
       const veh = vehicles.find(v => v.id === vehicleId);

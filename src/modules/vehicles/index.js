@@ -7,6 +7,7 @@ import {
   getDocumentExpiryStatus 
 } from '../../lib/fleet-engine.js';
 import { formatCurrency, formatDate } from '../../lib/utils.js';
+import { enhanceDateInput } from '../../components/date-picker.js';
 
 export async function renderVehicleManagementModule(container, { onNavigate, initialTab = 'fleet' }) {
   const currentUser = getCurrentUser();
@@ -253,70 +254,64 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
               Review pending requests from staff, teachers, and admins. All trips are 100% personal & billable.
             </p>
           </div>
-          <span class="badge" style="background: ${pendingTrips.length > 0 ? '#FEE2E2' : '#ECFDF5'}; color: ${pendingTrips.length > 0 ? '#DC2626' : '#059669'}; font-weight: 700;">
+          <span class="badge" style="background: ${pendingTrips.length > 0 ? '#FEE2E2' : '#ECFDF5'}; color: ${pendingTrips.length > 0 ? '#DC2626' : '#059669'}; font-weight: 700; padding: 4px 10px; border-radius: 9999px;">
             ${pendingTrips.length} Pending Approval
           </span>
         </div>
 
         ${pendingTrips.length === 0 ? `
-          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" style="margin-bottom: 0.5rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            <div>No pending trip requests. All submissions have been processed.</div>
+          <div style="padding: 3rem 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" style="margin-bottom: 0.75rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <div style="font-weight: 600; color: var(--text-main);">No pending trip requests</div>
+            <div style="font-size: 0.78rem; margin-top: 0.25rem;">All driver and staff submissions have been reviewed and approved.</div>
           </div>
         ` : `
-          <div style="overflow-x: auto;">
-            <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-              <thead>
-                <tr style="border-bottom: 1px solid var(--border-medium); text-align: left;">
-                  <th style="padding: 0.65rem;">Trip ID</th>
-                  <th style="padding: 0.65rem;">User & Role</th>
-                  <th style="padding: 0.65rem;">Vehicle</th>
-                  <th style="padding: 0.65rem;">Destination & Purpose</th>
-                  <th style="padding: 0.65rem;">Scheduled Date/Time</th>
-                  <th style="padding: 0.65rem;">Dynamic Rate</th>
-                  <th style="padding: 0.65rem; text-align: right;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${pendingTrips.map(t => {
-                  const veh = vehicles.find(v => v.id === t.vehicle_id);
-                  const dynamicRate = calculateDynamicRatePerKm(veh, expenses, trips);
+          <!-- Responsive Mobile Cards for Trip Approval Queue -->
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            ${pendingTrips.map(t => {
+              const veh = vehicles.find(v => v.id === t.vehicle_id);
+              const dynamicRate = calculateDynamicRatePerKm(veh, expenses, trips);
 
-                  return `
-                    <tr style="border-bottom: 1px solid var(--border-subtle);">
-                      <td style="padding: 0.65rem; font-family: monospace; font-weight: 700;">${t.trip_id}</td>
-                      <td style="padding: 0.65rem;">
-                        <strong>${t.user_name}</strong>
-                        <div style="font-size: 0.74rem; color: var(--text-muted);">${t.user_role}</div>
-                      </td>
-                      <td style="padding: 0.65rem;">
-                        <strong>${veh?.vehicle_name || 'Vehicle'}</strong>
-                        <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);">${veh?.reg_number || ''}</div>
-                      </td>
-                      <td style="padding: 0.65rem;">
-                        <div style="font-weight: 600;">${t.destination}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${t.purpose || 'Personal travel'}</div>
-                      </td>
-                      <td style="padding: 0.65rem;">
-                        <div>${formatDate(t.start_time)}</div>
-                        <div style="font-size: 0.74rem; color: var(--text-muted);">Return: ${formatDate(t.end_time)}</div>
-                      </td>
-                      <td style="padding: 0.65rem; font-weight: 700; color: #4F46E5;">
-                        ₹${dynamicRate.rate.toFixed(2)}/km
-                      </td>
-                      <td style="padding: 0.65rem; text-align: right;">
-                        <button class="btn btn-sm btn-primary btn-approve-trip" data-id="${t.id}" data-rate="${dynamicRate.rate}" style="margin-right: 0.35rem; background: #059669; border-color: #059669;">
-                          Approve
-                        </button>
-                        <button class="btn btn-sm btn-outline btn-reject-trip" data-id="${t.id}" style="color: #DC2626; border-color: #FECACA;">
-                          Reject
-                        </button>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
+              return `
+                <div style="background: #FFFFFF; border: 1px solid var(--border-medium); border-left: 4px solid #F59E0B; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap;">
+                    <div>
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-family: monospace; font-weight: 700; font-size: 0.85rem; background: #0F172A; color: #FFF; padding: 2px 7px; border-radius: 4px;">${t.trip_id}</span>
+                        <strong style="font-size: 0.95rem; color: #0F172A;">${t.user_name}</strong>
+                        <span class="badge" style="font-size: 0.7rem; background: #EEF2FF; color: #4F46E5;">${t.user_role}</span>
+                      </div>
+                      <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🚗 <strong>${veh?.vehicle_name || 'Vehicle'}</strong> (${veh?.reg_number || ''})</span>
+                      </div>
+                    </div>
+                    <div style="text-align: right;">
+                      <span style="font-size: 1.05rem; font-weight: 800; color: #4F46E5;">₹${dynamicRate.rate.toFixed(2)}<span style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">/km</span></span>
+                      <div style="font-size: 0.7rem; color: var(--text-muted);">Dynamic Rate</div>
+                    </div>
+                  </div>
+
+                  <div style="background: #F8FAFC; border-radius: 6px; padding: 0.65rem 0.85rem; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid var(--border-subtle);">
+                    <div>📍 <strong>Destination:</strong> ${t.destination}</div>
+                    ${t.purpose ? `<div style="color: var(--text-muted); margin-top: 0.2rem;">📝 <strong>Purpose:</strong> ${t.purpose}</div>` : ''}
+                    <div style="margin-top: 0.35rem; font-size: 0.76rem; color: #475569; display: flex; gap: 1rem; flex-wrap: wrap;">
+                      <span>📅 <strong>Dep:</strong> ${formatDate(t.start_time)}</span>
+                      <span>🏁 <strong>Ret:</strong> ${formatDate(t.end_time)}</span>
+                      ${t.estimated_km ? `<span>📏 <strong>Est:</strong> ${t.estimated_km} KM</span>` : ''}
+                    </div>
+                  </div>
+
+                  <div style="display: flex; justify-content: flex-end; gap: 0.65rem; margin-top: 0.5rem;">
+                    <button class="btn btn-outline btn-reject-trip" data-id="${t.id}" style="color: #DC2626; border-color: #FECACA; padding: 0.5rem 1.15rem; font-weight: 600; font-size: 0.82rem;">
+                      ✕ Reject
+                    </button>
+                    <button class="btn btn-primary btn-approve-trip" data-id="${t.id}" data-rate="${dynamicRate.rate}" style="background: #059669; border-color: #059669; padding: 0.5rem 1.35rem; font-weight: 700; font-size: 0.82rem;">
+                      ✓ Approve Trip
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         `}
       </div>
@@ -326,7 +321,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
   // --- TAB 3: FUEL & MAINTENANCE ---
   function renderExpensesTab() {
     return `
-      <div style="display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem; align-items: start;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; align-items: start;">
         <!-- Left: Log Expense Form -->
         <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem;">
           <h3 style="margin: 0 0 0.5rem; font-size: 1rem; font-weight: 700;">Log Vehicle Expense</h3>
@@ -795,6 +790,9 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     vehicleSelect?.addEventListener('change', updateLiveMileage);
     litersInput?.addEventListener('input', updateLiveMileage);
     odoInput?.addEventListener('input', updateLiveMileage);
+
+    const expDateEl = container.querySelector('#exp-date');
+    if (expDateEl) enhanceDateInput(expDateEl);
 
     // Save Expense Form
     container.querySelector('#form-add-expense')?.addEventListener('submit', async (e) => {

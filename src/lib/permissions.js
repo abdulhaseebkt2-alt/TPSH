@@ -27,7 +27,11 @@ export const MODULE_DEFINITIONS = [
   { key: 'notices', label: 'Notices & WhatsApp', icon: 'bell', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'maintenance', label: 'Hostel Maintenance', icon: 'wrench', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'hostel_leader'] },
   { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher'] },
-  { key: 'vehicles', label: 'Vehicle Management', icon: 'truck', roles: ['super_admin', 'admin'] },
+  { key: 'vehicles', label: 'Fleet & Documents', icon: 'truck', roles: ['super_admin', 'admin'] },
+  { key: 'vehicle_requests', label: 'Trip Requests', icon: 'clipboard-check', roles: ['super_admin', 'admin'] },
+  { key: 'vehicle_expenses', label: 'Fuel & Maintenance', icon: 'wrench', roles: ['super_admin', 'admin'] },
+  { key: 'vehicle_billing', label: 'Usage Billing & Ledger', icon: 'credit-card', roles: ['super_admin', 'admin'] },
+  { key: 'vehicle_staff', label: 'Drivers & Staff', icon: 'users', roles: ['super_admin', 'admin'] },
   { key: 'vehicle_trips', label: 'My Vehicle Trips', icon: 'car', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
   { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
@@ -60,6 +64,10 @@ export const DEFAULT_RBAC_MATRIX = {
     maintenance: 'full',
     reports: 'full',
     vehicles: 'full',
+    vehicle_requests: 'full',
+    vehicle_expenses: 'full',
+    vehicle_billing: 'full',
+    vehicle_staff: 'full',
     vehicle_trips: 'full',
     settings: 'full'
   },
