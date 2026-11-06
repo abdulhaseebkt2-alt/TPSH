@@ -133,62 +133,65 @@ export async function renderVehicleUserCardModule(container, options = {}) {
         </div>
       ` : ''}
 
-      <!-- User Profile Header Card -->
-      <div class="card-panel" style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); color: #FFFFFF; border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 4px 14px rgba(49, 46, 129, 0.2);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-          <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 52px; height: 52px; border-radius: 50%; background: #4338CA; border: 2px solid #6366F1; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; font-weight: 800; color: #FFFFFF;">
-              ${(selectedUser.full_name || 'U').charAt(0).toUpperCase()}
+      <!-- User Profile Header Card (Small Mobile Optimized Layout) -->
+      <div class="card-panel" style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); color: #FFFFFF; border-radius: var(--radius-lg); padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 14px rgba(49, 46, 129, 0.2);">
+        <!-- Top Row: User Avatar & Identification -->
+        <div style="display: flex; align-items: center; gap: 0.85rem; width: 100%;">
+          <div style="width: 46px; height: 46px; border-radius: 50%; background: #4338CA; border: 2px solid #6366F1; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800; color: #FFFFFF; flex-shrink: 0;">
+            ${(selectedUser.full_name || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">
+                ${selectedUser.full_name}
+              </h3>
+              <span class="badge" style="background: rgba(99, 102, 241, 0.4); color: #E0E7FF; border: 1px solid rgba(165, 180, 252, 0.4); font-size: 0.65rem; font-weight: 700;">
+                ${selectedUser.role === 'vehicle_user' ? 'Driver' : selectedUser.role.toUpperCase()}
+              </span>
+              <span style="font-family: monospace; font-size: 0.68rem; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; color: #C7D2FE;">
+                ${selectedUser.tps_id || 'TPS-VUS'}
+              </span>
             </div>
-            <div>
-              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                <h3 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: #FFFFFF;">${selectedUser.full_name}</h3>
-                <span class="badge" style="background: rgba(99, 102, 241, 0.35); color: #E0E7FF; border: 1px solid rgba(165, 180, 252, 0.4); font-size: 0.72rem;">
-                  ${selectedUser.role === 'vehicle_user' ? 'Vehicle Staff / Driver' : selectedUser.role.toUpperCase()}
-                </span>
-                <span style="font-family: monospace; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 1px 6px; border-radius: 4px; color: #C7D2FE;">
-                  ${selectedUser.tps_id || 'TPS-VUS'}
-                </span>
-              </div>
-              <div style="font-size: 0.8rem; color: #C7D2FE; margin-top: 0.25rem;">
-                ${selectedUser.phone ? `📞 ${selectedUser.phone} • ` : ''}${selectedUser.email || ''}
-              </div>
+            <div style="font-size: 0.74rem; color: #C7D2FE; margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${selectedUser.phone ? `📞 ${selectedUser.phone} ` : ''}${selectedUser.email ? `• ${selectedUser.email}` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row: 3-Pillar KPI Metrics Grid (Fits any small mobile screen without awkward line breaks) -->
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; width: 100%; box-sizing: border-box; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.15);">
+          <!-- Metric 1: Distance -->
+          <div style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 0.45rem 0.25rem; text-align: center;">
+            <div style="font-size: 0.64rem; color: #C7D2FE; text-transform: uppercase; font-weight: 700; letter-spacing: 0.02em;">Distance</div>
+            <div style="font-size: 0.92rem; font-weight: 800; font-family: monospace; color: #FFFFFF; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${totalKmDriven.toLocaleString('en-IN')} KM
             </div>
           </div>
 
-          <!-- Financial Snapshot -->
-          <div style="display: flex; gap: 1.5rem; text-align: right; flex-wrap: wrap;">
-            <div>
-              <div style="font-size: 0.72rem; color: #A5B4FC; text-transform: uppercase; font-weight: 600;">Total Distance</div>
-              <div style="font-size: 1.25rem; font-weight: 800; font-family: monospace;">${totalKmDriven.toLocaleString('en-IN')} KM</div>
+          <!-- Metric 2: Total Billed -->
+          <div style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 0.45rem 0.25rem; text-align: center;">
+            <div style="font-size: 0.64rem; color: #C7D2FE; text-transform: uppercase; font-weight: 700; letter-spacing: 0.02em;">Total Billed</div>
+            <div style="font-size: 0.92rem; font-weight: 800; color: #FFFFFF; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${formatCurrency(totalBilled)}
             </div>
-            <div>
-              <div style="font-size: 0.72rem; color: #A5B4FC; text-transform: uppercase; font-weight: 600;">Total Billed</div>
-              <div style="font-size: 1.25rem; font-weight: 800;">${formatCurrency(totalBilled)}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.72rem; color: #A5B4FC; text-transform: uppercase; font-weight: 600;">Pending Dues</div>
-              <div style="font-size: 1.25rem; font-weight: 800; color: ${pendingDues > 0 ? '#FCA5A5' : '#34D399'};">
-                ${formatCurrency(pendingDues)}
-              </div>
+          </div>
+
+          <!-- Metric 3: Pending Dues -->
+          <div style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 0.45rem 0.25rem; text-align: center;">
+            <div style="font-size: 0.64rem; color: #C7D2FE; text-transform: uppercase; font-weight: 700; letter-spacing: 0.02em;">Pending Dues</div>
+            <div style="font-size: 0.92rem; font-weight: 800; color: ${pendingDues > 0 ? '#F87171' : '#34D399'}; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${formatCurrency(pendingDues)}
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Section: Student-Leave-Card Style Table -->
-      <!-- Columns: 
-           Col 1: SL No
-           Col 2: Date (Under the date: Vehicle Name & Reg Plate)
-           Col 3: Distance (Under that: Amount Due / Billed)
-           Col 4: Paid or Not Paid (Clean status badge with Partial support)
-           Col 5: Admin Action (Mark Paid / Partial Settle)
-      -->
-      <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-          <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Vehicle Usage & Settlement Ledger</h3>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">
-            Showing ${userTrips.length} recorded trips
+      <!-- Section: Student-Leave-Card Style Compact Mobile Table (Zero Horizontal Scrollbar) -->
+      <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 0.75rem 0.85rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700;">Vehicle Usage & Settlement Ledger</h3>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+            ${userTrips.length} recorded trip(s)
           </span>
         </div>
 
@@ -197,24 +200,20 @@ export async function renderVehicleUserCardModule(container, options = {}) {
             No vehicle usage trips logged for ${selectedUser.full_name} yet.
           </div>
         ` : `
-          <div style="overflow-x: auto;">
-            <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <div class="table-responsive" style="overflow-x: hidden; width: 100%;">
+            <table class="data-table user-card-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.78rem;">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
-                  <th style="padding: 0.65rem 0.5rem; width: 45px; text-align: center;">#</th>
-                  <th style="padding: 0.65rem;">
-                    <div>Date of Trip</div>
-                    <div style="font-size: 0.7rem; font-weight: normal; color: var(--text-muted);">Vehicle Assigned</div>
+                  <th style="padding: 0.55rem 0.25rem; width: 8%; text-align: center; font-size: 0.7rem; font-weight: 800; color: #64748B;">#</th>
+                  <th style="padding: 0.55rem 0.35rem; width: 44%; font-size: 0.7rem; font-weight: 800; color: #64748B;">
+                    Date & Vehicle
                   </th>
-                  <th style="padding: 0.65rem;">
-                    <div>Distance (KM)</div>
-                    <div style="font-size: 0.7rem; font-weight: normal; color: var(--text-muted);">Total Bill Amount</div>
+                  <th style="padding: 0.55rem 0.35rem; width: 26%; font-size: 0.7rem; font-weight: 800; color: #64748B;">
+                    KM & Amount
                   </th>
-                  <th style="padding: 0.65rem; text-align: center;">
-                    <div>Payment Status</div>
-                    <div style="font-size: 0.7rem; font-weight: normal; color: var(--text-muted);">Settlement Audit</div>
+                  <th style="padding: 0.55rem 0.35rem; width: 22%; text-align: right; font-size: 0.7rem; font-weight: 800; color: #64748B;">
+                    Payment / Action
                   </th>
-                  ${isAdmin ? `<th style="padding: 0.65rem; text-align: right;">Admin Action</th>` : ''}
                 </tr>
               </thead>
               <tbody>
@@ -226,110 +225,109 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                   const totalAmt = Number(t.total_amount) || 0;
                   const paidAmt = Number(t.amount_paid) || (isPaid ? totalAmt : 0);
                   const remainingDue = Math.max(0, totalAmt - paidAmt);
-
-                  // Paid / Not Paid Badge
-                  let paymentBadge = '';
-                  if (!isCompleted) {
-                    paymentBadge = `<span class="badge" style="background: #F1F5F9; color: #64748B;">${t.status}</span>`;
-                  } else if (isPaid) {
-                    paymentBadge = `
-                      <div>
-                        <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700;">
-                          ✓ Paid (Full)
-                        </span>
-                        ${t.payment_received_by ? `
-                          <div style="font-size: 0.7rem; color: #047857; margin-top: 0.15rem;">
-                            By: ${t.payment_received_by}
-                          </div>
-                        ` : ''}
-                      </div>
-                    `;
-                  } else if (isPartial) {
-                    paymentBadge = `
-                      <div>
-                        <span class="badge" style="background: #FEF3C7; color: #D97706; border: 1px solid #FDE68A; font-weight: 700;">
-                          Partially Paid (₹${paidAmt})
-                        </span>
-                        <div style="font-size: 0.72rem; color: #DC2626; font-weight: 600; margin-top: 0.15rem;">
-                          Bal: ₹${remainingDue}
-                        </div>
-                      </div>
-                    `;
-                  } else {
-                    paymentBadge = `
-                      <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-weight: 700;">
-                        ✕ Not Paid (Due)
-                      </span>
-                    `;
-                  }
-
                   const tripDateStr = formatDate(t.start_time || t.created_at);
 
                   return `
-                    <tr style="border-bottom: 1px solid var(--border-subtle); transition: background 0.15s;" onmouseover="this.style.background='var(--bg-surface-subtle)'" onmouseout="this.style.background='transparent'">
+                    <tr class="user-card-row ${isCompleted && !isPaid ? 'has-due' : ''}" 
+                      data-id="${t.id}"
+                      data-code="${t.trip_id}"
+                      data-total="${totalAmt}"
+                      data-due="${remainingDue}"
+                      data-user="${selectedUser.full_name}"
+                      style="border-bottom: 1px solid var(--border-subtle); vertical-align: top; cursor: ${isCompleted && !isPaid && isAdmin ? 'pointer' : 'default'}; transition: background 0.15s;" 
+                      onmouseover="this.style.background='var(--bg-surface-subtle)'" 
+                      onmouseout="this.style.background='transparent'">
                       <!-- SL No -->
-                      <td style="padding: 0.65rem 0.5rem; text-align: center; font-weight: 700; color: var(--text-muted); font-size: 0.78rem;">
+                      <td style="padding: 0.55rem 0.25rem; text-align: center; font-weight: 700; color: var(--text-muted); font-size: 0.72rem;">
                         ${idx + 1}
                       </td>
 
-                      <!-- Column 1: Date & under date Vehicle -->
-                      <td style="padding: 0.65rem;">
-                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
+                      <!-- Column 1: Date & Vehicle -->
+                      <td style="padding: 0.55rem 0.35rem; min-width: 0; overflow: hidden;">
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.8rem; line-height: 1.25;">
                           ${tripDateStr}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem;">
-                          <span style="color: #4F46E5; font-weight: 600; font-size: 0.8rem;">
+                        <div style="display: flex; align-items: center; gap: 0.25rem; margin-top: 0.2rem; flex-wrap: wrap;">
+                          <span style="color: #4F46E5; font-weight: 600; font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
                             ${getVehicleTypeIcon(veh?.vehicle_type)} ${veh?.vehicle_name || 'Vehicle'}
                           </span>
-                          <span style="font-family: monospace; font-size: 0.72rem; background: #0F172A; color: #FFF; padding: 1px 5px; border-radius: 3px;">
+                          <span style="font-family: monospace; font-size: 0.64rem; background: #0F172A; color: #FFF; padding: 1px 4px; border-radius: 3px;">
                             ${veh?.reg_number || ''}
                           </span>
                         </div>
-                        <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.15rem;">
+                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${t.destination || 'Short ride'}">
                           ${t.destination ? `📍 ${t.destination}` : 'Short ride'}
                         </div>
                       </td>
 
-                      <!-- Column 2: Distance & under that Amount -->
-                      <td style="padding: 0.65rem;">
-                        <div style="font-family: monospace; font-weight: 700; font-size: 0.95rem; color: #0F172A;">
-                          ${t.total_km !== null && t.total_km !== undefined ? `${t.total_km} KM` : (t.status === 'In Progress' ? '<span style="color: #2563EB;">Driving...</span>' : '—')}
+                      <!-- Column 2: Distance & Amount -->
+                      <td style="padding: 0.55rem 0.35rem; min-width: 0;">
+                        <div style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F172A;">
+                          ${t.total_km !== null && t.total_km !== undefined ? `${t.total_km} KM` : (t.status === 'In Progress' ? '<span style="color: #2563EB;">Driving</span>' : '—')}
                         </div>
-                        <div style="margin-top: 0.2rem;">
-                          <span style="font-weight: 800; font-size: 1rem; color: ${isPaid ? '#059669' : '#DC2626'};">
+                        <div style="margin-top: 0.15rem;">
+                          <span style="font-weight: 800; font-size: 0.88rem; color: ${isPaid ? '#059669' : '#DC2626'};">
                             ${totalAmt > 0 ? formatCurrency(totalAmt) : '₹0.00'}
                           </span>
                           ${t.applied_rate_per_km ? `
-                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 0.25rem;">
-                              (@ ₹${Number(t.applied_rate_per_km).toFixed(2)}/km)
-                            </span>
+                            <div style="font-size: 0.64rem; color: var(--text-muted);">
+                              @ ₹${Number(t.applied_rate_per_km).toFixed(2)}/km
+                            </div>
                           ` : ''}
                         </div>
                       </td>
 
-                      <!-- Column 3: Paid or Not Paid -->
-                      <td style="padding: 0.65rem; text-align: center;">
-                        ${paymentBadge}
+                      <!-- Column 3: Payment Status & Admin Action -->
+                      <td style="padding: 0.55rem 0.35rem; text-align: right; min-width: 0;">
+                        ${!isCompleted ? `
+                          <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.64rem; padding: 1px 4px;">
+                            ${t.status}
+                          </span>
+                        ` : isPaid ? `
+                          <div>
+                            <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700; font-size: 0.65rem; padding: 1px 4px; display: inline-block;">
+                              ✓ Paid
+                            </span>
+                            ${t.payment_received_by ? `
+                              <div style="font-size: 0.58rem; color: #047857; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Received by ${t.payment_received_by}">
+                                By: ${t.payment_received_by}
+                              </div>
+                            ` : ''}
+                          </div>
+                        ` : isPartial ? `
+                          <div>
+                            ${isAdmin ? `
+                              <button type="button" class="btn btn-sm btn-outline btn-settle-due" 
+                                data-id="${t.id}" 
+                                data-code="${t.trip_id}"
+                                data-total="${totalAmt}"
+                                data-due="${remainingDue}"
+                                data-user="${selectedUser.full_name}"
+                                style="color: #D97706; border-color: #FDE68A; background: #FEF3C7; font-size: 0.66rem; padding: 2px 5px; font-weight: 700; border-radius: 5px; white-space: nowrap;">
+                                Bal ₹${remainingDue}
+                              </button>
+                            ` : `
+                              <span class="badge" style="background: #FEF3C7; color: #D97706; font-size: 0.64rem;">Bal ₹${remainingDue}</span>
+                            `}
+                          </div>
+                        ` : `
+                          <div>
+                            ${isAdmin ? `
+                              <button type="button" class="btn btn-sm btn-primary btn-settle-due" 
+                                data-id="${t.id}" 
+                                data-code="${t.trip_id}"
+                                data-total="${totalAmt}"
+                                data-due="${remainingDue}"
+                                data-user="${selectedUser.full_name}"
+                                style="background: #059669; border-color: #059669; font-size: 0.7rem; padding: 2px 6px; font-weight: 700; border-radius: 5px; white-space: nowrap; box-shadow: 0 1px 3px rgba(5,150,105,0.25);">
+                                Pay / Settle
+                              </button>
+                            ` : `
+                              <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-size: 0.65rem; font-weight: 700; padding: 1px 4px;">Due</span>
+                            `}
+                          </div>
+                        `}
                       </td>
-
-                      <!-- Column 4: Admin Action -->
-                      ${isAdmin ? `
-                        <td style="padding: 0.65rem; text-align: right;">
-                          ${isCompleted && !isPaid ? `
-                            <button class="btn btn-sm btn-primary btn-settle-due" 
-                              data-id="${t.id}" 
-                              data-code="${t.trip_id}"
-                              data-total="${totalAmt}"
-                              data-due="${remainingDue}"
-                              data-user="${selectedUser.full_name}"
-                              style="background: #059669; border-color: #059669; font-size: 0.78rem; padding: 4px 10px;">
-                              Settle / Pay
-                            </button>
-                          ` : (isPaid ? `
-                            <span style="font-size: 0.74rem; color: #059669; font-weight: 600;">✓ Settled</span>
-                          ` : '—')}
-                        </td>
-                      ` : ''}
                     </tr>
                   `;
                 }).join('')}
@@ -432,7 +430,8 @@ export async function renderVehicleUserCardModule(container, options = {}) {
 
     // Settle / Pay Button (Supports Full and Partial Payments)
     container.querySelectorAll('.btn-settle-due').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const tripId = btn.getAttribute('data-id');
         const tripCode = btn.getAttribute('data-code');
         const remainingDue = parseFloat(btn.getAttribute('data-due')) || 0;
@@ -448,6 +447,28 @@ export async function renderVehicleUserCardModule(container, options = {}) {
         });
       });
     });
+
+    // Row click to settle payment (like Student Leave Card)
+    if (isAdmin) {
+      container.querySelectorAll('.user-card-row.has-due').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return; // handled by button
+          const tripId = row.getAttribute('data-id');
+          const tripCode = row.getAttribute('data-code');
+          const remainingDue = parseFloat(row.getAttribute('data-due')) || 0;
+          const totalAmount = parseFloat(row.getAttribute('data-total')) || 0;
+          const userName = row.getAttribute('data-user');
+
+          openSettlePaymentModal({
+            tripId,
+            tripCode,
+            remainingDue,
+            totalAmount,
+            userName
+          });
+        });
+      });
+    }
   }
 
   // Modal: Pay or Partial Pay for Admin

@@ -152,155 +152,148 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
             No trips matching this view or search filter.
           </div>
         ` : `
-          <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: auto;">
-            <thead>
-              <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
-                <!-- 1st Column: NAME (Requested explicitly by user) -->
-                <th style="padding: 0.55rem 0.6rem; font-weight: 700; color: #1E293B;">
-                  Staff / Driver
-                </th>
-                <!-- 2nd Column: Date & Vehicle -->
-                <th style="padding: 0.55rem 0.6rem; font-weight: 700; color: #1E293B;">
-                  Date & Vehicle
-                </th>
-                <!-- 3rd Column: Distance & Bill -->
-                <th style="padding: 0.55rem 0.6rem; font-weight: 700; color: #1E293B;">
-                  KM & Amount
-                </th>
-                <!-- 4th Column: Payment Status -->
-                <th style="padding: 0.55rem 0.6rem; font-weight: 700; color: #1E293B; text-align: center;">
-                  Payment Status
-                </th>
-                <!-- 5th Column: Action -->
-                <th style="padding: 0.55rem 0.6rem; font-weight: 700; color: #1E293B; text-align: right;">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredTrips.map(t => {
-                const veh = vehicles.find(v => v.id === t.vehicle_id);
-                const isCompleted = t.status === 'Completed';
-                const isPaid = t.payment_status === 'Paid';
-                const isPartial = t.payment_status === 'Partial';
-                const totalAmt = Number(t.total_amount) || 0;
-                const paidAmt = Number(t.amount_paid) || (isPaid ? totalAmt : 0);
-                const remainingDue = Math.max(0, totalAmt - paidAmt);
-                const tripDateStr = formatDate(t.start_time || t.created_at);
+          <div class="table-responsive" style="overflow-x: hidden; width: 100%;">
+            <table class="data-table all-trips-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.8rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
+                  <!-- 1st Column: STAFF / DRIVER (32%) -->
+                  <th style="padding: 0.55rem 0.45rem; font-weight: 700; color: #1E293B; width: 33%;">
+                    Staff / Driver
+                  </th>
+                  <!-- 2nd Column: DATE & VEHICLE (33%) -->
+                  <th style="padding: 0.55rem 0.45rem; font-weight: 700; color: #1E293B; width: 33%;">
+                    Date & Vehicle
+                  </th>
+                  <!-- 3rd Column: KM, AMOUNT & PAYMENT ACTION (34%, RIGHT) -->
+                  <th style="padding: 0.55rem 0.45rem; font-weight: 700; color: #1E293B; width: 34%; text-align: right;">
+                    KM & Amount / Pay
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredTrips.map(t => {
+                  const veh = vehicles.find(v => v.id === t.vehicle_id);
+                  const isCompleted = t.status === 'Completed';
+                  const isPaid = t.payment_status === 'Paid';
+                  const isPartial = t.payment_status === 'Partial';
+                  const totalAmt = Number(t.total_amount) || 0;
+                  const paidAmt = Number(t.amount_paid) || (isPaid ? totalAmt : 0);
+                  const remainingDue = Math.max(0, totalAmt - paidAmt);
+                  const tripDateStr = formatDate(t.start_time || t.created_at);
 
-                return `
-                  <tr style="border-bottom: 1px solid var(--border-subtle); vertical-align: top; transition: background 0.15s;" onmouseover="this.style.background='var(--bg-surface-subtle)'" onmouseout="this.style.background='transparent'">
-                    <!-- 1ST COLUMN: NAME & ROLE -->
-                    <td style="padding: 0.55rem 0.6rem;">
-                      <div style="font-weight: 700; color: #0F172A; font-size: 0.88rem; line-height: 1.25;">
-                        ${t.user_name || 'Driver / Staff'}
-                      </div>
-                      <div style="margin-top: 0.2rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
-                        <span class="badge" style="font-size: 0.65rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 1px 5px;">
-                          ${t.user_role === 'vehicle_user' ? 'Driver / Staff' : (t.user_role || 'Staff').toUpperCase()}
-                        </span>
-                        <span style="font-family: monospace; font-size: 0.68rem; color: var(--text-muted);">
-                          ${t.trip_id}
-                        </span>
-                      </div>
-                      ${t.destination ? `
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${t.destination}">
-                          📍 ${t.destination}
+                  return `
+                    <tr class="all-trips-row ${isCompleted && !isPaid ? 'has-due' : ''}" 
+                      data-id="${t.id}" 
+                      data-code="${t.trip_id}"
+                      data-total="${totalAmt}"
+                      data-due="${remainingDue}"
+                      data-user="${t.user_name || 'Staff'}"
+                      data-completed="${isCompleted}"
+                      data-paid="${isPaid}"
+                      style="border-bottom: 1px solid var(--border-subtle); vertical-align: top; cursor: ${isCompleted && !isPaid ? 'pointer' : 'default'}; transition: background 0.15s;" 
+                      onmouseover="this.style.background='var(--bg-surface-subtle)'" 
+                      onmouseout="this.style.background='transparent'">
+                      <!-- 1ST COLUMN: NAME & ROLE -->
+                      <td style="padding: 0.55rem 0.45rem; min-width: 0; overflow: hidden;">
+                        <div style="font-weight: 700; color: #0F172A; font-size: 0.84rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          ${t.user_name || 'Driver / Staff'}
                         </div>
-                      ` : ''}
-                    </td>
-
-                    <!-- 2ND COLUMN: DATE & VEHICLE -->
-                    <td style="padding: 0.55rem 0.6rem;">
-                      <div style="font-weight: 600; color: var(--text-main); font-size: 0.8rem;">
-                        ${tripDateStr}
-                      </div>
-                      <div style="display: flex; align-items: center; gap: 0.3rem; margin-top: 0.2rem; flex-wrap: wrap;">
-                        <span style="color: #4F46E5; font-weight: 700; font-size: 0.78rem;">
-                          ${getVehicleTypeIcon(veh?.vehicle_type)} ${veh?.vehicle_name || 'Vehicle'}
-                        </span>
-                        <span style="font-family: monospace; font-size: 0.68rem; background: #0F172A; color: #FFF; padding: 1px 4px; border-radius: 3px;">
-                          ${veh?.reg_number || ''}
-                        </span>
-                      </div>
-                    </td>
-
-                    <!-- 3RD COLUMN: DISTANCE & AMOUNT -->
-                    <td style="padding: 0.55rem 0.6rem;">
-                      <div style="font-family: monospace; font-weight: 700; font-size: 0.88rem; color: #0F172A;">
-                        ${t.total_km !== null && t.total_km !== undefined ? `${t.total_km} KM` : (t.status === 'In Progress' ? '<span style="color: #2563EB;">Driving</span>' : '—')}
-                      </div>
-                      <div style="margin-top: 0.15rem;">
-                        <span style="font-weight: 800; font-size: 0.95rem; color: ${isPaid ? '#059669' : (totalAmt > 0 ? '#DC2626' : 'var(--text-main)')};">
-                          ${totalAmt > 0 ? formatCurrency(totalAmt) : '₹0.00'}
-                        </span>
-                        ${t.applied_rate_per_km ? `
-                          <div style="font-size: 0.68rem; color: var(--text-muted);">
-                            @ ₹${Number(t.applied_rate_per_km).toFixed(2)}/km
+                        <div style="margin-top: 0.2rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
+                          <span class="badge" style="font-size: 0.62rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 1px 4px; font-weight: 700;">
+                            ${t.user_role === 'vehicle_user' ? 'Driver' : (t.user_role || 'Staff').toUpperCase()}
+                          </span>
+                          <span style="font-family: monospace; font-size: 0.65rem; color: var(--text-muted);">
+                            ${t.trip_id}
+                          </span>
+                        </div>
+                        ${t.destination ? `
+                          <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${t.destination}">
+                            📍 ${t.destination}
                           </div>
                         ` : ''}
-                      </div>
-                    </td>
+                      </td>
 
-                    <!-- 4TH COLUMN: PAYMENT STATUS -->
-                    <td style="padding: 0.55rem 0.6rem; text-align: center;">
-                      ${!isCompleted ? `
-                        <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.7rem;">
-                          ${t.status}
-                        </span>
-                      ` : isPaid ? `
-                        <div>
-                          <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.7rem; font-weight: 700;">
-                            ✓ Paid
+                      <!-- 2ND COLUMN: DATE & VEHICLE -->
+                      <td style="padding: 0.55rem 0.45rem; min-width: 0; overflow: hidden;">
+                        <div style="font-weight: 600; color: var(--text-main); font-size: 0.78rem; line-height: 1.25;">
+                          ${tripDateStr}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.25rem; margin-top: 0.2rem; flex-wrap: wrap;">
+                          <span style="color: #4F46E5; font-weight: 700; font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                            ${getVehicleTypeIcon(veh?.vehicle_type)} ${veh?.vehicle_name || 'Vehicle'}
                           </span>
-                          ${t.payment_received_by ? `
-                            <div style="font-size: 0.68rem; color: #047857; margin-top: 0.15rem;">
-                              By: ${t.payment_received_by}
+                          <span style="font-family: monospace; font-size: 0.64rem; background: #0F172A; color: #FFF; padding: 1px 4px; border-radius: 3px;">
+                            ${veh?.reg_number || ''}
+                          </span>
+                        </div>
+                      </td>
+
+                      <!-- 3RD COLUMN: DISTANCE, AMOUNT & PAYMENT ACTION -->
+                      <td style="padding: 0.55rem 0.45rem; text-align: right; min-width: 0;">
+                        <div style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F172A;">
+                          ${t.total_km !== null && t.total_km !== undefined ? `${t.total_km} KM` : (t.status === 'In Progress' ? '<span style="color: #2563EB;">Driving</span>' : '—')}
+                        </div>
+                        <div style="margin-top: 0.1rem;">
+                          <span style="font-weight: 800; font-size: 0.9rem; color: ${isPaid ? '#059669' : (totalAmt > 0 ? '#DC2626' : 'var(--text-main)')};">
+                            ${totalAmt > 0 ? formatCurrency(totalAmt) : '₹0.00'}
+                          </span>
+                          ${t.applied_rate_per_km ? `
+                            <div style="font-size: 0.64rem; color: var(--text-muted);">
+                              @ ₹${Number(t.applied_rate_per_km).toFixed(2)}/km
                             </div>
                           ` : ''}
                         </div>
-                      ` : isPartial ? `
-                        <div>
-                          <span class="badge" style="background: #FEF3C7; color: #D97706; border: 1px solid #FDE68A; font-size: 0.68rem; font-weight: 700;">
-                            Partial (₹${paidAmt})
-                          </span>
-                          <div style="font-size: 0.7rem; color: #DC2626; font-weight: 700; margin-top: 0.15rem;">
-                            Bal: ₹${remainingDue}
-                          </div>
-                        </div>
-                      ` : `
-                        <div>
-                          <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-size: 0.7rem; font-weight: 700;">
-                            ✕ Due
-                          </span>
-                          <div style="font-size: 0.68rem; color: #B91C1C; margin-top: 0.1rem;">
-                            Unpaid
-                          </div>
-                        </div>
-                      `}
-                    </td>
 
-                    <!-- 5TH COLUMN: ACTION -->
-                    <td style="padding: 0.55rem 0.6rem; text-align: right;">
-                      ${isCompleted && !isPaid ? `
-                        <button class="btn btn-sm btn-primary btn-master-settle" 
-                          data-id="${t.id}" 
-                          data-code="${t.trip_id}"
-                          data-total="${totalAmt}"
-                          data-due="${remainingDue}"
-                          data-user="${t.user_name || 'Staff'}"
-                          style="background: #059669; border-color: #059669; font-size: 0.74rem; padding: 3px 8px; font-weight: 700; border-radius: 6px; white-space: nowrap;">
-                          Settle
-                        </button>
-                      ` : (isPaid ? `
-                        <span style="font-size: 0.72rem; color: #059669; font-weight: 700;">✓ Settled</span>
-                      ` : '—')}
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
+                        <!-- Integrated Payment Status & Settle Button (Like Student Leave Card) -->
+                        <div style="margin-top: 0.25rem;">
+                          ${!isCompleted ? `
+                            <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.65rem; padding: 1px 5px;">
+                              ${t.status}
+                            </span>
+                          ` : isPaid ? `
+                            <div>
+                              <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700; padding: 1px 5px; display: inline-block;">
+                                ✓ Paid
+                              </span>
+                              ${t.payment_received_by ? `
+                                <div style="font-size: 0.6rem; color: #047857; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Received by ${t.payment_received_by}">
+                                  By: ${t.payment_received_by}
+                                </div>
+                              ` : ''}
+                            </div>
+                          ` : isPartial ? `
+                            <div>
+                              <button type="button" class="btn btn-sm btn-outline btn-master-settle" 
+                                data-id="${t.id}" 
+                                data-code="${t.trip_id}"
+                                data-total="${totalAmt}"
+                                data-due="${remainingDue}"
+                                data-user="${t.user_name || 'Staff'}"
+                                style="color: #D97706; border-color: #FDE68A; background: #FEF3C7; font-size: 0.68rem; padding: 2px 6px; font-weight: 700; border-radius: 5px; white-space: nowrap;">
+                                Pay Bal ₹${remainingDue}
+                              </button>
+                            </div>
+                          ` : `
+                            <div>
+                              <button type="button" class="btn btn-sm btn-primary btn-master-settle" 
+                                data-id="${t.id}" 
+                                data-code="${t.trip_id}"
+                                data-total="${totalAmt}"
+                                data-due="${remainingDue}"
+                                data-user="${t.user_name || 'Staff'}"
+                                style="background: #059669; border-color: #059669; font-size: 0.72rem; padding: 2px 8px; font-weight: 700; border-radius: 5px; white-space: nowrap; box-shadow: 0 1px 3px rgba(5,150,105,0.25);">
+                                Pay / Settle
+                              </button>
+                            </div>
+                          `}
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
         `}
       </div>
     `;
@@ -343,7 +336,8 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
 
     // Settle Payment Action Modal (Supports Full and Partial Payments)
     container.querySelectorAll('.btn-master-settle').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const tripId = btn.getAttribute('data-id');
         const tripCode = btn.getAttribute('data-code');
         const remainingDue = parseFloat(btn.getAttribute('data-due')) || 0;
@@ -359,64 +353,89 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
         });
       });
     });
+
+    // Row click to settle payment (like Student Leave Card)
+    container.querySelectorAll('.all-trips-row.has-due').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return; // handled by button
+        const tripId = row.getAttribute('data-id');
+        const tripCode = row.getAttribute('data-code');
+        const remainingDue = parseFloat(row.getAttribute('data-due')) || 0;
+        const totalAmount = parseFloat(row.getAttribute('data-total')) || 0;
+        const userName = row.getAttribute('data-user');
+
+        openSettlePaymentModal({
+          tripId,
+          tripCode,
+          remainingDue,
+          totalAmount,
+          userName
+        });
+      });
+    });
   }
 
-  // Payment Settlement Modal
+  // Payment Settlement Modal (Mobile-Friendly with Frozen Header & Bottom Actions)
   function openSettlePaymentModal({ tripId, tripCode, remainingDue, totalAmount, userName }) {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
-    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-xl); overflow: hidden;">
-        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Trip Settlement</h3>
-          <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <form id="form-master-settle-payment" style="padding: 1.5rem;">
-          <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem; margin-bottom: 1.15rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">STAFF / DRIVER</div>
-                <div style="font-size: 0.95rem; color: var(--text-main); font-weight: 700;">${userName}</div>
-                <div style="font-family: monospace; font-size: 0.75rem; color: #4F46E5; margin-top: 0.15rem;">${tripCode}</div>
+        <form id="form-master-settle-payment" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
+          <!-- Scrollable Form Body -->
+          <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">STAFF / DRIVER</div>
+                  <div style="font-size: 0.95rem; color: var(--text-main); font-weight: 700;">${userName}</div>
+                  <div style="font-family: monospace; font-size: 0.75rem; color: #4F46E5; margin-top: 0.15rem;">${tripCode}</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">OUTSTANDING DUE</div>
+                  <div style="font-size: 1.35rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
+                </div>
               </div>
-              <div style="text-align: right;">
-                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">OUTSTANDING DUE</div>
-                <div style="font-size: 1.35rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">
+                Settlement Amount (₹) * (Full or Partial)
+              </label>
+              <input type="number" id="master-pay-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.05rem; font-weight: 700; color: #059669;" />
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Enter the full amount (${formatCurrency(remainingDue)}) or an accepted partial amount.
               </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
+              <select id="master-pay-method" class="form-control" required style="width: 100%;">
+                <option value="Cash">Cash (Received at Office)</option>
+                <option value="UPI / GPay">UPI / GPay (School QR)</option>
+                <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
+                <option value="Salary Deduction">Staff Salary Deduction</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Transaction Ref / Receipt Note</label>
+              <input type="text" id="master-pay-notes" class="form-control" placeholder="e.g. UPI Ref / Cash receipt / note" style="width: 100%;" />
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">
-              Settlement Amount (₹) * (Full or Partial)
-            </label>
-            <input type="number" id="master-pay-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.1rem; font-weight: 700; color: #059669;" />
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
-              Enter the full amount (${formatCurrency(remainingDue)}) or an accepted partial amount.
-            </div>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
-            <select id="master-pay-method" class="form-control" required style="width: 100%;">
-              <option value="Cash">Cash (Received at Office)</option>
-              <option value="UPI / GPay">UPI / GPay (School QR)</option>
-              <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
-              <option value="Salary Deduction">Staff Salary Deduction</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Transaction Ref / Receipt Note</label>
-            <input type="text" id="master-pay-notes" class="form-control" placeholder="e.g. UPI Ref / Cash receipt / note" style="width: 100%;" />
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <!-- Frozen Bottom Action Bar -->
+          <div style="padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; flex-shrink: 0; background: var(--bg-surface-subtle); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">
+            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
               Confirm Settlement
             </button>
           </div>

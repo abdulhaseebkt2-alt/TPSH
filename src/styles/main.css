@@ -9226,3 +9226,34 @@ form.was-validated :invalid,
     display: grid !important;
   }
 }
+
+/* Compact Mobile-Friendly Tables for Vehicle Modules (Zero Horizontal Scroll) */
+.all-trips-table,
+.user-card-table {
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  box-sizing: border-box !important;
+}
+
+.all-trips-table th,
+.all-trips-table td,
+.user-card-table th,
+.user-card-table td {
+  box-sizing: border-box !important;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .all-trips-table th,
+  .all-trips-table td,
+  .user-card-table th,
+  .user-card-table td {
+    padding: 0.45rem 0.3rem !important;
+    font-size: 0.76rem !important;
+  }
+  .all-trips-row.has-due,
+  .user-card-row.has-due {
+    cursor: pointer;
+  }
+}
