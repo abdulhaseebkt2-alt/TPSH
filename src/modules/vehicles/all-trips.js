@@ -1,3 +1,4 @@
+import { confirmDialog } from '../../lib/dialog.js';
 import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
@@ -535,7 +536,14 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
 
     // Delete trip handler
     modalOverlay.querySelector('#btn-master-delete-trip')?.addEventListener('click', async () => {
-      if (confirm(`Permanently delete trip ${tripCode}? This will remove this trip and any recorded settlement.`)) {
+      const confirmed = await confirmDialog({
+        title: 'Delete Trip',
+        message: `Permanently delete trip ${tripCode}? This will remove this trip and any recorded settlement.`,
+        confirmText: 'Delete Trip',
+        cancelText: 'Cancel',
+        isDanger: true
+      });
+      if (confirmed) {
         if (targetTrip?.vehicle_id) {
           const veh = vehicles.find(v => v.id === targetTrip.vehicle_id);
           if (veh && veh.status === 'On Trip') {

@@ -8,7 +8,7 @@ import {
 import { formatCurrency, formatDate, getTodayDateStr } from '../../lib/utils.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
 import { attachWheelTimePicker } from '../../lib/wheelTimePicker.js';
-import { openModal } from '../../lib/dialog.js';
+import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 
 export async function renderUserVehicleTripsModule(container, { onNavigate } = {}) {
@@ -594,7 +594,14 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
     // Cancel trip request (Pending Approval)
     container.querySelector('.btn-cancel-trip')?.addEventListener('click', async () => {
-      if (confirm('Cancel this pending trip request?')) {
+      const confirmed = await confirmDialog({
+        title: 'Cancel Trip Request',
+        message: 'Are you sure you want to cancel this pending trip request?',
+        confirmText: 'Cancel Request',
+        cancelText: 'Keep Request',
+        isDanger: true
+      });
+      if (confirmed) {
         await db.deleteTripLog(activeTrip.id);
         allTrips = await db.getTripLogs();
         toast.info('Trip request cancelled.');
@@ -605,7 +612,14 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     // Cancel active trip (In Progress or Approved - Abort before journey / reset vehicle status)
     const handleCancelActiveTrip = async () => {
       if (!activeTrip) return;
-      if (confirm('Cancel this trip? This will abort the trip without generating a bill and release the vehicle back to Available status.')) {
+      const confirmed = await confirmDialog({
+        title: 'Cancel Active Trip',
+        message: 'Cancel this trip? This will abort the trip without generating a bill and release the vehicle back to Available status.',
+        confirmText: 'Cancel Trip',
+        cancelText: 'Keep Trip',
+        isDanger: true
+      });
+      if (confirmed) {
         const veh = vehicles.find(v => v.id === activeTrip.vehicle_id);
         if (veh) {
           veh.status = 'Available';

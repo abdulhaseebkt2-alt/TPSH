@@ -3,7 +3,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { formatDate, formatCurrency, getTodayDateStr } from '../../lib/utils.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
-import { openModal } from '../../lib/dialog.js';
+import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 
 export async function renderVehicleUserCardModule(container, options = {}) {
@@ -626,7 +626,14 @@ export async function renderVehicleUserCardModule(container, options = {}) {
 
     // Delete trip handler
     modalOverlay.querySelector('#btn-card-delete-trip')?.addEventListener('click', async () => {
-      if (confirm(`Permanently delete trip ${tripCode}? This will remove this trip and any recorded settlement.`)) {
+      const confirmed = await confirmDialog({
+        title: 'Delete Trip',
+        message: `Permanently delete trip ${tripCode}? This will remove this trip and any recorded settlement.`,
+        confirmText: 'Delete Trip',
+        cancelText: 'Cancel',
+        isDanger: true
+      });
+      if (confirmed) {
         if (targetTrip?.vehicle_id) {
           const veh = vehicles.find(v => v.id === targetTrip.vehicle_id);
           if (veh && veh.status === 'On Trip') {

@@ -7,7 +7,7 @@ import {
   getDocumentExpiryStatus 
 } from '../../lib/fleet-engine.js';
 import { formatCurrency, formatDate, compressImage } from '../../lib/utils.js';
-import { openModal } from '../../lib/dialog.js';
+import { openModal, confirmDialog } from '../../lib/dialog.js';
 
 export function normalizeVehicleCategory(type = '') {
   const t = String(type || '').trim().toLowerCase();
@@ -1105,7 +1105,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     container.querySelectorAll('.btn-delete-vehicle').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
-        if (confirm('Are you sure you want to delete this vehicle from the fleet? This action cannot be undone.')) {
+        const confirmed = await confirmDialog({
+          title: 'Delete Vehicle',
+          message: 'Are you sure you want to delete this vehicle from the fleet? This action cannot be undone.',
+          confirmText: 'Delete Vehicle',
+          cancelText: 'Cancel',
+          isDanger: true
+        });
+        if (confirmed) {
           await db.deleteVehicle(id);
           vehicles = await db.getVehicles();
           toast.success('Vehicle removed from fleet.');
@@ -1349,7 +1356,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     container.querySelectorAll('.btn-delete-expense').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
-        if (confirm('Delete this expense record?')) {
+        const confirmed = await confirmDialog({
+          title: 'Delete Expense',
+          message: 'Are you sure you want to delete this expense record? Fleet metrics and rolling costs will be recalculated.',
+          confirmText: 'Delete',
+          cancelText: 'Cancel',
+          isDanger: true
+        });
+        if (confirmed) {
           await db.deleteVehicleExpense(id);
           expenses = await db.getVehicleExpenses();
           toast.success('Expense deleted.');
@@ -1404,7 +1418,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     container.querySelectorAll('.btn-delete-vehicle-user').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
-        if (confirm('Remove this vehicle user account?')) {
+        const confirmed = await confirmDialog({
+          title: 'Remove User Account',
+          message: 'Are you sure you want to remove this vehicle user account?',
+          confirmText: 'Remove',
+          cancelText: 'Cancel',
+          isDanger: true
+        });
+        if (confirmed) {
           await db.deleteVehicleUser(id);
           vehicleUsers = await db.getVehicleUsers();
           toast.success('Vehicle user removed.');
@@ -1989,7 +2010,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     });
 
     modalOverlay.querySelector('#btn-delete-trip-from-due-modal')?.addEventListener('click', async () => {
-      if (confirm(`Permanently delete trip ${tripCode}? This will remove this trip record.`)) {
+      const confirmed = await confirmDialog({
+        title: 'Delete Trip',
+        message: `Permanently delete trip ${tripCode}? This will remove this trip record.`,
+        confirmText: 'Delete Trip',
+        cancelText: 'Cancel',
+        isDanger: true
+      });
+      if (confirmed) {
         if (targetTrip?.vehicle_id) {
           const veh = vehicles.find(v => v.id === targetTrip.vehicle_id);
           if (veh && veh.status === 'On Trip') {
@@ -2146,7 +2174,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     });
 
     modalOverlay.querySelector('#btn-delete-settlement-modal')?.addEventListener('click', async () => {
-      if (confirm(`Permanently delete this settlement record of ${formatCurrency(payment.amount_paid)}? The trip's remaining balance will be recalculated.`)) {
+      const confirmed = await confirmDialog({
+        title: 'Delete Settlement Record',
+        message: `Permanently delete this settlement record of ${formatCurrency(payment.amount_paid)}? The trip's remaining balance will be recalculated.`,
+        confirmText: 'Delete Settlement',
+        cancelText: 'Cancel',
+        isDanger: true
+      });
+      if (confirmed) {
         await db.deleteVehiclePayment(payment.id);
         payments = await db.getVehiclePayments();
         trips = await db.getTripLogs();
