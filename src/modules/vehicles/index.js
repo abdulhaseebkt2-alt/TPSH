@@ -7,7 +7,7 @@ import {
   getDocumentExpiryStatus 
 } from '../../lib/fleet-engine.js';
 import { formatCurrency, formatDate, compressImage } from '../../lib/utils.js';
-import { openModal, confirmDialog } from '../../lib/dialog.js';
+import { openModal, confirmDialog, promptDialog } from '../../lib/dialog.js';
 
 export function normalizeVehicleCategory(type = '') {
   const t = String(type || '').trim().toLowerCase();
@@ -1154,8 +1154,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     container.querySelectorAll('.btn-reject-trip').forEach(btn => {
       btn.addEventListener('click', async () => {
         const tripId = btn.getAttribute('data-id');
-        const reason = prompt('Please enter the reason for rejecting this trip request:');
-        if (reason === null) return; // user cancelled prompt
+        const reason = await promptDialog({
+          title: 'Reject Trip Request',
+          message: 'Please provide an optional reason for declining this trip request:',
+          placeholder: 'e.g. Vehicle needed for scheduled school maintenance',
+          confirmText: 'Reject Request',
+          cancelText: 'Cancel'
+        });
+        if (reason === null) return; // user cancelled
 
         const targetTrip = trips.find(t => t.id === tripId);
         if (!targetTrip) return;
@@ -1897,6 +1903,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       modalOverlay.querySelectorAll('.btn-delete-doc').forEach(b => {
         b.addEventListener('click', async () => {
           const docId = b.getAttribute('data-id');
+          const confirmed = await confirmDialog({
+            title: 'Delete Document',
+            message: 'Are you sure you want to delete this compliance document record? This action cannot be undone.',
+            confirmText: 'Delete Document',
+            cancelText: 'Cancel',
+            isDanger: true
+          });
+          if (!confirmed) return;
           await db.deleteVehicleDocument(docId);
           documents = await db.getVehicleDocuments();
           toast.success('Document deleted.');

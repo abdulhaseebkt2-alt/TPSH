@@ -49,6 +49,55 @@ export function confirmDialog({ title = 'Confirm Action', message, confirmText =
   });
 }
 
+export function promptDialog({ title = 'Input Required', message = '', placeholder = '', confirmText = 'Submit', cancelText = 'Cancel' }) {
+  if (typeof document === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.style.zIndex = '10005';
+
+    overlay.innerHTML = `
+      <div class="card-panel modal-dialog" style="max-width: 440px; width: 92%; background: #FFFFFF; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1); overflow: hidden; margin: auto; padding: 0; border: 1px solid #E2E8F0;">
+        <div style="padding: 1.25rem 1.25rem 0.5rem; display: flex; align-items: flex-start; gap: 0.85rem;">
+          <div style="width: 42px; height: 42px; border-radius: 50%; background: #FFFBEB; color: #D97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #0F172A;">${title}</h3>
+            ${message ? `<p style="margin: 0.35rem 0 0; color: #475569; font-size: 0.88rem; line-height: 1.5;">${message}</p>` : ''}
+          </div>
+        </div>
+        <div style="padding: 0.5rem 1.25rem 0.75rem;">
+          <textarea id="dialog-prompt-input" class="form-control" placeholder="${placeholder}" rows="3" style="width: 100%; font-size: 0.9rem; border-radius: 8px; box-sizing: border-box;"></textarea>
+        </div>
+        <div style="padding: 0.85rem 1.25rem; background: #F8FAFC; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 0.65rem;">
+          <button type="button" class="btn btn-outline" id="dialog-prompt-cancel-btn" style="border-radius: 8px; font-weight: 600; padding: 0.5rem 1rem;">${cancelText}</button>
+          <button type="button" class="btn btn-primary" id="dialog-prompt-confirm-btn" style="background: #4F46E5; border-color: #4F46E5; border-radius: 8px; font-weight: 700; padding: 0.5rem 1.15rem;">${confirmText}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#dialog-prompt-input');
+    setTimeout(() => input?.focus(), 50);
+
+    const cleanup = (result) => {
+      overlay.classList.remove('open');
+      setTimeout(() => overlay.remove(), 150);
+      resolve(result);
+    };
+
+    overlay.querySelector('#dialog-prompt-cancel-btn').addEventListener('click', () => cleanup(null));
+    overlay.querySelector('#dialog-prompt-confirm-btn').addEventListener('click', () => {
+      cleanup(input ? input.value : '');
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) cleanup(null);
+    });
+  });
+}
+
 export function openModal({ title, contentHtml, size = 'md', modalClass = '', onMount, onClose }) {
   if (typeof document === 'undefined') {
     return {
