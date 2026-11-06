@@ -360,7 +360,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     `;
   }
 
-  // --- TAB 3: FUEL & MAINTENANCE (CLEAN LOG FORM ONLY) ---
+  // --- TAB 3: FUEL & MAINTENANCE (ADMISSION FORM STYLE DESKTOP GRID) ---
   function renderExpensesTab() {
     const selectedVeh = vehicles.find(v => v.id === selectedExpenseVehicleId) || vehicles[0];
     if (selectedVeh && !selectedExpenseVehicleId) {
@@ -368,110 +368,135 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     }
 
     return `
-      <div style="max-width: 640px; margin: 0 auto;">
-        <!-- Clean Log Expense Form Card -->
-        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
-              <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700;">Log Vehicle Expense</h3>
-              <p style="margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--text-muted);">
-                Fuel entries compute real-time bill-to-bill fuel efficiency (km/L).
-              </p>
-            </div>
-            <button type="button" class="btn btn-outline" id="btn-goto-expense-ledger" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 600;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              View Expense Ledger (${expenses.length})
-            </button>
+      <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
+        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle);">
+          <div>
+            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">Log Vehicle Expense</h3>
+            <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+              Record fuel refills and maintenance costs with automated bill-to-bill fuel efficiency (km/L).
+            </p>
           </div>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-goto-expense-ledger" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; padding: 0.45rem 0.9rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            View Expense Ledger (${expenses.length})
+          </button>
+        </div>
 
+        <div class="card-panel-body" style="padding: 1.5rem;">
           <form id="form-add-expense">
-            <!-- Selected Vehicle Section Trigger Card -->
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Assigned Vehicle *</label>
-              <input type="hidden" id="exp-vehicle-id" value="${selectedVeh ? selectedVeh.id : ''}" />
-              
-              <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0;">
-                <button type="button" class="rbac-mobile-role-trigger" id="sec-expense-vehicle-trigger" aria-label="Select vehicle to record expense">
-                  <div class="rbac-trigger-left" style="gap: 0.85rem;">
-                    <div class="rbac-trigger-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; overflow: hidden; padding: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px;">
-                      ${selectedVeh?.photo_url ? `
-                        <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
-                      ` : `
-                        <span style="font-size: 1.35rem;">${getVehicleTypeIcon(selectedVeh?.vehicle_type)}</span>
-                      `}
-                    </div>
-                    <div class="rbac-trigger-text">
-                      <span class="rbac-trigger-kicker">RECORD EXPENSE FOR</span>
-                      <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
-                        <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedVeh ? selectedVeh.vehicle_name : 'Choose Vehicle'}</span>
-                        <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
-                          ${selectedVeh ? selectedVeh.reg_number : ''}
-                        </span>
-                        <span class="badge" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
-                          ${normalizeVehicleCategory(selectedVeh?.vehicle_type)}
-                        </span>
+            <!-- SECTION 1: VEHICLE & EXPENSE CLASSIFICATION -->
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem;">
+              <span>1. Vehicle & Expense Classification</span>
+            </h4>
+
+            <div class="form-grid" style="margin-bottom: 1.5rem;">
+              <!-- Assigned Vehicle Trigger Card -->
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Assigned Vehicle</label>
+                <input type="hidden" id="exp-vehicle-id" value="${selectedVeh ? selectedVeh.id : ''}" />
+                
+                <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0;">
+                  <button type="button" class="rbac-mobile-role-trigger" id="sec-expense-vehicle-trigger" aria-label="Select vehicle to record expense" style="min-height: 48px;">
+                    <div class="rbac-trigger-left" style="gap: 0.85rem;">
+                      <div class="rbac-trigger-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; overflow: hidden; padding: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px;">
+                        ${selectedVeh?.photo_url ? `
+                          <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                        ` : `
+                          <span style="font-size: 1.35rem;">${getVehicleTypeIcon(selectedVeh?.vehicle_type)}</span>
+                        `}
+                      </div>
+                      <div class="rbac-trigger-text">
+                        <span class="rbac-trigger-kicker">RECORD EXPENSE FOR</span>
+                        <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
+                          <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedVeh ? selectedVeh.vehicle_name : 'Choose Vehicle'}</span>
+                          <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
+                            ${selectedVeh ? selectedVeh.reg_number : ''}
+                          </span>
+                          <span class="badge" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
+                            ${normalizeVehicleCategory(selectedVeh?.vehicle_type)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div class="rbac-trigger-right">
-                    <span class="rbac-trigger-action-pill">
-                      <span>Switch</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                    </span>
-                  </div>
-                </button>
+                    <div class="rbac-trigger-right">
+                      <span class="rbac-trigger-action-pill">
+                        <span>Switch</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Expense Type -->
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Expense Type</label>
+                <select id="exp-type" class="form-control" required style="width: 100%; height: 48px; font-size: 0.88rem;">
+                  <option value="Fuel">Fuel (Petrol / Diesel / CNG)</option>
+                  <option value="Maintenance">Maintenance & Service</option>
+                  <option value="Toll/Tax">Toll & Road Tax</option>
+                  <option value="Insurance">Insurance Premium</option>
+                  <option value="Other">Other Operational Expense</option>
+                </select>
               </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Expense Type *</label>
-              <select id="exp-type" class="form-control" required style="width: 100%;">
-                <option value="Fuel">Fuel (Petrol / Diesel / CNG)</option>
-                <option value="Maintenance">Maintenance & Service</option>
-                <option value="Toll/Tax">Toll & Road Tax</option>
-                <option value="Insurance">Insurance Premium</option>
-                <option value="Other">Other Operational Expense</option>
-              </select>
-            </div>
+            <!-- SECTION 2: FINANCIAL & SCHEDULE DETAILS -->
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem;">
+              <span>2. Financial & Date Details</span>
+            </h4>
 
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Amount (₹) *</label>
-              <input type="number" id="exp-amount" class="form-control" step="0.01" min="1" required placeholder="e.g. 3500.00" style="width: 100%;" />
-            </div>
-
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Date of Expense *</label>
-              <input type="date" id="exp-date" class="form-control" required value="${new Date().toISOString().split('T')[0]}" style="width: 100%;" />
-            </div>
-
-            <!-- Conditional Fuel Fields for Bill-to-Bill Formula -->
-            <div id="fuel-fields-box" style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.85rem;">
-              <div style="font-size: 0.78rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V2"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-                Bill-to-Bill Fuel Metrics
+            <div class="form-grid" style="margin-bottom: 1.5rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Amount (₹)</label>
+                <input type="number" id="exp-amount" class="form-control" step="0.01" min="1" required placeholder="e.g. 3500.00" style="width: 100%; height: 44px; font-size: 0.88rem;" />
               </div>
 
-              <div class="form-group" style="margin-bottom: 0.65rem;">
-                <label style="display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Fuel Liters Added *</label>
-                <input type="number" id="exp-liters" class="form-control" step="0.01" min="0.1" placeholder="e.g. 35.5" style="width: 100%;" />
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Date of Expense</label>
+                <input type="date" id="exp-date" class="form-control" required value="${new Date().toISOString().split('T')[0]}" style="width: 100%; height: 44px; font-size: 0.88rem;" />
+              </div>
+            </div>
+
+            <!-- SECTION 3: CONDITIONAL BILL-TO-BILL FUEL METRICS -->
+            <div id="fuel-fields-box" style="background: #F8FAFC; border: 1.5px solid var(--border-medium); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem;">
+              <h4 style="font-size: 0.92rem; font-weight: 700; color: #0F172A; margin: 0 0 1rem 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669;"><path d="M3 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V2"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+                <span>3. Bill-to-Bill Fuel Metrics</span>
+              </h4>
+
+              <div class="form-grid" style="margin-bottom: 0.75rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Fuel Liters Added</label>
+                  <input type="number" id="exp-liters" class="form-control" step="0.01" min="0.1" placeholder="e.g. 35.5" style="width: 100%; height: 44px; font-size: 0.88rem;" />
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Odometer at Fueling (KM)</label>
+                  <input type="number" id="exp-odometer" class="form-control" min="0" placeholder="e.g. 42850" style="width: 100%; height: 44px; font-size: 0.88rem;" />
+                </div>
               </div>
 
-              <div class="form-group" style="margin-bottom: 0.65rem;">
-                <label style="display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Odometer at Fueling (KM) *</label>
-                <input type="number" id="exp-odometer" class="form-control" min="0" placeholder="e.g. 42850" style="width: 100%;" />
-              </div>
-
-              <div id="mileage-live-preview" style="font-size: 0.74rem; color: #059669; font-weight: 600; padding: 4px 6px; background: #ECFDF5; border-radius: 4px; display: none;">
+              <div id="mileage-live-preview" style="font-size: 0.82rem; color: #059669; font-weight: 600; padding: 8px 12px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; display: none; margin-top: 0.75rem;">
                 <!-- Real-time mileage calculation preview -->
               </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 1rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Notes / Invoice Reference</label>
-              <textarea id="exp-notes" class="form-control" rows="2" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%;"></textarea>
+            <!-- SECTION 4: NOTES & REFERENCE -->
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+              4. Notes & Invoice Reference
+            </h4>
+
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+              <label class="form-label" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Notes / Invoice Reference</label>
+              <textarea id="exp-notes" class="form-control" rows="3" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%; font-size: 0.88rem;"></textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Save Expense & Update Fleet</button>
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+              <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-weight: 700; font-size: 0.92rem; min-width: 220px;">
+                Save Expense & Update Fleet
+              </button>
+            </div>
           </form>
         </div>
       </div>
