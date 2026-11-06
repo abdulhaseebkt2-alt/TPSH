@@ -815,7 +815,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <div style="font-weight: 600; color: #059669;">All completed vehicle trips are fully paid! No outstanding dues.</div>
               </div>
             ` : `
-              <div style="overflow-x: auto;">
+              <!-- Desktop Table View (> 768px) -->
+              <div class="settlement-desktop-table" style="overflow-x: auto;">
                 <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                   <thead>
                     <tr style="border-bottom: 1px solid var(--border-medium); text-align: left;">
@@ -860,6 +861,45 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                   </tbody>
                 </table>
               </div>
+
+              <!-- Mobile Card View (<= 768px, Rearranged for phone screens) -->
+              <div class="settlement-mobile-cards">
+                ${unpaidTrips.map(t => {
+                  const veh = vehicles.find(v => v.id === t.vehicle_id);
+                  return `
+                    <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.45rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                          <span style="font-family: monospace; font-size: 0.78rem; font-weight: 700; color: #4F46E5; background: #EEF2FF; padding: 2px 6px; border-radius: 4px;">
+                            ${t.trip_id}
+                          </span>
+                          <span style="font-size: 0.76rem; color: var(--text-muted);">${formatDate(t.end_time || t.completed_at || t.created_at)}</span>
+                        </div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #DC2626;">
+                          ${formatCurrency(t.total_amount || 0)}
+                        </div>
+                      </div>
+
+                      <div style="margin-bottom: 0.45rem;">
+                        <strong style="font-size: 0.92rem; color: var(--text-main);">${t.user_name}</strong>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);"> (${t.user_role})</span>
+                        <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.15rem;">
+                          ${veh?.vehicle_name || 'Vehicle'} • <span style="font-family: monospace;">${veh?.reg_number || ''}</span>
+                        </div>
+                      </div>
+
+                      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-subtle); padding-top: 0.45rem;">
+                        <span style="font-size: 0.78rem; font-weight: 600; color: #0F172A; font-family: monospace;">
+                          ${t.total_km || 0} KM @ ₹${Number(t.applied_rate_per_km || 0).toFixed(2)}/km
+                        </span>
+                        <button class="btn btn-sm btn-primary btn-mark-paid" data-id="${t.id}" data-amount="${t.total_amount}" data-user="${t.user_name}" data-trip="${t.trip_id}" style="background: #059669; border-color: #059669; font-weight: 700; padding: 3px 10px; font-size: 0.76rem;">
+                          Mark as Paid
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
             `}
           </div>
         </div>
@@ -872,7 +912,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 No payment settlements recorded yet in the audit ledger.
               </div>
             ` : `
-              <div style="overflow-x: auto;">
+              <!-- Desktop Table View (> 768px) -->
+              <div class="settlement-desktop-table" style="overflow-x: auto;">
                 <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                   <thead>
                     <tr style="border-bottom: 1px solid var(--border-medium); text-align: left;">
@@ -883,13 +924,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                       <th style="padding: 0.65rem;">Method</th>
                       <th style="padding: 0.65rem;">Received By Admin (Audit Trail)</th>
                       <th style="padding: 0.65rem;">Notes</th>
+                      <th style="padding: 0.65rem; text-align: right;">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${payments.map(p => {
                       const trip = trips.find(t => t.id === p.trip_id || t.trip_id === p.trip_id);
                       return `
-                        <tr style="border-bottom: 1px solid var(--border-subtle);">
+                        <tr class="btn-open-settlement-modal" data-id="${p.id}" style="border-bottom: 1px solid var(--border-subtle); cursor: pointer;">
                           <td style="padding: 0.65rem;">${formatDate(p.payment_date || p.created_at)}</td>
                           <td style="padding: 0.65rem; font-family: monospace; font-weight: 700;">${trip?.trip_id || p.trip_id}</td>
                           <td style="padding: 0.65rem;"><strong>${trip?.user_name || 'Staff User'}</strong></td>
@@ -905,11 +947,58 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                             </span>
                           </td>
                           <td style="padding: 0.65rem; font-size: 0.75rem; color: var(--text-muted);">${p.notes || '—'}</td>
+                          <td style="padding: 0.65rem; text-align: right;">
+                            <button type="button" class="btn btn-sm btn-outline btn-open-settlement-modal" data-id="${p.id}" style="color: #4F46E5; border-color: #C7D2FE; font-size: 0.75rem; padding: 2px 8px;">
+                              Details & Delete
+                            </button>
+                          </td>
                         </tr>
                       `;
                     }).join('')}
                   </tbody>
                 </table>
+              </div>
+
+              <!-- Mobile Card View (<= 768px, Rearranged for phone screens) -->
+              <div class="settlement-mobile-cards">
+                ${payments.map(p => {
+                  const trip = trips.find(t => t.id === p.trip_id || t.trip_id === p.trip_id);
+                  return `
+                    <div class="btn-open-settlement-modal" data-id="${p.id}" role="button" tabindex="0" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: pointer;">
+                      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.45rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                          <span style="font-size: 0.76rem; color: var(--text-muted);">${formatDate(p.payment_date || p.created_at)}</span>
+                          <span class="badge" style="background: #F1F5F9; color: #334155; font-size: 0.68rem; font-weight: 700; padding: 1px 6px;">
+                            ${p.payment_method || 'Cash'}
+                          </span>
+                        </div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #059669;">
+                          ${formatCurrency(p.amount_paid)}
+                        </div>
+                      </div>
+
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                        <div>
+                          <span style="font-family: monospace; font-size: 0.78rem; font-weight: 700; color: #4F46E5; background: #EEF2FF; padding: 2px 6px; border-radius: 4px;">
+                            ${trip?.trip_id || p.trip_id}
+                          </span>
+                          <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-main); margin-left: 0.4rem;">
+                            ${trip?.user_name || 'Staff User'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-subtle); padding-top: 0.45rem; font-size: 0.74rem;">
+                        <span style="color: #065F46; font-weight: 600;">
+                          ✓ Admin: ${p.received_by_admin_name || 'Admin'}
+                        </span>
+                        <span style="color: #4F46E5; font-weight: 600; font-size: 0.74rem; display: flex; align-items: center; gap: 3px;">
+                          View / Delete ➔
+                        </span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
               </div>
             `}
           </div>
@@ -1293,6 +1382,18 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         const userName = btn.getAttribute('data-user');
         const tripCode = btn.getAttribute('data-trip');
         openMarkPaidModal({ tripId, amount, userName, tripCode });
+      });
+    });
+
+    // Sub-Tab 4B Settlement Item Click (Open Settlement Details & Deletion Modal)
+    container.querySelectorAll('.btn-open-settlement-modal').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('button') && !e.target.classList.contains('btn-open-settlement-modal')) return;
+        const id = el.getAttribute('data-id');
+        const payment = payments.find(p => p.id === id);
+        if (payment) {
+          openSettlementDetailsModal(payment);
+        }
       });
     });
 
@@ -1865,12 +1966,17 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <!-- Frozen Bottom Submit Bar -->
-          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
-            <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" id="btn-idx-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
-              Record Payment (${formatCurrency(remainingDue)})
+          <!-- Frozen Bottom Submit Bar with Delete Trip option -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
+            <button type="button" id="btn-delete-trip-from-due-modal" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+              🗑️ Delete Trip
             </button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
+              <button type="submit" id="btn-idx-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
+                Record Payment (${formatCurrency(remainingDue)})
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -1880,6 +1986,24 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
     modalOverlay.querySelectorAll('.btn-close-modal').forEach(b => {
       b.addEventListener('click', () => modalOverlay.remove());
+    });
+
+    modalOverlay.querySelector('#btn-delete-trip-from-due-modal')?.addEventListener('click', async () => {
+      if (confirm(`Permanently delete trip ${tripCode}? This will remove this trip record.`)) {
+        if (targetTrip?.vehicle_id) {
+          const veh = vehicles.find(v => v.id === targetTrip.vehicle_id);
+          if (veh && veh.status === 'On Trip') {
+            veh.status = 'Available';
+            await db.saveVehicle(veh);
+          }
+        }
+        await db.deleteTripLog(tripId);
+        trips = await db.getTripLogs();
+        payments = await db.getVehiclePayments();
+        modalOverlay.remove();
+        toast.success(`Trip ${tripCode} deleted successfully.`);
+        render();
+      }
     });
 
     const fullRadio = modalOverlay.querySelector('input[value="full"]');
@@ -1951,6 +2075,85 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       modalOverlay.remove();
       toast.success(`Payment of ${formatCurrency(amountPaid)} recorded for ${userName}!`);
       render();
+    });
+  }
+
+  // --- MODAL: SETTLEMENT AUDIT DETAILS & DELETION ---
+  function openSettlementDetailsModal(payment) {
+    const trip = trips.find(t => t.id === payment.trip_id || t.trip_id === payment.trip_id);
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-backdrop';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
+
+    modalOverlay.innerHTML = `
+      <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Settlement Audit Record</h3>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
+        </div>
+
+        <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+          <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 1rem; margin-bottom: 1.15rem; text-align: center;">
+            <div style="font-size: 0.75rem; color: #065F46; font-weight: 700;">AMOUNT SETTLED</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #059669; margin: 0.2rem 0;">${formatCurrency(payment.amount_paid)}</div>
+            <div style="font-size: 0.8rem; color: #047857;">${payment.payment_method || 'Cash'} • ${formatDate(payment.payment_date || payment.created_at)}</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Trip Reference</span>
+              <strong style="font-family: monospace; color: #4F46E5;">${trip?.trip_id || payment.trip_id}</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Payer User</span>
+              <strong>${trip?.user_name || 'Staff User'}</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Received By Admin</span>
+              <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700;">
+                ✓ ${payment.received_by_admin_name || 'Admin'}
+              </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Transaction Ref / Notes</span>
+              <span>${payment.notes || '—'}</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; padding-top: 0.2rem; font-size: 0.78rem; color: var(--text-muted);">
+              <span>Payment ID</span>
+              <span style="font-family: monospace;">${payment.id}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Frozen Bottom Action Bar with Delete Option -->
+        <div style="padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
+          <button type="button" id="btn-delete-settlement-modal" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+            🗑️ Delete Settlement
+          </button>
+          <button type="button" class="btn btn-secondary btn-close-modal">Close</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalOverlay);
+    modalOverlay.querySelectorAll('.btn-close-modal').forEach(b => {
+      b.addEventListener('click', () => modalOverlay.remove());
+    });
+
+    modalOverlay.querySelector('#btn-delete-settlement-modal')?.addEventListener('click', async () => {
+      if (confirm(`Permanently delete this settlement record of ${formatCurrency(payment.amount_paid)}? The trip's remaining balance will be recalculated.`)) {
+        await db.deleteVehiclePayment(payment.id);
+        payments = await db.getVehiclePayments();
+        trips = await db.getTripLogs();
+        modalOverlay.remove();
+        toast.success('Settlement record deleted successfully.');
+        render();
+      }
     });
   }
 

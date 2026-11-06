@@ -448,31 +448,34 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       });
     });
 
-    // Row click to settle payment (like Student Leave Card)
-    if (isAdmin) {
-      container.querySelectorAll('.user-card-row.has-due').forEach(row => {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('button')) return; // handled by button
-          const tripId = row.getAttribute('data-id');
-          const tripCode = row.getAttribute('data-code');
-          const remainingDue = parseFloat(row.getAttribute('data-due')) || 0;
-          const totalAmount = parseFloat(row.getAttribute('data-total')) || 0;
-          const userName = row.getAttribute('data-user');
+    // Row click to inspect trip details, settle payment, or delete trip
+    container.querySelectorAll('.user-card-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return; // handled by button
+        const tripId = row.getAttribute('data-id');
+        const tripCode = row.getAttribute('data-code');
+        const remainingDue = parseFloat(row.getAttribute('data-due')) || 0;
+        const totalAmount = parseFloat(row.getAttribute('data-total')) || 0;
+        const userName = row.getAttribute('data-user');
 
-          openSettlePaymentModal({
-            tripId,
-            tripCode,
-            remainingDue,
-            totalAmount,
-            userName
-          });
+        openSettlePaymentModal({
+          tripId,
+          tripCode,
+          remainingDue,
+          totalAmount,
+          userName
         });
       });
-    }
+    });
   }
 
-  // Modal: Pay or Partial Pay with Student Leave Card Features
+  // Modal: Pay or Partial Pay with Student Leave Card Features & Delete Option
   function openSettlePaymentModal({ tripId, tripCode, remainingDue, totalAmount, userName }) {
+    const targetTrip = allTrips.find(t => t.id === tripId || t.trip_id === tripCode);
+    const isInProgress = targetTrip?.status === 'In Progress';
+    const isCompleted = targetTrip?.status === 'Completed' || (!isInProgress && targetTrip?.status !== 'Pending Approval');
+    const isPaid = isCompleted && remainingDue <= 0;
+
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
     modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
@@ -481,73 +484,135 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
         <!-- Frozen Top Header -->
         <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
-          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Trip Settlement</h3>
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">${isPaid ? 'Trip Details & Receipt' : (isInProgress ? 'Active Trip Details' : 'Record Trip Settlement')}</h3>
           <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
         <form id="form-card-settle-payment" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
           <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
-            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">TRIP REFERENCE</div>
-                  <div style="font-weight: 700; font-family: monospace; font-size: 0.95rem;">${tripCode}</div>
-                  <div style="font-size: 0.78rem; color: #047857;">User: ${userName}</div>
+            ${isInProgress ? `
+              <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.72rem; color: #1E40AF; font-weight: 700;">JOURNEY STATUS</div>
+                    <div style="font-size: 1.1rem; color: #1E3A8A; font-weight: 800;">🚗 In Progress</div>
+                    <div style="font-family: monospace; font-size: 0.8rem; color: #3B82F6; margin-top: 0.15rem;">${tripCode}</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 0.72rem; color: #1E40AF; font-weight: 700;">START ODOMETER</div>
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #1E40AF; font-family: monospace;">${targetTrip?.start_km || 0} KM</div>
+                  </div>
                 </div>
-                <div style="text-align: right;">
-                  <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
-                  <div style="font-size: 1.25rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.85rem;">
+                Destination: <strong>${targetTrip?.destination || 'Local Ride'}</strong><br/>
+                Driver / User: <strong>${userName}</strong><br/>
+                Locked Rate: <strong>₹${Number(targetTrip?.applied_rate_per_km || 16).toFixed(2)}/km</strong>
+              </div>
+            ` : isPaid ? `
+              <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.72rem; color: #065F46; font-weight: 700;">PAYMENT STATUS</div>
+                    <div style="font-size: 1.1rem; color: #065F46; font-weight: 800;">✓ Fully Settled</div>
+                    <div style="font-family: monospace; font-size: 0.8rem; color: #059669; margin-top: 0.15rem;">${tripCode}</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 0.72rem; color: #065F46; font-weight: 700;">TOTAL BILLED</div>
+                    <div style="font-size: 1.35rem; font-weight: 800; color: #059669;">${formatCurrency(totalAmount)}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <!-- Payment Options Strip (Full vs Partial like Student Leave Card) -->
-            <div style="margin-bottom: 0.85rem;">
-              <label style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                <label id="label-card-pay-full" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #059669; background: #ECFDF5; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #065F46;">
-                  <input type="radio" name="card_pay_option" value="full" checked style="accent-color: #059669;" />
-                  Full Payment
-                </label>
-                <label id="label-card-pay-partial" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #E2E8F0; background: #FFFFFF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
-                  <input type="radio" name="card_pay_option" value="partial" style="accent-color: #D97706;" />
-                  Partial Payment
-                </label>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.84rem; margin-bottom: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.35rem;">
+                  <span style="color: var(--text-muted);">Payer User</span>
+                  <strong>${userName}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.35rem;">
+                  <span style="color: var(--text-muted);">Distance Traveled</span>
+                  <span style="font-family: monospace; font-weight: 700;">${targetTrip?.total_km || 0} KM</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.35rem;">
+                  <span style="color: var(--text-muted);">Settlement Method</span>
+                  <span>${targetTrip?.payment_method || 'Cash'}</span>
+                </div>
+                ${targetTrip?.payment_received_by ? `
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.35rem;">
+                    <span style="color: var(--text-muted);">Received By Admin</span>
+                    <strong style="color: #065F46;">✓ ${targetTrip.payment_received_by}</strong>
+                  </div>
+                ` : ''}
               </div>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Paying Now (₹) *</label>
-              <input type="number" id="pay-card-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" readonly required style="width: 100%; height: 40px; font-size: 1rem; font-weight: 700; color: #059669;" />
-              <div id="card-pay-balance-preview" style="font-size: 0.76rem; font-weight: 600; color: #059669; margin-top: 0.35rem; padding: 4px 8px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0;">
-                Remaining balance after payment: <strong>₹0.00</strong>
+            ` : `
+              <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.72rem; color: #92400E; font-weight: 600;">TRIP REFERENCE</div>
+                    <div style="font-weight: 700; font-family: monospace; font-size: 0.95rem;">${tripCode}</div>
+                    <div style="font-size: 0.78rem; color: #B45309;">User: ${userName}</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 0.72rem; color: #92400E; font-weight: 600;">REMAINING DUE</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
-              <select id="pay-card-method" class="form-control" required style="width: 100%; height: 40px; font-size: 0.84rem;">
-                <option value="Cash">Cash (Received at School Office)</option>
-                <option value="Google Pay">Google Pay</option>
-                <option value="PhonePe">PhonePe</option>
-                <option value="UPI / QR Scan">UPI / QR Scan</option>
-                <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
-                <option value="Salary Deduction">Staff Salary Deduction</option>
-              </select>
-            </div>
+              <!-- Payment Options Strip (Full vs Partial like Student Leave Card) -->
+              <div style="margin-bottom: 0.85rem;">
+                <label style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                  <label id="label-card-pay-full" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #059669; background: #ECFDF5; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #065F46;">
+                    <input type="radio" name="card_pay_option" value="full" checked style="accent-color: #059669;" />
+                    Full Payment
+                  </label>
+                  <label id="label-card-pay-partial" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #E2E8F0; background: #FFFFFF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
+                    <input type="radio" name="card_pay_option" value="partial" style="accent-color: #D97706;" />
+                    Partial Payment
+                  </label>
+                </div>
+              </div>
 
-            <div class="form-group" style="margin-bottom: 0.5rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Receipt / Transaction Notes</label>
-              <input type="text" id="pay-card-notes" class="form-control" placeholder="e.g. Cash received at office" style="width: 100%; height: 40px; font-size: 0.84rem;" />
-            </div>
+              <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Paying Now (₹) *</label>
+                <input type="number" id="pay-card-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" readonly required style="width: 100%; height: 40px; font-size: 1rem; font-weight: 700; color: #059669;" />
+                <div id="card-pay-balance-preview" style="font-size: 0.76rem; font-weight: 600; color: #059669; margin-top: 0.35rem; padding: 4px 8px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0;">
+                  Remaining balance after payment: <strong>₹0.00</strong>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
+                <select id="pay-card-method" class="form-control" required style="width: 100%; height: 40px; font-size: 0.84rem;">
+                  <option value="Cash">Cash (Received at School Office)</option>
+                  <option value="Google Pay">Google Pay</option>
+                  <option value="PhonePe">PhonePe</option>
+                  <option value="UPI / QR Scan">UPI / QR Scan</option>
+                  <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
+                  <option value="Salary Deduction">Staff Salary Deduction</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0.5rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Receipt / Transaction Notes</label>
+                <input type="text" id="pay-card-notes" class="form-control" placeholder="e.g. Cash received at office" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+              </div>
+            `}
           </div>
 
-          <!-- Frozen Bottom Submit Bar -->
-          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
-            <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" id="btn-card-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
-              Record Payment (${formatCurrency(remainingDue)})
+          <!-- Frozen Bottom Submit Bar with Delete Option -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
+            <button type="button" id="btn-card-delete-trip" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
+              🗑️ Delete Trip
             </button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-secondary btn-close-modal">${isPaid || isInProgress ? 'Close' : 'Cancel'}</button>
+              ${!isPaid && !isInProgress ? `
+                <button type="submit" id="btn-card-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
+                  Record Payment (${formatCurrency(remainingDue)})
+                </button>
+              ` : ''}
+            </div>
           </div>
         </form>
       </div>
@@ -557,6 +622,27 @@ export async function renderVehicleUserCardModule(container, options = {}) {
 
     modalOverlay.querySelectorAll('.btn-close-modal').forEach(b => {
       b.addEventListener('click', () => modalOverlay.remove());
+    });
+
+    // Delete trip handler
+    modalOverlay.querySelector('#btn-card-delete-trip')?.addEventListener('click', async () => {
+      if (confirm(`Permanently delete trip ${tripCode}? This will remove this trip and any recorded settlement.`)) {
+        if (targetTrip?.vehicle_id) {
+          const veh = vehicles.find(v => v.id === targetTrip.vehicle_id);
+          if (veh && veh.status === 'On Trip') {
+            veh.status = 'Available';
+            await db.saveVehicle(veh);
+          }
+        }
+        await db.deleteTripLog(tripId);
+        const freshTrips = await db.getTripLogs();
+        vehicles = await db.getVehicles();
+        modalOverlay.remove();
+        toast.success(`Trip ${tripCode} deleted successfully.`);
+        allTrips.length = 0;
+        allTrips.push(...freshTrips);
+        render();
+      }
     });
 
     const fullRadio = modalOverlay.querySelector('input[value="full"]');

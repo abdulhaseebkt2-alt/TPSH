@@ -8296,5 +8296,57 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       await db.deleteTripLog(testTrip.id);
     });
+
+    it('should properly record and delete vehicle payments with trip recalculation', async () => {
+      const trip = await db.saveTripLog({
+        trip_id: 'TRIP-TEST-PAY-01',
+        user_id: 'usr-test-1',
+        user_name: 'Test Driver',
+        destination: 'Test Destination',
+        total_km: 10,
+        applied_rate_per_km: 20,
+        total_amount: 200,
+        status: 'Completed',
+        payment_status: 'Unpaid'
+      });
+
+      // Record partial payment
+      const p1 = await db.recordVehiclePayment({
+        trip_id: trip.id,
+        amount_paid: 100,
+        payment_method: 'Cash',
+        received_by_admin_name: 'Super Admin'
+      });
+
+      let updatedTrips = await db.getTripLogs();
+      let target = updatedTrips.find(t => t.id === trip.id);
+      expect(target.amount_paid).toBe(100);
+      expect(target.payment_status).toBe('Partial');
+
+      // Record remaining payment
+      const p2 = await db.recordVehiclePayment({
+        trip_id: trip.id,
+        amount_paid: 100,
+        payment_method: 'UPI',
+        received_by_admin_name: 'Super Admin'
+      });
+
+      updatedTrips = await db.getTripLogs();
+      target = updatedTrips.find(t => t.id === trip.id);
+      expect(target.amount_paid).toBe(200);
+      expect(target.payment_status).toBe('Paid');
+
+      // Delete payment p2 and verify trip reverts to Partial
+      await db.deleteVehiclePayment(p2.id);
+      updatedTrips = await db.getTripLogs();
+      target = updatedTrips.find(t => t.id === trip.id);
+      expect(target.amount_paid).toBe(100);
+      expect(target.payment_status).toBe('Partial');
+
+      // Delete trip and verify associated payments are cleaned up
+      await db.deleteTripLog(trip.id);
+      const remainingPayments = await db.getVehiclePayments(trip.id);
+      expect(remainingPayments.length).toBe(0);
+    });
   });
 });

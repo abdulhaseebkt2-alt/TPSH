@@ -5754,9 +5754,20 @@ class DatabaseService {
 
   async deleteTripLog(id) {
     const list = this.get('tps_trip_logs') || [];
-    const filtered = list.filter(t => t.id !== id);
+    const targetTrip = list.find(t => t.id === id || t.trip_id === id);
+    const filtered = list.filter(t => t.id !== id && t.trip_id !== id);
     this.set('tps_trip_logs', filtered);
     await this.pushCloudKey('tps_trip_logs', filtered);
+
+    // Also clean up any payments associated with this trip
+    if (targetTrip) {
+      const payments = this.get('tps_vehicle_payments') || [];
+      const remainingPayments = payments.filter(p => p.trip_id !== targetTrip.id && p.trip_id !== targetTrip.trip_id);
+      if (remainingPayments.length !== payments.length) {
+        this.set('tps_vehicle_payments', remainingPayments);
+        await this.pushCloudKey('tps_vehicle_payments', remainingPayments);
+      }
+    }
     return true;
   }
 
@@ -5811,6 +5822,41 @@ class DatabaseService {
     }
 
     return record;
+  }
+
+  async deleteVehiclePayment(id) {
+    const list = this.get('tps_vehicle_payments') || [];
+    const payment = list.find(p => p.id === id);
+    const filtered = list.filter(p => p.id !== id);
+    this.set('tps_vehicle_payments', filtered);
+    await this.pushCloudKey('tps_vehicle_payments', filtered);
+
+    // If the payment was associated with a trip, recompute trip payment status
+    if (payment && payment.trip_id) {
+      const trips = this.get('tps_trip_logs') || [];
+      const targetTrip = trips.find(t => t.id === payment.trip_id || t.trip_id === payment.trip_id);
+      if (targetTrip) {
+        const remainingPayments = filtered.filter(p => p.trip_id === payment.trip_id || p.trip_id === targetTrip.id || p.trip_id === targetTrip.trip_id);
+        const totalPaid = remainingPayments.reduce((sum, p) => sum + (Number(p.amount_paid) || 0), 0);
+        const totalAmount = Number(targetTrip.total_amount) || 0;
+        targetTrip.amount_paid = totalPaid;
+        if (totalPaid <= 0) {
+          targetTrip.payment_status = 'Unpaid';
+          targetTrip.is_paid = false;
+          targetTrip.paid_at = null;
+          targetTrip.payment_id = null;
+        } else if (totalPaid >= totalAmount) {
+          targetTrip.payment_status = 'Paid';
+          targetTrip.is_paid = true;
+        } else {
+          targetTrip.payment_status = 'Partial';
+          targetTrip.is_paid = false;
+        }
+        this.set('tps_trip_logs', trips);
+        await this.pushCloudKey('tps_trip_logs', trips);
+      }
+    }
+    return true;
   }
 
   // --- VEHICLE USERS DIRECTORY ---

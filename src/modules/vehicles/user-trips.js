@@ -336,9 +336,14 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               </label>
               <input type="number" id="start-km-input" class="form-control" required min="${minOdo}" value="${minOdo}" style="width: 220px; font-weight: 700; font-family: monospace;" />
             </div>
-            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; padding: 0.55rem 1.25rem; font-weight: 700;">
-              Start Trip (Begin Journey)
-            </button>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; padding: 0.55rem 1.25rem; font-weight: 700;">
+                Start Trip (Begin Journey)
+              </button>
+              <button type="button" id="btn-cancel-approved-trip" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; padding: 0.55rem 1rem; font-weight: 600;">
+                ✕ Cancel Trip
+              </button>
+            </div>
           </form>
         </div>
       `;
@@ -381,9 +386,12 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 <div>Estimated Bill: <strong id="preview-cost" style="color: #DC2626;">₹0.00</strong></div>
               </div>
 
-              <div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem 1rem; font-weight: 700; background: #2563EB;">
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="submit" class="btn btn-primary" style="flex: 1 1 auto; padding: 0.65rem 1rem; font-weight: 700; background: #2563EB;">
                   Complete Trip & Generate Bill
+                </button>
+                <button type="button" id="btn-cancel-active-trip" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; padding: 0.65rem 1rem; white-space: nowrap;">
+                  ✕ Cancel Trip
                 </button>
               </div>
             </div>
@@ -593,6 +601,25 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         render();
       }
     });
+
+    // Cancel active trip (In Progress or Approved - Abort before journey / reset vehicle status)
+    const handleCancelActiveTrip = async () => {
+      if (!activeTrip) return;
+      if (confirm('Cancel this trip? This will abort the trip without generating a bill and release the vehicle back to Available status.')) {
+        const veh = vehicles.find(v => v.id === activeTrip.vehicle_id);
+        if (veh) {
+          veh.status = 'Available';
+          await db.saveVehicle(veh);
+        }
+        await db.deleteTripLog(activeTrip.id);
+        allTrips = await db.getTripLogs();
+        vehicles = await db.getVehicles();
+        toast.info('Trip cancelled successfully. Vehicle returned to Available.');
+        render();
+      }
+    };
+    container.querySelector('#btn-cancel-active-trip')?.addEventListener('click', handleCancelActiveTrip);
+    container.querySelector('#btn-cancel-approved-trip')?.addEventListener('click', handleCancelActiveTrip);
 
     // Scheduled Booking submission
     container.querySelector('#form-book-vehicle')?.addEventListener('submit', async (e) => {

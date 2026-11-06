@@ -9255,12 +9255,29 @@ form.was-validated :invalid,
   display: none;
 }
 
+/* Vehicle Settlement Ledger Responsive Views (Desktop Table vs Mobile Cards) */
+.settlement-desktop-table {
+  display: block;
+}
+.settlement-mobile-cards {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .fleet-desktop-table {
     display: none !important;
   }
   .fleet-mobile-cards {
     display: grid !important;
+  }
+
+  .settlement-desktop-table {
+    display: none !important;
+  }
+  .settlement-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 }
 
@@ -9272,6 +9289,8 @@ form.was-validated :invalid,
     padding: 0.45rem 0.3rem !important;
     font-size: 0.76rem !important;
   }
+  .all-trips-row,
+  .user-card-row,
   .all-trips-row.has-due,
   .user-card-row.has-due {
     cursor: pointer;
