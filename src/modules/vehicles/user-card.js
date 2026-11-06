@@ -471,21 +471,20 @@ export async function renderVehicleUserCardModule(container, options = {}) {
     }
   }
 
-  // Modal: Pay or Partial Pay for Admin
+  // Modal: Pay or Partial Pay with Student Leave Card Features
   function openSettlePaymentModal({ tripId, tripCode, remainingDue, totalAmount, userName }) {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
     modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+      <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
         <!-- Frozen Top Header -->
         <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
-          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Payment / Partial Settlement</h3>
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Trip Settlement</h3>
           <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <!-- Form with Scrollable Content & Frozen Bottom Submit Bar -->
         <form id="form-card-settle-payment" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
           <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
             <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
@@ -497,21 +496,41 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                 </div>
                 <div style="text-align: right;">
                   <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
-                  <div style="font-size: 1.25rem; font-weight: 800; color: #065F46;">${formatCurrency(remainingDue)}</div>
+                  <div style="font-size: 1.25rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
                 </div>
               </div>
             </div>
 
+            <!-- Payment Options Strip (Full vs Partial like Student Leave Card) -->
+            <div style="margin-bottom: 0.85rem;">
+              <label style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <label id="label-card-pay-full" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #059669; background: #ECFDF5; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #065F46;">
+                  <input type="radio" name="card_pay_option" value="full" checked style="accent-color: #059669;" />
+                  Full Payment
+                </label>
+                <label id="label-card-pay-partial" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #E2E8F0; background: #FFFFFF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
+                  <input type="radio" name="card_pay_option" value="partial" style="accent-color: #D97706;" />
+                  Partial Payment
+                </label>
+              </div>
+            </div>
+
             <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Received (₹) *</label>
-              <input type="number" id="pay-card-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.05rem; font-weight: 700; color: #059669;" />
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Paying Now (₹) *</label>
+              <input type="number" id="pay-card-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" readonly required style="width: 100%; height: 40px; font-size: 1rem; font-weight: 700; color: #059669;" />
+              <div id="card-pay-balance-preview" style="font-size: 0.76rem; font-weight: 600; color: #059669; margin-top: 0.35rem; padding: 4px 8px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0;">
+                Remaining balance after payment: <strong>₹0.00</strong>
+              </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 0.85rem;">
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
-              <select id="pay-card-method" class="form-control" required style="width: 100%;">
+              <select id="pay-card-method" class="form-control" required style="width: 100%; height: 40px; font-size: 0.84rem;">
                 <option value="Cash">Cash (Received at School Office)</option>
-                <option value="UPI / GPay">UPI / GPay (School QR Scan)</option>
+                <option value="Google Pay">Google Pay</option>
+                <option value="PhonePe">PhonePe</option>
+                <option value="UPI / QR Scan">UPI / QR Scan</option>
                 <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
                 <option value="Salary Deduction">Staff Salary Deduction</option>
               </select>
@@ -519,15 +538,15 @@ export async function renderVehicleUserCardModule(container, options = {}) {
 
             <div class="form-group" style="margin-bottom: 0.5rem;">
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Receipt / Transaction Notes</label>
-              <input type="text" id="pay-card-notes" class="form-control" placeholder="e.g. Cash received at office" style="width: 100%;" />
+              <input type="text" id="pay-card-notes" class="form-control" placeholder="e.g. Cash received at office" style="width: 100%; height: 40px; font-size: 0.84rem;" />
             </div>
           </div>
 
           <!-- Frozen Bottom Submit Bar -->
           <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">
-              Confirm Payment
+            <button type="submit" id="btn-card-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
+              Record Payment (${formatCurrency(remainingDue)})
             </button>
           </div>
         </form>
@@ -539,6 +558,50 @@ export async function renderVehicleUserCardModule(container, options = {}) {
     modalOverlay.querySelectorAll('.btn-close-modal').forEach(b => {
       b.addEventListener('click', () => modalOverlay.remove());
     });
+
+    const fullRadio = modalOverlay.querySelector('input[value="full"]');
+    const partialRadio = modalOverlay.querySelector('input[value="partial"]');
+    const labelFull = modalOverlay.querySelector('#label-card-pay-full');
+    const labelPartial = modalOverlay.querySelector('#label-card-pay-partial');
+    const payAmtInput = modalOverlay.querySelector('#pay-card-amount');
+    const balPreview = modalOverlay.querySelector('#card-pay-balance-preview');
+    const confirmBtn = modalOverlay.querySelector('#btn-card-confirm-settle');
+
+    function updatePayModeUI() {
+      if (fullRadio.checked) {
+        labelFull.style.borderColor = '#059669';
+        labelFull.style.background = '#ECFDF5';
+        labelFull.style.color = '#065F46';
+        labelPartial.style.borderColor = '#E2E8F0';
+        labelPartial.style.background = '#FFFFFF';
+        labelPartial.style.color = '#334155';
+        payAmtInput.value = remainingDue;
+        payAmtInput.readOnly = true;
+        balPreview.innerHTML = 'Remaining balance after payment: <strong style="color: #059669;">₹0.00</strong>';
+        if (confirmBtn) confirmBtn.textContent = 'Record Payment (' + formatCurrency(remainingDue) + ')';
+      } else {
+        labelFull.style.borderColor = '#E2E8F0';
+        labelFull.style.background = '#FFFFFF';
+        labelFull.style.color = '#334155';
+        labelPartial.style.borderColor = '#D97706';
+        labelPartial.style.background = '#FFFBEB';
+        labelPartial.style.color = '#92400E';
+        payAmtInput.readOnly = false;
+        payAmtInput.focus();
+        updateBalancePreview();
+      }
+    }
+
+    function updateBalancePreview() {
+      const val = parseFloat(payAmtInput.value) || 0;
+      const rem = Math.max(0, remainingDue - val);
+      balPreview.innerHTML = 'Remaining balance after payment: <strong style="color: ' + (rem > 0 ? '#DC2626' : '#059669') + ';">₹' + rem.toFixed(2) + '</strong>';
+      if (confirmBtn) confirmBtn.textContent = 'Record Payment (₹' + val.toFixed(2) + ')';
+    }
+
+    fullRadio?.addEventListener('change', updatePayModeUI);
+    partialRadio?.addEventListener('change', updatePayModeUI);
+    payAmtInput?.addEventListener('input', updateBalancePreview);
 
     modalOverlay.querySelector('#form-card-settle-payment').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -565,7 +628,6 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       modalOverlay.remove();
       toast.success(`Payment of ${formatCurrency(amountToPay)} recorded for trip ${tripCode}!`);
       
-      // Update local allTrips reference and re-render
       allTrips.length = 0;
       allTrips.push(...freshTrips);
       render();

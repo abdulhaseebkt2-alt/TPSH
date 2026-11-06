@@ -92,7 +92,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
             <span class="sidebar-role-title">Role View</span>
             <span class="sidebar-role-badge">Dev Mode</span>
           </div>
-          <select id="sidebar-role-selector" style="width: 100%; cursor: pointer;">
+          <select id="sidebar-role-selector" style="width: 100%; cursor: pointer; background: #1E293B; color: #F8FAFC; border: 1.5px solid #334155; border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.8rem;">
             <option value="super_admin" ${user?.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
             <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Admin</option>
             <option value="boys_mentor" ${user?.role === 'boys_mentor' ? 'selected' : ''}>Boys Hostel Mentor</option>

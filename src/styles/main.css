@@ -9229,7 +9229,8 @@ form.was-validated :invalid,
 
 /* Compact Mobile-Friendly Tables for Vehicle Modules (Zero Horizontal Scroll) */
 .all-trips-table,
-.user-card-table {
+.user-card-table,
+.fleet-desktop-table-el {
   width: 100% !important;
   table-layout: fixed !important;
   border-collapse: collapse !important;
@@ -9239,9 +9240,28 @@ form.was-validated :invalid,
 .all-trips-table th,
 .all-trips-table td,
 .user-card-table th,
-.user-card-table td {
+.user-card-table td,
+.fleet-desktop-table-el th,
+.fleet-desktop-table-el td {
   box-sizing: border-box !important;
   word-break: break-word;
+}
+
+/* Fleet Overview Responsive Views (Desktop Table vs Mobile Cards) */
+.fleet-desktop-table {
+  display: block;
+}
+.fleet-mobile-cards {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .fleet-desktop-table {
+    display: none !important;
+  }
+  .fleet-mobile-cards {
+    display: grid !important;
+  }
 }
 
 @media (max-width: 768px) {
@@ -9256,4 +9276,103 @@ form.was-validated :invalid,
   .user-card-row.has-due {
     cursor: pointer;
   }
+}
+
+/* Mobile-Friendly Full Window Sheet for Add/Edit Vehicle Modals */
+@media (max-width: 768px) {
+  .modal-mobile-responsive {
+    max-height: 94vh !important;
+    height: 94vh !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+}
+
+/* Vehicle Category Segmented Pill Selector (Uniform & Mobile-Friendly) */
+.vehicle-category-selector {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.btn-category-pill {
+  flex: 1 1 calc(25% - 0.4rem);
+  min-width: 65px;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-category-pill:hover {
+  border-color: #059669;
+  background: #F0FDF4;
+}
+.btn-category-pill.active {
+  border-color: #059669 !important;
+  background: #ECFDF5 !important;
+  color: #065F46 !important;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2);
+}
+
+/* Sidebar Role View [Dev Mode] Dropdown - Guaranteed Dark Legibility */
+.sidebar .sidebar-role-preview .tps-custom-select-trigger,
+aside.sidebar .sidebar-role-preview .tps-custom-select-trigger,
+.sidebar #sidebar-role-selector + .tps-custom-select-trigger,
+aside.sidebar #sidebar-role-selector + .tps-custom-select-trigger {
+  background: #1E293B !important;
+  background-color: #1E293B !important;
+  border: 1.5px solid #334155 !important;
+  color: #F8FAFC !important;
+  border-radius: 8px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0.35rem 0.75rem !important;
+  box-shadow: none !important;
+}
+
+.sidebar .sidebar-role-preview .tps-custom-select-trigger:hover,
+.sidebar .sidebar-role-preview .tps-custom-select-trigger.open,
+aside.sidebar .sidebar-role-preview .tps-custom-select-trigger.open {
+  border-color: #10B981 !important;
+  background: #273549 !important;
+  background-color: #273549 !important;
+}
+
+.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-label,
+aside.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-label {
+  color: #F8FAFC !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+}
+
+.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-chevron svg,
+aside.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-chevron svg {
+  stroke: #10B981 !important;
+}
+
+/* Dropdown menu opened from within sidebar */
+.tps-custom-select-menu.sidebar-select-menu {
+  background: #0F172A !important;
+  border: 1px solid #334155 !important;
+}
+.tps-custom-select-menu.sidebar-select-menu .tps-custom-select-item {
+  color: #F1F5F9 !important;
+}
+.tps-custom-select-menu.sidebar-select-menu .tps-custom-select-item:hover,
+.tps-custom-select-menu.sidebar-select-menu .tps-custom-select-item.selected {
+  background: #1E293B !important;
+  color: #10B981 !important;
 }

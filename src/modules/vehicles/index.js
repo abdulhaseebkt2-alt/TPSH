@@ -140,145 +140,245 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       `;
     }
 
+    const statusColors = {
+      Available: { bg: '#ECFDF5', text: '#059669', border: '#A7F3D0' },
+      'On Trip': { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },
+      Maintenance: { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A' },
+      Inactive: { bg: '#F1F5F9', text: '#64748B', border: '#CBD5E1' }
+    };
+
     return `
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem;">
-        ${vehicles.map(v => {
-          const vDocs = documents.filter(d => d.vehicle_id === v.id);
-          const vExpenses = expenses.filter(e => e.vehicle_id === v.id);
-          const vTrips = trips.filter(t => t.vehicle_id === v.id);
+      <div>
+        <!-- Desktop View (Only): Master Institutional Table -->
+        <div class="card-panel fleet-desktop-table" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; overflow-x: auto; box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;">
+          <table class="data-table fleet-desktop-table-el" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
+                <th style="padding: 0.75rem 0.65rem;">Vehicle</th>
+                <th style="padding: 0.75rem 0.65rem;">Category</th>
+                <th style="padding: 0.75rem 0.65rem;">Current Odometer</th>
+                <th style="padding: 0.75rem 0.65rem;">Fuel Mileage (B2B)</th>
+                <th style="padding: 0.75rem 0.65rem;">Dynamic Rate</th>
+                <th style="padding: 0.75rem 0.65rem;">Short Ride Mode</th>
+                <th style="padding: 0.75rem 0.65rem;">Compliance Status</th>
+                <th style="padding: 0.75rem 0.65rem;">Status</th>
+                <th style="padding: 0.75rem 0.65rem; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${vehicles.map(v => {
+                const vDocs = documents.filter(d => d.vehicle_id === v.id);
+                const vExpenses = expenses.filter(e => e.vehicle_id === v.id);
+                const dynamicRateInfo = calculateDynamicRatePerKm(v, expenses, trips);
+                const fuelLogs = vExpenses
+                  .filter(e => e.expense_type === 'Fuel' && e.odometer_at_expense)
+                  .sort((a, b) => Number(b.odometer_at_expense) - Number(a.odometer_at_expense));
+                const latestMileage = fuelLogs.find(e => e.calculated_mileage_kmpl !== null && e.calculated_mileage_kmpl !== undefined);
+                const docAlerts = vDocs.map(d => ({ ...d, exp: getDocumentExpiryStatus(d.expiry_date) }))
+                  .filter(d => d.exp.status === 'expired' || d.exp.status === 'warning');
+                const sc = statusColors[v.status] || statusColors.Available;
 
-          // Calculate Dynamic Rate
-          const dynamicRateInfo = calculateDynamicRatePerKm(v, expenses, trips);
+                return `
+                  <tr style="border-bottom: 1px solid var(--border-subtle); vertical-align: middle;">
+                    <td style="padding: 0.75rem 0.65rem;">
+                      <div style="display: flex; align-items: center; gap: 0.65rem;">
+                        <div style="width: 44px; height: 38px; border-radius: 6px; background: #F1F5F9; border: 1px solid var(--border-medium); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                          ${v.photo_url ? `
+                            <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                          ` : `
+                            <span style="font-size: 1.25rem;">${getVehicleTypeIcon(v.vehicle_type)}</span>
+                          `}
+                        </div>
+                        <div>
+                          <div style="font-weight: 700; color: #0F172A; font-size: 0.9rem;">${v.vehicle_name}</div>
+                          <span style="font-family: monospace; font-size: 0.74rem; font-weight: 700; background: #0F172A; color: #FFFFFF; padding: 1px 5px; border-radius: 3px;">
+                            ${v.reg_number}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem;">
+                      <span class="badge" style="font-size: 0.72rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-weight: 700;">
+                        ${normalizeVehicleCategory(v.vehicle_type)}
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem; font-family: monospace; font-weight: 700; font-size: 0.88rem; color: #0F172A;">
+                      ${Number(v.current_odometer || 0).toLocaleString('en-IN')} KM
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem;">
+                      ${latestMileage?.calculated_mileage_kmpl ? `
+                        <span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-weight: 800; font-size: 0.78rem;">
+                          ${latestMileage.calculated_mileage_kmpl} km/L
+                        </span>
+                      ` : '<span style="font-size: 0.75rem; color: var(--text-muted);">Awaiting fills</span>'}
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem;">
+                      <div style="font-size: 0.95rem; font-weight: 800; color: #4F46E5; line-height: 1.1;">
+                        ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">/km</span>
+                      </div>
+                      <span class="badge" style="font-size: 0.64rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'}; padding: 1px 4px; margin-top: 2px;">
+                        ${dynamicRateInfo.isFallback ? 'Fallback' : 'Rolling 90d'}
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem;">
+                      ${v.allow_instant_short_ride !== false ? `
+                        <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.7rem; font-weight: 700;">
+                          Instant Ride
+                        </span>
+                      ` : `
+                        <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.7rem; font-weight: 700;">
+                          Approval Req
+                        </span>
+                      `}
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem;">
+                      ${docAlerts.length > 0 ? `
+                        <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-size: 0.7rem; font-weight: 700;">
+                          ${docAlerts.length} Expiry Alert(s)
+                        </span>
+                      ` : `
+                        <span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 0.7rem; font-weight: 600;">
+                          ✓ Up to Date
+                        </span>
+                      `}
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem;">
+                      <span class="badge" style="background: ${sc.bg}; color: ${sc.text}; border: 1px solid ${sc.border}; font-weight: 700; font-size: 0.72rem; padding: 2px 7px;">
+                        ${v.status || 'Available'}
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem 0.65rem; text-align: right; white-space: nowrap;">
+                      <button class="btn btn-sm btn-outline btn-manage-docs" data-id="${v.id}" style="font-size: 0.74rem; padding: 3px 8px; margin-right: 4px;">
+                        Docs (${vDocs.length})
+                      </button>
+                      <button class="btn btn-sm btn-secondary btn-edit-vehicle" data-id="${v.id}" style="font-size: 0.74rem; padding: 3px 8px; margin-right: 4px;">
+                        Edit
+                      </button>
+                      <button class="btn btn-sm btn-outline btn-delete-vehicle" data-id="${v.id}" style="font-size: 0.74rem; padding: 3px 8px; color: #DC2626; border-color: #FECACA;">
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
 
-          // Calculate Latest Bill-to-Bill Mileage
-          const fuelLogs = vExpenses
-            .filter(e => e.expense_type === 'Fuel' && e.odometer_at_expense)
-            .sort((a, b) => Number(b.odometer_at_expense) - Number(a.odometer_at_expense));
-          const latestMileage = fuelLogs.find(e => e.calculated_mileage_kmpl !== null && e.calculated_mileage_kmpl !== undefined);
+        <!-- Mobile View (Only): Responsive Fleet Cards Grid -->
+        <div class="fleet-mobile-cards" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
+          ${vehicles.map(v => {
+            const vDocs = documents.filter(d => d.vehicle_id === v.id);
+            const vExpenses = expenses.filter(e => e.vehicle_id === v.id);
+            const dynamicRateInfo = calculateDynamicRatePerKm(v, expenses, trips);
+            const fuelLogs = vExpenses
+              .filter(e => e.expense_type === 'Fuel' && e.odometer_at_expense)
+              .sort((a, b) => Number(b.odometer_at_expense) - Number(a.odometer_at_expense));
+            const latestMileage = fuelLogs.find(e => e.calculated_mileage_kmpl !== null && e.calculated_mileage_kmpl !== undefined);
+            const docAlerts = vDocs.map(d => ({ ...d, exp: getDocumentExpiryStatus(d.expiry_date) }))
+              .filter(d => d.exp.status === 'expired' || d.exp.status === 'warning');
+            const sc = statusColors[v.status] || statusColors.Available;
 
-          // Find Document Expiry Warnings
-          const docAlerts = vDocs.map(d => {
-            const exp = getDocumentExpiryStatus(d.expiry_date);
-            return { ...d, exp };
-          }).filter(d => d.exp.status === 'expired' || d.exp.status === 'warning');
+            return `
+              <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm); position: relative;">
+                <div>
+                  <div style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.75rem;">
+                    <div style="width: 64px; height: 54px; border-radius: 8px; background: #F1F5F9; border: 1px solid var(--border-medium); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                      ${v.photo_url ? `
+                        <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                      ` : `
+                        <span style="font-size: 1.6rem;">${getVehicleTypeIcon(v.vehicle_type)}</span>
+                      `}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.35rem;">
+                        <div style="min-width: 0;">
+                          <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                            <h4 style="margin: 0; font-size: 0.98rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${v.vehicle_name}</h4>
+                            <span class="badge" style="background: ${sc.bg}; color: ${sc.text}; border: 1px solid ${sc.border}; font-weight: 600; font-size: 0.68rem; padding: 1px 5px;">
+                              ${v.status || 'Available'}
+                            </span>
+                          </div>
+                          <div style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; flex-wrap: wrap;">
+                            <span style="font-family: monospace; font-size: 0.76rem; font-weight: 700; background: #0F172A; color: #F8FAFC; padding: 1px 5px; border-radius: 3px;">
+                              ${v.reg_number}
+                            </span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">${normalizeVehicleCategory(v.vehicle_type)}</span>
+                          </div>
+                        </div>
+                        <div style="text-align: right; flex-shrink: 0;">
+                          <div style="font-size: 1.05rem; font-weight: 800; color: #4F46E5; line-height: 1.1;">
+                            ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.68rem; font-weight: 600; color: var(--text-muted);">/km</span>
+                          </div>
+                          <span class="badge" style="font-size: 0.62rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'}; padding: 1px 4px;">
+                            ${dynamicRateInfo.isFallback ? 'Fallback' : 'Rolling 90d'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-          const statusColors = {
-            Available: { bg: '#ECFDF5', text: '#059669', border: '#A7F3D0' },
-            'On Trip': { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },
-            Maintenance: { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A' },
-            Inactive: { bg: '#F1F5F9', text: '#64748B', border: '#CBD5E1' }
-          };
-          const sc = statusColors[v.status] || statusColors.Available;
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; background: var(--bg-surface-subtle); padding: 0.65rem; border-radius: 8px; margin: 0.65rem 0 0.5rem; border: 1px solid var(--border-subtle);">
+                    <div>
+                      <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Current Odometer</div>
+                      <div style="font-size: 0.98rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
+                        ${Number(v.current_odometer || 0).toLocaleString('en-IN')} <span style="font-size: 0.72rem; font-weight: normal;">KM</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Fuel Mileage (B2B)</div>
+                      <div style="font-size: 0.98rem; font-weight: 700; color: #059669;">
+                        ${latestMileage?.calculated_mileage_kmpl ? `${latestMileage.calculated_mileage_kmpl} <span style="font-size: 0.72rem; font-weight: normal;">km/L</span>` : '<span style="font-size: 0.8rem; color: var(--text-muted);">Awaiting fills</span>'}
+                      </div>
+                    </div>
+                  </div>
 
-          return `
-            <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm); position: relative;">
-              <div>
-                <!-- Top Card Header -->
-                <!-- Top Card Header with Vehicle Photo -->
-                <div style="display: flex; gap: 0.85rem; align-items: flex-start; margin-bottom: 0.75rem;">
-                  <!-- Vehicle Photo Thumbnail -->
-                  <div style="width: 72px; height: 60px; border-radius: 8px; background: #F1F5F9; border: 1px solid var(--border-medium); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative;">
-                    ${v.photo_url ? `
-                      <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                  <div style="margin-bottom: 0.65rem;">
+                    ${v.allow_instant_short_ride !== false ? `
+                      <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.7rem; font-weight: 700;">
+                        Instant Short Ride (No Approval Needed)
+                      </span>
                     ` : `
-                      <span style="font-size: 1.75rem;">${getVehicleTypeIcon(v.vehicle_type)}</span>
+                      <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.7rem; font-weight: 700;">
+                        Trip Request & Approval Required
+                      </span>
                     `}
                   </div>
 
-                  <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.35rem;">
-                      <div style="min-width: 0;">
-                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-                          <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${v.vehicle_name}</h4>
-                          <span class="badge" style="background: ${sc.bg}; color: ${sc.text}; border: 1px solid ${sc.border}; font-weight: 600; font-size: 0.7rem; padding: 1px 6px;">
-                            ${v.status || 'Available'}
-                          </span>
+                  ${docAlerts.length > 0 ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.75rem;">
+                      ${docAlerts.map(a => `
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; padding: 3px 6px; border-radius: 6px; background: ${a.exp.status === 'expired' ? '#FEE2E2' : '#FEF3C7'}; color: ${a.exp.color}; border: 1px solid ${a.exp.status === 'expired' ? '#FCA5A5' : '#FDE68A'};">
+                          <span style="font-weight: 700;">${a.document_type}: ${a.exp.label}</span>
+                          <span style="font-size: 0.68rem; opacity: 0.85;">${formatDate(a.expiry_date)}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; flex-wrap: wrap;">
-                          <span style="font-family: monospace; font-size: 0.82rem; font-weight: 700; background: #0F172A; color: #F8FAFC; padding: 1px 6px; border-radius: 4px;">
-                            ${v.reg_number}
-                          </span>
-                          <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 600;">${normalizeVehicleCategory(v.vehicle_type)}</span>
-                        </div>
-                      </div>
-
-                      <div style="text-align: right; flex-shrink: 0;">
-                        <div style="font-size: 1.15rem; font-weight: 800; color: #4F46E5; line-height: 1.1;">
-                          ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">/km</span>
-                        </div>
-                        <span class="badge" style="font-size: 0.65rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'}; padding: 1px 4px;">
-                          ${dynamicRateInfo.isFallback ? 'Fallback' : 'Rolling 90d'}
-                        </span>
-                      </div>
+                      `).join('')}
                     </div>
-                  </div>
-                </div>
-
-                <!-- Odometer & Fuel Mileage Box -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-surface-subtle); padding: 0.75rem; border-radius: 8px; margin: 0.75rem 0 0.5rem; border: 1px solid var(--border-subtle);">
-                  <div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Current Odometer</div>
-                    <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
-                      ${Number(v.current_odometer || 0).toLocaleString('en-IN')} <span style="font-size: 0.75rem; font-weight: normal;">KM</span>
-                    </div>
-                  </div>
-                  <div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Fuel Mileage (B2B)</div>
-                    <div style="font-size: 1.05rem; font-weight: 700; color: #059669;">
-                      ${latestMileage?.calculated_mileage_kmpl ? `${latestMileage.calculated_mileage_kmpl} <span style="font-size: 0.75rem; font-weight: normal;">km/L</span>` : '<span style="font-size: 0.85rem; color: var(--text-muted);">Awaiting fills</span>'}
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Instant Short Ride Permission Tag -->
-                <div style="margin-bottom: 0.75rem;">
-                  ${v.allow_instant_short_ride !== false ? `
-                    <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center;">
-                      Instant Short Ride (No Approval Needed)
-                    </span>
                   ` : `
-                    <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center;">
-                      Trip Request & Approval Required
-                    </span>
+                    <div style="font-size: 0.72rem; color: #059669; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.75rem;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>All compliance documents up to date</span>
+                    </div>
                   `}
                 </div>
 
-                <!-- Document Expiry Warning Banners -->
-                ${docAlerts.length > 0 ? `
-                  <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem;">
-                    ${docAlerts.map(a => `
-                      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.76rem; padding: 4px 8px; border-radius: 6px; background: ${a.exp.status === 'expired' ? '#FEE2E2' : '#FEF3C7'}; color: ${a.exp.color}; border: 1px solid ${a.exp.status === 'expired' ? '#FCA5A5' : '#FDE68A'};">
-                        <span style="font-weight: 700;">${a.document_type}: ${a.exp.label}</span>
-                        <span style="font-size: 0.7rem; opacity: 0.85;">${formatDate(a.expiry_date)}</span>
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : `
-                  <div style="font-size: 0.74rem; color: #059669; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.85rem;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>All compliance documents up to date</span>
-                  </div>
-                `}
-              </div>
-
-              <!-- Action Buttons -->
-              <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn btn-sm btn-outline btn-manage-docs" data-id="${v.id}" style="font-size: 0.78rem;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Documents (${vDocs.length})
-                </button>
-                <div style="display: flex; gap: 0.35rem;">
-                  <button class="btn btn-sm btn-secondary btn-edit-vehicle" data-id="${v.id}" style="font-size: 0.78rem;">
-                    Edit
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.65rem; border-top: 1px solid var(--border-subtle); gap: 0.4rem; flex-wrap: wrap;">
+                  <button class="btn btn-sm btn-outline btn-manage-docs" data-id="${v.id}" style="font-size: 0.74rem;">
+                    Documents (${vDocs.length})
                   </button>
-                  <button class="btn btn-sm btn-outline btn-delete-vehicle" data-id="${v.id}" style="font-size: 0.78rem; color: #DC2626; border-color: #FECACA;">
-                    Delete
-                  </button>
+                  <div style="display: flex; gap: 0.3rem;">
+                    <button class="btn btn-sm btn-secondary btn-edit-vehicle" data-id="${v.id}" style="font-size: 0.74rem;">
+                      Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-delete-vehicle" data-id="${v.id}" style="font-size: 0.74rem; color: #DC2626; border-color: #FECACA;">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          `;
-        }).join('')}
+            `;
+          }).join('')}
+        </div>
       </div>
     `;
   }
@@ -368,136 +468,141 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     }
 
     return `
-      <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
-        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle);">
-          <div>
-            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">Log Vehicle Expense</h3>
-            <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
-              Record fuel refills and maintenance costs with automated bill-to-bill fuel efficiency (km/L).
-            </p>
+      <div style="width: 100%; max-width: 1080px; margin: 0 auto;">
+        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+          <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle);">
+            <div>
+              <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Log Vehicle Expense</h3>
+              <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+                Record fuel refills and maintenance costs with automated bill-to-bill fuel efficiency (km/L).
+              </p>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-goto-expense-ledger" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; padding: 0.45rem 0.9rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              View Expense Ledger (${expenses.length})
+            </button>
           </div>
-          <button type="button" class="btn btn-outline btn-sm" id="btn-goto-expense-ledger" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; padding: 0.45rem 0.9rem;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            View Expense Ledger (${expenses.length})
-          </button>
-        </div>
 
-        <div class="card-panel-body" style="padding: 1.5rem;">
-          <form id="form-add-expense">
-            <!-- SECTION 1: VEHICLE & EXPENSE CLASSIFICATION -->
-            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem;">
-              <span>1. Vehicle & Expense Classification</span>
-            </h4>
+          <div class="card-panel-body" style="padding: 1.5rem;">
+            <form id="form-add-expense">
+              <!-- 2-COLUMN DESKTOP GRID (Like Student Admission Form) -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 1.25rem;">
+                <!-- LEFT COLUMN: VEHICLE, EXPENSE TYPE & FINANCIALS -->
+                <div>
+                  <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--brand-navy); margin: 0 0 1rem 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.45rem;">
+                    1. Vehicle & Financial Details
+                  </h4>
 
-            <div class="form-grid" style="margin-bottom: 1.5rem;">
-              <!-- Assigned Vehicle Trigger Card -->
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Assigned Vehicle</label>
-                <input type="hidden" id="exp-vehicle-id" value="${selectedVeh ? selectedVeh.id : ''}" />
-                
-                <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0;">
-                  <button type="button" class="rbac-mobile-role-trigger" id="sec-expense-vehicle-trigger" aria-label="Select vehicle to record expense" style="min-height: 48px;">
-                    <div class="rbac-trigger-left" style="gap: 0.85rem;">
-                      <div class="rbac-trigger-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; overflow: hidden; padding: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px;">
-                        ${selectedVeh?.photo_url ? `
-                          <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
-                        ` : `
-                          <span style="font-size: 1.35rem;">${getVehicleTypeIcon(selectedVeh?.vehicle_type)}</span>
-                        `}
-                      </div>
-                      <div class="rbac-trigger-text">
-                        <span class="rbac-trigger-kicker">RECORD EXPENSE FOR</span>
-                        <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
-                          <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedVeh ? selectedVeh.vehicle_name : 'Choose Vehicle'}</span>
-                          <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
-                            ${selectedVeh ? selectedVeh.reg_number : ''}
-                          </span>
-                          <span class="badge" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
-                            ${normalizeVehicleCategory(selectedVeh?.vehicle_type)}
+                  <!-- Assigned Vehicle Trigger Card -->
+                  <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Assigned Vehicle *</label>
+                    <input type="hidden" id="exp-vehicle-id" value="${selectedVeh ? selectedVeh.id : ''}" />
+                    
+                    <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0;">
+                      <button type="button" class="rbac-mobile-role-trigger" id="sec-expense-vehicle-trigger" aria-label="Select vehicle to record expense" style="min-height: 48px;">
+                        <div class="rbac-trigger-left" style="gap: 0.85rem;">
+                          <div class="rbac-trigger-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; overflow: hidden; padding: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px;">
+                            ${selectedVeh?.photo_url ? `
+                              <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                            ` : `
+                              <span style="font-size: 1.35rem;">${getVehicleTypeIcon(selectedVeh?.vehicle_type)}</span>
+                            `}
+                          </div>
+                          <div class="rbac-trigger-text">
+                            <span class="rbac-trigger-kicker">RECORD EXPENSE FOR</span>
+                            <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
+                              <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedVeh ? selectedVeh.vehicle_name : 'Choose Vehicle'}</span>
+                              <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
+                                ${selectedVeh ? selectedVeh.reg_number : ''}
+                              </span>
+                              <span class="badge" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
+                                ${normalizeVehicleCategory(selectedVeh?.vehicle_type)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="rbac-trigger-right">
+                          <span class="rbac-trigger-action-pill">
+                            <span>Switch</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
                           </span>
                         </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Expense Type -->
+                  <div class="form-group" style="margin-bottom: 0.85rem;">
+                    <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Expense Type *</label>
+                    <select id="exp-type" class="form-control" required style="width: 100%; height: 40px; font-size: 0.84rem;">
+                      <option value="Fuel">Fuel (Petrol / Diesel / CNG)</option>
+                      <option value="Maintenance">Maintenance & Service</option>
+                      <option value="Toll/Tax">Toll & Road Tax</option>
+                      <option value="Insurance">Insurance Premium</option>
+                      <option value="Other">Other Operational Expense</option>
+                    </select>
+                  </div>
+
+                  <!-- Amount & Date (2 columns) -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Amount (₹) *</label>
+                      <input type="number" id="exp-amount" class="form-control" step="0.01" min="1" required placeholder="e.g. 500" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Date of Expense *</label>
+                      <input type="date" id="exp-date" class="form-control" required value="${new Date().toISOString().split('T')[0]}" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- RIGHT COLUMN: BILL-TO-BILL FUEL METRICS & NOTES -->
+                <div>
+                  <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--brand-navy); margin: 0 0 1rem 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.45rem;">
+                    2. Bill-to-Bill Fuel Metrics & Notes
+                  </h4>
+
+                  <!-- CONDITIONAL BILL-TO-BILL FUEL METRICS -->
+                  <div id="fuel-fields-box" style="background: #F8FAFC; border: 1.5px solid var(--border-medium); border-radius: 10px; padding: 1rem; margin-bottom: 0.85rem;">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.35rem;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669;"><path d="M3 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V2"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+                      <span>Fuel Metrics (Auto Mileage Calculation)</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label required" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Fuel Liters Added</label>
+                        <input type="number" id="exp-liters" class="form-control" step="0.01" min="0.1" placeholder="e.g. 4.42" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                      </div>
+
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label required" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Odometer (KM)</label>
+                        <input type="number" id="exp-odometer" class="form-control" min="0" placeholder="e.g. 32609" style="width: 100%; height: 40px; font-size: 0.84rem;" />
                       </div>
                     </div>
-                    <div class="rbac-trigger-right">
-                      <span class="rbac-trigger-action-pill">
-                        <span>Switch</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                      </span>
+
+                    <div id="mileage-live-preview" style="font-size: 0.8rem; color: #059669; font-weight: 600; padding: 6px 10px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; display: none; margin-top: 0.65rem;">
+                      <!-- Real-time mileage calculation preview -->
                     </div>
-                  </button>
+                  </div>
+
+                  <!-- NOTES & REFERENCE -->
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Notes / Invoice Reference</label>
+                    <textarea id="exp-notes" class="form-control" rows="3" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%; font-size: 0.84rem;"></textarea>
+                  </div>
                 </div>
               </div>
 
-              <!-- Expense Type -->
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Expense Type</label>
-                <select id="exp-type" class="form-control" required style="width: 100%; height: 48px; font-size: 0.88rem;">
-                  <option value="Fuel">Fuel (Petrol / Diesel / CNG)</option>
-                  <option value="Maintenance">Maintenance & Service</option>
-                  <option value="Toll/Tax">Toll & Road Tax</option>
-                  <option value="Insurance">Insurance Premium</option>
-                  <option value="Other">Other Operational Expense</option>
-                </select>
+              <!-- Frozen Bottom Action Bar -->
+              <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1.15rem; margin-top: 0.5rem;">
+                <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.75rem; font-weight: 700; font-size: 0.9rem; min-width: 200px;">
+                  Save Expense & Update Fleet
+                </button>
               </div>
-            </div>
-
-            <!-- SECTION 2: FINANCIAL & SCHEDULE DETAILS -->
-            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem;">
-              <span>2. Financial & Date Details</span>
-            </h4>
-
-            <div class="form-grid" style="margin-bottom: 1.5rem;">
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Amount (₹)</label>
-                <input type="number" id="exp-amount" class="form-control" step="0.01" min="1" required placeholder="e.g. 3500.00" style="width: 100%; height: 44px; font-size: 0.88rem;" />
-              </div>
-
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label required" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Date of Expense</label>
-                <input type="date" id="exp-date" class="form-control" required value="${new Date().toISOString().split('T')[0]}" style="width: 100%; height: 44px; font-size: 0.88rem;" />
-              </div>
-            </div>
-
-            <!-- SECTION 3: CONDITIONAL BILL-TO-BILL FUEL METRICS -->
-            <div id="fuel-fields-box" style="background: #F8FAFC; border: 1.5px solid var(--border-medium); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem;">
-              <h4 style="font-size: 0.92rem; font-weight: 700; color: #0F172A; margin: 0 0 1rem 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669;"><path d="M3 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V2"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-                <span>3. Bill-to-Bill Fuel Metrics</span>
-              </h4>
-
-              <div class="form-grid" style="margin-bottom: 0.75rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Fuel Liters Added</label>
-                  <input type="number" id="exp-liters" class="form-control" step="0.01" min="0.1" placeholder="e.g. 35.5" style="width: 100%; height: 44px; font-size: 0.88rem;" />
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Odometer at Fueling (KM)</label>
-                  <input type="number" id="exp-odometer" class="form-control" min="0" placeholder="e.g. 42850" style="width: 100%; height: 44px; font-size: 0.88rem;" />
-                </div>
-              </div>
-
-              <div id="mileage-live-preview" style="font-size: 0.82rem; color: #059669; font-weight: 600; padding: 8px 12px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; display: none; margin-top: 0.75rem;">
-                <!-- Real-time mileage calculation preview -->
-              </div>
-            </div>
-
-            <!-- SECTION 4: NOTES & REFERENCE -->
-            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 1.1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
-              4. Notes & Invoice Reference
-            </h4>
-
-            <div class="form-group" style="margin-bottom: 1.5rem;">
-              <label class="form-label" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Notes / Invoice Reference</label>
-              <textarea id="exp-notes" class="form-control" rows="3" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%; font-size: 0.88rem;"></textarea>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
-              <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-weight: 700; font-size: 0.92rem; min-width: 220px;">
-                Save Expense & Update Fleet
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
     `;
@@ -1215,7 +1320,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+      <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
         <!-- Frozen Top Header -->
         <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Add Vehicle to School Fleet</h3>
@@ -1246,14 +1351,15 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
                 <input type="text" id="v-reg" class="form-control" required placeholder="e.g. KL-55-XY-7890" style="width: 100%; text-transform: uppercase;" />
               </div>
-              <div>
-                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
-                <select id="v-type" class="form-control" required style="width: 100%;">
-                  <option value="2 Wheeler">2 Wheeler</option>
-                  <option value="3 Wheeler">3 Wheeler</option>
-                  <option value="4 Wheeler" selected>4 Wheeler</option>
-                  <option value="Heavy">Heavy</option>
-                </select>
+              <div style="grid-column: 1 / -1;">
+                <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Vehicle Category *</label>
+                <div class="vehicle-category-selector" id="add-v-type-pills">
+                  <button type="button" class="btn-category-pill" data-cat="2 Wheeler">🏍️ 2 Wheeler</button>
+                  <button type="button" class="btn-category-pill" data-cat="3 Wheeler">🛺 3 Wheeler</button>
+                  <button type="button" class="btn-category-pill active" data-cat="4 Wheeler">🚗 4 Wheeler</button>
+                  <button type="button" class="btn-category-pill" data-cat="Heavy">🚌 Heavy</button>
+                </div>
+                <input type="hidden" id="v-type" value="4 Wheeler" required />
               </div>
             </div>
 
@@ -1312,6 +1418,15 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       b.addEventListener('click', () => modalOverlay.remove());
     });
 
+        modalOverlay.querySelectorAll('#add-v-type-pills .btn-category-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        modalOverlay.querySelectorAll('#add-v-type-pills .btn-category-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const hidden = modalOverlay.querySelector('#v-type');
+        if (hidden) hidden.value = pill.getAttribute('data-cat');
+      });
+    });
+
     const photoFileInput = modalOverlay.querySelector('#v-photo-file');
     const photoHidden = modalOverlay.querySelector('#v-photo-data');
     const photoPreview = modalOverlay.querySelector('#v-photo-preview');
@@ -1367,7 +1482,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+      <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
         <!-- Frozen Top Header -->
         <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Edit Vehicle — ${v.vehicle_name}</h3>
@@ -1398,14 +1513,15 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
                 <input type="text" id="ev-reg" class="form-control" required value="${v.reg_number}" style="width: 100%; text-transform: uppercase;" />
               </div>
-              <div>
-                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
-                <select id="ev-type" class="form-control" required style="width: 100%;">
-                  <option value="2 Wheeler" ${normCategory === '2 Wheeler' ? 'selected' : ''}>2 Wheeler</option>
-                  <option value="3 Wheeler" ${normCategory === '3 Wheeler' ? 'selected' : ''}>3 Wheeler</option>
-                  <option value="4 Wheeler" ${normCategory === '4 Wheeler' ? 'selected' : ''}>4 Wheeler</option>
-                  <option value="Heavy" ${normCategory === 'Heavy' ? 'selected' : ''}>Heavy</option>
-                </select>
+              <div style="grid-column: 1 / -1;">
+                <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Vehicle Category *</label>
+                <div class="vehicle-category-selector" id="edit-v-type-pills">
+                  <button type="button" class="btn-category-pill ${normCategory === '2 Wheeler' ? 'active' : ''}" data-cat="2 Wheeler">🏍️ 2 Wheeler</button>
+                  <button type="button" class="btn-category-pill ${normCategory === '3 Wheeler' ? 'active' : ''}" data-cat="3 Wheeler">🛺 3 Wheeler</button>
+                  <button type="button" class="btn-category-pill ${normCategory === '4 Wheeler' ? 'active' : ''}" data-cat="4 Wheeler">🚗 4 Wheeler</button>
+                  <button type="button" class="btn-category-pill ${normCategory === 'Heavy' ? 'active' : ''}" data-cat="Heavy">🚌 Heavy</button>
+                </div>
+                <input type="hidden" id="ev-type" value="${normCategory}" required />
               </div>
             </div>
 
@@ -1684,10 +1800,10 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+      <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
         <!-- Frozen Top Header -->
         <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
-          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Payment / Partial Settle</h3>
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Trip Settlement</h3>
           <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
@@ -1703,27 +1819,41 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 </div>
                 <div style="text-align: right;">
                   <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
-                  <div style="font-size: 1.35rem; font-weight: 800; color: #065F46;">${formatCurrency(remainingDue)}</div>
+                  <div style="font-size: 1.35rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
                 </div>
               </div>
             </div>
 
-            <!-- Strict Financial Audit Notice -->
-            <div style="font-size: 0.78rem; color: #3730A3; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 6px; padding: 0.65rem; margin-bottom: 1rem;">
-              <strong>Audit Record:</strong> This payment will be permanently logged with your name (<strong>${currentUser?.full_name || 'Admin'}</strong>) as the receiving officer.
+            <!-- Payment Options Strip (Full vs Partial like Student Leave Card) -->
+            <div style="margin-bottom: 0.85rem;">
+              <label style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: block;">Select Payment Option</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <label id="label-idx-pay-full" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #059669; background: #ECFDF5; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #065F46;">
+                  <input type="radio" name="idx_trip_pay_option" value="full" checked style="accent-color: #059669;" />
+                  Full Payment
+                </label>
+                <label id="label-idx-pay-partial" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.65rem; border: 1.5px solid #E2E8F0; background: #FFFFFF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
+                  <input type="radio" name="idx_trip_pay_option" value="partial" style="accent-color: #D97706;" />
+                  Partial Payment
+                </label>
+              </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Received (₹) * (Full or Partial)</label>
-              <input type="number" id="pay-amount-input" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.1rem; font-weight: 700; color: #059669;" />
-              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Enter full or partial amount to settle.</div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Paying Now (₹) *</label>
+              <input type="number" id="pay-amount-input" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" readonly required style="width: 100%; height: 40px; font-size: 1rem; font-weight: 700; color: #059669;" />
+              <div id="idx-pay-balance-preview" style="font-size: 0.76rem; font-weight: 600; color: #059669; margin-top: 0.35rem; padding: 4px 8px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0;">
+                Remaining balance after payment: <strong>₹0.00</strong>
+              </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 0.85rem;">
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
-              <select id="pay-method" class="form-control" required style="width: 100%;">
+              <select id="pay-method" class="form-control" required style="width: 100%; height: 40px; font-size: 0.84rem;">
                 <option value="Cash">Cash (Received at School Office)</option>
-                <option value="UPI / GPay">UPI / GPay (School QR Scan)</option>
+                <option value="Google Pay">Google Pay</option>
+                <option value="PhonePe">PhonePe</option>
+                <option value="UPI / QR Scan">UPI / QR Scan</option>
                 <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
                 <option value="Salary Deduction">Staff Salary Deduction</option>
               </select>
@@ -1731,15 +1861,15 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
             <div class="form-group" style="margin-bottom: 0.5rem;">
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Transaction Ref / Receipt Notes</label>
-              <input type="text" id="pay-notes" class="form-control" placeholder="e.g. UPI Ref #49281982 or Office Receipt #0912" style="width: 100%;" />
+              <input type="text" id="pay-notes" class="form-control" placeholder="e.g. UPI Ref #49281982 or Office Receipt #0912" style="width: 100%; height: 40px; font-size: 0.84rem;" />
             </div>
           </div>
 
           <!-- Frozen Bottom Submit Bar -->
           <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">
-              Confirm Payment
+            <button type="submit" id="btn-idx-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
+              Record Payment (${formatCurrency(remainingDue)})
             </button>
           </div>
         </form>
@@ -1752,20 +1882,64 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       b.addEventListener('click', () => modalOverlay.remove());
     });
 
+    const fullRadio = modalOverlay.querySelector('input[value="full"]');
+    const partialRadio = modalOverlay.querySelector('input[value="partial"]');
+    const labelFull = modalOverlay.querySelector('#label-idx-pay-full');
+    const labelPartial = modalOverlay.querySelector('#label-idx-pay-partial');
+    const payAmtInput = modalOverlay.querySelector('#pay-amount-input');
+    const balPreview = modalOverlay.querySelector('#idx-pay-balance-preview');
+    const confirmBtn = modalOverlay.querySelector('#btn-idx-confirm-settle');
+
+    function updatePayModeUI() {
+      if (fullRadio.checked) {
+        labelFull.style.borderColor = '#059669';
+        labelFull.style.background = '#ECFDF5';
+        labelFull.style.color = '#065F46';
+        labelPartial.style.borderColor = '#E2E8F0';
+        labelPartial.style.background = '#FFFFFF';
+        labelPartial.style.color = '#334155';
+        payAmtInput.value = remainingDue;
+        payAmtInput.readOnly = true;
+        balPreview.innerHTML = 'Remaining balance after payment: <strong style="color: #059669;">₹0.00</strong>';
+        if (confirmBtn) confirmBtn.textContent = 'Record Payment (' + formatCurrency(remainingDue) + ')';
+      } else {
+        labelFull.style.borderColor = '#E2E8F0';
+        labelFull.style.background = '#FFFFFF';
+        labelFull.style.color = '#334155';
+        labelPartial.style.borderColor = '#D97706';
+        labelPartial.style.background = '#FFFBEB';
+        labelPartial.style.color = '#92400E';
+        payAmtInput.readOnly = false;
+        payAmtInput.focus();
+        updateBalancePreview();
+      }
+    }
+
+    function updateBalancePreview() {
+      const val = parseFloat(payAmtInput.value) || 0;
+      const rem = Math.max(0, remainingDue - val);
+      balPreview.innerHTML = 'Remaining balance after payment: <strong style="color: ' + (rem > 0 ? '#DC2626' : '#059669') + ';">₹' + rem.toFixed(2) + '</strong>';
+      if (confirmBtn) confirmBtn.textContent = 'Record Payment (₹' + val.toFixed(2) + ')';
+    }
+
+    fullRadio?.addEventListener('change', updatePayModeUI);
+    partialRadio?.addEventListener('change', updatePayModeUI);
+    payAmtInput?.addEventListener('input', updateBalancePreview);
+
     modalOverlay.querySelector('#form-settle-payment').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const amountToPay = parseFloat(modalOverlay.querySelector('#pay-amount-input').value) || 0;
+      const amountPaid = parseFloat(modalOverlay.querySelector('#pay-amount-input').value) || 0;
       const method = modalOverlay.querySelector('#pay-method').value;
       const notes = modalOverlay.querySelector('#pay-notes').value.trim();
 
-      if (amountToPay <= 0 || amountToPay > remainingDue) {
+      if (amountPaid <= 0 || amountPaid > remainingDue) {
         toast.error(`Please enter a valid amount up to ${formatCurrency(remainingDue)}.`);
         return;
       }
 
       await db.recordVehiclePayment({
         trip_id: tripId,
-        amount_paid: amountToPay,
+        amount_paid: amountPaid,
         payment_method: method,
         received_by_admin_id: currentUser?.id || 'admin',
         received_by_admin_name: currentUser?.full_name || 'Admin',
@@ -1775,12 +1949,11 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       trips = await db.getTripLogs();
       payments = await db.getVehiclePayments();
       modalOverlay.remove();
-      toast.success(`Payment of ${formatCurrency(amountToPay)} recorded for trip ${tripCode}!`);
+      toast.success(`Payment of ${formatCurrency(amountPaid)} recorded for ${userName}!`);
       render();
     });
   }
 
-  // --- MODAL: ONBOARD VEHICLE USER ---
   function openAddVehicleUserModal() {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';

@@ -127,6 +127,9 @@ function openDropdownMenu(select, trigger, onOptionSelected) {
 
   const menu = document.createElement('div');
   menu.className = 'tps-custom-dropdown-menu';
+  if (select.closest && select.closest('.sidebar')) {
+    menu.classList.add('sidebar-select-menu');
+  }
   menu.setAttribute('role', 'listbox');
 
   const options = Array.from(select.options);
