@@ -500,8 +500,82 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <button type="button" class="btn btn-primary" id="btn-empty-log-expense">Log First Vehicle Expense</button>
           </div>
         ` : `
-          <!-- Responsive Mobile Cards Grid: Zero Horizontal Scrolling -->
-          <div class="expense-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.85rem;">
+          <!-- Desktop View (Only): Clean Full Data Table -->
+          <div class="card-panel expense-desktop-table" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; overflow-x: auto; box-shadow: var(--shadow-sm);">
+            <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
+                  <th style="padding: 0.75rem 0.65rem;">Date</th>
+                  <th style="padding: 0.75rem 0.65rem;">Vehicle</th>
+                  <th style="padding: 0.75rem 0.65rem;">Category</th>
+                  <th style="padding: 0.75rem 0.65rem;">Type</th>
+                  <th style="padding: 0.75rem 0.65rem;">Amount</th>
+                  <th style="padding: 0.75rem 0.65rem;">Fuel Liters</th>
+                  <th style="padding: 0.75rem 0.65rem;">Odometer</th>
+                  <th style="padding: 0.75rem 0.65rem;">Mileage (B2B)</th>
+                  <th style="padding: 0.75rem 0.65rem;">Notes / Ref</th>
+                  <th style="padding: 0.75rem 0.65rem;">Logged By</th>
+                  <th style="padding: 0.75rem 0.65rem; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expenses.map(e => {
+                  const veh = vehicles.find(v => v.id === e.vehicle_id);
+                  return `
+                    <tr style="border-bottom: 1px solid var(--border-subtle);">
+                      <td style="padding: 0.75rem 0.65rem; white-space: nowrap; font-size: 0.8rem;">${formatDate(e.date)}</td>
+                      <td style="padding: 0.75rem 0.65rem;">
+                        <div style="font-weight: 700; color: #1E293B;">${veh?.vehicle_name || 'Vehicle'}</div>
+                        <span style="font-family: monospace; font-size: 0.72rem; font-weight: 700; background: #0F172A; color: #FFFFFF; padding: 1px 5px; border-radius: 3px;">
+                          ${veh?.reg_number || ''}
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem;">
+                        <span class="badge" style="font-size: 0.7rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
+                          ${normalizeVehicleCategory(veh?.vehicle_type)}
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem;">
+                        <span class="badge" style="font-size: 0.72rem; font-weight: 700; ${e.expense_type === 'Fuel' ? 'background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE;' : 'background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1;'}">
+                          ${e.expense_type}
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem; font-weight: 700; font-size: 0.95rem; color: #0F172A; white-space: nowrap;">
+                        ${formatCurrency(e.amount)}
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem;">
+                        ${e.fuel_liters ? `<strong>${e.fuel_liters}</strong> L` : '<span style="color: var(--text-muted);">—</span>'}
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem; font-family: monospace; font-weight: 600;">
+                        ${e.odometer_at_expense ? `${Number(e.odometer_at_expense).toLocaleString('en-IN')} KM` : '<span style="color: var(--text-muted);">—</span>'}
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem;">
+                        ${e.calculated_mileage_kmpl ? `
+                          <span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-weight: 800; font-size: 0.78rem;">
+                            ${e.calculated_mileage_kmpl} km/L
+                          </span>
+                        ` : (e.expense_type === 'Fuel' ? '<span class="badge" style="background: #EFF6FF; color: #2563EB; font-size: 0.7rem;">Baseline Fill</span>' : '<span style="color: var(--text-muted);">—</span>')}
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem; font-size: 0.78rem; color: #475569; max-width: 220px;">
+                        ${e.notes || '<span style="color: var(--text-muted);">—</span>'}
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem; font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
+                        ${e.logged_by || 'Admin'}
+                      </td>
+                      <td style="padding: 0.75rem 0.65rem; text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn btn-sm btn-outline btn-delete-expense" data-id="${e.id}" style="color: #DC2626; border-color: #FECACA; padding: 2px 8px; font-size: 0.74rem;">
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile View (Only): Responsive Cards Grid (Zero Horizontal Scroll) -->
+          <div class="expense-cards-grid expense-mobile-cards" style="display: none; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.85rem;">
             ${expenses.map(e => {
               const veh = vehicles.find(v => v.id === e.vehicle_id);
               return `

@@ -9209,3 +9209,20 @@ form.was-validated :invalid,
   align-items: center;
   gap: 4px;
 }
+
+/* Fuel & Expense Ledger Responsive Views (Desktop Table vs Mobile Cards) */
+.expense-desktop-table {
+  display: block;
+}
+.expense-mobile-cards {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .expense-desktop-table {
+    display: none !important;
+  }
+  .expense-mobile-cards {
+    display: grid !important;
+  }
+}
