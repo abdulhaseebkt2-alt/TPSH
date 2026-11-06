@@ -71,6 +71,7 @@ const MODULE_ROUTERS = {
   vehicles: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'fleet' }),
   vehicle_requests: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'requests' }),
   vehicle_expenses: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'expenses' }),
+  vehicle_expense_ledger: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'expense_ledger' }),
   vehicle_billing: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'billing' }),
   vehicle_all_trips: renderAllVehicleTripsModule,
   vehicle_staff: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'users' }),

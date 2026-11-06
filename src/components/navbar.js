@@ -10,7 +10,8 @@ const ROLE_POSITION_TITLES = {
   mentor: 'Hostel Mentor',
   parent: 'Parent',
   student: 'Student',
-  hostel_leader: 'Hostel Leader'
+  hostel_leader: 'Hostel Leader',
+  vehicle_user: 'Driver / Staff'
 };
 
 export function renderNavbar(container, { onToggleSidebar, onNavigate }) {

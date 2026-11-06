@@ -591,7 +591,8 @@ export function getDevProfile(role) {
       is_dev_profile: true,
       tps_id: 'VUS001',
       blood_group: 'O+',
-      phone: '+91 98470 99887'
+      phone: '+91 98470 99887',
+      avatar_url: null
     },
     pending: {
       id: 'd0000000-0000-0000-0000-000000000007',

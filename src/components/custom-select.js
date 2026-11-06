@@ -45,14 +45,17 @@ export function enhanceSelect(select) {
   trigger.className = 'tps-custom-select-trigger';
 
   // Inherit full-width behavior when select specifies 100% width, is form-control, or is inside a form-group/modal
+  const isInsideSidebar = !!select.closest?.('.sidebar');
   const isFormControl = 
-    select.classList.contains('form-control') || 
-    select.style.width === '100%' ||
-    select.classList.contains('select-full-width') ||
-    select.classList.contains('w-100') ||
-    select.classList.contains('w-full') ||
-    select.hasAttribute('data-full-width') ||
-    !!select.closest?.('.form-group, .modal-dialog, .card-panel');
+    !isInsideSidebar && (
+      select.classList.contains('form-control') || 
+      select.style.width === '100%' ||
+      select.classList.contains('select-full-width') ||
+      select.classList.contains('w-100') ||
+      select.classList.contains('w-full') ||
+      select.hasAttribute('data-full-width') ||
+      !!select.closest?.('.form-group, .modal-dialog, .card-panel')
+    );
 
   if (isFormControl) {
     trigger.classList.add('form-control');

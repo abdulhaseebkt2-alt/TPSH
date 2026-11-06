@@ -112,10 +112,10 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           <!-- Ride Mode Toggle: Short Ride vs Scheduled Trip -->
           <div style="display: flex; background: #F1F5F9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-medium);">
             <button type="button" class="btn-trip-mode active" data-mode="short" style="border: none; background: #4F46E5; color: #FFF; font-weight: 700; font-size: 0.78rem; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
-              ⚡ Instant Short Ride
+              Instant Short Ride
             </button>
             <button type="button" class="btn-trip-mode" data-mode="scheduled" style="border: none; background: transparent; color: #64748B; font-weight: 600; font-size: 0.78rem; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
-              📅 Scheduled Trip
+              Scheduled Trip
             </button>
           </div>
         </div>
@@ -165,11 +165,11 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
             <div>
               ${isInstantAllowed ? `
                 <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.7rem; font-weight: 700;">
-                  ⚡ Instant Short Ride Permitted
+                  Instant Short Ride Permitted
                 </span>
               ` : `
                 <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.7rem; font-weight: 700;">
-                  🔒 Requires Admin Approval
+                  Requires Admin Approval
                 </span>
               `}
             </div>
@@ -180,7 +180,6 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           <!-- Short Ride Instant Box (Default mode) -->
           <div id="short-ride-box" style="background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-              <span style="font-size: 1.25rem;">⚡</span>
               <strong style="color: #3730A3; font-size: 0.98rem;">Short Ride Mode (Meter-to-Meter)</strong>
             </div>
             
@@ -200,11 +199,11 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               <div>
                 ${isInstantAllowed ? `
                   <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="width: 100%; padding: 0.65rem 1rem; font-weight: 700; background: #4F46E5; border-color: #4F46E5; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-                    🚀 Start Instant Short Ride
+                    Start Instant Short Ride
                   </button>
                 ` : `
                   <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="width: 100%; padding: 0.65rem 1rem; font-weight: 700; background: #D97706; border-color: #D97706;">
-                    📩 Submit Request for Admin Approval
+                    Submit Request for Admin Approval
                   </button>
                 `}
               </div>
@@ -212,7 +211,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
             ${!isInstantAllowed ? `
               <div style="margin-top: 0.85rem; font-size: 0.76rem; color: #92400E; display: flex; align-items: center; gap: 0.35rem;">
-                <span>ℹ️</span> Note: Once an admin reviews and approves this request, your trip will be activated to start driving.
+                <span>•</span> Note: Once an admin reviews and approves this request, your trip will be activated to start driving.
               </div>
             ` : ''}
           </div>
@@ -234,7 +233,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               <!-- Departure Schedule -->
               <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem;">
                 <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                  🚀 Departure Schedule *
+                  Departure Schedule *
                 </label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                   <div>
@@ -251,7 +250,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               <!-- Expected Return Schedule -->
               <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem;">
                 <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                  🏁 Expected Return *
+                  Expected Return *
                 </label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                   <div>
@@ -321,7 +320,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       return `
         <div class="card-panel" style="background: #ECFDF5; border: 2px solid #10B981; border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem;">
           <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-            <span style="font-size: 1.25rem;">🎉</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #065F46;">
               Active Trip Control: Request Approved — Ready to Depart!
             </h4>
@@ -450,9 +449,9 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                           <span>Odo: ${Number(v.current_odometer || 0).toLocaleString('en-IN')} KM</span>
                           <span>•</span>
                           ${isInstant ? `
-                            <span style="color: #166534; font-weight: 600;">⚡ Instant Short Ride</span>
+                            <span style="color: #166534; font-weight: 600;">Instant Short Ride</span>
                           ` : `
-                            <span style="color: #B45309; font-weight: 600;">🔒 Approval Required</span>
+                            <span style="color: #B45309; font-weight: 600;">Approval Required</span>
                           `}
                         </div>
                       </div>
@@ -550,7 +549,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
         allTrips = await db.getTripLogs();
         vehicles = await db.getVehicles();
-        toast.success(`🚀 Instant Short Ride started! Meter logged at ${startKm} KM.`);
+        toast.success(`Instant Short Ride started! Meter logged at ${startKm} KM.`);
         render();
       } else {
         // APPROVAL REQUIRED: Saves as 'Pending Approval'

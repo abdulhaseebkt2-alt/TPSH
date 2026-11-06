@@ -36,7 +36,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
     },
     {
       title: 'Fleet & Transport',
-      keys: ['vehicles', 'vehicle_requests', 'vehicle_expenses', 'vehicle_billing', 'vehicle_all_trips', 'vehicle_staff', 'vehicle_card', 'vehicle_trips']
+      keys: ['vehicles', 'vehicle_requests', 'vehicle_expenses', 'vehicle_expense_ledger', 'vehicle_billing', 'vehicle_all_trips', 'vehicle_staff', 'vehicle_card', 'vehicle_trips']
     }
   ];
 
@@ -92,7 +92,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
             <span class="sidebar-role-title">Role View</span>
             <span class="sidebar-role-badge">Dev Mode</span>
           </div>
-          <select id="sidebar-role-selector" class="form-control" style="width: 100%; cursor: pointer;">
+          <select id="sidebar-role-selector" style="width: 100%; cursor: pointer;">
             <option value="super_admin" ${user?.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
             <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Admin</option>
             <option value="boys_mentor" ${user?.role === 'boys_mentor' ? 'selected' : ''}>Boys Hostel Mentor</option>

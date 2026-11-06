@@ -68,7 +68,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
               <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">${
                 activeTab === 'fleet' ? 'Fleet Overview & Documents' :
                 activeTab === 'requests' ? 'Trip Approval Queue' :
-                activeTab === 'expenses' ? 'Fuel & Maintenance Logs' :
+                activeTab === 'expenses' ? 'Log Vehicle Expense' :
+                activeTab === 'expense_ledger' ? 'Fuel & Expense Ledger' :
                 activeTab === 'billing' ? 'Usage Billing & Settlement Ledger' :
                 'Authorized Drivers & Staff'
               }</h2>
@@ -76,7 +77,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 ${
                   activeTab === 'fleet' ? 'Vehicle master registry, photos, live odometers, and compliance document tracking' :
                   activeTab === 'requests' ? 'Review and approve/reject vehicle travel requests from staff and drivers' :
-                  activeTab === 'expenses' ? 'Real-time bill-to-bill fuel efficiency (km/L) and maintenance expenses' :
+                  activeTab === 'expenses' ? 'Record fuel fills and maintenance expenses with bill-to-bill metrics' :
+                  activeTab === 'expense_ledger' ? 'Real-time bill-to-bill fuel efficiency (km/L) and maintenance records' :
                   activeTab === 'billing' ? 'Unpaid trip dues settlement (with partial payment support) and immutable audit ledger' :
                   'Directory of campus drivers and transport personnel'
                 }
@@ -116,6 +118,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         return renderRequestsTab();
       case 'expenses':
         return renderExpensesTab();
+      case 'expense_ledger':
+        return renderExpenseLedgerTab();
       case 'billing':
         return renderBillingTab();
       case 'users':
@@ -229,12 +233,12 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 <!-- Instant Short Ride Permission Tag -->
                 <div style="margin-bottom: 0.75rem;">
                   ${v.allow_instant_short_ride !== false ? `
-                    <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem;">
-                      <span>⚡</span> Instant Short Ride (No Approval Needed)
+                    <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center;">
+                      Instant Short Ride (No Approval Needed)
                     </span>
                   ` : `
-                    <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem;">
-                      <span>🔒</span> Trip Request & Approval Required
+                    <span class="badge" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center;">
+                      Trip Request & Approval Required
                     </span>
                   `}
                 </div>
@@ -244,7 +248,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                   <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem;">
                     ${docAlerts.map(a => `
                       <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.76rem; padding: 4px 8px; border-radius: 6px; background: ${a.exp.status === 'expired' ? '#FEE2E2' : '#FEF3C7'}; color: ${a.exp.color}; border: 1px solid ${a.exp.status === 'expired' ? '#FCA5A5' : '#FDE68A'};">
-                        <span style="font-weight: 700;">⚠️ ${a.document_type}: ${a.exp.label}</span>
+                        <span style="font-weight: 700;">${a.document_type}: ${a.exp.label}</span>
                         <span style="font-size: 0.7rem; opacity: 0.85;">${formatDate(a.expiry_date)}</span>
                       </div>
                     `).join('')}
@@ -356,24 +360,67 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     `;
   }
 
-  // --- TAB 3: FUEL & MAINTENANCE ---
+  // --- TAB 3: FUEL & MAINTENANCE (CLEAN LOG FORM ONLY) ---
   function renderExpensesTab() {
+    const selectedVeh = vehicles.find(v => v.id === selectedExpenseVehicleId) || vehicles[0];
+    if (selectedVeh && !selectedExpenseVehicleId) {
+      selectedExpenseVehicleId = selectedVeh.id;
+    }
+
     return `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; align-items: start;">
-        <!-- Left: Log Expense Form -->
+      <div style="max-width: 640px; margin: 0 auto;">
+        <!-- Clean Log Expense Form Card -->
         <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem;">
-          <h3 style="margin: 0 0 0.5rem; font-size: 1rem; font-weight: 700;">Log Vehicle Expense</h3>
-          <p style="margin: 0 0 1rem; font-size: 0.78rem; color: var(--text-muted);">
-            Fuel entries compute real-time bill-to-bill fuel efficiency (km/L).
-          </p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700;">Log Vehicle Expense</h3>
+              <p style="margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--text-muted);">
+                Fuel entries compute real-time bill-to-bill fuel efficiency (km/L).
+              </p>
+            </div>
+            <button type="button" class="btn btn-outline" id="btn-goto-expense-ledger" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 600;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              View Expense Ledger (${expenses.length})
+            </button>
+          </div>
 
           <form id="form-add-expense">
+            <!-- Selected Vehicle Section Trigger Card -->
             <div class="form-group" style="margin-bottom: 0.85rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Select Vehicle *</label>
-              <select id="exp-vehicle-id" class="form-control" required style="width: 100%;">
-                <option value="">-- Choose Vehicle --</option>
-                ${vehicles.map(v => `<option value="${v.id}">${v.vehicle_name} (${v.reg_number})</option>`).join('')}
-              </select>
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Assigned Vehicle *</label>
+              <input type="hidden" id="exp-vehicle-id" value="${selectedVeh ? selectedVeh.id : ''}" />
+              
+              <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0;">
+                <button type="button" class="rbac-mobile-role-trigger" id="sec-expense-vehicle-trigger" aria-label="Select vehicle to record expense">
+                  <div class="rbac-trigger-left" style="gap: 0.85rem;">
+                    <div class="rbac-trigger-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; overflow: hidden; padding: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px;">
+                      ${selectedVeh?.photo_url ? `
+                        <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                      ` : `
+                        <span style="font-size: 1.35rem;">${getVehicleTypeIcon(selectedVeh?.vehicle_type)}</span>
+                      `}
+                    </div>
+                    <div class="rbac-trigger-text">
+                      <span class="rbac-trigger-kicker">RECORD EXPENSE FOR</span>
+                      <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
+                        <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedVeh ? selectedVeh.vehicle_name : 'Choose Vehicle'}</span>
+                        <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
+                          ${selectedVeh ? selectedVeh.reg_number : ''}
+                        </span>
+                        <span class="badge" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
+                          ${normalizeVehicleCategory(selectedVeh?.vehicle_type)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rbac-trigger-right">
+                    <span class="rbac-trigger-action-pill">
+                      <span>Switch</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                  </div>
+                </button>
+              </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 0.85rem;">
@@ -424,69 +471,108 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
               <textarea id="exp-notes" class="form-control" rows="2" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%;"></textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Save Expense & Update Fleet</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Save Expense & Update Fleet</button>
           </form>
         </div>
+      </div>
+    `;
+  }
 
-        <!-- Right: Expense History Table -->
-        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem;">
-          <h3 style="margin: 0 0 1rem; font-size: 1.05rem; font-weight: 700;">Expense & Fuel Efficiency Ledger</h3>
-
-          ${expenses.length === 0 ? `
-            <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-              No vehicle expenses recorded yet.
-            </div>
-          ` : `
-            <div style="overflow-x: auto;">
-              <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.83rem;">
-                <thead>
-                  <tr style="border-bottom: 1px solid var(--border-medium); text-align: left;">
-                    <th style="padding: 0.6rem;">Date</th>
-                    <th style="padding: 0.6rem;">Vehicle</th>
-                    <th style="padding: 0.6rem;">Type</th>
-                    <th style="padding: 0.6rem;">Amount</th>
-                    <th style="padding: 0.6rem;">Liters</th>
-                    <th style="padding: 0.6rem;">Odometer</th>
-                    <th style="padding: 0.6rem;">Mileage (B2B)</th>
-                    <th style="padding: 0.6rem;">Notes</th>
-                    <th style="padding: 0.6rem; text-align: right;">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${expenses.map(e => {
-                    const veh = vehicles.find(v => v.id === e.vehicle_id);
-                    return `
-                      <tr style="border-bottom: 1px solid var(--border-subtle);">
-                        <td style="padding: 0.6rem;">${formatDate(e.date)}</td>
-                        <td style="padding: 0.6rem;">
-                          <strong>${veh?.vehicle_name || 'Vehicle'}</strong>
-                          <div style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted);">${veh?.reg_number || ''}</div>
-                        </td>
-                        <td style="padding: 0.6rem;">
-                          <span class="badge" style="font-size: 0.72rem; ${e.expense_type === 'Fuel' ? 'background: #EFF6FF; color: #2563EB;' : 'background: #F1F5F9; color: #475569;'}">
-                            ${e.expense_type}
-                          </span>
-                        </td>
-                        <td style="padding: 0.6rem; font-weight: 700;">${formatCurrency(e.amount)}</td>
-                        <td style="padding: 0.6rem;">${e.fuel_liters ? `${e.fuel_liters} L` : '—'}</td>
-                        <td style="padding: 0.6rem; font-family: monospace;">${e.odometer_at_expense ? `${Number(e.odometer_at_expense).toLocaleString('en-IN')} KM` : '—'}</td>
-                        <td style="padding: 0.6rem; font-weight: 700; color: #059669;">
-                          ${e.calculated_mileage_kmpl ? `${e.calculated_mileage_kmpl} km/L` : (e.expense_type === 'Fuel' ? '<span style="color: var(--text-muted); font-size: 0.74rem;">Baseline Fill</span>' : '—')}
-                        </td>
-                        <td style="padding: 0.6rem; font-size: 0.75rem; color: var(--text-muted); max-width: 180px;">${e.notes || '—'}</td>
-                        <td style="padding: 0.6rem; text-align: right;">
-                          <button class="btn btn-sm btn-outline btn-delete-expense" data-id="${e.id}" style="color: #DC2626; border-color: #FECACA; padding: 2px 6px;">
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>
-          `}
+  // --- TAB: EXPENSE & FUEL EFFICIENCY LEDGER (DEDICATED MOBILE FRIENDLY WINDOW) ---
+  function renderExpenseLedgerTab() {
+    return `
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 700; font-size: 0.76rem;">
+              Total Logged Records: ${expenses.length}
+            </span>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-goto-log-expense" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 700;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Log New Expense
+          </button>
         </div>
+
+        ${expenses.length === 0 ? `
+          <div class="empty-state" style="padding: 3rem; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px dashed var(--border-medium); text-align: center;">
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">No vehicle expenses or fuel fills recorded yet.</p>
+            <button type="button" class="btn btn-primary" id="btn-empty-log-expense">Log First Vehicle Expense</button>
+          </div>
+        ` : `
+          <!-- Responsive Mobile Cards Grid: Zero Horizontal Scrolling -->
+          <div class="expense-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.85rem;">
+            ${expenses.map(e => {
+              const veh = vehicles.find(v => v.id === e.vehicle_id);
+              return `
+                <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem;">
+                  <div>
+                    <!-- Top Row: Date, Expense Type Badge & Amount -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 0.5rem;">
+                      <div style="display: flex; align-items: center; gap: 0.45rem;">
+                        <span class="badge" style="font-size: 0.72rem; font-weight: 700; ${e.expense_type === 'Fuel' ? 'background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE;' : 'background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1;'}">
+                          ${e.expense_type}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">${formatDate(e.date)}</span>
+                      </div>
+                      <strong style="font-size: 1.05rem; color: #0F172A; font-weight: 700;">${formatCurrency(e.amount)}</strong>
+                    </div>
+
+                    <!-- Vehicle Info Row -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem; background: #F8FAFC; padding: 0.4rem 0.65rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                      <div style="font-weight: 700; font-size: 0.86rem; color: #1E293B; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${veh?.vehicle_name || 'Vehicle'}</div>
+                      <span style="font-family: monospace; font-size: 0.75rem; font-weight: 700; background: #0F172A; color: #FFFFFF; padding: 1px 6px; border-radius: 4px;">
+                        ${veh?.reg_number || ''}
+                      </span>
+                      <span class="badge" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">
+                        ${normalizeVehicleCategory(veh?.vehicle_type)}
+                      </span>
+                    </div>
+
+                    <!-- Fuel Metrics & Bill-to-Bill Mileage -->
+                    ${e.expense_type === 'Fuel' ? `
+                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-bottom: 0.5rem; text-align: center; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 0.5rem;">
+                        <div>
+                          <div style="font-size: 0.68rem; color: #166534; font-weight: 600;">LITERS</div>
+                          <div style="font-size: 0.85rem; font-weight: 700; color: #0F172A;">${e.fuel_liters ? `${e.fuel_liters} L` : '—'}</div>
+                        </div>
+                        <div>
+                          <div style="font-size: 0.68rem; color: #166534; font-weight: 600;">ODOMETER</div>
+                          <div style="font-size: 0.82rem; font-weight: 700; font-family: monospace; color: #0F172A;">${e.odometer_at_expense ? `${Number(e.odometer_at_expense).toLocaleString('en-IN')} KM` : '—'}</div>
+                        </div>
+                        <div>
+                          <div style="font-size: 0.68rem; color: #166534; font-weight: 600;">MILEAGE (B2B)</div>
+                          <div style="font-size: 0.88rem; font-weight: 800; color: #059669;">
+                            ${e.calculated_mileage_kmpl ? `${e.calculated_mileage_kmpl} km/L` : '<span style="font-size: 0.72rem; color: #64748B;">Baseline</span>'}
+                          </div>
+                        </div>
+                      </div>
+                    ` : (e.odometer_at_expense ? `
+                      <div style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                        Odometer at service: <strong style="font-family: monospace; color: #0F172A;">${Number(e.odometer_at_expense).toLocaleString('en-IN')} KM</strong>
+                      </div>
+                    ` : '')}
+
+                    <!-- Notes / Invoice Reference -->
+                    ${e.notes ? `
+                      <div style="font-size: 0.76rem; color: #475569; background: #F1F5F9; border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; line-height: 1.35;">
+                        ${e.notes}
+                      </div>
+                    ` : ''}
+                  </div>
+
+                  <!-- Footer: Logged By & Delete Action -->
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem; font-size: 0.72rem; color: var(--text-muted);">
+                    <span>Logged by: <strong>${e.logged_by || 'Admin'}</strong></span>
+                    <button type="button" class="btn btn-sm btn-outline btn-delete-expense" data-id="${e.id}" style="color: #DC2626; border-color: #FECACA; padding: 2px 8px; font-size: 0.72rem;">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
       </div>
     `;
   }
@@ -853,6 +939,20 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       });
     });
 
+    // Navigation buttons between Log Expense and Expense Ledger
+    container.querySelector('#btn-goto-expense-ledger')?.addEventListener('click', () => {
+      activeTab = 'expense_ledger';
+      render();
+    });
+    container.querySelector('#btn-goto-log-expense')?.addEventListener('click', () => {
+      activeTab = 'expenses';
+      render();
+    });
+    container.querySelector('#btn-empty-log-expense')?.addEventListener('click', () => {
+      activeTab = 'expenses';
+      render();
+    });
+
     const expTypeSelect = container.querySelector('#exp-type');
     const fuelBox = container.querySelector('#fuel-fields-box');
     const vehicleSelect = container.querySelector('#exp-vehicle-id');
@@ -903,7 +1003,11 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     // Save Expense Form
     container.querySelector('#form-add-expense')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const vId = vehicleSelect.value;
+      const vId = vehicleSelect?.value || selectedExpenseVehicleId;
+      if (!vId) {
+        toast.error('Please choose a vehicle to log this expense.');
+        return;
+      }
       const type = expTypeSelect.value;
       const amount = parseFloat(container.querySelector('#exp-amount').value);
       const date = container.querySelector('#exp-date').value;
@@ -944,6 +1048,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       expenses = await db.getVehicleExpenses();
       vehicles = await db.getVehicles();
       toast.success('Vehicle expense logged successfully.');
+      activeTab = 'expense_ledger';
       render();
     });
 

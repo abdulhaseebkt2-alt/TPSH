@@ -625,22 +625,31 @@ a {
 }
 
 .sidebar .tps-custom-select-trigger {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid #059669;
-  color: #FFFFFF;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.8rem;
+  width: 100% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1.5px solid #059669 !important;
+  color: #FFFFFF !important;
+  padding: 0.38rem 0.85rem !important;
+  font-size: 0.8rem !important;
+  border-radius: 9999px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  box-shadow: none !important;
 }
 
 .sidebar .tps-custom-select-trigger:hover,
 .sidebar .tps-custom-select-trigger.open {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: #10B981;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: #10B981 !important;
 }
 
 .sidebar .tps-custom-select-trigger .tps-dropdown-label {
-  color: #FFFFFF;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+
+.sidebar .tps-custom-select-trigger .tps-dropdown-chevron svg {
+  stroke: #10B981 !important;
 }
 
 .sidebar-logout-btn {
@@ -3307,16 +3316,17 @@ body.tps-wheel-open {
 .form-control.tps-custom-select-trigger,
 .form-group .tps-custom-select-trigger,
 .modal-dialog .tps-custom-select-trigger,
+.modal-backdrop .tps-custom-select-trigger,
 .card-panel .tps-custom-select-trigger {
-  height: 40px !important;
-  min-height: 40px !important;
+  height: 38px !important;
+  min-height: 38px !important;
   border-radius: 8px !important;
   border: 1px solid #CBD5E1 !important;
   background-color: #FFFFFF !important;
-  font-size: 0.85rem !important;
+  font-size: 0.8rem !important;
   font-weight: 500 !important;
   color: #1E293B !important;
-  padding: 0.45rem 0.75rem !important;
+  padding: 0.35rem 0.65rem !important;
   box-sizing: border-box !important;
   box-shadow: none !important;
 }
@@ -3324,28 +3334,58 @@ body.tps-wheel-open {
 .form-control.tps-custom-select-trigger:hover,
 .form-group .tps-custom-select-trigger:hover,
 .modal-dialog .tps-custom-select-trigger:hover,
+.modal-backdrop .tps-custom-select-trigger:hover,
 .card-panel .tps-custom-select-trigger:hover,
 .form-control.tps-custom-select-trigger.open,
 .form-group .tps-custom-select-trigger.open,
 .modal-dialog .tps-custom-select-trigger.open,
+.modal-backdrop .tps-custom-select-trigger.open,
 .card-panel .tps-custom-select-trigger.open {
   border-color: #059669 !important;
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15) !important;
 }
 
 .modal-dialog input.form-control,
-.modal-dialog select.form-control {
-  font-size: 0.85rem !important;
-  height: 40px !important;
+.modal-dialog select.form-control,
+.modal-backdrop input.form-control,
+.modal-backdrop select.form-control,
+.card-panel input.form-control,
+.card-panel select.form-control {
+  font-size: 0.8rem !important;
+  height: 38px !important;
+  min-height: 38px !important;
   border-radius: 8px !important;
   border: 1px solid #CBD5E1 !important;
+  padding: 0.35rem 0.65rem !important;
   box-sizing: border-box !important;
 }
 
-.modal-dialog label {
-  font-size: 0.8rem !important;
+.modal-dialog input.form-control::placeholder,
+.modal-backdrop input.form-control::placeholder,
+.card-panel input.form-control::placeholder {
+  font-size: 0.76rem !important;
+  color: #94A3B8 !important;
+}
+
+.modal-dialog label,
+.modal-backdrop label {
+  font-size: 0.78rem !important;
   font-weight: 600 !important;
   color: #334155 !important;
+}
+
+@media (max-width: 768px) {
+  .modal-dialog input.form-control,
+  .modal-dialog select.form-control,
+  .modal-backdrop input.form-control,
+  .modal-backdrop select.form-control,
+  .modal-backdrop textarea.form-control,
+  .modal-dialog .tps-custom-select-trigger,
+  .modal-backdrop .tps-custom-select-trigger {
+    font-size: 0.8rem !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
 }
 
 

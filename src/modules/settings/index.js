@@ -88,12 +88,12 @@ export async function renderSettingsModule(container, { onNavigate }) {
         <div style="display: flex; align-items: center; gap: 1.5rem; padding: 1.15rem; background: var(--bg-surface-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem; flex-wrap: wrap;">
           <div style="position: relative;">
             <div id="mobile-logo-preview" style="width: 140px; height: 76px; border-radius: var(--radius-md); background: #FFFFFF; border: 2px solid var(--border-medium); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: var(--shadow-sm); padding: 4px;">
-              <img src="${currentMobileLogo || '/tps-full-logo.png'}" onerror="this.onerror=null; this.src='/tps-full-logo.png'; this.onerror=function(){this.src='/tps-logo.png';};" style="width: 100%; height: 100%; object-fit: contain;" alt="Mobile Front Logo" />
+              <img src="${currentMobileLogo || 'tps-full-logo.png'}" onerror="this.onerror=null; this.src='tps-full-logo.png'; this.onerror=function(){this.src='tps-logo.png';};" style="width: 100%; height: 100%; object-fit: contain;" alt="Mobile Front Logo" />
             </div>
             <label for="mobile-logo-file-input" style="position: absolute; bottom: -6px; right: -6px; width: 30px; height: 30px; border-radius: 50%; background: #059669; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);" title="Upload Mobile Front Logo">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </label>
-            <input type="file" id="mobile-logo-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*" style="position: absolute; opacity: 0; width: 0.1px; height: 0.1px; pointer-events: none;" />
+            <input type="file" id="mobile-logo-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*" style="display: none;" />
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 240px;">
@@ -105,12 +105,12 @@ export async function renderSettingsModule(container, { onNavigate }) {
               Upload your institutional logo for the mobile view and front login portal. Any aspect ratio (horizontal, banner, or square) is accepted directly without restriction.
             </p>
             <div style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.25rem; flex-wrap: wrap;">
-              <label for="mobile-logo-file-input" class="btn btn-sm btn-outline" id="btn-trigger-mobile-upload" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <button type="button" class="btn btn-sm btn-outline" id="btn-trigger-mobile-upload" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Upload Mobile Front Logo
-              </label>
+              </button>
               ${currentMobileLogo ? `
-                <button class="btn btn-sm btn-outline" id="btn-reset-mobile-logo" style="color: #DC2626; border-color: #FECACA;">
+                <button type="button" class="btn btn-sm btn-outline" id="btn-reset-mobile-logo" style="color: #DC2626; border-color: #FECACA;">
                   Reset to Default
                 </button>
               ` : ''}
