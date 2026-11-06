@@ -44,14 +44,18 @@ export function enhanceSelect(select) {
   const trigger = document.createElement('div');
   trigger.className = 'tps-custom-select-trigger';
 
-  // Inherit full-width behavior when select specifies 100% width or full-width classes/attributes
-  if (
+  // Inherit full-width behavior when select specifies 100% width, is form-control, or is inside a form-group/modal
+  const isFormControl = 
+    select.classList.contains('form-control') || 
     select.style.width === '100%' ||
     select.classList.contains('select-full-width') ||
     select.classList.contains('w-100') ||
     select.classList.contains('w-full') ||
-    select.hasAttribute('data-full-width')
-  ) {
+    select.hasAttribute('data-full-width') ||
+    !!select.closest?.('.form-group, .modal-dialog, .card-panel');
+
+  if (isFormControl) {
+    trigger.classList.add('form-control');
     trigger.classList.add('w-100');
     trigger.style.width = '100%';
     trigger.style.display = 'flex';
@@ -182,7 +186,9 @@ function positionMenu(menu, trigger) {
 
   menu.style.left = `${Math.round(left)}px`;
   menu.style.top = `${Math.round(top)}px`;
-  menu.style.minWidth = `${Math.round(triggerWidth)}px`;
-  menu.style.maxWidth = `${Math.round(Math.max(triggerWidth, 280))}px`;
+  const exactWidth = Math.min(Math.round(triggerWidth), Math.max(120, window.innerWidth - 24));
+  menu.style.width = exactWidth + 'px';
+  menu.style.minWidth = exactWidth + 'px';
+  menu.style.maxWidth = exactWidth + 'px';
   menu.style.boxSizing = 'border-box';
 }

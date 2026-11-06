@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, getTodayDateStr } from '../../lib/utils.js'
 import { enhanceDateInput } from '../../components/date-picker.js';
 import { attachWheelTimePicker } from '../../lib/wheelTimePicker.js';
 import { openModal } from '../../lib/dialog.js';
+import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 
 export async function renderUserVehicleTripsModule(container, { onNavigate } = {}) {
   const currentUser = getCurrentUser();
@@ -55,7 +56,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     }
 
     const dynamicRateInfo = selectedVeh ? calculateDynamicRatePerKm(selectedVeh, expenses, allTrips) : { rate: 16 };
-    const isBike = (selectedVeh?.vehicle_type || '').toLowerCase().includes('bike');
+    const isBike = normalizeVehicleCategory(selectedVeh?.vehicle_type) === '2 Wheeler';
     const isInstantAllowed = selectedVeh?.allow_instant_short_ride !== false;
 
     const isAdmin = currentUser.is_super_admin || currentUser.role === 'super_admin' || currentUser.role === 'admin';
@@ -131,7 +132,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                   ${selectedVeh?.photo_url ? `
                     <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
                   ` : `
-                    <span style="font-size: 1.4rem;">${isBike ? '🏍️' : '🚗'}</span>
+                    <span style="font-size: 1.4rem;">${getVehicleTypeIcon(selectedVeh?.vehicle_type)}</span>
                   `}
                 </div>
                 <div class="rbac-trigger-text">
@@ -421,7 +422,8 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               ${vehicles.filter(v => v.status !== 'Inactive').map(v => {
                 const isSelected = v.id === selectedVehicleId;
                 const dynamic = calculateDynamicRatePerKm(v, expenses, allTrips);
-                const isBikeType = (v.vehicle_type || '').toLowerCase().includes('bike');
+                const vehCategory = normalizeVehicleCategory(v.vehicle_type);
+                const vehIcon = getVehicleTypeIcon(v.vehicle_type);
                 const isInstant = v.allow_instant_short_ride !== false;
                 const isAvail = v.status === 'Available';
 
@@ -432,12 +434,13 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                         ${v.photo_url ? `
                           <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
                         ` : `
-                          <span style="font-size: 1.35rem;">${isBikeType ? '🏍️' : '🚗'}</span>
+                          <span style="font-size: 1.35rem;">${vehIcon}</span>
                         `}
                       </div>
                       <div class="role-picker-item-info">
                         <div class="role-picker-item-title-row" style="gap: 0.45rem; flex-wrap: wrap;">
                           <span class="role-picker-item-name" style="font-weight: 700; font-size: 0.92rem;">${v.vehicle_name}</span>
+                          <span class="badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-size: 0.65rem; font-weight: 700;">${vehCategory}</span>
                           ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">SELECTED</span>` : ''}
                           <span class="badge" style="font-size: 0.65rem; font-family: monospace; background: #0F172A; color: #FFF; padding: 1px 5px;">${v.reg_number}</span>
                         </div>

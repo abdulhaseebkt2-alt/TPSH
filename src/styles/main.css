@@ -3275,6 +3275,52 @@ body.tps-wheel-open {
   flex-shrink: 0;
 }
 
+/* Uniform Form & Modal Select Dropdown Styling */
+.form-control.tps-custom-select-trigger,
+.form-group .tps-custom-select-trigger,
+.modal-dialog .tps-custom-select-trigger,
+.card-panel .tps-custom-select-trigger {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 8px !important;
+  border: 1px solid #CBD5E1 !important;
+  background-color: #FFFFFF !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  color: #1E293B !important;
+  padding: 0.45rem 0.75rem !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+}
+
+.form-control.tps-custom-select-trigger:hover,
+.form-group .tps-custom-select-trigger:hover,
+.modal-dialog .tps-custom-select-trigger:hover,
+.card-panel .tps-custom-select-trigger:hover,
+.form-control.tps-custom-select-trigger.open,
+.form-group .tps-custom-select-trigger.open,
+.modal-dialog .tps-custom-select-trigger.open,
+.card-panel .tps-custom-select-trigger.open {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15) !important;
+}
+
+.modal-dialog input.form-control,
+.modal-dialog select.form-control {
+  font-size: 0.85rem !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  border: 1px solid #CBD5E1 !important;
+  box-sizing: border-box !important;
+}
+
+.modal-dialog label {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+}
+
+
 
 /* Developing Window & Role Switcher Responsive Tweaks */
 @media (max-width: 767px) {

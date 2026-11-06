@@ -7,6 +7,23 @@ import {
   getDocumentExpiryStatus 
 } from '../../lib/fleet-engine.js';
 import { formatCurrency, formatDate, compressImage } from '../../lib/utils.js';
+import { openModal } from '../../lib/dialog.js';
+
+export function normalizeVehicleCategory(type = '') {
+  const t = String(type || '').trim().toLowerCase();
+  if (t === '2 wheeler' || t.includes('2') || t.includes('bike') || t.includes('scooter') || t.includes('unicorn')) return '2 Wheeler';
+  if (t === '3 wheeler' || t.includes('3') || t.includes('auto') || t.includes('rickshaw')) return '3 Wheeler';
+  if (t === 'heavy' || t.includes('heavy') || t.includes('bus') || t.includes('truck')) return 'Heavy';
+  return '4 Wheeler';
+}
+
+export function getVehicleTypeIcon(type = '') {
+  const norm = normalizeVehicleCategory(type);
+  if (norm === '2 Wheeler') return '🏍️';
+  if (norm === '3 Wheeler') return '🛺';
+  if (norm === 'Heavy') return '🚌';
+  return '🚗';
+}
 import { enhanceDateInput } from '../../components/date-picker.js';
 
 export async function renderVehicleManagementModule(container, { onNavigate, initialTab = 'fleet' }) {
@@ -34,6 +51,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
   let trips = await db.getTripLogs();
   let payments = await db.getVehiclePayments();
   let vehicleUsers = await db.getVehicleUsers();
+  let selectedExpenseVehicleId = vehicles[0]?.id || '';
 
   function render() {
     const pendingTripsCount = trips.filter(t => t.status === 'Pending Approval').length;
@@ -159,7 +177,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                     ${v.photo_url ? `
                       <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
                     ` : `
-                      <span style="font-size: 1.75rem;">${(v.vehicle_type || '').toLowerCase().includes('bike') ? '🏍️' : '🚗'}</span>
+                      <span style="font-size: 1.75rem;">${getVehicleTypeIcon(v.vehicle_type)}</span>
                     `}
                   </div>
 
@@ -176,7 +194,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                           <span style="font-family: monospace; font-size: 0.82rem; font-weight: 700; background: #0F172A; color: #F8FAFC; padding: 1px 6px; border-radius: 4px;">
                             ${v.reg_number}
                           </span>
-                          <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 600;">${v.vehicle_type || 'Vehicle'}</span>
+                          <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 600;">${normalizeVehicleCategory(v.vehicle_type)}</span>
                         </div>
                       </div>
 
@@ -767,6 +785,74 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     });
 
     // Fuel Fields Dynamic Toggle & Live Mileage Calculation
+        // Expense Vehicle Trigger (Sections-style modal picker)
+    container.querySelector('#sec-expense-vehicle-trigger')?.addEventListener('click', () => {
+      openModal({
+        title: 'Select Vehicle for Expense',
+        modalClass: 'role-picker-modal-dialog',
+        contentHtml: `
+          <div style="margin-bottom: 0.5rem;">
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+              Choose a vehicle from the fleet to record fuel or maintenance expenses:
+            </p>
+            <div class="role-picker-list">
+              ${vehicles.map(v => {
+                const isSelected = v.id === selectedExpenseVehicleId;
+                const vType = normalizeVehicleCategory(v.vehicle_type);
+                const icon = getVehicleTypeIcon(v.vehicle_type);
+                return `
+                  <div class="role-picker-item ${isSelected ? 'active' : ''}" data-veh-id="${v.id}" role="button" tabindex="0" style="cursor: pointer; padding: 0.85rem 1rem;">
+                    <div class="role-picker-item-left" style="gap: 0.85rem;">
+                      <div class="role-picker-item-icon" style="background: #ECFDF5; color: #059669; border: 1.5px solid #A7F3D0; width: 44px; height: 44px; border-radius: 8px; overflow: hidden; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        ${v.photo_url ? `
+                          <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                        ` : `
+                          <span style="font-size: 1.35rem;">${icon}</span>
+                        `}
+                      </div>
+                      <div class="role-picker-item-info">
+                        <div class="role-picker-item-title-row" style="gap: 0.45rem; flex-wrap: wrap;">
+                          <span class="role-picker-item-name" style="font-weight: 700; font-size: 0.92rem;">${v.vehicle_name}</span>
+                          ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">SELECTED</span>` : ''}
+                          <span class="badge" style="font-size: 0.65rem; font-family: monospace; background: #0F172A; color: #FFF; padding: 1px 5px;">${v.reg_number}</span>
+                        </div>
+                        <div class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                          <span>${vType}</span>
+                          <span>•</span>
+                          <span>Current Odo: ${Number(v.current_odometer || 0).toLocaleString('en-IN')} KM</span>
+                          <span>•</span>
+                          <span style="color: ${v.status === 'Available' ? '#059669' : '#D97706'}; font-weight: 600;">${v.status || 'Available'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="role-picker-item-radio">
+                      <div class="role-radio-circle ${isSelected ? 'active' : ''}">
+                        ${isSelected ? `<div class="role-radio-dot"></div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `,
+        onMount: ({ container: modalBody, close }) => {
+          modalBody.querySelectorAll('.role-picker-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const vid = item.getAttribute('data-veh-id');
+              if (vid) {
+                selectedExpenseVehicleId = vid;
+                close();
+                render();
+              } else {
+                close();
+              }
+            });
+          });
+        }
+      });
+    });
+
     const expTypeSelect = container.querySelector('#exp-type');
     const fuelBox = container.querySelector('#fuel-fields-box');
     const vehicleSelect = container.querySelector('#exp-vehicle-id');
@@ -948,7 +1034,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <input type="hidden" id="v-photo-data" />
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
               <input type="text" id="v-reg" class="form-control" required placeholder="e.g. KL-55-XY-7890" style="width: 100%; text-transform: uppercase;" />
@@ -967,7 +1053,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
               <input type="number" id="v-odo" class="form-control" required min="0" placeholder="e.g. 45000" style="width: 100%;" />
@@ -978,7 +1064,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
               <input type="number" id="v-buffer" class="form-control" required min="0" max="50" value="10" style="width: 100%;" />
@@ -1097,7 +1183,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <input type="hidden" id="ev-photo-data" value="${v.photo_url || ''}" />
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
               <input type="text" id="ev-reg" class="form-control" required value="${v.reg_number}" style="width: 100%; text-transform: uppercase;" />
@@ -1116,7 +1202,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
               <input type="number" id="ev-odo" class="form-control" required min="0" value="${v.current_odometer || 0}" style="width: 100%;" />
@@ -1127,7 +1213,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
               <input type="number" id="ev-buffer" class="form-control" required min="0" max="50" value="${v.buffer_percentage || 10}" style="width: 100%;" />
@@ -1499,7 +1585,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <input type="text" id="vu-name" class="form-control" required placeholder="e.g. Sameer Driver" style="width: 100%;" />
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Phone Number *</label>
               <input type="tel" id="vu-phone" class="form-control" required placeholder="e.g. +91 98470 12345" style="width: 100%;" />

@@ -2,6 +2,7 @@ import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { formatDate, formatCurrency } from '../../lib/utils.js';
+import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 
 export async function renderAllVehicleTripsModule(container, options = {}) {
   const onNavigate = options.onNavigate;
@@ -216,7 +217,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
                       </div>
                       <div style="display: flex; align-items: center; gap: 0.3rem; margin-top: 0.2rem; flex-wrap: wrap;">
                         <span style="color: #4F46E5; font-weight: 700; font-size: 0.78rem;">
-                          ${veh?.vehicle_name || 'Vehicle'}
+                          ${getVehicleTypeIcon(veh?.vehicle_type)} ${veh?.vehicle_name || 'Vehicle'}
                         </span>
                         <span style="font-family: monospace; font-size: 0.68rem; background: #0F172A; color: #FFF; padding: 1px 4px; border-radius: 3px;">
                           ${veh?.reg_number || ''}

@@ -4,6 +4,7 @@ import { toast } from '../../lib/toast.js';
 import { formatDate, formatCurrency, getTodayDateStr } from '../../lib/utils.js';
 import { enhanceDateInput } from '../../components/date-picker.js';
 import { openModal } from '../../lib/dialog.js';
+import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 
 export async function renderVehicleUserCardModule(container, options = {}) {
   const onNavigate = options.onNavigate;
@@ -278,7 +279,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem;">
                           <span style="color: #4F46E5; font-weight: 600; font-size: 0.8rem;">
-                            🚗 ${veh?.vehicle_name || 'Vehicle'}
+                            ${getVehicleTypeIcon(veh?.vehicle_type)} ${veh?.vehicle_name || 'Vehicle'}
                           </span>
                           <span style="font-family: monospace; font-size: 0.72rem; background: #0F172A; color: #FFF; padding: 1px 5px; border-radius: 3px;">
                             ${veh?.reg_number || ''}
