@@ -454,56 +454,56 @@ export async function renderVehicleUserCardModule(container, options = {}) {
   function openSettlePaymentModal({ tripId, tripCode, remainingDue, totalAmount, userName }) {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
-    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-xl); overflow: hidden;">
-        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Payment / Partial Settlement</h3>
-          <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <form id="form-card-settle-payment" style="padding: 1.5rem;">
-          <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem; margin-bottom: 1.15rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">TRIP REF</div>
-                <div style="font-weight: 700; font-family: monospace; font-size: 0.95rem;">${tripCode}</div>
-                <div style="font-size: 0.8rem; color: var(--text-main); font-weight: 600;">${userName}</div>
+        <!-- Form with Scrollable Content & Frozen Bottom Submit Bar -->
+        <form id="form-card-settle-payment" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
+          <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">TRIP REFERENCE</div>
+                  <div style="font-weight: 700; font-family: monospace; font-size: 0.95rem;">${tripCode}</div>
+                  <div style="font-size: 0.78rem; color: #047857;">User: ${userName}</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 0.72rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
+                  <div style="font-size: 1.25rem; font-weight: 800; color: #065F46;">${formatCurrency(remainingDue)}</div>
+                </div>
               </div>
-              <div style="text-align: right;">
-                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">OUTSTANDING DUE</div>
-                <div style="font-size: 1.35rem; font-weight: 800; color: #DC2626;">${formatCurrency(remainingDue)}</div>
-              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Received (₹) *</label>
+              <input type="number" id="pay-card-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.05rem; font-weight: 700; color: #059669;" />
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
+              <select id="pay-card-method" class="form-control" required style="width: 100%;">
+                <option value="Cash">Cash (Received at School Office)</option>
+                <option value="UPI / GPay">UPI / GPay (School QR Scan)</option>
+                <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
+                <option value="Salary Deduction">Staff Salary Deduction</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Receipt / Transaction Notes</label>
+              <input type="text" id="pay-card-notes" class="form-control" placeholder="e.g. Cash received at office" style="width: 100%;" />
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">
-              Amount to Pay (₹) * (Full or Partial)
-            </label>
-            <input type="number" id="pay-card-amount" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.1rem; font-weight: 700; color: #059669;" />
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
-              You can enter the full due amount (${formatCurrency(remainingDue)}) or a partial amount.
-            </div>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
-            <select id="pay-card-method" class="form-control" required style="width: 100%;">
-              <option value="Cash">Cash (Received at School Office)</option>
-              <option value="UPI / GPay">UPI / GPay (School QR Scan)</option>
-              <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
-              <option value="Salary Deduction">Staff Salary Deduction</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Transaction Ref / Receipt Note</label>
-            <input type="text" id="pay-card-notes" class="form-control" placeholder="e.g. UPI Ref #49281982 or Part payment #1" style="width: 100%;" />
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <!-- Frozen Bottom Submit Bar -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
             <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">
               Confirm Payment

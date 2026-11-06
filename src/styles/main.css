@@ -1441,6 +1441,7 @@ textarea.form-control {
   gap: 0.75rem;
   min-width: 0;
   box-sizing: border-box;
+  flex-shrink: 0 !important;
 }
 
 .modal-header h3 {
@@ -1525,6 +1526,33 @@ textarea.form-control {
   background-color: var(--bg-surface-subtle);
   box-sizing: border-box;
   min-width: 0;
+  flex-shrink: 0 !important;
+}
+
+/* Modal Backdrop & Dynamic Card Layout */
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(3px) !important;
+  -webkit-backdrop-filter: blur(3px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  padding: 1rem !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: 0.5rem !important;
+  }
+  .modal-backdrop .card-panel {
+    max-height: 92vh !important;
+    width: 100% !important;
+    margin: auto !important;
+  }
 }
 
 /* ------------------------------------------------------------

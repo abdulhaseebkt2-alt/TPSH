@@ -1008,93 +1008,95 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
   function openAddVehicleModal() {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
-    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 520px; box-shadow: var(--shadow-xl); overflow: hidden;">
-        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Add Vehicle to School Fleet</h3>
-          <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <form id="form-create-vehicle" style="padding: 1.5rem;">
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Display Name *</label>
-            <input type="text" id="v-name" class="form-control" required placeholder="e.g. Campus Honda Unicorn or Tata Winger" style="width: 100%;" />
-          </div>
+        <!-- Form with Scrollable Content & Frozen Bottom Submit Bar -->
+        <form id="form-create-vehicle" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
+          <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Display Name *</label>
+              <input type="text" id="v-name" class="form-control" required placeholder="e.g. Campus Honda Unicorn or Tata Winger" style="width: 100%;" />
+            </div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Photo (Upload Image)</label>
-            <div style="display: flex; gap: 0.75rem; align-items: center;">
-              <input type="file" id="v-photo-file" accept="image/*" class="form-control" style="width: 100%; font-size: 0.8rem;" />
-              <div id="v-photo-preview" style="width: 50px; height: 40px; border-radius: 6px; background: #F1F5F9; border: 1px dashed #CBD5E1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                <span style="font-size: 1.1rem;">🚗</span>
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Photo (Upload Image)</label>
+              <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <input type="file" id="v-photo-file" accept="image/*" class="form-control" style="width: 100%; font-size: 0.8rem;" />
+                <div id="v-photo-preview" style="width: 50px; height: 40px; border-radius: 6px; background: #F1F5F9; border: 1px dashed #CBD5E1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                  <span style="font-size: 1.1rem;">🚗</span>
+                </div>
               </div>
+              <input type="hidden" id="v-photo-data" />
             </div>
-            <input type="hidden" id="v-photo-data" />
-          </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
-              <input type="text" id="v-reg" class="form-control" required placeholder="e.g. KL-55-XY-7890" style="width: 100%; text-transform: uppercase;" />
-            </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
-              <select id="v-type" class="form-control" required style="width: 100%;">
-                <option value="Bike / Two-Wheeler (e.g. Honda Unicorn)">Bike / Two-Wheeler (e.g. Honda Unicorn)</option>
-                <option value="Maruti Omni / Eeco (Van)">Maruti Omni / Eeco (Van)</option>
-                <option value="Tata Magic / Passenger Van">Tata Magic / Passenger Van</option>
-                <option value="Tata Winger / Traveler Bus">Tata Winger / Traveler Bus</option>
-                <option value="Car / Sedan / Hatchback">Car / Sedan / Hatchback</option>
-                <option value="Utility Vehicle / Bolero">Utility Vehicle / Bolero</option>
-                <option value="Heavy Bus / Transport">Heavy Bus / Transport</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
-              <input type="number" id="v-odo" class="form-control" required min="0" placeholder="e.g. 45000" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Fallback Rate (₹/KM) *</label>
-              <input type="number" id="v-rate" class="form-control" required min="1" step="0.5" value="16.00" style="width: 100%;" />
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
-              <input type="number" id="v-buffer" class="form-control" required min="0" max="50" value="10" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Operational Status *</label>
-              <select id="v-status" class="form-control" required style="width: 100%;">
-                <option value="Available">Available</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Instant Short Ride Permission Setting -->
-          <div style="margin-bottom: 1.25rem; padding: 0.75rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
-            <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
-              <input type="checkbox" id="v-instant-ride" checked style="margin-top: 0.2rem; width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer;" />
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
               <div>
-                <span style="font-weight: 700; font-size: 0.85rem; color: #1E293B;">Allow Instant Short Ride Without Admin Approval</span>
-                <p style="margin: 0.2rem 0 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
-                  If checked, drivers and staff can take instant meter-to-meter rides immediately. If unchecked, every trip requires submitting a request and waiting for admin approval.
-                </p>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
+                <input type="text" id="v-reg" class="form-control" required placeholder="e.g. KL-55-XY-7890" style="width: 100%; text-transform: uppercase;" />
               </div>
-            </label>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
+                <select id="v-type" class="form-control" required style="width: 100%;">
+                  <option value="2 Wheeler">2 Wheeler</option>
+                  <option value="3 Wheeler">3 Wheeler</option>
+                  <option value="4 Wheeler" selected>4 Wheeler</option>
+                  <option value="Heavy">Heavy</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
+                <input type="number" id="v-odo" class="form-control" required min="0" placeholder="e.g. 45000" style="width: 100%;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Fallback Rate (₹/KM) *</label>
+                <input type="number" id="v-rate" class="form-control" required min="1" step="0.5" value="16.00" style="width: 100%;" />
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
+                <input type="number" id="v-buffer" class="form-control" required min="0" max="50" value="10" style="width: 100%;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Operational Status *</label>
+                <select id="v-status" class="form-control" required style="width: 100%;">
+                  <option value="Available">Available</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Instant Short Ride Permission Setting -->
+            <div style="margin-bottom: 0.5rem; padding: 0.75rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+              <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
+                <input type="checkbox" id="v-instant-ride" checked style="margin-top: 0.2rem; width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer;" />
+                <div>
+                  <span style="font-weight: 700; font-size: 0.85rem; color: #1E293B;">Allow Instant Short Ride Without Admin Approval</span>
+                  <p style="margin: 0.2rem 0 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
+                    If checked, drivers and staff can take instant meter-to-meter rides immediately. If unchecked, every trip requires submitting a request and waiting for admin approval.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <!-- Frozen Bottom Submit Bar -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Vehicle</button>
+            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">Save Vehicle</button>
           </div>
         </form>
       </div>
@@ -1155,96 +1157,99 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
   // --- MODAL: EDIT VEHICLE ---
   function openEditVehicleModal(v) {
+    const normCategory = normalizeVehicleCategory(v.vehicle_type);
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
-    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 520px; box-shadow: var(--shadow-xl); overflow: hidden;">
-        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Edit Vehicle — ${v.vehicle_name}</h3>
-          <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <form id="form-edit-vehicle" style="padding: 1.5rem;">
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Display Name *</label>
-            <input type="text" id="ev-name" class="form-control" required value="${v.vehicle_name}" style="width: 100%;" />
-          </div>
+        <!-- Form with Scrollable Content & Frozen Bottom Submit Bar -->
+        <form id="form-edit-vehicle" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
+          <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Display Name *</label>
+              <input type="text" id="ev-name" class="form-control" required value="${v.vehicle_name}" style="width: 100%;" />
+            </div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Photo</label>
-            <div style="display: flex; gap: 0.75rem; align-items: center;">
-              <input type="file" id="ev-photo-file" accept="image/*" class="form-control" style="width: 100%; font-size: 0.8rem;" />
-              <div id="ev-photo-preview" style="width: 50px; height: 40px; border-radius: 6px; background: #F1F5F9; border: 1px dashed #CBD5E1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                ${v.photo_url ? `<img src="${v.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : '<span style="font-size: 1.1rem;">🚗</span>'}
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Photo</label>
+              <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <input type="file" id="ev-photo-file" accept="image/*" class="form-control" style="width: 100%; font-size: 0.8rem;" />
+                <div id="ev-photo-preview" style="width: 50px; height: 40px; border-radius: 6px; background: #F1F5F9; border: 1px dashed #CBD5E1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                  ${v.photo_url ? `<img src="${v.photo_url}" style="width: 100%; height: 100%; object-fit: cover;" />` : '<span style="font-size: 1.1rem;">🚗</span>'}
+                </div>
               </div>
+              <input type="hidden" id="ev-photo-data" value="${v.photo_url || ''}" />
             </div>
-            <input type="hidden" id="ev-photo-data" value="${v.photo_url || ''}" />
-          </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
-              <input type="text" id="ev-reg" class="form-control" required value="${v.reg_number}" style="width: 100%; text-transform: uppercase;" />
-            </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
-              <select id="ev-type" class="form-control" required style="width: 100%;">
-                <option value="Bike / Two-Wheeler (e.g. Honda Unicorn)" ${(v.vehicle_type || '').includes('Bike') ? 'selected' : ''}>Bike / Two-Wheeler (e.g. Honda Unicorn)</option>
-                <option value="Maruti Omni / Eeco (Van)" ${(v.vehicle_type || '').includes('Omni') ? 'selected' : ''}>Maruti Omni / Eeco (Van)</option>
-                <option value="Tata Magic / Passenger Van" ${(v.vehicle_type || '').includes('Magic') ? 'selected' : ''}>Tata Magic / Passenger Van</option>
-                <option value="Tata Winger / Traveler Bus" ${(v.vehicle_type || '').includes('Winger') ? 'selected' : ''}>Tata Winger / Traveler Bus</option>
-                <option value="Car / Sedan / Hatchback" ${(v.vehicle_type || '').includes('Car') || (v.vehicle_type || '').includes('Sedan') ? 'selected' : ''}>Car / Sedan / Hatchback</option>
-                <option value="Utility Vehicle / Bolero" ${(v.vehicle_type || '').includes('Bolero') || (v.vehicle_type || '').includes('Utility') ? 'selected' : ''}>Utility Vehicle / Bolero</option>
-                <option value="Heavy Bus / Transport" ${(v.vehicle_type || '').includes('Bus') ? 'selected' : ''}>Heavy Bus / Transport</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
-              <input type="number" id="ev-odo" class="form-control" required min="0" value="${v.current_odometer || 0}" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Fallback Rate (₹/KM) *</label>
-              <input type="number" id="ev-rate" class="form-control" required min="1" step="0.5" value="${v.fallback_rate_per_km || 15}" style="width: 100%;" />
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
-              <input type="number" id="ev-buffer" class="form-control" required min="0" max="50" value="${v.buffer_percentage || 10}" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Operational Status *</label>
-              <select id="ev-status" class="form-control" required style="width: 100%;">
-                <option value="Available" ${v.status === 'Available' ? 'selected' : ''}>Available</option>
-                <option value="On Trip" ${v.status === 'On Trip' ? 'selected' : ''}>On Trip</option>
-                <option value="Maintenance" ${v.status === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
-                <option value="Inactive" ${v.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Instant Short Ride Permission Setting -->
-          <div style="margin-bottom: 1.25rem; padding: 0.75rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
-            <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
-              <input type="checkbox" id="ev-instant-ride" ${v.allow_instant_short_ride !== false ? 'checked' : ''} style="margin-top: 0.2rem; width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer;" />
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
               <div>
-                <span style="font-weight: 700; font-size: 0.85rem; color: #1E293B;">Allow Instant Short Ride Without Admin Approval</span>
-                <p style="margin: 0.2rem 0 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
-                  If checked, drivers and staff can take instant meter-to-meter rides immediately. If unchecked, every trip requires submitting a request and waiting for admin approval.
-                </p>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Registration Plate *</label>
+                <input type="text" id="ev-reg" class="form-control" required value="${v.reg_number}" style="width: 100%; text-transform: uppercase;" />
               </div>
-            </label>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Vehicle Category *</label>
+                <select id="ev-type" class="form-control" required style="width: 100%;">
+                  <option value="2 Wheeler" ${normCategory === '2 Wheeler' ? 'selected' : ''}>2 Wheeler</option>
+                  <option value="3 Wheeler" ${normCategory === '3 Wheeler' ? 'selected' : ''}>3 Wheeler</option>
+                  <option value="4 Wheeler" ${normCategory === '4 Wheeler' ? 'selected' : ''}>4 Wheeler</option>
+                  <option value="Heavy" ${normCategory === 'Heavy' ? 'selected' : ''}>Heavy</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
+                <input type="number" id="ev-odo" class="form-control" required min="0" value="${v.current_odometer || 0}" style="width: 100%;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Fallback Rate (₹/KM) *</label>
+                <input type="number" id="ev-rate" class="form-control" required min="1" step="0.5" value="${v.fallback_rate_per_km || 15}" style="width: 100%;" />
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Cost Buffer (%) *</label>
+                <input type="number" id="ev-buffer" class="form-control" required min="0" max="50" value="${v.buffer_percentage || 10}" style="width: 100%;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Operational Status *</label>
+                <select id="ev-status" class="form-control" required style="width: 100%;">
+                  <option value="Available" ${v.status === 'Available' ? 'selected' : ''}>Available</option>
+                  <option value="On Trip" ${v.status === 'On Trip' ? 'selected' : ''}>On Trip</option>
+                  <option value="Maintenance" ${v.status === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+                  <option value="Inactive" ${v.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Instant Short Ride Permission Setting -->
+            <div style="margin-bottom: 0.5rem; padding: 0.75rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+              <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
+                <input type="checkbox" id="ev-instant-ride" ${v.allow_instant_short_ride !== false ? 'checked' : ''} style="margin-top: 0.2rem; width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer;" />
+                <div>
+                  <span style="font-weight: 700; font-size: 0.85rem; color: #1E293B;">Allow Instant Short Ride Without Admin Approval</span>
+                  <p style="margin: 0.2rem 0 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
+                    If checked, drivers and staff can take instant meter-to-meter rides immediately. If unchecked, every trip requires submitting a request and waiting for admin approval.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <!-- Frozen Bottom Submit Bar -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">Save Changes</button>
           </div>
         </form>
       </div>
@@ -1311,16 +1316,16 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       const vDocs = documents.filter(d => d.vehicle_id === v.id);
 
       modalOverlay.innerHTML = `
-        <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 640px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden;">
-          <div style="padding: 1.15rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 640px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+          <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
             <div>
               <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Compliance Documents — ${v.vehicle_name}</h3>
               <p style="margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">${v.reg_number}</p>
             </div>
-            <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+            <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
           </div>
 
-          <div style="padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;">
+          <div style="padding: 1.25rem; overflow-y: auto; flex: 1 1 auto; min-height: 0; -webkit-overflow-scrolling: touch;">
             <!-- Document List -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
               <strong style="font-size: 0.9rem;">Registered Documents</strong>
@@ -1406,7 +1411,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             `}
           </div>
 
-          <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end;">
+          <div style="padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; flex-shrink: 0; background: var(--bg-surface); z-index: 10; box-shadow: 0 -4px 12px rgba(0,0,0,0.04);">
             <button class="btn btn-secondary btn-close-modal">Done</button>
           </div>
         </div>
@@ -1472,57 +1477,62 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
-    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-xl); overflow: hidden;">
-        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Record Payment / Partial Settle</h3>
-          <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <form id="form-settle-payment" style="padding: 1.5rem;">
-          <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.85rem; margin-bottom: 1.15rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">TRIP REFERENCE</div>
-                <div style="font-weight: 700; font-family: monospace; font-size: 1rem;">${tripCode}</div>
-                <div style="font-size: 0.8rem; color: #047857;">User: ${userName}</div>
+        <!-- Form with Scrollable Content & Frozen Bottom Submit Bar -->
+        <form id="form-settle-payment" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
+          <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 0.85rem; margin-bottom: 1.15rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">TRIP REFERENCE</div>
+                  <div style="font-weight: 700; font-family: monospace; font-size: 1rem;">${tripCode}</div>
+                  <div style="font-size: 0.8rem; color: #047857;">User: ${userName}</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
+                  <div style="font-size: 1.35rem; font-weight: 800; color: #065F46;">${formatCurrency(remainingDue)}</div>
+                </div>
               </div>
-              <div style="text-align: right;">
-                <div style="font-size: 0.75rem; color: #065F46; font-weight: 600;">REMAINING DUE</div>
-                <div style="font-size: 1.35rem; font-weight: 800; color: #065F46;">${formatCurrency(remainingDue)}</div>
-              </div>
+            </div>
+
+            <!-- Strict Financial Audit Notice -->
+            <div style="font-size: 0.78rem; color: #3730A3; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 6px; padding: 0.65rem; margin-bottom: 1rem;">
+              <strong>Audit Record:</strong> This payment will be permanently logged with your name (<strong>${currentUser?.full_name || 'Admin'}</strong>) as the receiving officer.
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Received (₹) * (Full or Partial)</label>
+              <input type="number" id="pay-amount-input" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.1rem; font-weight: 700; color: #059669;" />
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Enter full or partial amount to settle.</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
+              <select id="pay-method" class="form-control" required style="width: 100%;">
+                <option value="Cash">Cash (Received at School Office)</option>
+                <option value="UPI / GPay">UPI / GPay (School QR Scan)</option>
+                <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
+                <option value="Salary Deduction">Staff Salary Deduction</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Transaction Ref / Receipt Notes</label>
+              <input type="text" id="pay-notes" class="form-control" placeholder="e.g. UPI Ref #49281982 or Office Receipt #0912" style="width: 100%;" />
             </div>
           </div>
 
-          <!-- Strict Financial Audit Notice -->
-          <div style="font-size: 0.78rem; color: #3730A3; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 6px; padding: 0.65rem; margin-bottom: 1rem;">
-            <strong>Audit Record:</strong> This payment will be permanently logged with your name (<strong>${currentUser?.full_name || 'Admin'}</strong>) as the receiving officer.
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.25rem;">Amount Received (₹) * (Full or Partial)</label>
-            <input type="number" id="pay-amount-input" class="form-control" step="0.5" min="1" max="${remainingDue}" value="${remainingDue}" required style="width: 100%; font-size: 1.1rem; font-weight: 700; color: #059669;" />
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Enter full or partial amount to settle.</div>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Method *</label>
-            <select id="pay-method" class="form-control" required style="width: 100%;">
-              <option value="Cash">Cash (Received at School Office)</option>
-              <option value="UPI / GPay">UPI / GPay (School QR Scan)</option>
-              <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
-              <option value="Salary Deduction">Staff Salary Deduction</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Transaction Ref / Receipt Notes</label>
-            <input type="text" id="pay-notes" class="form-control" placeholder="e.g. UPI Ref #49281982 or Office Receipt #0912" style="width: 100%;" />
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <!-- Frozen Bottom Submit Bar -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
             <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">
               Confirm Payment
@@ -1570,50 +1580,56 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
   function openAddVehicleUserModal() {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-backdrop';
-    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
 
     modalOverlay.innerHTML = `
-      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-xl); overflow: hidden;">
-        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Frozen Top Header -->
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-surface); z-index: 10;">
           <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Onboard Vehicle User</h3>
-          <button class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
         </div>
 
-        <form id="form-create-vu" style="padding: 1.5rem;">
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Full Name *</label>
-            <input type="text" id="vu-name" class="form-control" required placeholder="e.g. Sameer Driver" style="width: 100%;" />
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Phone Number *</label>
-              <input type="tel" id="vu-phone" class="form-control" required placeholder="e.g. +91 98470 12345" style="width: 100%;" />
+        <!-- Form with Scrollable Content & Frozen Bottom Submit Bar -->
+        <form id="form-create-vu" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 0;">
+          <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Full Name *</label>
+              <input type="text" id="vu-name" class="form-control" required placeholder="e.g. Sameer Driver" style="width: 100%;" />
             </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Staff / Driver ID</label>
-              <input type="text" id="vu-id" class="form-control" placeholder="e.g. VUS003" style="width: 100%; text-transform: uppercase;" />
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Phone Number *</label>
+                <input type="tel" id="vu-phone" class="form-control" required placeholder="e.g. +91 98470 12345" style="width: 100%;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Email Address</label>
+                <input type="email" id="vu-email" class="form-control" placeholder="sameer@example.com" style="width: 100%;" />
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Driver / Staff ID *</label>
+                <input type="text" id="vu-id" class="form-control" required placeholder="e.g. DRV-01" style="width: 100%; text-transform: uppercase;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Designation / Category</label>
+                <input type="text" id="vu-desig" class="form-control" value="Campus Driver" style="width: 100%;" />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Notes / License Details</label>
+              <input type="text" id="vu-notes" class="form-control" placeholder="e.g. Heavy vehicle driving license holder" style="width: 100%;" />
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Email Address *</label>
-            <input type="email" id="vu-email" class="form-control" required placeholder="e.g. sameer.driver@thaibaschool.edu.in" style="width: 100%;" />
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Designation / Role</label>
-            <input type="text" id="vu-desig" class="form-control" placeholder="e.g. Primary School Van Driver" style="width: 100%;" />
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">License Details / Notes</label>
-            <textarea id="vu-notes" class="form-control" rows="2" placeholder="e.g. Heavy passenger badge valid through 2029" style="width: 100%;"></textarea>
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <!-- Frozen Bottom Submit Bar -->
+          <div style="flex-shrink: 0; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 0.75rem; background: var(--bg-surface); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04); z-index: 10;">
             <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create User Account</button>
+            <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">Onboard User</button>
           </div>
         </form>
       </div>
