@@ -8470,5 +8470,33 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(html).not.toContain('(faculty)');
       expect(html).toContain(`value="${adminUser.id}" selected`);
     });
+
+    it('Attendance punctuality protocol: 10-minute grace window condition', async () => {
+      // 1. Session recorded 8 minutes after start time (e.g. 06:08 for 06:00 start) -> Punctual (<=10m)
+      const punctualDate = new Date(2026, 10, 6, 6, 8);
+      const punctualSession = {
+        classroom_id: 'cls-1',
+        session_date: '2026-11-06',
+        class_start_time: '06:00',
+        first_recorded_at: punctualDate.toISOString()
+      };
+      const pInfo = db.getSessionPunctualityInfo(punctualSession, '06:00');
+      expect(pInfo.isLate).toBe(false);
+      expect(pInfo.punctuality).toBe('punctual');
+      expect(pInfo.lateMinutes).toBe(8);
+
+      // 2. Session recorded 12 minutes after start time (e.g. 06:12 for 06:00 start) -> Late (>10m)
+      const lateDate = new Date(2026, 10, 6, 6, 12);
+      const lateSession = {
+        classroom_id: 'cls-1',
+        session_date: '2026-11-06',
+        class_start_time: '06:00',
+        first_recorded_at: lateDate.toISOString()
+      };
+      const lInfo = db.getSessionPunctualityInfo(lateSession, '06:00');
+      expect(lInfo.isLate).toBe(true);
+      expect(lInfo.punctuality).toBe('late');
+      expect(lInfo.lateMinutes).toBe(12);
+    });
   });
 });

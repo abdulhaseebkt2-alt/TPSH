@@ -434,7 +434,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               const recMin = recDate.getHours() * 60 + recDate.getMinutes();
               studentLateMinutes[s.id] = Math.max(1, recMin - clsStartMin);
             } else {
-              studentLateMinutes[s.id] = 15;
+              studentLateMinutes[s.id] = 10;
             }
           }
         } else {
@@ -662,7 +662,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
               `;
             } else if (hasSessionRecorded) {
               const sessionRecord = allSessions.find(s => s.classroom_id === cls.id && s.session_date === sessionDate);
-              const punctInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sessionRecord, cls.start_time) : { isLate: sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15), lateMinutes: sessionRecord?.late_submission_minutes || 0 };
+              const punctInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sessionRecord, cls.start_time) : { isLate: sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 10), lateMinutes: sessionRecord?.late_submission_minutes || 0 };
               const isRecordedLate = punctInfo.isLate;
               const lateM = punctInfo.lateMinutes;
               const subBy = sessionRecord?.submitted_by_name || sessionRecord?.teacher_name || teacherName;
@@ -774,7 +774,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                     <span class="detail-label">Duty Punctuality</span>
                     ${(() => {
                       const sessionRecord = allSessions.find(s => s.classroom_id === cls.id && s.session_date === sessionDate);
-                      const punctInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sessionRecord, cls.start_time) : { isLate: sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 15), lateMinutes: sessionRecord?.late_submission_minutes || 0 };
+                      const punctInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sessionRecord, cls.start_time) : { isLate: sessionRecord?.submission_punctuality === 'late' || (sessionRecord?.late_submission_minutes > 10), lateMinutes: sessionRecord?.late_submission_minutes || 0 };
               const isRecordedLate = punctInfo.isLate;
                       const lateM = punctInfo.lateMinutes;
                       const subBy = sessionRecord?.submitted_by_name || sessionRecord?.teacher_name || teacherName;
@@ -783,7 +783,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                       }
                       return isRecordedLate 
                         ? `<span class="detail-value" style="color: #DC2626; font-weight: 800;">⚠️ Late (+${lateM}m) by ${subBy}</span>`
-                        : `<span class="detail-value" style="color: #059669; font-weight: 800;">✓ Punctual (≤15m) by ${subBy}</span>`;
+                        : `<span class="detail-value" style="color: #059669; font-weight: 800;">✓ Punctual (≤10m) by ${subBy}</span>`;
                     })()}
                   </div>
                   <div class="upcoming-detail-cell">
@@ -1221,7 +1221,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       const currentStatus = attendanceState[s.id] || (onLeave ? 'Leave' : 'Absent');
       const isPresent = !onLeave && (currentStatus === 'Present' || currentStatus === 'Late Present');
       const isLatePresent = !onLeave && (currentStatus === 'Late Present');
-      const lateMins = studentLateMinutes[s.id] || 15;
+      const lateMins = studentLateMinutes[s.id] || 10;
       const isGirl = s.gender === 'Female' || s.gender === 'Girls' || s.gender === 'Girl';
       const genderLabel = isGirl ? 'Girl' : 'Boy';
       const initials = (s.full_name || 'Student')
@@ -1366,7 +1366,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const currentStatus = attendanceState[sid] || 'Absent';
     const isPresent = currentStatus === 'Present' || currentStatus === 'Late Present';
     const isLatePresent = currentStatus === 'Late Present';
-    const lateMins = studentLateMinutes[sid] || 15;
+    const lateMins = studentLateMinutes[sid] || 10;
 
     if (typeof card.classList?.toggle === 'function') {
       card.classList.toggle('is-present', isPresent);
@@ -1607,7 +1607,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
         const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
 
-        // Punctuality check: Attendance must be taken within 15 minutes after class started
+        // Punctuality check: Attendance must be taken within 10 minutes after class started
         const sMin = parseMinutes(activeCls?.start_time || '06:30');
         const nowObj = new Date();
         const currentMins = nowObj.getHours() * 60 + nowObj.getMinutes();
@@ -1624,7 +1624,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           lateMinsCount = pInfo.lateMinutes;
         } else if (isTodaySession) {
           const diffFromStart = currentMins - sMin;
-          if (diffFromStart > 15) {
+          if (diffFromStart > 10) {
             isLateSubmission = true;
             lateMinsCount = diffFromStart;
           } else {
@@ -1637,7 +1637,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
         let confirmed = false;
         if (isLateSubmission) {
-          const graceEndMinutes = sMin + 15;
+          const graceEndMinutes = sMin + 10;
           const graceHour = Math.floor(graceEndMinutes / 60);
           const graceMinute = graceEndMinutes % 60;
           const graceTimeStr = `${String(graceHour).padStart(2, '0')}:${String(graceMinute).padStart(2, '0')}`;
@@ -1656,7 +1656,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                   <div style="font-size: 0.8rem; color: #7F1D1D; line-height: 1.5;">
                     <div>Faculty: <strong>${teacherDisplayName}</strong></div>
                     <div>Class: <strong>${activeCls?.name || 'Classroom'}</strong> (${formatTime(activeCls?.start_time || '06:30')} – ${formatTime(activeCls?.end_time || '07:30')})</div>
-                    <div>15-Min Grace Window Ended: <strong>${formatTime(graceTimeStr)}</strong></div>
+                    <div>10-Min Grace Window Ended: <strong>${formatTime(graceTimeStr)}</strong></div>
                     <div style="margin-top: 3px; font-weight: 700; color: #DC2626;">
                       Current Time: ${formatTime(nowObj.toTimeString().slice(0, 5))} (${lateMinsCount} minutes after class started)
                     </div>
@@ -1664,7 +1664,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                 </div>
 
                 <div style="font-size: 0.8rem; color: #475569; line-height: 1.5; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.75rem;">
-                  📢 <strong>Punctuality Protocol:</strong> Faculty members are expected to record classroom attendance strictly within <strong>15 minutes</strong> after class commences.<br/>
+                  📢 <strong>Punctuality Protocol:</strong> Faculty members are expected to record classroom attendance strictly within <strong>10 minutes</strong> after class commences.<br/>
                   <span style="color: #64748B; font-size: 0.74rem; margin-top: 4px; display: inline-block;">
                     Please take attendance promptly in future sessions. This record will be logged with your timestamp as Late (+${lateMinsCount}m) on the attendance card and duty reports.
                   </span>
@@ -1687,7 +1687,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             return { 
               student_id: sid, 
               status,
-              late_minutes: status === 'Late Present' ? (studentLateMinutes[sid] || 15) : null
+              late_minutes: status === 'Late Present' ? (studentLateMinutes[sid] || 10) : null
             };
           });
 

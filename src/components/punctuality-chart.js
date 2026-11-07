@@ -1,8 +1,8 @@
 /**
  * Reusable Modern Punctuality & Compliance Spline Chart
  * Visualizes:
- * 1. Punctual attendance (recorded within 15 minutes of class start) - Emerald Wave
- * 2. Late attendance (recorded after 15 minutes) - Amber Wave
+ * 1. Punctual attendance (recorded within 10 minutes of class start) - Emerald Wave
+ * 2. Late attendance (recorded after 10 minutes) - Amber Wave
  * 3. Missed attendance (class scheduled but attendance not submitted) - Rose Wave
  */
 
@@ -11,7 +11,7 @@ import { formatTime, formatDate } from '../lib/utils.js';
 export function generatePunctualityChartHtml({
   timelineDays = [], // Array of { dateStr, dayLabel, punctual, late, missed }
   title = 'Attendance Punctuality & Duty Compliance',
-  subtitle = '3-line trend: Punctual (≤15 min), Late (>15 min), and Missed sessions',
+  subtitle = '3-line trend: Punctual (≤10 min), Late (>10 min), and Missed sessions',
   compact = false
 }) {
   if (!timelineDays || timelineDays.length === 0) {

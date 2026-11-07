@@ -3152,7 +3152,7 @@ class DatabaseService {
       if (!isNaN(fDate.getTime())) {
         const fMins = fDate.getHours() * 60 + fDate.getMinutes();
         const diff = fMins - startMins;
-        if (diff <= 15) {
+        if (diff <= 10) {
           return { isLate: false, lateMinutes: Math.max(0, diff), punctuality: 'punctual' };
         } else {
           return { isLate: true, lateMinutes: diff, punctuality: 'late' };
@@ -3161,7 +3161,7 @@ class DatabaseService {
     }
 
     // 3. Fallback to existing session fields
-    const isLate = sessionRecord.submission_punctuality === 'late' || (Number(sessionRecord.late_submission_minutes) > 15);
+    const isLate = sessionRecord.submission_punctuality === 'late' || (Number(sessionRecord.late_submission_minutes) > 10);
     return {
       isLate,
       lateMinutes: Number(sessionRecord.late_submission_minutes) || 0,
@@ -3195,9 +3195,9 @@ class DatabaseService {
         if (!isNaN(fDate.getTime())) {
           const fMins = fDate.getHours() * 60 + fDate.getMinutes();
           const diff = fMins - startMins;
-          if (diff <= 15) {
+          if (diff <= 10) {
             firstPunctuality = 'punctual';
-            if (firstLateMinutes > 15) {
+            if (firstLateMinutes > 10) {
               firstLateMinutes = Math.max(0, diff);
             }
           }
