@@ -114,9 +114,6 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                 <span class="rbac-trigger-kicker">VIEWING USAGE CARD FOR</span>
                 <div class="rbac-trigger-name-row" style="gap: 0.5rem; flex-wrap: wrap;">
                   <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedUser.full_name}</span>
-                  <span class="rbac-trigger-badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-weight: 700;">
-                    ${selectedUser.role === 'vehicle_user' ? 'Driver / Staff' : selectedUser.role.toUpperCase()}
-                  </span>
                   <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
                     ${selectedUser.tps_id || 'TPS-VUS'}
                   </span>
@@ -142,12 +139,9 @@ export async function renderVehicleUserCardModule(container, options = {}) {
           </div>
           <div style="flex: 1; min-width: 0;">
             <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-              <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">
+              <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">
                 ${selectedUser.full_name}
               </h3>
-              <span class="badge" style="background: rgba(99, 102, 241, 0.4); color: #E0E7FF; border: 1px solid rgba(165, 180, 252, 0.4); font-size: 0.65rem; font-weight: 700;">
-                ${selectedUser.role === 'vehicle_user' ? 'Driver' : selectedUser.role.toUpperCase()}
-              </span>
               <span style="font-family: monospace; font-size: 0.68rem; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; color: #C7D2FE;">
                 ${selectedUser.tps_id || 'TPS-VUS'}
               </span>
@@ -388,9 +382,6 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                         <div class="role-picker-item-title-row" style="gap: 0.45rem; flex-wrap: wrap;">
                           <span class="role-picker-item-name" style="font-weight: 700; font-size: 0.92rem;">${u.full_name}</span>
                           ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">CURRENT</span>` : ''}
-                          <span class="badge" style="font-size: 0.65rem; background: #F1F5F9; color: #475569;">
-                            ${u.role === 'vehicle_user' ? 'Driver / Staff' : u.role.toUpperCase()}
-                          </span>
                         </div>
                         <span class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
                           <span>${uTrips.length} Trips logged</span>

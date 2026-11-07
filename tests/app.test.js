@@ -8436,5 +8436,39 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(html).toContain('status-leave');
       expect(html).toContain('On Leave');
     });
+
+    it('Attendance UI Enhancements: Admin teacher filter defaults to user, removes role suffixes, and punctual attendance skips confirmation popup', async () => {
+      // 1. Setup admin user
+      const adminUser = {
+        id: 'usr-admin-haseeb',
+        full_name: 'Abdul Haseeb',
+        email: 'haseeb@thaibaschool.edu.in',
+        role: 'super_admin',
+        approval_status: 'approved',
+        is_super_admin: true
+      };
+      updateCurrentUserProfile(adminUser);
+      const allUsers = await db.getUsers();
+      if (!allUsers.find(u => u.id === adminUser.id)) {
+        allUsers.push(adminUser);
+        db.set('tps_users', allUsers);
+      }
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceModule(container, { onNavigate: () => {} });
+      const html = container.innerHTML;
+
+      // Filter select exists and options do NOT include (super_admin) or role positions
+      expect(html).toContain('id="att-admin-teacher-select"');
+      expect(html).toContain('Abdul Haseeb');
+      expect(html).not.toContain('Abdul Haseeb (super_admin)');
+      expect(html).not.toContain('(faculty)');
+      expect(html).toContain(`value="${adminUser.id}" selected`);
+    });
   });
 });

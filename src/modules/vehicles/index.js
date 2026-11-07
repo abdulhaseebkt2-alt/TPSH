@@ -822,7 +822,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                     <tr style="border-bottom: 1px solid var(--border-medium); text-align: left;">
                       <th style="padding: 0.65rem;">Trip ID</th>
                       <th style="padding: 0.65rem;">Completed Date</th>
-                      <th style="padding: 0.65rem;">User & Role</th>
+                      <th style="padding: 0.65rem;">User</th>
                       <th style="padding: 0.65rem;">Vehicle</th>
                       <th style="padding: 0.65rem;">Distance</th>
                       <th style="padding: 0.65rem;">Rate</th>
@@ -839,7 +839,6 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                           <td style="padding: 0.65rem;">${formatDate(t.end_time || t.completed_at || t.created_at)}</td>
                           <td style="padding: 0.65rem;">
                             <strong>${t.user_name}</strong>
-                            <div style="font-size: 0.74rem; color: var(--text-muted);">${t.user_role}</div>
                           </td>
                           <td style="padding: 0.65rem;">
                             ${veh?.vehicle_name || 'Vehicle'}
@@ -882,7 +881,6 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
                       <div style="margin-bottom: 0.45rem;">
                         <strong style="font-size: 0.92rem; color: var(--text-main);">${t.user_name}</strong>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);"> (${t.user_role})</span>
                         <div style="font-size: 0.78rem; color: #64748B; margin-top: 0.15rem;">
                           ${veh?.vehicle_name || 'Vehicle'} • <span style="font-family: monospace;">${veh?.reg_number || ''}</span>
                         </div>

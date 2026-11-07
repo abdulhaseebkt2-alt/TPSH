@@ -72,7 +72,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
             <div>
               <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Vehicle Booking & Short Ride</h2>
               <p style="margin: 0.15rem 0 0; color: var(--text-muted); font-size: 0.85rem;">
-                Logged in as <strong>${currentUser.full_name}</strong> (${currentUser.role === 'vehicle_user' ? 'Driver / Staff' : currentUser.role}) • 100% Personal Billable System
+                Logged in as <strong>${currentUser.full_name}</strong> • 100% Personal Billable System
               </p>
             </div>
           </div>

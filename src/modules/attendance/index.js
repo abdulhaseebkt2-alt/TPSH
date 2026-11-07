@@ -81,6 +81,12 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       // If no specific classroom is mapped by teacher_id, allow classrooms matching mentor's gender scope
       availableClassrooms = allClassrooms.filter(c => !c.gender_eligibility || c.gender_eligibility === mentorGender || c.gender_eligibility === 'Mixed');
     }
+  } else if (isAdmin) {
+    // Default Admin filter to the logged-in user if they are an eligible faculty / have assigned classes
+    const selfTeacher = eligibleTeachers.find(t => t.id === user?.id || (t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase()));
+    if (selfTeacher) {
+      selectedAdminTeacherId = selfTeacher.id;
+    }
   }
 
   // Today's Date & Time Check
@@ -508,7 +514,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                 <option value="all" ${selectedAdminTeacherId === 'all' ? 'selected' : ''}>All Faculty Classrooms (${allClassrooms.length})</option>
                 ${eligibleTeachers.map(t => `
                   <option value="${t.id}" ${t.id === selectedAdminTeacherId ? 'selected' : ''}>
-                    ${t.full_name || t.email} (${t.role || 'faculty'})
+                    ${t.full_name || t.email}
                   </option>
                 `).join('')}
               </select>
@@ -1612,13 +1618,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         }
 
         let confirmed = false;
-        if (hasExistingSession) {
-          confirmed = await confirmDialog({
-            title: 'Confirm Attendance Update',
-            message: `Update attendance records for ${activeCls?.name}? This records student presence and late arrivals. Faculty duty punctuality remains preserved from your initial class attendance.`,
-            confirmText: 'Save & Update Attendance'
-          });
-        } else if (isLateSubmission) {
+        if (isLateSubmission) {
           const graceEndMinutes = sMin + 15;
           const graceHour = Math.floor(graceEndMinutes / 60);
           const graceMinute = graceEndMinutes % 60;
@@ -1657,11 +1657,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             cancelText: 'Cancel'
           });
         } else {
-          confirmed = await confirmDialog({
-            title: 'Confirm Live Attendance Submission',
-            message: `Submit punctual attendance for ${activeCls?.name}? This will record student presence, timestamp the exact time (${formatTime(new Date().toTimeString().slice(0, 5))}), and record your faculty duty attendance.`,
-            confirmText: 'Submit Attendance'
-          });
+          // Taking attendance punctually: No popup window needed, directly submit
+          confirmed = true;
         }
 
         if (confirmed) {

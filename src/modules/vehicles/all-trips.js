@@ -28,7 +28,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
   ]);
 
   let activeFilter = 'all'; // 'all', 'unpaid', 'paid', 'active'
-  let searchQuery = '';
+  let searchQuery = currentUser?.full_name || '';
 
   function render() {
     // Sort all trips descending by date
@@ -194,15 +194,12 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
                       style="border-bottom: 1px solid var(--border-subtle); vertical-align: top; cursor: ${isCompleted && !isPaid ? 'pointer' : 'default'}; transition: background 0.15s;" 
                       onmouseover="this.style.background='var(--bg-surface-subtle)'" 
                       onmouseout="this.style.background='transparent'">
-                      <!-- 1ST COLUMN: NAME & ROLE -->
+                      <!-- 1ST COLUMN: NAME & CODE -->
                       <td style="padding: 0.55rem 0.45rem; min-width: 0; overflow: hidden;">
                         <div style="font-weight: 700; color: #0F172A; font-size: 0.84rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                           ${t.user_name || 'Driver / Staff'}
                         </div>
                         <div style="margin-top: 0.2rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
-                          <span class="badge" style="font-size: 0.62rem; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 1px 4px; font-weight: 700;">
-                            ${t.user_role === 'vehicle_user' ? 'Driver' : (t.user_role || 'Staff').toUpperCase()}
-                          </span>
                           <span style="font-family: monospace; font-size: 0.65rem; color: var(--text-muted);">
                             ${t.trip_id}
                           </span>
