@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatDate } from '../../lib/utils.js';
+import { formatDate, isLeaveOverdueSafe } from '../../lib/utils.js';
 import { getMentorGenderScope } from '../../lib/permissions.js';
 
 export async function renderMentorDashboard(container, { onNavigate }) {
@@ -104,10 +104,7 @@ export async function renderMentorDashboard(container, { onNavigate }) {
     return true;
   });
   const onLeaveCount = activeAwayLeaves.length;
-  const overdueCount = activeAwayLeaves.filter(l => {
-    const st = (l.status || '').toLowerCase();
-    return st === 'overdue' || (l.expected_return_date && l.expected_return_date < nowIso);
-  }).length;
+  const overdueCount = activeAwayLeaves.filter(l => isLeaveOverdueSafe(l)).length;
   const totalOccupied = scopedStudents.length;
 
   container.innerHTML = `

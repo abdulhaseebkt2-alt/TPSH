@@ -66,6 +66,53 @@ export function formatDate(dateString) {
   }
 }
 
+export function isDateInFuture(dateStr, now = new Date()) {
+  if (!dateStr) return false;
+  const d = parseDate(dateStr);
+  if (!d || isNaN(d.getTime())) return false;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return dateDay.getTime() > startOfToday.getTime();
+}
+
+export function isLeaveOverdueSafe(leave, now = new Date()) {
+  if (!leave) return false;
+  const status = (leave.status || '').toLowerCase();
+  if (status === 'pending' || status === 'rejected' || status === 'cancelled' || status === 'returned') return false;
+  if (status === 'overdue') return true;
+
+  const dateStr = leave.expected_return_date;
+  if (!dateStr) return false;
+
+  const d = parseDate(dateStr);
+  if (!d || isNaN(d.getTime())) return false;
+
+  const timeStr = leave.expected_return_time || '18:00';
+  let hours = 18;
+  let minutes = 0;
+  if (timeStr) {
+    const t = String(timeStr).trim();
+    const ampmMatch = t.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+    if (ampmMatch) {
+      hours = parseInt(ampmMatch[1], 10);
+      minutes = parseInt(ampmMatch[2], 10);
+      const isPM = ampmMatch[3] && ampmMatch[3].toUpperCase() === 'PM';
+      const isAM = ampmMatch[3] && ampmMatch[3].toUpperCase() === 'AM';
+      if (isPM && hours < 12) hours += 12;
+      if (isAM && hours === 12) hours = 0;
+    } else {
+      const parts = t.split(':');
+      if (parts.length >= 2) {
+        hours = parseInt(parts[0], 10) || 0;
+        minutes = parseInt(parts[1], 10) || 0;
+      }
+    }
+  }
+
+  const expectedDateTime = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hours, minutes, 0);
+  return now.getTime() > expectedDateTime.getTime();
+}
+
 export function formatTime(timeString) {
   if (!timeString) return '—';
   try {

@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatCurrency, formatDate, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
+import { formatCurrency, formatDate, getTodayDateStr, isStudentActive, isLeaveOverdueSafe, isDateInFuture } from '../../lib/utils.js';
 
 export async function renderAdminDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -159,7 +159,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     const status = (l.status || '').toLowerCase();
     if (status === 'pending' || status === 'rejected' || status === 'cancelled' || status === 'returned') return false;
     const departs = l.departure_date || l.leaving_date;
-    if (departs && departs > todayIso) return false; // Advance approved leave, resident has not departed yet
+    if (departs && isDateInFuture(departs, now)) return false; // Advance approved leave, resident has not departed yet
     if (Array.isArray(l.students) && l.students.length > 0) {
       return l.students.some(s => !s.is_returned);
     }
@@ -201,53 +201,88 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const boysInHostel = Math.max(0, boysCount - boysOnLeave);
   const girlsInHostel = Math.max(0, girlsCount - girlsOnLeave);
 
-  // Categorize away students: Extended, Overdue, or Regular On Leave
-  const extendedStudentIds = new Set();
-  const overdueStudentIds = new Set();
-  const regularLeaveStudentIds = new Set();
+  // Map each active student to their latest active leave pass (newest takes precedence)
+  const sortedActiveLeaves = [...activeUnreturnedLeaves].sort((a, b) => {
+    const timeA = new Date(a.created_at || a.departure_date || 0).getTime();
+    const timeB = new Date(b.created_at || b.departure_date || 0).getTime();
+    return timeB - timeA;
+  });
 
-  activeUnreturnedLeaves.forEach(l => {
-    const isExtPass = Boolean(l.is_extended);
+  const studentActiveLeaveMap = new Map();
+  const studentNameActiveLeaveMap = new Map();
+
+  sortedActiveLeaves.forEach(l => {
     const departs = l.departure_date || l.leaving_date;
-    if (departs && departs > todayIso) return; // Not away yet
-
-    const status = (l.status || '').toLowerCase();
-    const isOver = status === 'overdue' || (
-      l.expected_return_date && (
-        l.expected_return_date < todayIso ||
-        (l.expected_return_date === todayIso && l.expected_return_time && parseMinutes(l.expected_return_time) < currentMinutes)
-      )
-    );
+    if (departs && isDateInFuture(departs, now)) return;
 
     if (Array.isArray(l.students) && l.students.length > 0) {
       l.students.forEach(s => {
-        if (!s.is_returned && s.student_id) {
-          const st = students.find(item => item.id === s.student_id);
-          if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
-          if (isExtPass || s.is_extended) {
-            extendedStudentIds.add(s.student_id);
-          } else if (isOver) {
-            overdueStudentIds.add(s.student_id);
-          } else {
-            regularLeaveStudentIds.add(s.student_id);
+        if (!s.is_returned && s.student_id && !studentActiveLeaveMap.has(s.student_id)) {
+          const entryData = {
+            leave: l,
+            studentEntry: s,
+            is_extended: Boolean(l.is_extended || s.is_extended),
+            expected_return_date: s.expected_return_date || l.expected_return_date,
+            expected_return_time: s.expected_return_time || l.expected_return_time || '18:00',
+            status: l.status
+          };
+          studentActiveLeaveMap.set(s.student_id, entryData);
+          if (s.student_name && !studentNameActiveLeaveMap.has(s.student_name.toLowerCase())) {
+            studentNameActiveLeaveMap.set(s.student_name.toLowerCase(), entryData);
           }
         }
       });
     } else {
       const sIds = Array.isArray(l.student_ids) && l.student_ids.length > 0 ? l.student_ids : [l.student_id];
       sIds.forEach(sid => {
-        if (sid) {
-          const st = students.find(item => item.id === sid);
-          if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
-          if (isExtPass) {
-            extendedStudentIds.add(sid);
-          } else if (isOver) {
-            overdueStudentIds.add(sid);
-          } else {
-            regularLeaveStudentIds.add(sid);
-          }
+        if (sid && !studentActiveLeaveMap.has(sid)) {
+          const entryData = {
+            leave: l,
+            studentEntry: null,
+            is_extended: Boolean(l.is_extended),
+            expected_return_date: l.expected_return_date,
+            expected_return_time: l.expected_return_time || '18:00',
+            status: l.status
+          };
+          studentActiveLeaveMap.set(sid, entryData);
         }
       });
+    }
+    if (l.student_name && !studentNameActiveLeaveMap.has(l.student_name.toLowerCase())) {
+      studentNameActiveLeaveMap.set(l.student_name.toLowerCase(), {
+        leave: l,
+        studentEntry: null,
+        is_extended: Boolean(l.is_extended),
+        expected_return_date: l.expected_return_date,
+        expected_return_time: l.expected_return_time || '18:00',
+        status: l.status
+      });
+    }
+  });
+
+  // Categorize away students: Extended, Overdue, or Regular On Leave
+  const extendedStudentIds = new Set();
+  const overdueStudentIds = new Set();
+  const regularLeaveStudentIds = new Set();
+
+  activeAwayStudentIds.forEach(sid => {
+    const st = students.find(item => item.id === sid);
+    if (st && !isStudentActive(st)) return; // Skip students on break or dropped out
+
+    const activeInfo = studentActiveLeaveMap.get(sid) || (st ? studentNameActiveLeaveMap.get((st.full_name || '').toLowerCase()) : null);
+    const isExtended = Boolean(activeInfo?.is_extended);
+    const isOver = !isExtended && activeInfo && isLeaveOverdueSafe({
+      status: activeInfo.status,
+      expected_return_date: activeInfo.expected_return_date,
+      expected_return_time: activeInfo.expected_return_time
+    }, now);
+
+    if (isExtended) {
+      extendedStudentIds.add(sid);
+    } else if (isOver) {
+      overdueStudentIds.add(sid);
+    } else {
+      regularLeaveStudentIds.add(sid);
     }
   });
 
@@ -271,36 +306,23 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const displayLeaves = leaves || [];
   const displayDiscipline = discipline || [];
 
-  // Compile list of students currently on leave for mobile quick status carousel
-  const activeLeavesMap = new Map();
-  activeUnreturnedLeaves.forEach(l => {
-    if (l.student_id) activeLeavesMap.set(l.student_id, l);
-    if (l.student_name) activeLeavesMap.set(l.student_name.toLowerCase(), l);
-    if (Array.isArray(l.student_ids)) {
-      l.student_ids.forEach(sid => activeLeavesMap.set(sid, l));
-    }
-  });
-
+  // Compile list of students currently on leave for mobile quick status carousel (strictly 1:1 synchronized with Radar)
   const studentsOnLeaveList = [];
   activeAwayStudentIds.forEach(sid => {
     const s = students.find(st => st.id === sid);
-    const matchedLeave = activeLeavesMap.get(sid) || (s ? activeLeavesMap.get((s.full_name || '').toLowerCase()) : null);
-    const isExtended = extendedStudentIds.has(sid) || Boolean(matchedLeave?.is_extended);
-    const isOverdue = !isExtended && (overdueStudentIds.has(sid) || matchedLeave?.status === 'Overdue' || (
-      matchedLeave?.expected_return_date && (
-        matchedLeave.expected_return_date < todayIso ||
-        (matchedLeave.expected_return_date === todayIso && matchedLeave.expected_return_time && parseMinutes(matchedLeave.expected_return_time) < currentMinutes)
-      )
-    ));
+    const activeInfo = studentActiveLeaveMap.get(sid) || (s ? studentNameActiveLeaveMap.get((s.full_name || '').toLowerCase()) : null);
+    const isExtended = extendedStudentIds.has(sid);
+    const isOverdue = overdueStudentIds.has(sid);
+
     studentsOnLeaveList.push({
       id: sid,
-      full_name: s?.full_name || matchedLeave?.student_name || 'Resident',
+      full_name: s?.full_name || activeInfo?.leave?.student_name || 'Resident',
       school_class: s?.school_class || 'STD',
       photo_url: s?.photo_url || null,
       status: isExtended ? 'Extended' : (isOverdue ? 'Overdue' : 'On Leave'),
       is_extended: isExtended,
       is_overdue: isOverdue,
-      expected_return_date: matchedLeave?.expected_return_date || null
+      expected_return_date: activeInfo?.expected_return_date || null
     });
   });
 

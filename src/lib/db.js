@@ -3197,7 +3197,9 @@ class DatabaseService {
           const diff = fMins - startMins;
           if (diff <= 15) {
             firstPunctuality = 'punctual';
-            firstLateMinutes = Math.max(0, diff);
+            if (firstLateMinutes > 15) {
+              firstLateMinutes = Math.max(0, diff);
+            }
           }
         }
       }
@@ -5784,7 +5786,7 @@ class DatabaseService {
   async recordVehiclePayment(paymentData) {
     const list = this.get('tps_vehicle_payments') || [];
     const record = {
-      id: 'vpay-' + Date.now(),
+      id: 'vpay-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
       payment_date: new Date().toISOString(),
       created_at: new Date().toISOString(),
       ...paymentData

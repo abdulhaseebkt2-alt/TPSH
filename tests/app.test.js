@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'fs';
-import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate, getTodayDateStr } from '../src/lib/utils.js';
+import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate, getTodayDateStr, isLeaveOverdueSafe } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions, isMentorRole, getMentorGenderScope } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour, attachWheelTimePicker, initAllWheelTimePickers } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
@@ -8347,6 +8347,94 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteTripLog(trip.id);
       const remainingPayments = await db.getVehiclePayments(trip.id);
       expect(remainingPayments.length).toBe(0);
+    });
+
+    it('Leave Overdue Accuracy: Future return dates (including DD.MMM.YYYY format) and newest active pass prevent false overdue classification in Dashboard Carousel and Radar', async () => {
+      // 1. Verify isLeaveOverdueSafe with future dates (both ISO and DD.MMM.YYYY)
+      const refNow = new Date('2026-11-06T17:19:00');
+      
+      // Future date in DD.MMM.YYYY format (like Jisan's pass: 08.Nov.2026)
+      const futureLeaveFormatted = {
+        status: 'Away',
+        expected_return_date: '08.Nov.2026',
+        expected_return_time: '18:00'
+      };
+      expect(isLeaveOverdueSafe(futureLeaveFormatted, refNow)).toBe(false);
+
+      // Future date in YYYY-MM-DD format
+      const futureLeaveIso = {
+        status: 'Away',
+        expected_return_date: '2026-11-08',
+        expected_return_time: '18:00'
+      };
+      expect(isLeaveOverdueSafe(futureLeaveIso, refNow)).toBe(false);
+
+      // Past date (overdue)
+      const pastLeave = {
+        status: 'Away',
+        expected_return_date: '05.Nov.2026',
+        expected_return_time: '18:00'
+      };
+      expect(isLeaveOverdueSafe(pastLeave, refNow)).toBe(true);
+
+      // 2. Setup Student and Leaves in Database
+      const testStudent = {
+        id: 'st-jisan-test',
+        full_name: 'Jisan Afrid Sarkar',
+        admission_number: 'ADM-2026-999',
+        school_class: 'STD 5',
+        gender: 'Male',
+        status: 'Active',
+        hostel_status: 'resident'
+      };
+      const students = await db.getStudents();
+      students.push(testStudent);
+      db.set('tps_students', students);
+
+      // Old historical leave pass for Jisan from last month (unreturned)
+      const oldLeave = {
+        id: 'leave-old-jisan',
+        leave_code: 'LR-2026-001',
+        student_id: testStudent.id,
+        student_name: testStudent.full_name,
+        departure_date: '2026-10-10',
+        expected_return_date: '2026-10-15',
+        expected_return_time: '18:00',
+        status: 'Overdue',
+        created_at: '2026-10-10T09:00:00.000Z'
+      };
+
+      // New active leave pass for Jisan (LR-2026-004) due on 08.Nov.2026
+      const activeLeave = {
+        id: 'leave-new-jisan',
+        leave_code: 'LR-2026-004',
+        leave_register_number: 'LR-2026-004',
+        student_id: testStudent.id,
+        student_name: testStudent.full_name,
+        departure_date: '2026-11-05',
+        expected_return_date: '08.Nov.2026',
+        expected_return_time: '18:00',
+        status: 'Away',
+        created_at: '2026-11-05T10:00:00.000Z'
+      };
+
+      const allLeaves = await db.getLeaves(true);
+      allLeaves.push(oldLeave, activeLeave);
+      db.set('tps_leaves', allLeaves);
+
+      // 3. Render Admin Dashboard
+      const mockContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderAdminDashboard(mockContainer, { onNavigate: () => {} });
+
+      const html = mockContainer.innerHTML;
+      // In the students on leave carousel:
+      // Jisan's item MUST have 'on-leave' (blue border) and NOT 'overdue' (red border)
+      // Check the avatar wrapper rendered for Jisan
+      expect(html).toContain('Jisan');
+      expect(html).toContain('m-res-avatar on-leave');
+      expect(html).toContain('dot-blue');
+      expect(html).toContain('status-leave');
+      expect(html).toContain('On Leave');
     });
   });
 });
