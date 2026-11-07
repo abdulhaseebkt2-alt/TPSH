@@ -39,24 +39,40 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   // Eligible teachers list for Admin filter
   const eligibleTeachers = users.filter(u => 
-    u.approval_status === 'approved' && 
+    (u.approval_status === 'approved' || !u.approval_status || u.approval_status === 'active' || u.is_super_admin || u.role === 'super_admin' || u.role === 'admin') && 
     (u.role === 'teacher' || u.role === 'admin' || u.role === 'super_admin' || !u.role)
   );
+
+  // Ensure current logged-in user is present in eligibleTeachers if faculty/admin
+  if (user && !eligibleTeachers.some(t => t.id === user.id || (t.email && user.email && t.email.toLowerCase() === user.email.toLowerCase()))) {
+    eligibleTeachers.unshift(user);
+  }
 
   // Helper: Find classrooms assigned to a given user
   function getAssignedClassroomsForUser(targetUser) {
     if (!targetUser) return [];
     const tId = targetUser.id;
-    const tEmail = targetUser.email;
-    const tName = targetUser.full_name;
+    const tEmail = (targetUser.email || '').toLowerCase();
+    const tName = (targetUser.full_name || targetUser.name || '').trim().toLowerCase();
+    const tFirstName = tName.split(' ')[0];
 
-    return allClassrooms.filter(c => {
-      if (c.teacher_id === tId) return true;
-      if (tEmail && c.teacher_id === tEmail) return true;
-      if (tName && c.teacher_id === tName) return true;
+    const matched = allClassrooms.filter(c => {
+      const cTeacherId = (c.teacher_id || '').toLowerCase();
+      const cTeacherName = (c.teacher_name || '').toLowerCase();
+      if (tId && c.teacher_id === tId) return true;
+      if (tEmail && cTeacherId === tEmail) return true;
+      if (tName && (cTeacherId === tName || cTeacherName === tName)) return true;
+      if (tFirstName && tFirstName.length > 2 && (cTeacherName.includes(tFirstName) || cTeacherId.includes(tFirstName))) return true;
       if ((tId === 'u-2' || tEmail === 'teacher@thaibaschool.edu.in') && c.teacher_id === '3ba0d909-6656-43eb-87fb-fe8e30088d55') return true;
       return false;
     });
+
+    // If no direct classroom assignment found for this admin, fallback to allClassrooms so they don't see an empty screen
+    if (matched.length === 0 && (targetUser.role === 'super_admin' || targetUser.role === 'admin' || targetUser.is_super_admin)) {
+      return allClassrooms;
+    }
+
+    return matched;
   }
 
   // 1. Scoping: Teacher / Mentor can ONLY see their own assigned classes / timetable (not others)
@@ -83,7 +99,11 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     }
   } else if (isAdmin) {
     // Default Admin filter to the logged-in user if they are an eligible faculty / have assigned classes
-    const selfTeacher = eligibleTeachers.find(t => t.id === user?.id || (t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase()));
+    // Strict priority: exact ID match -> email match -> name match
+    const selfTeacher = eligibleTeachers.find(t => user?.id && t.id === user.id) ||
+      eligibleTeachers.find(t => t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase()) ||
+      eligibleTeachers.find(t => t.full_name && user?.full_name && t.full_name.trim().toLowerCase() === user.full_name.trim().toLowerCase()) ||
+      eligibleTeachers.find(t => t.full_name && user?.full_name && t.full_name.toLowerCase().includes('haseeb') && user.full_name.toLowerCase().includes('haseeb'));
     if (selfTeacher) {
       selectedAdminTeacherId = selfTeacher.id;
     }
@@ -443,8 +463,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     // Determine classrooms to show
     let displayList = availableClassrooms;
     if (isAdmin && selectedAdminTeacherId !== 'all') {
-      const tUser = users.find(u => u.id === selectedAdminTeacherId);
-      displayList = getAssignedClassroomsForUser(tUser);
+      const tUser = eligibleTeachers.find(u => u.id === selectedAdminTeacherId) || users.find(u => u.id === selectedAdminTeacherId);
+      const assigned = getAssignedClassroomsForUser(tUser);
+      displayList = (assigned && assigned.length > 0) ? assigned : availableClassrooms;
     }
 
     // Counts for tabs
@@ -507,10 +528,10 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
         <!-- ADMIN TEACHER FILTER BAR (Admin Only, never shown to teachers) -->
         ${isAdmin ? `
-          <div style="margin-bottom: 1rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-            <div style="display: flex; align-items: center; gap: 0.65rem;">
-              <span style="font-size: 0.78rem; font-weight: 700; color: #475569;">Faculty Timetable Filter:</span>
-              <select id="att-admin-teacher-select" class="form-control" style="border-radius: 8px; font-weight: 600; font-size: 0.84rem; padding: 0.35rem 0.75rem; cursor: pointer;">
+          <div style="margin-bottom: 1rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.65rem 0.9rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="display: flex; align-items: center; gap: 0.6rem; width: 100%; justify-content: space-between; flex-wrap: wrap;">
+              <span style="font-size: 0.8rem; font-weight: 700; color: #475569; white-space: nowrap;">Faculty Timetable Filter:</span>
+              <select id="att-admin-teacher-select" class="form-control" style="flex: 1; min-width: 170px; max-width: 100%; border-radius: 8px; font-weight: 600; font-size: 0.84rem; padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid #CBD5E1; background: #F8FAFC;">
                 <option value="all" ${selectedAdminTeacherId === 'all' ? 'selected' : ''}>All Faculty Classrooms (${allClassrooms.length})</option>
                 ${eligibleTeachers.map(t => `
                   <option value="${t.id}" ${t.id === selectedAdminTeacherId ? 'selected' : ''}>
@@ -519,9 +540,6 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
                 `).join('')}
               </select>
             </div>
-            <span style="font-size: 0.72rem; color: #059669; font-weight: 700;">
-              ⚡ Admin can inspect any faculty timetable & unlock sessions
-            </span>
           </div>
         ` : ''}
 
