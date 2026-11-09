@@ -537,15 +537,15 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
           </div>
 
           <!-- Frozen Bottom Action Bar with Delete Option -->
-          <div style="padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-shrink: 0; background: var(--bg-surface-subtle); z-index: 10;">
-            <button type="button" id="btn-master-delete-trip" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; padding: 0.5rem 0.85rem; font-size: 0.82rem;">
-              🗑️ Delete Trip
+          <div style="flex-shrink: 0; padding: 0.75rem 0.85rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; background: var(--bg-surface-subtle); z-index: 10;">
+            <button type="button" id="btn-master-delete-trip" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 600; padding: 0.45rem 0.65rem; font-size: 0.8rem; white-space: nowrap;">
+              🗑️ Delete
             </button>
-            <div style="display: flex; gap: 0.5rem;">
-              <button type="button" class="btn btn-secondary btn-close-modal">${isPaid || isInProgress ? 'Close' : 'Cancel'}</button>
+            <div style="display: flex; gap: 0.45rem; align-items: center; justify-content: flex-end; flex: 1; min-width: 0;">
+              <button type="button" class="btn btn-secondary btn-close-modal" style="font-size: 0.82rem; padding: 0.45rem 0.65rem; white-space: nowrap;">${isPaid || isInProgress ? 'Close' : 'Cancel'}</button>
               ${!isPaid && !isInProgress ? `
-                <button type="submit" id="btn-master-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
-                  Record Payment (${formatCurrency(remainingDue)})
+                <button type="submit" id="btn-master-confirm-settle" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700; font-size: 0.84rem; padding: 0.45rem 0.85rem; white-space: nowrap;">
+                  Record Payment
                 </button>
               ` : ''}
             </div>
@@ -606,7 +606,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
         payAmtInput.value = remainingDue;
         payAmtInput.readOnly = true;
         balPreview.innerHTML = 'Remaining balance after payment: <strong style="color: #059669;">₹0.00</strong>';
-        if (confirmBtn) confirmBtn.textContent = 'Record Payment (' + formatCurrency(remainingDue) + ')';
+        if (confirmBtn) confirmBtn.textContent = 'Record Payment';
       } else {
         labelFull.style.borderColor = '#E2E8F0';
         labelFull.style.background = '#FFFFFF';
@@ -624,7 +624,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
       const val = parseFloat(payAmtInput.value) || 0;
       const rem = Math.max(0, remainingDue - val);
       balPreview.innerHTML = 'Remaining balance after payment: <strong style="color: ' + (rem > 0 ? '#DC2626' : '#059669') + ';">₹' + rem.toFixed(2) + '</strong>';
-      if (confirmBtn) confirmBtn.textContent = 'Record Payment (₹' + val.toFixed(2) + ')';
+      if (confirmBtn) confirmBtn.textContent = 'Record Payment';
     }
 
     fullRadio?.addEventListener('change', updatePayModeUI);

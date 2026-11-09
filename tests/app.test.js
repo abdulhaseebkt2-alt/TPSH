@@ -8439,6 +8439,31 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(userCardJs).toContain('due (${dueCount} trip');
     });
 
+    it('Trip Settlement Modals: Record Payment button displays clean "Record Payment" without embedded amount and prevents card overflow', () => {
+      const userCardJs = fs.readFileSync('src/modules/vehicles/user-card.js', 'utf8');
+      const allTripsJs = fs.readFileSync('src/modules/vehicles/all-trips.js', 'utf8');
+      const vehicleIdxJs = fs.readFileSync('src/modules/vehicles/index.js', 'utf8');
+
+      // Verify user-card modal button text and styling
+      expect(userCardJs).toContain('Record Payment\n                </button>');
+      expect(userCardJs).not.toContain('Record Payment (${formatCurrency(remainingDue)})');
+      expect(userCardJs).toContain("confirmBtn.textContent = 'Record Payment'");
+      expect(userCardJs).not.toContain("confirmBtn.textContent = 'Record Payment ('");
+      expect(userCardJs).toContain('flex-wrap: wrap');
+
+      // Verify all-trips modal button text and styling
+      expect(allTripsJs).toContain('Record Payment\n                </button>');
+      expect(allTripsJs).not.toContain('Record Payment (${formatCurrency(remainingDue)})');
+      expect(allTripsJs).toContain("confirmBtn.textContent = 'Record Payment'");
+      expect(allTripsJs).toContain('flex-wrap: wrap');
+
+      // Verify index.js modal button text and styling
+      expect(vehicleIdxJs).toContain('Record Payment\n              </button>');
+      expect(vehicleIdxJs).not.toContain('Record Payment (${formatCurrency(remainingDue)})');
+      expect(vehicleIdxJs).toContain("confirmBtn.textContent = 'Record Payment'");
+      expect(vehicleIdxJs).toContain('flex-wrap: wrap');
+    });
+
     it('Leave Overdue Accuracy: Future return dates (including DD.MMM.YYYY format) and newest active pass prevent false overdue classification in Dashboard Carousel and Radar', async () => {
       // 1. Verify isLeaveOverdueSafe with future dates (both ISO and DD.MMM.YYYY)
       const refNow = new Date('2026-11-06T17:19:00');
