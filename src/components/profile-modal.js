@@ -196,6 +196,51 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
           <div>• Database Verification: <strong>Verified</strong></div>
         </div>
 
+        <!-- Account Password & Credentials (Available to Everyone) -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.9rem; display: flex; flex-direction: column; gap: 0.65rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+              <span style="font-size: 1rem;">🔑</span>
+              <div>
+                <strong style="font-size: 0.82rem; color: #1E293B;">Login Password</strong>
+                <span style="font-size: 0.72rem; color: #64748B; margin-left: 4px;">${profile.has_password ? '(Configured)' : '(Not set)'}</span>
+              </div>
+            </div>
+            <button type="button" id="btn-toggle-pw-section" class="btn btn-xs btn-outline" style="font-size: 0.72rem; color: #4F46E5; border-color: #C7D2FE; font-weight: 600;">
+              ${profile.has_password ? 'Change Password' : 'Set Password'}
+            </button>
+          </div>
+
+          <div id="prof-pw-drawer" style="display: none; flex-direction: column; gap: 0.65rem; margin-top: 0.25rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
+              <div>
+                <label style="font-size: 0.74rem; font-weight: 600; color: #475569;" for="prof-new-password">New Password</label>
+                <div style="position: relative; margin-top: 2px;">
+                  <input type="password" id="prof-new-password" class="form-control" placeholder="Min. 6 chars" minlength="6" style="font-size: 0.8rem; padding: 0.4rem 2rem 0.4rem 0.6rem;" />
+                  <button type="button" id="btn-eye-prof-new" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 2px;" title="Toggle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 0.74rem; font-weight: 600; color: #475569;" for="prof-confirm-password">Confirm Password</label>
+                <div style="position: relative; margin-top: 2px;">
+                  <input type="password" id="prof-confirm-password" class="form-control" placeholder="Re-enter password" minlength="6" style="font-size: 0.8rem; padding: 0.4rem 2rem 0.4rem 0.6rem;" />
+                  <button type="button" id="btn-eye-prof-confirm" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 2px;" title="Toggle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; align-items: center;">
+              <span id="prof-pw-status" style="font-size: 0.72rem; color: #059669; font-weight: 600;"></span>
+              <button type="button" id="btn-save-prof-password" class="btn btn-sm btn-primary" style="font-size: 0.74rem; padding: 0.35rem 0.75rem; background: #4F46E5; border-color: #4F46E5;">
+                Save Password
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Real-Time Validation Status Notice & Save Actions -->
         <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-top: 0.5rem;">
           <div id="prof-validation-notice" style="font-size: 0.78rem; border-radius: var(--radius-sm); padding: 0.55rem 0.85rem; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; display: flex; align-items: center; gap: 0.5rem; transition: all var(--transition-fast);">
@@ -228,6 +273,68 @@ export function openProfileModal({ profile, isInitialSetup = false, onSaved }) {
       const idLabel = modalBody.querySelector('#prof-id-label');
       const idAddon = modalBody.querySelector('#prof-id-addon');
       const prefixNote = modalBody.querySelector('#prof-prefix-note');
+
+      // Password drawer toggling & submission
+      const btnTogglePw = modalBody.querySelector('#btn-toggle-pw-section');
+      const pwDrawer = modalBody.querySelector('#prof-pw-drawer');
+      const inputNewPw = modalBody.querySelector('#prof-new-password');
+      const inputConfirmPw = modalBody.querySelector('#prof-confirm-password');
+      const btnEyeNew = modalBody.querySelector('#btn-eye-prof-new');
+      const btnEyeConfirm = modalBody.querySelector('#btn-eye-prof-confirm');
+      const btnSavePw = modalBody.querySelector('#btn-save-prof-password');
+      const statusSpan = modalBody.querySelector('#prof-pw-status');
+
+      btnTogglePw?.addEventListener('click', () => {
+        if (pwDrawer) {
+          const isOpen = pwDrawer.style.display === 'flex';
+          pwDrawer.style.display = isOpen ? 'none' : 'flex';
+        }
+      });
+
+      const togglePwVis = (inputEl, eyeEl) => {
+        if (!inputEl) return;
+        const isPw = inputEl.getAttribute('type') === 'password';
+        inputEl.setAttribute('type', isPw ? 'text' : 'password');
+        eyeEl.innerHTML = isPw
+          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      };
+
+      btnEyeNew?.addEventListener('click', () => togglePwVis(inputNewPw, btnEyeNew));
+      btnEyeConfirm?.addEventListener('click', () => togglePwVis(inputConfirmPw, btnEyeConfirm));
+
+      btnSavePw?.addEventListener('click', async () => {
+        const newPw = inputNewPw?.value?.trim() || '';
+        const confirmPw = inputConfirmPw?.value?.trim() || '';
+
+        if (newPw.length < 6) {
+          toast.error('Password must be at least 6 characters long.');
+          return;
+        }
+        if (newPw !== confirmPw) {
+          toast.error('Passwords do not match. Please re-enter.');
+          return;
+        }
+
+        btnSavePw.disabled = true;
+        btnSavePw.innerText = 'Saving...';
+        try {
+          await db.setUserPassword(profile.id, newPw);
+          profile.has_password = true;
+          profile.password = newPw;
+          toast.success('Password successfully set!');
+          if (statusSpan) statusSpan.innerText = '✓ Password saved';
+          if (btnTogglePw) btnTogglePw.innerText = 'Change Password';
+          setTimeout(() => {
+            if (pwDrawer) pwDrawer.style.display = 'none';
+          }, 1000);
+        } catch (err) {
+          toast.error(err.message || 'Failed to update password');
+        } finally {
+          btnSavePw.disabled = false;
+          btnSavePw.innerText = 'Save Password';
+        }
+      });
 
       // Quick "Edit Role" button focuses the role select
       modalBody.querySelector('#btn-quick-edit-role')?.addEventListener('click', () => {

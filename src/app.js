@@ -628,9 +628,9 @@ class App {
       const password = this.appEl.querySelector('#login-password')?.value;
       try {
         await signInWithEmail(email, password);
+        toast.success('Signed in successfully!');
       } catch (err) {
-        toast.info(`Entering portal: ${err.message || 'Authenticating user...'}`);
-        switchDevRole('super_admin');
+        toast.error(err.message || 'Authentication failed. Please verify your credentials.');
       }
     });
 

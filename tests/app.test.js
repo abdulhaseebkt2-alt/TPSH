@@ -8740,5 +8740,58 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up
       await db.deleteClassroom(testClass.id);
     });
+
+    it('Set Password Option to Everyone: db.setUserPassword, validation, signInWithEmail and UI verification', async () => {
+      const { setUserPassword, signInWithEmail } = await import('../src/lib/auth.js');
+
+      // 1. Validation: password must be at least 6 characters
+      await expect(db.setUserPassword('test-user-pw-1', '123')).rejects.toThrow(/at least 6 characters/i);
+
+      // 2. Set password for test user
+      const usersBefore = db.get('tps_users') || [];
+      const testUser = {
+        id: 'test-user-pw-1',
+        email: 'testuser@thaibaschool.edu',
+        full_name: 'Test Teacher PW',
+        role: 'teacher',
+        approval_status: 'approved'
+      };
+      db.set('tps_users', [...usersBefore, testUser]);
+
+      const res = await setUserPassword('test-user-pw-1', 'Secure@2026');
+      expect(res.success).toBe(true);
+
+      const usersAfter = db.get('tps_users') || [];
+      const updatedUser = usersAfter.find(u => u.id === 'test-user-pw-1');
+      expect(updatedUser.password).toBe('Secure@2026');
+      expect(updatedUser.has_password).toBe(true);
+
+      // 3. Authenticate with correct credentials
+      const authSuccess = await signInWithEmail('testuser@thaibaschool.edu', 'Secure@2026');
+      expect(authSuccess.user.email).toBe('testuser@thaibaschool.edu');
+
+      // 4. Authenticate with incorrect password should throw error
+      await expect(signInWithEmail('testuser@thaibaschool.edu', 'WrongPass')).rejects.toThrow(/incorrect password/i);
+
+      // 5. Code inspection: verify Users module has "btn-set-password" and showSetPasswordModal
+      const usersCode = fs.readFileSync('src/modules/users/index.js', 'utf8');
+      expect(usersCode).toContain('btn-set-password');
+      expect(usersCode).toContain('showSetPasswordModal');
+      expect(usersCode).toContain('Set User Password');
+      expect(usersCode).toContain('🎲 Suggest Password');
+
+      // 6. Code inspection: verify Settings module and Profile modal have Password settings
+      const settingsCode = fs.readFileSync('src/modules/settings/index.js', 'utf8');
+      expect(settingsCode).toContain('Account Security & Login Password');
+      expect(settingsCode).toContain('settings-password-form');
+
+      const profileModalCode = fs.readFileSync('src/components/profile-modal.js', 'utf8');
+      expect(profileModalCode).toContain('btn-toggle-pw-section');
+      expect(profileModalCode).toContain('prof-pw-drawer');
+      expect(profileModalCode).toContain('btn-save-prof-password');
+
+      // Clean up test user
+      db.set('tps_users', usersBefore);
+    });
   });
 });

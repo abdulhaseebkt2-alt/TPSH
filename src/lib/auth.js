@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import { db } from './db.js';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
@@ -342,18 +343,77 @@ export async function signInWithGoogle() {
   return data;
 }
 
+export async function setUserPassword(userId, newPassword) {
+  const result = await db.setUserPassword(userId, newPassword);
+  if (currentProfile && currentProfile.id === userId) {
+    currentProfile.password = newPassword;
+    currentProfile.has_password = true;
+    currentProfile.password_updated_at = result.updated_at;
+  }
+  return result;
+}
+
 export async function signInWithEmail(email, password) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.');
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPassword = (password || '').trim();
+
+  if (!cleanEmail) throw new Error('Email is required.');
+  if (!cleanPassword) throw new Error('Password is required.');
+
+  // 1. Try Supabase Auth if configured
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword
+      });
+      if (!error && data?.session?.user) {
+        currentSession = data.session;
+        realAuthenticatedSession = data.session;
+        await loadUserProfile(data.session.user);
+        notifyListeners();
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase signInWithPassword fallback:', err);
+    }
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  // 2. Check local/institutional users in tps_users
+  try {
+    const localUsers = (db && typeof db.get === 'function')
+      ? (db.get('tps_users') || [])
+      : (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('tps_users') || '[]') : []);
+    const user = localUsers.find(u => (u.email || '').toLowerCase() === cleanEmail);
 
-  if (error) throw error;
-  return data;
+    if (user) {
+      const storedPw = user.password || user.metadata?.password;
+      if (storedPw) {
+        if (storedPw === cleanPassword) {
+          currentProfile = {
+            ...user,
+            approval_status: user.approval_status || 'approved'
+          };
+          currentSession = { user: { id: user.id, email: user.email } };
+          if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile)); } catch {}
+          }
+          notifyListeners();
+          return { session: currentSession, user: currentProfile };
+        } else {
+          throw new Error('Incorrect password. Please verify and try again.');
+        }
+      } else {
+        throw new Error('No password has been set for this account yet. Please ask an Administrator to set your password.');
+      }
+    }
+  } catch (parseErr) {
+    if (parseErr.message.includes('Incorrect password') || parseErr.message.includes('No password has been set')) {
+      throw parseErr;
+    }
+  }
+
+  throw new Error('No account found with this email. Please check your credentials or contact an Administrator.');
 }
 
 export async function signOut() {

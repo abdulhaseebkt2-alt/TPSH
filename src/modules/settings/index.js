@@ -184,6 +184,51 @@ export async function renderSettingsModule(container, { onNavigate }) {
       </div>
     </div>
 
+    <!-- Account Security & Password -->
+    <div class="card-panel">
+      <div class="card-panel-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <h3>Account Security & Login Password</h3>
+        </div>
+        <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 700;">
+          ${user?.email || 'Logged In Account'}
+        </span>
+      </div>
+      <div class="card-panel-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Set or update your institutional login password to sign in directly with email (<strong>${user?.email || ''}</strong>).
+        </p>
+        <form id="settings-password-form" style="max-width: 520px; display: flex; flex-direction: column; gap: 0.85rem;">
+          <div class="form-group">
+            <label class="form-label required" for="settings-new-pw">New Password</label>
+            <div style="position: relative;">
+              <input type="password" id="settings-new-pw" class="form-control" placeholder="Enter at least 6 characters" minlength="6" required style="padding-right: 2.5rem;" />
+              <button type="button" id="toggle-settings-new-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 4px;" title="Show/Hide">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="settings-confirm-pw">Confirm New Password</label>
+            <div style="position: relative;">
+              <input type="password" id="settings-confirm-pw" class="form-control" placeholder="Re-enter new password" minlength="6" required style="padding-right: 2.5rem;" />
+              <button type="button" id="toggle-settings-confirm-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 4px;" title="Show/Hide">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.65rem; align-items: center; margin-top: 0.25rem;">
+            <button type="submit" class="btn btn-primary" id="btn-save-settings-pw" style="background: #4F46E5; border-color: #4F46E5;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+              Update Password
+            </button>
+            <span id="settings-pw-msg" style="font-size: 0.78rem; font-weight: 600; color: #059669;"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Cloud Database & Supabase Sync -->
     <div class="card-panel">
       <div class="card-panel-header" style="display: flex; align-items: center; justify-content: space-between;">
@@ -360,6 +405,66 @@ export async function renderSettingsModule(container, { onNavigate }) {
     await db.pushCloudKey('tps_mobile_front_logo', logoUrl);
     renderSettingsModule(container, { onNavigate });
   }
+
+  // Settings Password Update Handler
+  const pwForm = container.querySelector('#settings-password-form');
+  const inputNewPw = container.querySelector('#settings-new-pw');
+  const inputConfirmPw = container.querySelector('#settings-confirm-pw');
+  const toggleNewBtn = container.querySelector('#toggle-settings-new-pw');
+  const toggleConfirmBtn = container.querySelector('#toggle-settings-confirm-pw');
+  const pwMsg = container.querySelector('#settings-pw-msg');
+
+  const toggleVisibility = (inputEl, btnEl) => {
+    if (!inputEl) return;
+    const isPw = inputEl.getAttribute('type') === 'password';
+    inputEl.setAttribute('type', isPw ? 'text' : 'password');
+    btnEl.innerHTML = isPw
+      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+      : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  };
+
+  toggleNewBtn?.addEventListener('click', () => toggleVisibility(inputNewPw, toggleNewBtn));
+  toggleConfirmBtn?.addEventListener('click', () => toggleVisibility(inputConfirmPw, toggleConfirmBtn));
+
+  pwForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newPw = inputNewPw?.value?.trim() || '';
+    const confirmPw = inputConfirmPw?.value?.trim() || '';
+
+    if (newPw.length < 6) {
+      toast.error('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      toast.error('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    const saveBtn = container.querySelector('#btn-save-settings-pw');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerText = 'Updating...';
+    }
+
+    try {
+      if (user?.id) {
+        await db.setUserPassword(user.id, newPw);
+        toast.success('Your account password has been updated successfully!');
+        if (pwMsg) pwMsg.innerText = '✓ Password updated';
+        inputNewPw.value = '';
+        inputConfirmPw.value = '';
+      } else {
+        toast.error('User identity not recognized.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to update password');
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg> Update Password`;
+      }
+    }
+  });
 
   container.querySelector('#btn-save-settings')?.addEventListener('click', () => {
     toast.success('Institutional settings and attendance policies saved successfully.');

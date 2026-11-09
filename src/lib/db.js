@@ -5197,6 +5197,84 @@ class DatabaseService {
     return p;
   }
 
+  async setUserPassword(user_id, new_password) {
+    if (!user_id || !new_password) {
+      throw new Error('User ID and password are required');
+    }
+    const cleanPw = String(new_password).trim();
+    if (cleanPw.length < 6) {
+      throw new Error('Password must be at least 6 characters long');
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id);
+    const nowIso = new Date().toISOString();
+
+    // 1. Update in Supabase profiles table if available
+    if (supabase && isUuid) {
+      try {
+        const { data: prof } = await supabase.from('profiles').select('metadata').eq('id', user_id).maybeSingle();
+        const prevMeta = prof?.metadata || {};
+        await supabase.from('profiles').update({
+          metadata: {
+            ...prevMeta,
+            password: cleanPw,
+            has_password: true,
+            password_updated_at: nowIso
+          }
+        }).eq('id', user_id);
+      } catch (e) {
+        console.warn('Supabase profiles password update error:', e);
+      }
+
+      // If Supabase auth user is logged in as this user, update auth user password directly
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.id === user_id) {
+          await supabase.auth.updateUser({ password: cleanPw });
+        }
+      } catch (authErr) {
+        console.warn('Supabase auth.updateUser note:', authErr);
+      }
+    }
+
+    // 2. Persist in local storage `tps_users`
+    const users = this.get('tps_users') || [];
+    const idx = users.findIndex(u => u.id === user_id || (u.email && users.find(x => x.id === user_id)?.email?.toLowerCase() === u.email.toLowerCase()));
+    if (idx >= 0) {
+      users[idx] = {
+        ...users[idx],
+        password: cleanPw,
+        has_password: true,
+        password_updated_at: nowIso
+      };
+      this.set('tps_users', users);
+    } else {
+      users.push({
+        id: user_id,
+        password: cleanPw,
+        has_password: true,
+        password_updated_at: nowIso
+      });
+      this.set('tps_users', users);
+    }
+
+    // Also check current active dev profile in local storage
+    try {
+      const devProfile = JSON.parse(localStorage.getItem('tps_dev_profile') || 'null');
+      if (devProfile && devProfile.id === user_id) {
+        devProfile.password = cleanPw;
+        devProfile.has_password = true;
+        devProfile.password_updated_at = nowIso;
+        localStorage.setItem('tps_dev_profile', JSON.stringify(devProfile));
+      }
+    } catch {}
+
+    this._usersCache = null;
+    this._usersCacheTime = 0;
+    this.logAudit('USER_PASSWORD_UPDATE', 'profiles', user_id, 'User password set/updated');
+    return { success: true, user_id, updated_at: nowIso };
+  }
+
   async updateUserApproval(user_id, updates = {}) {
     const { approval_status, role, ...extra } = updates;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id);

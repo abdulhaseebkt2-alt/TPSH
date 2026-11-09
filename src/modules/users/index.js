@@ -359,7 +359,15 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                         <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}">
                           ${isParentReq ? 'Approve & Assign Children' : 'Approve & Assign Role'}
                         </button>
-                        <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Reject</button>
+                        <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set password for ${u.full_name || u.email}">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          Password
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set password for ${u.full_name || u.email}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Password
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Reject</button>
                       </div>
                     ` : `
                       <span class="badge badge-leave" style="font-size: 0.72rem;">View Only</span>
@@ -441,6 +449,14 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         });
       });
 
+      tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const u = pendingUsers.find(item => item.id === id);
+          if (u) showSetPasswordModal(u);
+        });
+      });
+
       tabContent.querySelectorAll('.btn-reject').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.getAttribute('data-id');
@@ -498,6 +514,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <td>
                     <div style="display: flex; gap: 0.5rem;">
                       <button class="btn btn-sm btn-outline btn-reactivate" data-id="${u.id}" style="color: #059669; border-color: #A7F3D0;">Reactivate</button>
+                      <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set or reset password for ${u.full_name || u.email}">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Password
+                      </button>
                       <button class="btn btn-sm btn-outline btn-profile" data-id="${u.id}">Profile</button>
                     </div>
                   </td>
@@ -550,6 +570,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                   Reactivate
                 </button>
+                <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Password
+                </button>
                 <button class="btn btn-sm btn-outline btn-profile" data-id="${u.id}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   Profile
@@ -559,6 +583,22 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           `).join('')}
         </div>
       `;
+
+      tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const u = activeUsers.find(item => item.id === id);
+          if (u) showSetPasswordModal(u);
+        });
+      });
+
+      tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const u = suspendedUsers.find(item => item.id === id);
+          if (u) showSetPasswordModal(u);
+        });
+      });
 
       tabContent.querySelectorAll('.btn-profile').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -740,6 +780,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     Permissions
                   </button>
                 ` : ''}
+                <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set or reset password for ${u.full_name || u.email}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Password
+                </button>
                 <button class="btn btn-sm btn-outline btn-profile" data-id="${u.id}">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   Profile
@@ -1241,6 +1285,136 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     }
 
     drawSimpleView();
+  }
+
+  function showSetPasswordModal(targetUser) {
+    if (!targetUser) return;
+    const userName = targetUser.full_name || (targetUser.email ? targetUser.email.split('@')[0] : 'User');
+    const userEmail = targetUser.email || '';
+    const userRole = (targetUser.role || 'Staff').replace('_', ' ').toUpperCase();
+
+    openModal({
+      title: 'Set User Password',
+      contentHtml: `
+        <div style="display: flex; flex-direction: column; gap: 1.15rem;">
+          <!-- User Summary Card -->
+          <div style="display: flex; align-items: center; gap: 0.9rem; padding: 0.85rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md);">
+            <div class="user-avatar" style="width: 42px; height: 42px; font-size: 15px; font-weight: 700; border-radius: 10px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              ${targetUser.avatar_url ? `<img src="${targetUser.avatar_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;" alt="" />` : (userName[0] || 'U').toUpperCase()}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <strong style="font-size: 0.95rem; color: #1E293B;">${userName}</strong>
+                <span class="badge" style="background: #E0E7FF; color: #3730A3; font-weight: 700; font-size: 0.68rem;">${userRole}</span>
+                ${targetUser.has_password ? `<span class="badge badge-present" style="font-size: 0.65rem;">Password Configured</span>` : ''}
+              </div>
+              <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${userEmail}</div>
+            </div>
+          </div>
+
+          <!-- Set Password Form -->
+          <form id="form-modal-set-password" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label style="font-size: 0.82rem; font-weight: 600; color: #334155;" for="modal-input-new-pw">New Password *</label>
+                <button type="button" id="btn-suggest-pw" class="btn btn-xs btn-outline" style="font-size: 0.72rem; color: #4F46E5; border-color: #C7D2FE; font-weight: 600;">
+                  🎲 Suggest Password
+                </button>
+              </div>
+              <div style="position: relative;">
+                <input type="password" id="modal-input-new-pw" class="form-control" placeholder="Enter at least 6 characters" required minlength="6" style="padding-right: 2.5rem; font-family: inherit; font-size: 0.9rem;" />
+                <button type="button" id="toggle-modal-new-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 4px;" title="Toggle Password Visibility">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem; display: block;" for="modal-input-confirm-pw">Confirm Password *</label>
+              <div style="position: relative;">
+                <input type="password" id="modal-input-confirm-pw" class="form-control" placeholder="Confirm new password" required minlength="6" style="padding-right: 2.5rem; font-family: inherit; font-size: 0.9rem;" />
+                <button type="button" id="toggle-modal-confirm-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 4px;" title="Toggle Password Visibility">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.74rem; color: #64748B; line-height: 1.4;">
+              💡 <strong>Instant Access:</strong> Setting this password enables <strong>${userName}</strong> to sign in using their email (<strong>${userEmail}</strong>) and this password immediately.
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+              <button type="button" class="btn btn-outline" id="btn-cancel-modal-pw">Cancel</button>
+              <button type="submit" class="btn btn-primary" id="btn-submit-modal-pw" style="background: #4F46E5; border-color: #4F46E5;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Save Password
+              </button>
+            </div>
+          </form>
+        </div>
+      `,
+      onMount: ({ container: modalContainer, close }) => {
+        const newPwInput = modalContainer.querySelector('#modal-input-new-pw');
+        const confirmPwInput = modalContainer.querySelector('#modal-input-confirm-pw');
+        const toggleNewPw = modalContainer.querySelector('#toggle-modal-new-pw');
+        const toggleConfirmPw = modalContainer.querySelector('#toggle-modal-confirm-pw');
+        const btnSuggest = modalContainer.querySelector('#btn-suggest-pw');
+        const btnCancel = modalContainer.querySelector('#btn-cancel-modal-pw');
+        const form = modalContainer.querySelector('#form-modal-set-password');
+
+        const toggleVisibility = (inputEl, btnEl) => {
+          if (!inputEl) return;
+          const isPw = inputEl.getAttribute('type') === 'password';
+          inputEl.setAttribute('type', isPw ? 'text' : 'password');
+          btnEl.innerHTML = isPw
+            ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+            : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        };
+
+        toggleNewPw?.addEventListener('click', () => toggleVisibility(newPwInput, toggleNewPw));
+        toggleConfirmPw?.addEventListener('click', () => toggleVisibility(confirmPwInput, toggleConfirmPw));
+
+        btnSuggest?.addEventListener('click', () => {
+          const randomPin = Math.floor(1000 + Math.random() * 9000);
+          const suggested = `TPSH@${randomPin}`;
+          if (newPwInput && confirmPwInput) {
+            newPwInput.value = suggested;
+            confirmPwInput.value = suggested;
+            newPwInput.setAttribute('type', 'text');
+            confirmPwInput.setAttribute('type', 'text');
+          }
+          toast.info(`Suggested password generated: ${suggested}`);
+        });
+
+        btnCancel?.addEventListener('click', () => close());
+
+        form?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const newPw = newPwInput?.value?.trim() || '';
+          const confirmPw = confirmPwInput?.value?.trim() || '';
+
+          if (newPw.length < 6) {
+            toast.error('Password must be at least 6 characters long.');
+            return;
+          }
+          if (newPw !== confirmPw) {
+            toast.error('Passwords do not match. Please re-enter.');
+            return;
+          }
+
+          try {
+            await db.setUserPassword(targetUser.id, newPw);
+            targetUser.has_password = true;
+            targetUser.password = newPw;
+            toast.success(`Password set successfully for ${userName}!`);
+            close();
+            renderUsersModule(container, { onNavigate });
+          } catch (err) {
+            toast.error(err.message || 'Failed to update user password.');
+          }
+        });
+      }
+    });
   }
 
   function showUserCustomPermissionsModal(targetUser) {
