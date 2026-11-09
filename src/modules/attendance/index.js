@@ -961,7 +961,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     const windowState = await checkWindowStatus(activeClassroomId);
     const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
     const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
-    const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+    const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Assigned Faculty');
     const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
 
     // Faculty approved leave check for this class session
@@ -1605,7 +1605,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         const activeCls = allClassrooms.find(c => c.id === activeClassroomId) || availableClassrooms.find(c => c.id === activeClassroomId);
         const activeProg = allPrograms.find(p => p.id === activeCls?.program_id);
         const assignedTeacher = users.find(u => u.id === activeCls?.teacher_id);
-        const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Rashid Sir');
+        const teacherDisplayName = assignedTeacher ? (assignedTeacher.full_name || assignedTeacher.email) : (isFaculty ? (user?.full_name || 'Assigned Faculty') : 'Assigned Faculty');
 
         // Punctuality check: Attendance must be taken within 10 minutes after class started
         const sMin = parseMinutes(activeCls?.start_time || '06:30');

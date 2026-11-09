@@ -31,9 +31,9 @@ export async function renderStudentDashboard(container, { onNavigate }) {
 
   // Daily timetable schedule for the student
   const todayClasses = [
-    { time: '06:00 - 07:00 AM', subject: 'Hostel Moral Class', topic: 'Morning Hadith & Character', room: 'Moral Hall A1', teacher: 'Rashid Sir' },
-    { time: '09:00 - 10:00 AM', subject: 'Mathematics', topic: 'Number Operations & Geometry', room: 'Classroom 101', teacher: 'Usthad Usman' },
-    { time: '11:00 - 12:00 PM', subject: 'Arabic Language', topic: 'Grammar & Vocabulary', room: 'Language Lab', teacher: 'Rashid Sir' },
+    { time: '06:00 - 07:00 AM', subject: 'Hostel Moral Class', topic: 'Morning Hadith & Character', room: 'Moral Hall A1', teacher: 'Assigned Faculty' },
+    { time: '09:00 - 10:00 AM', subject: 'Mathematics', topic: 'Number Operations & Geometry', room: 'Classroom 101', teacher: 'Assigned Faculty' },
+    { time: '11:00 - 12:00 PM', subject: 'Arabic Language', topic: 'Grammar & Vocabulary', room: 'Language Lab', teacher: 'Assigned Faculty' },
     { time: '04:30 - 06:00 PM', subject: 'Hostel Supervised Study', topic: 'Evening Homework & Revision', room: 'Study Hall', teacher: 'Hostel Mentor' }
   ];
 
@@ -68,7 +68,6 @@ export async function renderStudentDashboard(container, { onNavigate }) {
           <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.8rem; color: #64748B; margin-top: 0.35rem; flex-wrap: wrap;">
             <span>Hostel: <strong>${student.hostel_unit || 'Thaiba Boys Block A'}</strong></span>
             <span>Room: <strong>${student.hostel_room || 'Room 101'}</strong> (${student.hostel_bed || 'Bed 1'})</span>
-            <span>Mentor: <strong>Usthad Usman</strong></span>
           </div>
         </div>
       </div>

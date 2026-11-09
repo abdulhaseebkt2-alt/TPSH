@@ -56,13 +56,6 @@ export async function renderTimetableModule(container, { onNavigate }) {
         if (tName && assignedUser.full_name && tName.includes(assignedUser.full_name.toLowerCase())) return true;
       }
 
-      // 3. Match Tester Teacher / seeded teacher alias
-      const isTesterTeacher = tId === 'u-2' ||
-        (tEmail && (tEmail === 'teacher@thaibaschool.edu.in' || tEmail.includes('teacher'))) ||
-        (tName && (tName.includes('teacher') || tName.includes('rashid')));
-      const isSeededTesterCls = c.teacher_id === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || c.teacher_id === 'u-2' || c.teacher_id === 'teacher@thaibaschool.edu.in';
-      if (isTesterTeacher && isSeededTesterCls) return true;
-
       return false;
     });
   }

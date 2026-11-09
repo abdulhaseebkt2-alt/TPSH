@@ -453,7 +453,6 @@ export async function renderParentDashboard(container, { onNavigate }) {
           <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.78rem; color: #64748B; margin-top: 0.3rem; flex-wrap: wrap;">
             <span>Hostel: <strong>${selectedChild.hostel_unit || 'Thaiba Hostel Wing'}</strong></span>
             <span>Room: <strong>${selectedChild.hostel_room || 'Room 101'}</strong> (${selectedChild.hostel_bed || 'Bed 1'})</span>
-            <span>Assigned Mentor: <strong>Usthad Usman</strong></span>
           </div>
         </div>
       </div>
@@ -776,7 +775,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem;">
             <strong style="color: #0F172A; font-size: 0.88rem;">Hostel Warden Office</strong>
             <p style="font-size: 0.8rem; color: #475569; margin-top: 0.2rem;">
-              Usthad Usman (Head Mentor) • Phone: +91 98470 33445
+              Hostel Warden Desk • Contact via Institution Office
             </p>
           </div>
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 0.85rem 1rem;">

@@ -27,7 +27,7 @@ export async function renderTeacherDashboard(container, { onNavigate }) {
   ]);
 
   // Determine teacher name & assigned classrooms
-  const teacherName = user?.full_name || 'Rashid Sir';
+  const teacherName = user?.full_name || 'Faculty Teacher';
   const teacherId = user?.id;
 
   // Filter classrooms assigned to this teacher

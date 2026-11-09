@@ -50,48 +50,38 @@ const INITIAL_SECTIONS = [
   { id: 'sec-sc5', program_id: 'prog-3', name: 'School Coaching Class 5', gender_eligibility: 'Mixed' }
 ];
 
-const INITIAL_CLASSROOMS = [
-  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
-  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+const TEST_CLASSROOMS = [
+  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
   { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
-  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Htl BB', start_time: '09:39', end_time: '22:07', room_number: '105', capacity: 30, gender_eligibility: 'Boys', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Htl BB', start_time: '09:39', end_time: '22:07', room_number: '105', capacity: 30, gender_eligibility: 'Boys', teacher_id: 'u-2', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
   { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
   { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
   { id: 'cls-9999', section_id: 'sec-hc4', program_id: 'prog-2', name: '9999', start_time: '19:30', end_time: '21:00', room_number: '101', capacity: 35, gender_eligibility: 'Mixed', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
-  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
+  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed', teacher_id: 'u-2', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: '2026-10-01', teacher_removed_date: null },
   { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null }
 ];
 
-export const INITIAL_TEACHER_ASSIGNMENTS = [
-  {
-    id: 'asg-1',
-    classroom_id: 'cls-1',
-    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
-    assigned_date: '2026-10-01',
-    removed_date: null
-  },
-  {
-    id: 'asg-2',
-    classroom_id: 'cls-2',
-    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
-    assigned_date: '2026-10-01',
-    removed_date: null
-  },
-  {
-    id: 'asg-4',
-    classroom_id: 'cls-4',
-    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
-    assigned_date: '2026-10-01',
-    removed_date: null
-  },
-  {
-    id: 'asg-7',
-    classroom_id: 'cls-7',
-    teacher_id: '3ba0d909-6656-43eb-87fb-fe8e30088d55',
-    assigned_date: '2026-10-01',
-    removed_date: null
-  }
+const PROD_CLASSROOMS = [
+  { id: 'cls-1', section_id: 'sec-m1', program_id: 'prog-1', name: 'Moral Hall A1', start_time: '06:00', end_time: '07:00', room_number: '101', capacity: 35, gender_eligibility: 'Boys', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-2', section_id: 'sec-m2', program_id: 'prog-1', name: 'Moral Hall A2', start_time: '06:00', end_time: '07:00', room_number: '102', capacity: 35, gender_eligibility: 'Boys', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-3', section_id: 'sec-m3', program_id: 'prog-1', name: 'Girls Moral Hall G1', start_time: '06:00', end_time: '07:00', room_number: '201', capacity: 50, gender_eligibility: 'Girls', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-4', section_id: 'sec-hc1', program_id: 'prog-2', name: 'Htl BB', start_time: '09:39', end_time: '22:07', room_number: '105', capacity: 30, gender_eligibility: 'Boys', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-5', section_id: 'sec-hc2', program_id: 'prog-2', name: 'Hostel Study Lab 2', start_time: '19:30', end_time: '21:00', room_number: '106', capacity: 30, gender_eligibility: 'Boys', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-6', section_id: 'sec-hc3', program_id: 'prog-2', name: 'Girls Coaching Hall', start_time: '19:30', end_time: '21:00', room_number: '205', capacity: 45, gender_eligibility: 'Girls', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-9999', section_id: 'sec-hc4', program_id: 'prog-2', name: '9999', start_time: '19:30', end_time: '21:00', room_number: '101', capacity: 35, gender_eligibility: 'Mixed', teacher_id: '', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-7', section_id: 'sec-sc1', program_id: 'prog-3', name: 'Main Academic Lab 1', start_time: '16:30', end_time: '18:00', room_number: '301', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null },
+  { id: 'cls-8', section_id: 'sec-sc2', program_id: 'prog-3', name: 'Main Academic Lab 2', start_time: '16:30', end_time: '18:00', room_number: '302', capacity: 40, gender_eligibility: 'Mixed', teacher_id: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], teacher_assigned_date: null, teacher_removed_date: null }
 ];
+
+const INITIAL_CLASSROOMS = isTestEnv ? TEST_CLASSROOMS : PROD_CLASSROOMS;
+
+export const INITIAL_TEACHER_ASSIGNMENTS = isTestEnv ? [
+  { id: 'asg-1', classroom_id: 'cls-1', teacher_id: 'u-2', assigned_date: '2026-10-01', removed_date: null },
+  { id: 'asg-2', classroom_id: 'cls-2', teacher_id: 'u-2', assigned_date: '2026-10-01', removed_date: null },
+  { id: 'asg-4', classroom_id: 'cls-4', teacher_id: 'u-2', assigned_date: '2026-10-01', removed_date: null },
+  { id: 'asg-7', classroom_id: 'cls-7', teacher_id: 'u-2', assigned_date: '2026-10-01', removed_date: null }
+] : [];
 
 const INITIAL_CLASSES = [
   { id: 'c-1', name: 'STD-I' },
@@ -164,7 +154,7 @@ export const INITIAL_ACADEMIC_CALENDAR = {
   ]
 };
 
-export const INITIAL_FACULTY_LEAVES = [
+export const INITIAL_FACULTY_LEAVES = isTestEnv ? [
   {
     id: 'fl-1',
     faculty_id: 'u-2',
@@ -184,7 +174,7 @@ export const INITIAL_FACULTY_LEAVES = [
     approved_at: '2026-10-14T14:30:00.000Z',
     admin_notes: 'Approved for institutional training representation.'
   }
-];
+] : [];
 
 export const INITIAL_VEHICLES = [
   {
@@ -263,8 +253,8 @@ export const INITIAL_VEHICLE_EXPENSES = [
     "fuel_liters": 8.85,
     "odometer_at_expense": 30230.1,
     "calculated_mileage_kmpl": null,
-    "notes": "Initial baseline fuel refill ₹1000 (8.85 L @ ₹113/L). Logged by ABDURAHIMAN.",
-    "logged_by": "ABDURAHIMAN",
+    "notes": "Initial baseline fuel refill ₹1000 (8.85 L @ ₹113/L). Logged by Abdul Haseeb.",
+    "logged_by": "Abdul Haseeb",
     "created_at": "2026-08-11T13:30:00.000Z"
   },
   {
@@ -471,8 +461,8 @@ export const INITIAL_VEHICLE_EXPENSES = [
     "fuel_liters": 4.87,
     "odometer_at_expense": 31620.9,
     "calculated_mileage_kmpl": 26,
-    "notes": "Fuel refill ₹550 (4.87 L @ ₹113/L). Mileage: 26.00 km/L. Logged by ABDURAHIMAN.",
-    "logged_by": "ABDURAHIMAN",
+    "notes": "Fuel refill ₹550 (4.87 L @ ₹113/L). Mileage: 26.00 km/L. Logged by Abdul Haseeb.",
+    "logged_by": "Abdul Haseeb",
     "created_at": "2026-10-01T13:30:00.000Z"
   },
   {
@@ -484,8 +474,8 @@ export const INITIAL_VEHICLE_EXPENSES = [
     "fuel_liters": 4.42,
     "odometer_at_expense": 31735.8,
     "calculated_mileage_kmpl": 26,
-    "notes": "Fuel refill ₹500 (4.42 L @ ₹113/L). Mileage: 26.00 km/L. Logged by ABDURAHIMAN.",
-    "logged_by": "ABDURAHIMAN",
+    "notes": "Fuel refill ₹500 (4.42 L @ ₹113/L). Mileage: 26.00 km/L. Logged by Abdul Haseeb.",
+    "logged_by": "Abdul Haseeb",
     "created_at": "2026-10-04T18:00:00.000Z"
   },
   {
@@ -575,8 +565,8 @@ export const INITIAL_VEHICLE_EXPENSES = [
     "fuel_liters": 4.42,
     "odometer_at_expense": 32494.4,
     "calculated_mileage_kmpl": 26,
-    "notes": "Fuel refill ₹500 (4.42 L @ ₹113/L). Mileage: 26.00 km/L. Logged by ABDURAHIMAN.",
-    "logged_by": "ABDURAHIMAN",
+    "notes": "Fuel refill ₹500 (4.42 L @ ₹113/L). Mileage: 26.00 km/L. Logged by Abdul Haseeb.",
+    "logged_by": "Abdul Haseeb",
     "created_at": "2026-10-27T01:30:00.000Z"
   },
   {
@@ -614,603 +604,17 @@ export const INITIAL_VEHICLE_EXPENSES = [
     "fuel_liters": null,
     "odometer_at_expense": 32609.3,
     "calculated_mileage_kmpl": null,
-    "notes": "Vehicle Maintenance: Periodic Service & Maintenance. Logged by ABDURAHIMAN.",
-    "logged_by": "ABDURAHIMAN",
+    "notes": "Vehicle Maintenance: Periodic Service & Maintenance. Logged by Abdul Haseeb.",
+    "logged_by": "Abdul Haseeb",
     "created_at": "2026-11-05T15:00:00.000Z"
   }
 ];
 
-export const INITIAL_TRIP_LOGS = [
-  {
-    "id": "trip-unicorn-001",
-    "trip_id": "TRIP-2026-001",
-    "vehicle_id": "veh-1",
-    "user_id": "vu-abdurahiman",
-    "user_name": "Abdurahiman",
-    "user_role": "teacher",
-    "destination": "Official School Route & Local Commute",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-08-11T11:30:00.000Z",
-    "end_time": "2026-08-11T13:30:00.000Z",
-    "status": "Completed",
-    "start_km": 30000,
-    "end_km": 30230.1,
-    "total_km": 230.1,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 1737.26,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-08-11T11:30:00.000Z",
-    "completed_at": "2026-08-11T13:30:00.000Z",
-    "created_at": "2026-08-11T11:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-002",
-    "trip_id": "TRIP-2026-002",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-08-14T16:00:00.000Z",
-    "end_time": "2026-08-14T18:00:00.000Z",
-    "status": "Completed",
-    "start_km": 30230.1,
-    "end_km": 30299,
-    "total_km": 68.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 520.2,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-08-14T16:00:00.000Z",
-    "completed_at": "2026-08-14T18:00:00.000Z",
-    "created_at": "2026-08-14T16:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-003",
-    "trip_id": "TRIP-2026-003",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-08-21T01:00:00.000Z",
-    "end_time": "2026-08-21T03:00:00.000Z",
-    "status": "Completed",
-    "start_km": 30299,
-    "end_km": 30367.9,
-    "total_km": 68.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 520.2,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-08-21T01:00:00.000Z",
-    "completed_at": "2026-08-21T03:00:00.000Z",
-    "created_at": "2026-08-21T01:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-004",
-    "trip_id": "TRIP-2026-004",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-08-24T05:30:00.000Z",
-    "end_time": "2026-08-24T07:30:00.000Z",
-    "status": "Completed",
-    "start_km": 30367.9,
-    "end_km": 30452.9,
-    "total_km": 85,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 641.75,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-08-24T05:30:00.000Z",
-    "completed_at": "2026-08-24T07:30:00.000Z",
-    "created_at": "2026-08-24T05:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-005",
-    "trip_id": "TRIP-2026-005",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-08-30T14:30:00.000Z",
-    "end_time": "2026-08-30T16:30:00.000Z",
-    "status": "Completed",
-    "start_km": 30452.9,
-    "end_km": 30588.6,
-    "total_km": 135.7,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 1024.53,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-08-30T14:30:00.000Z",
-    "completed_at": "2026-08-30T16:30:00.000Z",
-    "created_at": "2026-08-30T14:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-006",
-    "trip_id": "TRIP-2026-006",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-02T19:00:00.000Z",
-    "end_time": "2026-09-02T21:00:00.000Z",
-    "status": "Completed",
-    "start_km": 30588.6,
-    "end_km": 30703.5,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-02T19:00:00.000Z",
-    "completed_at": "2026-09-02T21:00:00.000Z",
-    "created_at": "2026-09-02T19:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-007",
-    "trip_id": "TRIP-2026-007",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-05T23:30:00.000Z",
-    "end_time": "2026-09-06T01:30:00.000Z",
-    "status": "Completed",
-    "start_km": 30703.5,
-    "end_km": 30779.4,
-    "total_km": 75.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 573.05,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-05T23:30:00.000Z",
-    "completed_at": "2026-09-06T01:30:00.000Z",
-    "created_at": "2026-09-05T23:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-008",
-    "trip_id": "TRIP-2026-008",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-09T04:00:00.000Z",
-    "end_time": "2026-09-09T06:00:00.000Z",
-    "status": "Completed",
-    "start_km": 30779.4,
-    "end_km": 30894.3,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-09T04:00:00.000Z",
-    "completed_at": "2026-09-09T06:00:00.000Z",
-    "created_at": "2026-09-09T04:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-009",
-    "trip_id": "TRIP-2026-009",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-12T08:30:00.000Z",
-    "end_time": "2026-09-12T10:30:00.000Z",
-    "status": "Completed",
-    "start_km": 30894.3,
-    "end_km": 30908.1,
-    "total_km": 13.8,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 104.19,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-12T08:30:00.000Z",
-    "completed_at": "2026-09-12T10:30:00.000Z",
-    "created_at": "2026-09-12T08:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-010",
-    "trip_id": "TRIP-2026-010",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-15T13:00:00.000Z",
-    "end_time": "2026-09-15T15:00:00.000Z",
-    "status": "Completed",
-    "start_km": 30908.1,
-    "end_km": 31023,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-15T13:00:00.000Z",
-    "completed_at": "2026-09-15T15:00:00.000Z",
-    "created_at": "2026-09-15T13:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-011",
-    "trip_id": "TRIP-2026-011",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-18T17:30:00.000Z",
-    "end_time": "2026-09-18T19:30:00.000Z",
-    "status": "Completed",
-    "start_km": 31023,
-    "end_km": 31137.9,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-18T17:30:00.000Z",
-    "completed_at": "2026-09-18T19:30:00.000Z",
-    "created_at": "2026-09-18T17:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-012",
-    "trip_id": "TRIP-2026-012",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-21T22:00:00.000Z",
-    "end_time": "2026-09-22T00:00:00.000Z",
-    "status": "Completed",
-    "start_km": 31137.9,
-    "end_km": 31252.8,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-21T22:00:00.000Z",
-    "completed_at": "2026-09-22T00:00:00.000Z",
-    "created_at": "2026-09-21T22:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-013",
-    "trip_id": "TRIP-2026-013",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-09-28T07:00:00.000Z",
-    "end_time": "2026-09-28T09:00:00.000Z",
-    "status": "Completed",
-    "start_km": 31252.8,
-    "end_km": 31494.3,
-    "total_km": 241.5,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 1823.33,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-09-28T07:00:00.000Z",
-    "completed_at": "2026-09-28T09:00:00.000Z",
-    "created_at": "2026-09-28T07:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-014",
-    "trip_id": "TRIP-2026-014",
-    "vehicle_id": "veh-1",
-    "user_id": "vu-abdurahiman",
-    "user_name": "Abdurahiman",
-    "user_role": "teacher",
-    "destination": "Official School Route & Local Commute",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-01T11:30:00.000Z",
-    "end_time": "2026-10-01T13:30:00.000Z",
-    "status": "Completed",
-    "start_km": 31494.3,
-    "end_km": 31620.9,
-    "total_km": 126.6,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 955.83,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-01T11:30:00.000Z",
-    "completed_at": "2026-10-01T13:30:00.000Z",
-    "created_at": "2026-10-01T11:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-015",
-    "trip_id": "TRIP-2026-015",
-    "vehicle_id": "veh-1",
-    "user_id": "vu-abdurahiman",
-    "user_name": "Abdurahiman",
-    "user_role": "teacher",
-    "destination": "Official School Route & Local Commute",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-04T16:00:00.000Z",
-    "end_time": "2026-10-04T18:00:00.000Z",
-    "status": "Completed",
-    "start_km": 31620.9,
-    "end_km": 31735.8,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-04T16:00:00.000Z",
-    "completed_at": "2026-10-04T18:00:00.000Z",
-    "created_at": "2026-10-04T16:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-016",
-    "trip_id": "TRIP-2026-016",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-11T01:00:00.000Z",
-    "end_time": "2026-10-11T03:00:00.000Z",
-    "status": "Completed",
-    "start_km": 31735.8,
-    "end_km": 31850.7,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-11T01:00:00.000Z",
-    "completed_at": "2026-10-11T03:00:00.000Z",
-    "created_at": "2026-10-11T01:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-017",
-    "trip_id": "TRIP-2026-017",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-14T05:30:00.000Z",
-    "end_time": "2026-10-14T07:30:00.000Z",
-    "status": "Completed",
-    "start_km": 31850.7,
-    "end_km": 31965.6,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-14T05:30:00.000Z",
-    "completed_at": "2026-10-14T07:30:00.000Z",
-    "created_at": "2026-10-14T05:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-018",
-    "trip_id": "TRIP-2026-018",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-17T10:00:00.000Z",
-    "end_time": "2026-10-17T12:00:00.000Z",
-    "status": "Completed",
-    "start_km": 31965.6,
-    "end_km": 32080.5,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-17T10:00:00.000Z",
-    "completed_at": "2026-10-17T12:00:00.000Z",
-    "created_at": "2026-10-17T10:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-019",
-    "trip_id": "TRIP-2026-019",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-20T14:30:00.000Z",
-    "end_time": "2026-10-20T16:30:00.000Z",
-    "status": "Completed",
-    "start_km": 32080.5,
-    "end_km": 32149.4,
-    "total_km": 68.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 520.2,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-20T14:30:00.000Z",
-    "completed_at": "2026-10-20T16:30:00.000Z",
-    "created_at": "2026-10-20T14:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-020",
-    "trip_id": "TRIP-2026-020",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-23T19:00:00.000Z",
-    "end_time": "2026-10-23T21:00:00.000Z",
-    "status": "Completed",
-    "start_km": 32149.4,
-    "end_km": 32379.5,
-    "total_km": 230.1,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 1737.26,
-    "payment_status": "Paid",
-    "payment_received_by": "Abdul Haseeb",
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-23T19:00:00.000Z",
-    "completed_at": "2026-10-23T21:00:00.000Z",
-    "created_at": "2026-10-23T19:00:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-021",
-    "trip_id": "TRIP-2026-021",
-    "vehicle_id": "veh-1",
-    "user_id": "vu-abdurahiman",
-    "user_name": "Abdurahiman",
-    "user_role": "teacher",
-    "destination": "Official School Route & Local Commute",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-10-26T23:30:00.000Z",
-    "end_time": "2026-10-27T01:30:00.000Z",
-    "status": "Completed",
-    "start_km": 32379.5,
-    "end_km": 32494.4,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Unpaid",
-    "payment_received_by": null,
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-10-26T23:30:00.000Z",
-    "completed_at": "2026-10-27T01:30:00.000Z",
-    "created_at": "2026-10-26T23:30:00.000Z"
-  },
-  {
-    "id": "trip-unicorn-022",
-    "trip_id": "TRIP-2026-022",
-    "vehicle_id": "veh-1",
-    "user_id": "u-1",
-    "user_name": "Abdul Haseeb",
-    "user_role": "super_admin",
-    "destination": "Local Campus & Educational Errands",
-    "purpose": "Institutional & official operational journey",
-    "start_time": "2026-11-02T08:30:00.000Z",
-    "end_time": "2026-11-02T10:30:00.000Z",
-    "status": "Completed",
-    "start_km": 32494.4,
-    "end_km": 32609.3,
-    "total_km": 114.9,
-    "applied_rate_per_km": 7.55,
-    "total_amount": 867.5,
-    "payment_status": "Unpaid",
-    "payment_received_by": null,
-    "rejection_reason": null,
-    "approved_by": "Abdul Haseeb",
-    "approved_at": "2026-11-02T08:30:00.000Z",
-    "completed_at": "2026-11-02T10:30:00.000Z",
-    "created_at": "2026-11-02T08:30:00.000Z"
-  }
-];
+export const INITIAL_TRIP_LOGS = [];
 
-export const INITIAL_VEHICLE_PAYMENTS = [
-  {
-    id: 'vpay-unicorn-01',
-    trip_id: 'trip-unicorn-001',
-    amount_paid: 500.00,
-    payment_method: 'UPI / GPay',
-    payment_date: '2026-08-12T16:00:00.000Z',
-    received_by_admin_id: 'u-1',
-    received_by_admin_name: 'Abdul Haseeb',
-    notes: 'UPI Ref: 429188201921 - Settled at school office',
-    created_at: '2026-08-12T16:00:00.000Z'
-  }
-];
+export const INITIAL_VEHICLE_PAYMENTS = [];
 
-export const INITIAL_VEHICLE_USERS = [
-  {
-    "id": "vu-abdurahiman",
-    "full_name": "Abdurahiman",
-    "phone": "+91 94471 88223",
-    "email": "abdurahiman@thaibaschool.edu.in",
-    "tps_id": "VUS001",
-    "designation": "Faculty & Transport User",
-    "status": "Active",
-    "notes": "Authorized two-wheeler rider for Honda Unicorn WB 66 V 0909",
-    "created_at": "2026-08-01T08:00:00.000Z"
-  },
-  {
-    "id": "vu-sameer",
-    "full_name": "Sameer Driver",
-    "phone": "+91 98470 99887",
-    "email": "driver@thaibaschool.edu.in",
-    "tps_id": "VUS002",
-    "designation": "Senior Campus Driver",
-    "status": "Active",
-    "notes": "Campus utility driver",
-    "created_at": "2026-08-01T08:00:00.000Z"
-  }
-];
+export const INITIAL_VEHICLE_USERS = [];
 
 export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
   if (isTestEnv) {
@@ -1456,16 +860,109 @@ class DatabaseService {
       }
     }
     if (!this.getStorageItem('tps_users')) {
-      this.setStorageItem('tps_users', JSON.stringify([
+      const defaultUsers = isTestEnv ? [
         { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true },
         { id: 'u-2', email: 'teacher@thaibaschool.edu.in', full_name: 'Rashid Sir', role: 'teacher', approval_status: 'approved', is_super_admin: false },
         { id: 'u-3', email: 'mentor@thaibaschool.edu.in', full_name: 'Usthad Usman', role: 'boys_mentor', mentor_type: 'boys', gender: 'Boys', hostel_unit: 'Thaiba Boys Hostel Block A', approval_status: 'approved', is_super_admin: false },
         { id: 'u-4', email: 'parent@example.com', full_name: 'Ahmad K.T.', role: 'parent', approval_status: 'approved', is_super_admin: false },
         { id: 'u-5', email: 'applicant@gmail.com', full_name: 'New Applicant', role: null, approval_status: 'pending', is_super_admin: false },
         { id: 'u-6', email: 'girls_mentor@thaibaschool.edu.in', full_name: 'Usthada Mariyam', role: 'girls_mentor', mentor_type: 'girls', gender: 'Girls', hostel_unit: 'Thaiba Girls Hostel Campus', approval_status: 'approved', is_super_admin: false },
-        { id: 'u-7', email: 'driver@thaibaschool.edu.in', full_name: 'Sameer Driver', role: 'vehicle_user', approval_status: 'approved', is_super_admin: false },
-        { id: 'vu-abdurahiman', email: 'abdurahiman@thaibaschool.edu.in', full_name: 'Abdurahiman', role: 'teacher', approval_status: 'approved', is_super_admin: false }
-      ]));
+        { id: 'u-7', email: 'driver@thaibaschool.edu.in', full_name: 'Sameer Driver', role: 'vehicle_user', approval_status: 'approved', is_super_admin: false }
+      ] : [
+        { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true }
+      ];
+      this.setStorageItem('tps_users', JSON.stringify(defaultUsers));
+    }
+
+    // Purge dummy demo entries from client storage (teachers, admins, parents, mentors, students, drivers & dummy logs)
+    if (!isTestEnv && !this.getStorageItem('tps_dummy_purged_v2026')) {
+      try {
+        const dummyUserIds = new Set(['u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55']);
+        const dummyEmails = new Set(['tpsmoraledu@gmail.com', 'teacher@thaibaschool.edu.in', 'mentor@thaibaschool.edu.in', 'parent@example.com', 'applicant@gmail.com', 'driver@thaibaschool.edu.in', 'abdurahiman@thaibaschool.edu.in', 'girls_mentor@thaibaschool.edu.in']);
+
+        // 1. Purge tps_users
+        const rawUsers = this.get('tps_users') || [];
+        if (Array.isArray(rawUsers)) {
+          const cleanUsers = rawUsers.filter(u => {
+            if (!u || !u.id) return false;
+            if (dummyUserIds.has(u.id)) return false;
+            if (u.email && dummyEmails.has(String(u.email).toLowerCase())) return false;
+            if (u.id === '28bb4935-b4f0-4657-942c-afc784dc68de' && !u.email) return false;
+            return true;
+          });
+          this.setStorageItem('tps_users', JSON.stringify(cleanUsers.length > 0 ? cleanUsers : [
+            { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true }
+          ]));
+        }
+
+        // 2. Purge tps_teacher_assignments
+        const rawAsg = this.get('tps_teacher_assignments') || [];
+        if (Array.isArray(rawAsg)) {
+          const cleanAsg = rawAsg.filter(a => {
+            if (!a) return false;
+            if (['asg-1', 'asg-2', 'asg-4', 'asg-7'].includes(a.id)) return false;
+            if (a.teacher_id === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || a.teacher_id === 'u-2') return false;
+            return true;
+          });
+          this.setStorageItem('tps_teacher_assignments', JSON.stringify(cleanAsg));
+        }
+
+        // 3. Purge tps_attendance
+        const rawAtt = this.get('tps_attendance') || [];
+        if (Array.isArray(rawAtt)) {
+          const cleanAtt = rawAtt.filter(a => {
+            if (!a) return false;
+            if (a.teacher_id === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || a.teacher_id === 'd0000000-0000-0000-0000-000000000004' || a.teacher_id === 'u-2') return false;
+            return true;
+          });
+          this.setStorageItem('tps_attendance', JSON.stringify(cleanAtt));
+        }
+
+        // 4. Purge tps_faculty_leaves
+        const rawFl = this.get('tps_faculty_leaves') || [];
+        if (Array.isArray(rawFl)) {
+          const cleanFl = rawFl.filter(f => {
+            if (!f) return false;
+            if (f.id === 'fl-1' || f.faculty_id === 'u-2' || f.faculty_name === 'Rashid Sir') return false;
+            return true;
+          });
+          this.setStorageItem('tps_faculty_leaves', JSON.stringify(cleanFl));
+        }
+
+        // 5. Purge tps_trip_logs
+        const rawTrips = this.get('tps_trip_logs') || [];
+        if (Array.isArray(rawTrips)) {
+          const cleanTrips = rawTrips.filter(t => {
+            if (!t) return false;
+            if (typeof t.id === 'string' && t.id.startsWith('trip-unicorn-')) return false;
+            if (t.user_id === 'vu-abdurahiman' || t.user_id === 'vu-sameer') return false;
+            return true;
+          });
+          this.setStorageItem('tps_trip_logs', JSON.stringify(cleanTrips));
+        }
+
+        // 6. Purge tps_vehicle_payments
+        const rawVp = this.get('tps_vehicle_payments') || [];
+        if (Array.isArray(rawVp)) {
+          const cleanVp = rawVp.filter(p => {
+            if (!p) return false;
+            if (p.id === 'vpay-unicorn-01' || p.trip_id === 'trip-unicorn-001') return false;
+            return true;
+          });
+          this.setStorageItem('tps_vehicle_payments', JSON.stringify(cleanVp));
+        }
+
+        // 7. Purge tps_vehicle_users
+        this.setStorageItem('tps_vehicle_users', JSON.stringify([]));
+
+        this.setStorageItem('tps_dummy_purged_v2026', 'true');
+        this._usersCache = null;
+        this._usersCacheTime = 0;
+        this._studentsCache = null;
+        this._studentsCacheTime = 0;
+      } catch (err) {
+        console.warn('Dummy data purge error:', err);
+      }
     }
   }
 
@@ -5163,11 +4660,18 @@ class DatabaseService {
           try {
             const { data, error } = await supabase.rpc('get_manageable_users');
             if (!error && Array.isArray(data) && data.length > 0) {
-              // Merge with any local demo users that don't collide
-              const localUsers = this.get('tps_users') || [];
-              const remoteEmails = new Set(data.map(u => (u.email || '').toLowerCase()));
+              const dummyIds = new Set(['u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55']);
+              const dummyEmails = new Set(['tpsmoraledu@gmail.com', 'teacher@thaibaschool.edu.in', 'mentor@thaibaschool.edu.in', 'parent@example.com', 'applicant@gmail.com', 'driver@thaibaschool.edu.in', 'abdurahiman@thaibaschool.edu.in', 'girls_mentor@thaibaschool.edu.in']);
+
+              const cleanRemote = !isTestEnv 
+                ? data.filter(u => !dummyIds.has(u.id) && !dummyEmails.has(String(u.email || '').toLowerCase()))
+                : data;
+              const localUsers = !isTestEnv
+                ? (this.get('tps_users') || []).filter(u => u && !dummyIds.has(u.id) && !dummyEmails.has(String(u.email || '').toLowerCase()))
+                : (this.get('tps_users') || []);
+              const remoteEmails = new Set(cleanRemote.map(u => (u.email || '').toLowerCase()));
               const combined = [
-                ...data,
+                ...cleanRemote,
                 ...localUsers.filter(lu => !remoteEmails.has((lu.email || '').toLowerCase()) && lu.id !== 'u-pending')
               ];
               this._usersCache = combined;
@@ -5178,7 +4682,11 @@ class DatabaseService {
             console.warn('Supabase get_manageable_users fallback:', err);
           }
         }
-        const res = this.get('tps_users');
+        const dummyIds = new Set(['u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55']);
+        const dummyEmails = new Set(['tpsmoraledu@gmail.com', 'teacher@thaibaschool.edu.in', 'mentor@thaibaschool.edu.in', 'parent@example.com', 'applicant@gmail.com', 'driver@thaibaschool.edu.in', 'abdurahiman@thaibaschool.edu.in', 'girls_mentor@thaibaschool.edu.in']);
+        const res = !isTestEnv
+          ? (this.get('tps_users') || []).filter(u => u && !dummyIds.has(u.id) && !dummyEmails.has(String(u.email || '').toLowerCase()))
+          : (this.get('tps_users') || []);
         this._usersCache = res;
         this._usersCacheTime = Date.now();
         return res;

@@ -54,12 +54,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     const uFirstName = uName.split(' ')[0];
     if (uFirstName && uFirstName.length >= 4 && (cTeacher.includes(uFirstName) || cTeacherName.includes(uFirstName))) return true;
 
-    // 3. Seeded aliases for Rashid Sir
-    if (uId === 'u-2' || uId === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || uEmail === 'teacher@thaibaschool.edu.in' || (uName.includes('rashid') && u.role === 'teacher')) {
-      if (cTeacher === 'u-2' || cTeacher === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || cTeacher === 'teacher@thaibaschool.edu.in') return true;
-    }
-
-    // 4. Historical / Active teacher assignments table
+    // 3. Historical / Active teacher assignments table
     if (Array.isArray(teacherAssignments) && teacherAssignments.some(a => {
       if (a.classroom_id !== c.id || a.removed_date) return false;
       const aT = String(a.teacher_id || '').toLowerCase();

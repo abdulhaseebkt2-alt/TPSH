@@ -163,7 +163,7 @@ export async function renderMentorDashboard(container, { onNavigate }) {
     <div class="page-header" style="margin-bottom: 1.5rem;">
       <div class="page-title-group">
         <h2 style="font-size: 1.45rem; font-weight: 800; color: #0F172A; letter-spacing: -0.01em;">
-          ${isGirlsMentor ? 'Girls Hostel Mentor Dashboard' : isBoysMentor ? 'Boys Hostel Mentor Dashboard' : 'Hostel Mentor Dashboard'} • ${user?.full_name || (isGirlsMentor ? 'Usthada Mariyam' : 'Usthad Usman')}
+          ${isGirlsMentor ? 'Girls Hostel Mentor Dashboard' : isBoysMentor ? 'Boys Hostel Mentor Dashboard' : 'Hostel Mentor Dashboard'} • ${user?.full_name || 'Hostel Mentor'}
         </h2>
         <p style="font-size: 0.85rem; color: #64748B; margin-top: 0.15rem;">
           Hostel Ward Management, Resident Safety, Night Roll Call & Gate Passes

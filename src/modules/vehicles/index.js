@@ -2229,7 +2229,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 1.25rem;">
             <div class="form-group" style="margin-bottom: 0.85rem;">
               <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Full Name *</label>
-              <input type="text" id="vu-name" class="form-control" required placeholder="e.g. Sameer Driver" style="width: 100%;" />
+              <input type="text" id="vu-name" class="form-control" required placeholder="e.g. Driver / Staff Name" style="width: 100%;" />
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
@@ -2239,7 +2239,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
               </div>
               <div>
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Email Address</label>
-                <input type="email" id="vu-email" class="form-control" placeholder="sameer@example.com" style="width: 100%;" />
+                <input type="email" id="vu-email" class="form-control" placeholder="staff@example.com" style="width: 100%;" />
               </div>
             </div>
 
