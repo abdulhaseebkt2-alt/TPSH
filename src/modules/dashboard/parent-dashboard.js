@@ -1,6 +1,6 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatDate, formatTime, formatCurrency, getTodayDateStr } from '../../lib/utils.js';
+import { formatDate, formatTime, formatCurrency, getTodayDateStr, isExamResultActiveForParents, calculateGrade, calculateRanks } from '../../lib/utils.js';
 import { openModal } from '../../lib/dialog.js';
 import { toast } from '../../lib/toast.js';
 import { enhanceModalInputs } from '../../lib/ui-enhancer.js';
@@ -13,7 +13,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
   }
 
   const user = getCurrentUser();
-  await db.pullCloudKeys(['tps_parent_assignments', 'tps_leaves'], true);
+  await db.pullCloudKeys(['tps_parent_assignments', 'tps_leaves', 'tps_exams', 'tps_exam_subjects', 'tps_marks'], true);
   const [allStudents, allLeaves, exams, examSubjects, allDisciplineIncidents] = await Promise.all([
     db.getStudents(),
     db.getLeaves(true),
@@ -191,19 +191,67 @@ export async function renderParentDashboard(container, { onNavigate }) {
     }
   }
 
-  // Mock marks for this child if no marks entered yet
-  const activeExam = exams[0] || { title: 'Mid-Term Examination 2026' };
-  const mockChildMarks = [
-    { subject: 'Moral Studies & Ethics', max_marks: 100, scored: 94, grade: 'A+' },
-    { subject: 'Arabic Language', max_marks: 100, scored: 88, grade: 'A' },
-    { subject: 'Mathematics', max_marks: 100, scored: 92, grade: 'A+' },
-    { subject: 'General Science', max_marks: 100, scored: 90, grade: 'A+' },
-    { subject: 'English', max_marks: 100, scored: 86, grade: 'A' }
-  ];
+  // Dynamic Real Exam Marks for this child
+  const activeExams = (exams || []).filter(e => isExamResultActiveForParents(e));
+  let publishedActiveExam = null;
+  let childExamMarks = [];
+  let childExamStats = null;
 
-  const totalScore = mockChildMarks.reduce((sum, m) => sum + m.scored, 0);
-  const totalMax = mockChildMarks.reduce((sum, m) => sum + m.max_marks, 0);
-  const percentage = ((totalScore / totalMax) * 100).toFixed(1);
+  for (const ex of activeExams) {
+    const allMarks = await db.getMarks(ex.id);
+    const marksForChild = allMarks.filter(m => m.student_id === selectedChild.id);
+    if (marksForChild.length > 0) {
+      publishedActiveExam = ex;
+      childExamMarks = marksForChild;
+
+      const examSubjectsList = (examSubjects || []).filter(s => s.exam_id === ex.id);
+      const passThreshold = Number(ex.passing_marks) || 40;
+      const defaultMax = Number(ex.max_marks) || 100;
+
+      let totalScored = 0;
+      let totalMax = 0;
+      let hasFailedAny = false;
+
+      childExamMarks.forEach(m => {
+        const subDef = examSubjectsList.find(s => s.subject === m.subject);
+        const subMax = Number(subDef?.max_marks) || defaultMax;
+        const subPass = Number(subDef?.passing_marks) || passThreshold;
+        const score = Number(m.total) || 0;
+        totalScored += score;
+        totalMax += subMax;
+        if (score < subPass) hasFailedAny = true;
+      });
+
+      const percentageVal = totalMax > 0 ? ((totalScored / totalMax) * 100).toFixed(1) : '0.0';
+      const overallGrade = calculateGrade(totalScored, totalMax, passThreshold * childExamMarks.length).grade;
+      const overallStatus = hasFailedAny ? 'Fail' : 'Pass';
+
+      let childExamRank = null;
+      if (ex.publish_ranks !== false) {
+        const studentAggregates = [];
+        const stMap = {};
+        allMarks.forEach(m => {
+          if (!stMap[m.student_id]) stMap[m.student_id] = 0;
+          stMap[m.student_id] += Number(m.total) || 0;
+        });
+        for (const [stId, tot] of Object.entries(stMap)) {
+          studentAggregates.push({ student_id: stId, total: tot });
+        }
+        const rankMap = calculateRanks(studentAggregates);
+        childExamRank = rankMap[selectedChild.id] || null;
+      }
+
+      childExamStats = {
+        totalScored,
+        totalMax,
+        percentage: percentageVal,
+        overallGrade,
+        overallStatus,
+        rank: childExamRank
+      };
+      break;
+    }
+  }
 
   // Presence status styling
   let presenceLabel = '● Present in Hostel';
@@ -553,7 +601,7 @@ export async function renderParentDashboard(container, { onNavigate }) {
             <span style="color: #B45309;">Requested for ${formatDate(activeLeave.departure_date)} → ${formatDate(activeLeave.expected_return_date)}</span>
           </div>
         </div>
-      ` : `
+      ` : childExamStats ? `
         <div class="stat-card" data-route="marks" style="cursor: pointer;">
           <div class="stat-header">
             <span class="stat-title">Academic Score</span>
@@ -561,9 +609,22 @@ export async function renderParentDashboard(container, { onNavigate }) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </div>
           </div>
-          <div class="stat-value">${percentage}%</div>
+          <div class="stat-value">${childExamStats.percentage}%</div>
           <div class="stat-footer">
-            <span>${activeExam.title?.split(' ')[0] || 'Mid-Term'} 2026 Overall Grade: <strong>A</strong></span>
+            <span>${publishedActiveExam?.title?.split(' ')[0] || 'Exam'} Grade: <strong>${childExamStats.overallGrade}</strong> • <strong style="color: ${childExamStats.overallStatus === 'Pass' ? '#059669' : '#DC2626'};">${childExamStats.overallStatus.toUpperCase()}</strong></span>
+          </div>
+        </div>
+      ` : `
+        <div class="stat-card" data-route="students" style="cursor: pointer;">
+          <div class="stat-header">
+            <span class="stat-title">Academic Status</span>
+            <div class="stat-icon-wrapper" style="background: #F8FAFC; color: #64748B;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="font-size: 1.25rem; color: #0F172A;">Class ${selectedChild.school_class || 'Enrolled'}</div>
+          <div class="stat-footer">
+            <span style="color: #64748B;">${selectedChild.roll_number ? `Roll #${selectedChild.roll_number} • ` : ''}Active Enrollment</span>
           </div>
         </div>
       `}
@@ -604,39 +665,72 @@ export async function renderParentDashboard(container, { onNavigate }) {
     <!-- Main 2-Column Detailed Reports Grid -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
       
-      <!-- Academic Examination Marks Card -->
-      <div class="card-panel" style="margin-bottom: 0;">
-        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A;">
-            Academic Performance • ${activeExam.title}
-          </h3>
-          <button class="btn btn-outline btn-sm" id="btn-parent-view-all-marks">Full Report Card</button>
-        </div>
-        <div class="card-panel-body" style="padding: 0;">
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Max</th>
-                  <th>Scored</th>
-                  <th>Grade</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${mockChildMarks.map(m => `
+      ${publishedActiveExam && childExamMarks.length > 0 ? `
+        <!-- Academic Examination Marks Card -->
+        <div class="card-panel" style="margin-bottom: 0;">
+          <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0;">
+                  Academic Performance • ${publishedActiveExam.title}
+                </h3>
+                <span class="badge" style="${childExamStats.overallStatus === 'Pass' ? 'background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;' : 'background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;'} font-weight: 800;">
+                  ${childExamStats.overallStatus === 'Pass' ? '✓ PASSED' : '⚠ FAILED'}
+                </span>
+                ${publishedActiveExam.publish_ranks !== false && childExamStats.rank ? `
+                  <span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-weight: 800;">
+                    🏆 Class Rank #${childExamStats.rank}
+                  </span>
+                ` : ''}
+              </div>
+              ${publishedActiveExam.publish_until ? `
+                <div style="font-size: 0.72rem; color: #64748B; margin-top: 2px;">
+                  Results visible until ${formatDate(publishedActiveExam.publish_until)}
+                </div>
+              ` : ''}
+            </div>
+            <button class="btn btn-outline btn-sm" id="btn-parent-view-all-marks">Full Report Card</button>
+          </div>
+          <div class="card-panel-body" style="padding: 0;">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <td><strong>${m.subject}</strong></td>
-                    <td>${m.max_marks}</td>
-                    <td><span style="font-weight: 700; color: #059669;">${m.scored}</span></td>
-                    <td><span class="badge badge-active">${m.grade}</span></td>
+                    <th>Subject</th>
+                    <th>Max</th>
+                    <th>Scored</th>
+                    <th>Grade</th>
+                    <th>Status</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  ${childExamMarks.map(m => {
+                    const subDef = (examSubjects || []).find(s => s.exam_id === publishedActiveExam.id && s.subject === m.subject);
+                    const subMax = Number(subDef?.max_marks) || Number(publishedActiveExam.max_marks) || 100;
+                    const subPass = Number(subDef?.passing_marks) || Number(publishedActiveExam.passing_marks) || 40;
+                    const scored = Number(m.total) || 0;
+                    const { grade, pass_status } = calculateGrade(scored, subMax, subPass);
+                    const isPass = pass_status === 'Pass';
+                    return `
+                      <tr>
+                        <td><strong>${m.subject}</strong></td>
+                        <td>${subMax}</td>
+                        <td><span style="font-weight: 700; color: ${isPass ? '#059669' : '#DC2626'};">${scored}</span></td>
+                        <td><span class="badge ${isPass ? 'badge-active' : 'badge-danger'}">${grade}</span></td>
+                        <td>
+                          <span class="badge" style="${isPass ? 'background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;' : 'background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;'} font-size: 0.72rem; font-weight: 700;">
+                            ${isPass ? 'Pass' : 'Fail'}
+                          </span>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      ` : ''}
 
       <!-- SECTION 2: Hostel Operations -->
       <div class="dash-section-header" style="grid-column: 1 / -1; margin-top: 0.5rem;">

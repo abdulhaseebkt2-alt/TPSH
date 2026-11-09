@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'fs';
-import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate, getTodayDateStr, isLeaveOverdueSafe } from '../src/lib/utils.js';
+import { calculateLateDays, calculateLateFine, formatDate, formatCurrency, parseStudentsCSV, normalizeDate, getTodayDateStr, isLeaveOverdueSafe, calculateGrade, calculateRanks, isExamResultActiveForParents } from '../src/lib/utils.js';
 import { canAccessModule, canPerformAction, MODULE_DEFINITIONS, DEFAULT_RBAC_MATRIX, getRBACMatrix, saveRBACMatrix, resetRBACMatrix, getUserCustomPermissions, saveUserCustomPermissions, clearUserCustomPermissions, isMentorRole, getMentorGenderScope } from '../src/lib/permissions.js';
 import { from24Hour, to24Hour, format12Hour, attachWheelTimePicker, initAllWheelTimePickers } from '../src/lib/wheelTimePicker.js';
 import { renderSidebar } from '../src/components/sidebar.js';
@@ -8879,6 +8879,208 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
 
       clearUserCustomPermissions(testTeacher.id);
       expect(canAccessModule(testTeacher, 'vehicle_all_trips')).toBe(false);
+    });
+  });
+
+  describe('27. Examination Making, Mark Settings, Pass/Fail Thresholds, Rank Publishing, and Parent Expiry Window Governance (v1.9.53)', () => {
+    it('2701 - calculateGrade accurately maps percentages, grades, and pass/fail thresholds', () => {
+      // Pass mark is 40 by default
+      const passResult = calculateGrade(85, 100, 40);
+      expect(passResult.pass_status).toBe('Pass');
+      expect(passResult.grade).toBe('A');
+      expect(passResult.percentage).toBe('85.0');
+
+      const aPlusResult = calculateGrade(95, 100, 40);
+      expect(aPlusResult.pass_status).toBe('Pass');
+      expect(aPlusResult.grade).toBe('A+');
+
+      // Exact threshold boundary
+      const exactPass = calculateGrade(40, 100, 40);
+      expect(exactPass.pass_status).toBe('Pass');
+      expect(exactPass.grade).toBe('C');
+
+      // 1 mark below threshold -> F / Fail
+      const failResult = calculateGrade(39, 100, 40);
+      expect(failResult.pass_status).toBe('Fail');
+      expect(failResult.grade).toBe('F');
+
+      // Custom passing threshold (e.g. 50 passing marks)
+      const customPassThreshold = calculateGrade(45, 100, 50);
+      expect(customPassThreshold.pass_status).toBe('Fail');
+      expect(customPassThreshold.grade).toBe('F');
+
+      const customPassed = calculateGrade(52, 100, 50);
+      expect(customPassed.pass_status).toBe('Pass');
+      expect(customPassed.grade).toBe('C+');
+    });
+
+    it('2702 - calculateRanks correctly calculates class ranks and supports competition/standard rankings', () => {
+      const studentAggregates = [
+        { student_id: 'st-1', total: 320 },
+        { student_id: 'st-2', total: 480 },
+        { student_id: 'st-3', total: 410 },
+        { student_id: 'st-4', total: 290 }
+      ];
+
+      const ranks = calculateRanks(studentAggregates, 'standard');
+      expect(ranks['st-2']).toBe(1); // 480 -> 1st
+      expect(ranks['st-3']).toBe(2); // 410 -> 2nd
+      expect(ranks['st-1']).toBe(3); // 320 -> 3rd
+      expect(ranks['st-4']).toBe(4); // 290 -> 4th
+    });
+
+    it('2703 - isExamResultActiveForParents evaluates publication status and auto-removes on expiry', () => {
+      // 1. Unpublished exam -> Not visible to parents
+      const draftExam = { id: 'ex-1', title: 'Draft Exam', is_published: false };
+      expect(isExamResultActiveForParents(draftExam)).toBe(false);
+
+      // 2. Published exam without expiry date -> Stays active
+      const activeIndefinite = { id: 'ex-2', title: 'Annual Final', is_published: true };
+      expect(isExamResultActiveForParents(activeIndefinite)).toBe(true);
+
+      // 3. Published exam with future expiry window -> Active
+      const futureDate = new Date(Date.now() + 86400000 * 7).toISOString(); // 7 days from now
+      const activeWindow = { id: 'ex-3', title: 'Term 1 Exam', is_published: true, publish_until: futureDate };
+      expect(isExamResultActiveForParents(activeWindow)).toBe(true);
+
+      // 4. Published exam with past expiry date ("if its time is over it should be remove from their window") -> Expired / Inactive
+      const pastDate = new Date(Date.now() - 3600000).toISOString(); // 1 hour ago
+      const expiredExam = { id: 'ex-4', title: 'Old Term Exam', is_published: true, publish_until: pastDate };
+      expect(isExamResultActiveForParents(expiredExam)).toBe(false);
+    });
+
+    it('2704 - db methods handle exam creation, subjects, marks, publish and unpublish operations', async () => {
+      const examPayload = {
+        id: 'test-exam-gov-01',
+        title: 'Quarterly Assessment 2026',
+        exam_type: 'Quarterly',
+        class_name: 'STD-V',
+        max_marks: 100,
+        theory_max: 70,
+        practical_max: 30,
+        passing_marks: 40,
+        publish_ranks: true,
+        publish_until: '2026-12-31T23:59',
+        is_published: false
+      };
+
+      await db.saveExam(examPayload);
+      let exams = await db.getExams();
+      const savedExam = exams.find(e => e.id === 'test-exam-gov-01');
+      expect(savedExam).toBeDefined();
+      expect(savedExam.passing_marks).toBe(40);
+      expect(savedExam.publish_ranks).toBe(true);
+
+      // Publish exam
+      await db.publishResults('test-exam-gov-01', {
+        publish_until: '2026-12-31T23:59',
+        publish_ranks: true
+      });
+      exams = await db.getExams();
+      const publishedExam = exams.find(e => e.id === 'test-exam-gov-01');
+      expect(publishedExam.is_published).toBe(true);
+      expect(isExamResultActiveForParents(publishedExam)).toBe(true);
+
+      // Unpublish exam
+      await db.unpublishResults('test-exam-gov-01');
+      exams = await db.getExams();
+      const unpublishedExam = exams.find(e => e.id === 'test-exam-gov-01');
+      expect(unpublishedExam.is_published).toBe(false);
+      expect(isExamResultActiveForParents(unpublishedExam)).toBe(false);
+
+      // Cleanup
+      await db.deleteExam('test-exam-gov-01');
+      exams = await db.getExams();
+      expect(exams.find(e => e.id === 'test-exam-gov-01')).toBeUndefined();
+    });
+
+    it('2705 - Parent and Student dashboards dynamically present active marks and remove when time is over', async () => {
+      // 1. Create a parent user and student
+      const testStudent = await db.addStudent({
+        full_name: 'Zayd Exam Student',
+        gender: 'Boys',
+        admission_number: 'TPS-EXAM-99',
+        school_class: 'STD-VI',
+        school_section: 'A',
+        dob: '2014-01-01',
+        father_name: 'Father',
+        father_phone: '+91 99999 11111'
+      });
+
+      const parentUser = {
+        id: 'parent-exam-user-01',
+        full_name: 'Zayd Father',
+        email: 'zaydfather@test.com',
+        role: 'parent',
+        assigned_student_ids: [testStudent.id]
+      };
+      updateCurrentUserProfile(parentUser);
+      db.set('tps_parent_assignments', { [parentUser.id]: [testStudent.id] });
+
+      // Create an exam expired in the past
+      const pastTime = new Date(Date.now() - 3600000).toISOString();
+      await db.saveExam({
+        id: 'ex-past-expired',
+        title: 'Expired Past Exam',
+        is_published: true,
+        publish_until: pastTime,
+        passing_marks: 40,
+        max_marks: 100
+      });
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderParentDashboard(container, { onNavigate: () => {} });
+
+      // Because the exam is expired, the academic examination card must be completely omitted/removed!
+      expect(container.innerHTML).not.toContain('Academic Performance • Expired Past Exam');
+
+      // Now create a valid future published exam with marks
+      const futureTime = new Date(Date.now() + 86400000 * 5).toISOString();
+      await db.saveExam({
+        id: 'ex-active-live',
+        title: 'Active Live Exam 2026',
+        is_published: true,
+        publish_until: futureTime,
+        passing_marks: 40,
+        max_marks: 100,
+        publish_ranks: true
+      });
+
+      await db.saveMarks([
+        {
+          exam_id: 'ex-active-live',
+          student_id: testStudent.id,
+          subject: 'Islamic Ethics',
+          theory: 45,
+          practical: 45,
+          total: 90,
+          grade: 'A+',
+          pass_status: 'Pass'
+        }
+      ]);
+
+      const activeContainer = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderParentDashboard(activeContainer, { onNavigate: () => {} });
+
+      // The live published exam should be visible with marks, grade, and pass status!
+      expect(activeContainer.innerHTML).toContain('Academic Performance • Active Live Exam 2026');
+      expect(activeContainer.innerHTML).toContain('Islamic Ethics');
+      expect(activeContainer.innerHTML).toContain('90');
+      expect(activeContainer.innerHTML).toContain('PASSED');
+
+      // Clean up test exam
+      await db.deleteExam('ex-past-expired');
+      await db.deleteExam('ex-active-live');
     });
   });
 });

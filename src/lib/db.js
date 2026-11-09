@@ -111,9 +111,15 @@ const INITIAL_EXAMS = [
     exam_type: 'Half_Yearly',
     start_date: '2026-10-10',
     end_date: '2026-10-16',
+    max_marks: 100,
+    passing_marks: 40,
+    theory_max: 80,
+    practical_max: 20,
     is_published: true,
     published_at: '2026-10-18T10:00:00Z',
-    ranking_policy: 'standard'
+    publish_ranks: true,
+    ranking_policy: 'standard',
+    publish_until: '2026-12-31T23:59'
   }
 ];
 
@@ -1051,7 +1057,12 @@ class DatabaseService {
     'tps_vehicle_expenses',
     'tps_trip_logs',
     'tps_vehicle_payments',
-    'tps_vehicle_users'
+    'tps_vehicle_users',
+    'tps_rbac_matrix',
+    'tps_user_custom_modules',
+    'tps_exams',
+    'tps_exam_subjects',
+    'tps_marks'
   ], force = false) {
     if (!supabase || isTestEnv) return;
     const now = Date.now();
@@ -4597,48 +4608,132 @@ class DatabaseService {
 
   // --- EXAMINATIONS & MARKS ---
   async getExams() {
-    return this.get('tps_exams');
+    const exams = this.get('tps_exams') || [];
+    return exams;
   }
 
   async getExamSubjects(exam_id) {
-    const subjects = this.get('tps_exam_subjects');
+    const subjects = this.get('tps_exam_subjects') || [];
     return exam_id ? subjects.filter(s => s.exam_id === exam_id) : subjects;
   }
 
   async getMarks(exam_id) {
-    const marks = this.get('tps_marks');
+    const marks = this.get('tps_marks') || [];
     return exam_id ? marks.filter(m => m.exam_id === exam_id) : marks;
   }
 
+  async saveExam(examData) {
+    const exams = this.get('tps_exams') || [];
+    const idx = exams.findIndex(e => e.id === examData.id);
+    if (idx >= 0) {
+      exams[idx] = { ...exams[idx], ...examData, updated_at: new Date().toISOString() };
+    } else {
+      exams.push({
+        max_marks: 100,
+        passing_marks: 40,
+        theory_max: 80,
+        practical_max: 20,
+        is_published: false,
+        publish_ranks: true,
+        ranking_policy: 'standard',
+        ...examData,
+        created_at: new Date().toISOString()
+      });
+    }
+    this.set('tps_exams', exams);
+    this.logAudit('EXAM_SAVED', 'examinations', examData.id, `Saved examination: ${examData.title}`);
+    return exams;
+  }
+
+  async deleteExam(exam_id) {
+    let exams = this.get('tps_exams') || [];
+    exams = exams.filter(e => e.id !== exam_id);
+    this.set('tps_exams', exams);
+
+    let subjects = this.get('tps_exam_subjects') || [];
+    subjects = subjects.filter(s => s.exam_id !== exam_id);
+    this.set('tps_exam_subjects', subjects);
+
+    let marks = this.get('tps_marks') || [];
+    marks = marks.filter(m => m.exam_id !== exam_id);
+    this.set('tps_marks', marks);
+
+    this.logAudit('EXAM_DELETED', 'examinations', exam_id, `Deleted examination ${exam_id}`);
+    return exams;
+  }
+
+  async saveExamSubjects(exam_id, subjectsArray) {
+    let allSubjects = this.get('tps_exam_subjects') || [];
+    allSubjects = allSubjects.filter(s => s.exam_id !== exam_id);
+    for (const sub of subjectsArray) {
+      allSubjects.push({
+        id: sub.id || 'es-' + Date.now() + Math.random().toString(36).substr(2, 5),
+        exam_id,
+        subject: sub.subject,
+        max_marks: Number(sub.max_marks) || 100,
+        passing_marks: Number(sub.passing_marks) || 40,
+        theory_max: Number(sub.theory_max) || 80,
+        practical_max: Number(sub.practical_max) || 20
+      });
+    }
+    this.set('tps_exam_subjects', allSubjects);
+    return allSubjects;
+  }
+
   async saveMarks(marksArray) {
-    const existing = this.get('tps_marks');
+    const existing = this.get('tps_marks') || [];
     for (const m of marksArray) {
       const idx = existing.findIndex(item => item.exam_id === m.exam_id && item.student_id === m.student_id && item.subject === m.subject);
       if (idx >= 0) {
         existing[idx] = { ...existing[idx], ...m };
       } else {
-        existing.push({ id: 'm-' + Date.now() + Math.random(), ...m });
+        existing.push({ id: 'm-' + Date.now() + Math.random().toString(36).substr(2, 6), ...m });
       }
     }
     this.set('tps_marks', existing);
     this.logAudit('MARKS_SAVED', 'exam_marks', marksArray[0]?.exam_id, `Updated ${marksArray.length} marks records`);
+    return existing;
   }
 
-  async publishResults(exam_id) {
-    const exams = this.get('tps_exams');
+  async publishResults(exam_id, options = {}) {
+    const exams = this.get('tps_exams') || [];
     const idx = exams.findIndex(e => e.id === exam_id);
     if (idx >= 0) {
       exams[idx].is_published = true;
       exams[idx].published_at = new Date().toISOString();
+      if (options.publish_ranks !== undefined) {
+        exams[idx].publish_ranks = !!options.publish_ranks;
+      }
+      if (options.publish_until !== undefined) {
+        exams[idx].publish_until = options.publish_until;
+      }
       this.set('tps_exams', exams);
 
       // Mark all student scores as published
-      const marks = this.get('tps_marks');
+      const marks = this.get('tps_marks') || [];
       marks.forEach(m => {
         if (m.exam_id === exam_id) m.status = 'Published';
       });
       this.set('tps_marks', marks);
       this.logAudit('PUBLISH_RESULTS', 'examinations', exam_id, `Published examination results`);
+      return exams[idx];
+    }
+    return null;
+  }
+
+  async unpublishResults(exam_id) {
+    const exams = this.get('tps_exams') || [];
+    const idx = exams.findIndex(e => e.id === exam_id);
+    if (idx >= 0) {
+      exams[idx].is_published = false;
+      this.set('tps_exams', exams);
+
+      const marks = this.get('tps_marks') || [];
+      marks.forEach(m => {
+        if (m.exam_id === exam_id) m.status = 'Draft';
+      });
+      this.set('tps_marks', marks);
+      this.logAudit('UNPUBLISH_RESULTS', 'examinations', exam_id, `Unpublished examination results to draft`);
       return exams[idx];
     }
     return null;

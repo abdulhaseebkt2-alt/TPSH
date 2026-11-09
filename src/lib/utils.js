@@ -583,3 +583,58 @@ export function parseStudentsCSV(csvText) {
 
   return parsedStudents;
 }
+// ==========================================
+// EXAMINATION & MARKS EVALUATION UTILITIES
+// ==========================================
+
+export function calculateGrade(score, maxMarks = 100, passingMarks = 40) {
+  const numScore = Number(score) || 0;
+  const numMax = Number(maxMarks) || 100;
+  const numPass = Number(passingMarks) || 40;
+  const percentage = numMax > 0 ? (numScore / numMax) * 100 : 0;
+  const pass_status = (numScore < numPass || percentage < (numPass / numMax) * 100) ? 'Fail' : 'Pass';
+
+  if (pass_status === 'Fail') {
+    return { grade: 'F', pass_status: 'Fail', percentage: percentage.toFixed(1) };
+  }
+  if (percentage >= 90) return { grade: 'A+', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+  if (percentage >= 80) return { grade: 'A', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+  if (percentage >= 70) return { grade: 'B+', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+  if (percentage >= 60) return { grade: 'B', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+  if (percentage >= 50) return { grade: 'C+', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+  if (percentage >= 40) return { grade: 'C', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+  return { grade: 'D', pass_status: 'Pass', percentage: percentage.toFixed(1) };
+}
+
+export function calculateRanks(studentAggregates = [], rankingPolicy = 'standard') {
+  if (!Array.isArray(studentAggregates) || studentAggregates.length === 0) return {};
+  const sorted = [...studentAggregates].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+
+  const rankMap = {};
+  if (rankingPolicy === 'competition_tied') {
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && (Number(sorted[i].total) || 0) === (Number(sorted[i - 1].total) || 0)) {
+        rankMap[sorted[i].student_id] = rankMap[sorted[i - 1].student_id];
+      } else {
+        rankMap[sorted[i].student_id] = i + 1;
+      }
+    }
+  } else {
+    sorted.forEach((item, index) => {
+      rankMap[item.student_id] = index + 1;
+    });
+  }
+  return rankMap;
+}
+
+export function isExamResultActiveForParents(exam) {
+  if (!exam || !exam.is_published) return false;
+  if (!exam.publish_until) return true; // No expiration, remains visible
+  try {
+    const expiryTime = new Date(exam.publish_until).getTime();
+    if (isNaN(expiryTime)) return true;
+    return Date.now() <= expiryTime;
+  } catch {
+    return true;
+  }
+}

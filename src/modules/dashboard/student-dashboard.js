@@ -1,12 +1,16 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
-import { formatDate } from '../../lib/utils.js';
+import { formatDate, isExamResultActiveForParents, calculateGrade, calculateRanks } from '../../lib/utils.js';
 
 export async function renderStudentDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
-  const allStudents = await db.getStudents();
-  const allLeaves = await db.getLeaves();
-  const exams = await db.getExams();
+  await db.pullCloudKeys(['tps_exams', 'tps_exam_subjects', 'tps_marks'], true);
+  const [allStudents, allLeaves, exams, examSubjects] = await Promise.all([
+    db.getStudents(),
+    db.getLeaves(),
+    db.getExams(),
+    db.getExamSubjects()
+  ]);
 
   // Identify student record
   const student = allStudents.find(s => 
@@ -37,14 +41,67 @@ export async function renderStudentDashboard(container, { onNavigate }) {
     { time: '04:30 - 06:00 PM', subject: 'Hostel Supervised Study', topic: 'Evening Homework & Revision', room: 'Study Hall', teacher: 'Hostel Mentor' }
   ];
 
-  const activeExam = exams[0] || { title: 'Mid-Term Examination 2026' };
-  const mockMarks = [
-    { subject: 'Moral Studies & Ethics', max_marks: 100, scored: 94, grade: 'A+' },
-    { subject: 'Arabic Language', max_marks: 100, scored: 88, grade: 'A' },
-    { subject: 'Mathematics', max_marks: 100, scored: 92, grade: 'A+' },
-    { subject: 'General Science', max_marks: 100, scored: 90, grade: 'A+' },
-    { subject: 'English', max_marks: 100, scored: 86, grade: 'A' }
-  ];
+  // Dynamic Real Exam Marks for this student
+  const activeExams = (exams || []).filter(e => isExamResultActiveForParents(e));
+  let publishedActiveExam = null;
+  let studentExamMarks = [];
+  let studentExamStats = null;
+
+  for (const ex of activeExams) {
+    const allMarks = await db.getMarks(ex.id);
+    const marksForStudent = allMarks.filter(m => m.student_id === student.id);
+    if (marksForStudent.length > 0) {
+      publishedActiveExam = ex;
+      studentExamMarks = marksForStudent;
+
+      const examSubjectsList = (examSubjects || []).filter(s => s.exam_id === ex.id);
+      const passThreshold = Number(ex.passing_marks) || 40;
+      const defaultMax = Number(ex.max_marks) || 100;
+
+      let totalScored = 0;
+      let totalMax = 0;
+      let hasFailedAny = false;
+
+      studentExamMarks.forEach(m => {
+        const subDef = examSubjectsList.find(s => s.subject === m.subject);
+        const subMax = Number(subDef?.max_marks) || defaultMax;
+        const subPass = Number(subDef?.passing_marks) || passThreshold;
+        const score = Number(m.total) || 0;
+        totalScored += score;
+        totalMax += subMax;
+        if (score < subPass) hasFailedAny = true;
+      });
+
+      const percentageVal = totalMax > 0 ? ((totalScored / totalMax) * 100).toFixed(1) : '0.0';
+      const overallGrade = calculateGrade(totalScored, totalMax, passThreshold * studentExamMarks.length).grade;
+      const overallStatus = hasFailedAny ? 'Fail' : 'Pass';
+
+      let studentRank = null;
+      if (ex.publish_ranks !== false) {
+        const studentAggregates = [];
+        const stMap = {};
+        allMarks.forEach(m => {
+          if (!stMap[m.student_id]) stMap[m.student_id] = 0;
+          stMap[m.student_id] += Number(m.total) || 0;
+        });
+        for (const [stId, tot] of Object.entries(stMap)) {
+          studentAggregates.push({ student_id: stId, total: tot });
+        }
+        const rankMap = calculateRanks(studentAggregates);
+        studentRank = rankMap[student.id] || null;
+      }
+
+      studentExamStats = {
+        totalScored,
+        totalMax,
+        percentage: percentageVal,
+        overallGrade,
+        overallStatus,
+        rank: studentRank
+      };
+      break;
+    }
+  }
 
   container.innerHTML = `
     <!-- Student Welcome Hero Banner Card -->
@@ -107,18 +164,33 @@ export async function renderStudentDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <div class="stat-card" data-route="marks" style="cursor: pointer;">
-        <div class="stat-header">
-          <span class="stat-title">Exam Grade</span>
-          <div class="stat-icon-wrapper" style="background: #EFF6FF; color: #2563EB;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      ${studentExamStats ? `
+        <div class="stat-card" data-route="marks" style="cursor: pointer;">
+          <div class="stat-header">
+            <span class="stat-title">Exam Grade</span>
+            <div class="stat-icon-wrapper" style="background: #EFF6FF; color: #2563EB;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="color: ${studentExamStats.overallStatus === 'Pass' ? '#059669' : '#DC2626'};">${studentExamStats.overallGrade}</div>
+          <div class="stat-footer">
+            <span>${publishedActiveExam?.title?.split(' ')[0] || 'Exam'}: <strong>${studentExamStats.percentage}%</strong> • <strong style="color: ${studentExamStats.overallStatus === 'Pass' ? '#059669' : '#DC2626'};">${studentExamStats.overallStatus.toUpperCase()}</strong></span>
           </div>
         </div>
-        <div class="stat-value">A+</div>
-        <div class="stat-footer">
-          <span>Mid-Term 2026 Score: <strong>90.0%</strong></span>
+      ` : `
+        <div class="stat-card" data-route="schedule" style="cursor: pointer;">
+          <div class="stat-header">
+            <span class="stat-title">My Class</span>
+            <div class="stat-icon-wrapper" style="background: #EFF6FF; color: #2563EB;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="font-size: 1.3rem;">${student.school_class || 'STD-I'} (${student.school_section || 'A'})</div>
+          <div class="stat-footer">
+            <span>Active Student Roster</span>
+          </div>
         </div>
-      </div>
+      `}
 
       <div class="stat-card" data-route="leaves" style="cursor: pointer;">
         <div class="stat-header">
@@ -175,39 +247,72 @@ export async function renderStudentDashboard(container, { onNavigate }) {
         </div>
       </div>
 
-      <!-- My Academic Results & Performance -->
-      <div class="card-panel" style="margin-bottom: 0;">
-        <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A;">
-            My Results • ${activeExam.title}
-          </h3>
-          <button class="btn btn-outline btn-sm" id="btn-student-view-marks">View Report Card</button>
-        </div>
-        <div class="card-panel-body" style="padding: 0;">
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Max</th>
-                  <th>My Score</th>
-                  <th>Grade</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${mockMarks.map(m => `
+      ${publishedActiveExam && studentExamMarks.length > 0 ? `
+        <!-- My Academic Results & Performance -->
+        <div class="card-panel" style="margin-bottom: 0;">
+          <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0;">
+                  My Results • ${publishedActiveExam.title}
+                </h3>
+                <span class="badge" style="${studentExamStats.overallStatus === 'Pass' ? 'background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;' : 'background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;'} font-weight: 800;">
+                  ${studentExamStats.overallStatus === 'Pass' ? '✓ PASSED' : '⚠ FAILED'}
+                </span>
+                ${publishedActiveExam.publish_ranks !== false && studentExamStats.rank ? `
+                  <span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-weight: 800;">
+                    🏆 Class Rank #${studentExamStats.rank}
+                  </span>
+                ` : ''}
+              </div>
+              ${publishedActiveExam.publish_until ? `
+                <div style="font-size: 0.72rem; color: #64748B; margin-top: 2px;">
+                  Results visible until ${formatDate(publishedActiveExam.publish_until)}
+                </div>
+              ` : ''}
+            </div>
+            <button class="btn btn-outline btn-sm" id="btn-student-view-marks">View Report Card</button>
+          </div>
+          <div class="card-panel-body" style="padding: 0;">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <td><strong>${m.subject}</strong></td>
-                    <td>${m.max_marks}</td>
-                    <td><span style="font-weight: 700; color: #059669;">${m.scored}</span></td>
-                    <td><span class="badge badge-active">${m.grade}</span></td>
+                    <th>Subject</th>
+                    <th>Max</th>
+                    <th>My Score</th>
+                    <th>Grade</th>
+                    <th>Status</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  ${studentExamMarks.map(m => {
+                    const subDef = (examSubjects || []).find(s => s.exam_id === publishedActiveExam.id && s.subject === m.subject);
+                    const subMax = Number(subDef?.max_marks) || Number(publishedActiveExam.max_marks) || 100;
+                    const subPass = Number(subDef?.passing_marks) || Number(publishedActiveExam.passing_marks) || 40;
+                    const scored = Number(m.total) || 0;
+                    const { grade, pass_status } = calculateGrade(scored, subMax, subPass);
+                    const isPass = pass_status === 'Pass';
+                    return `
+                      <tr>
+                        <td><strong>${m.subject}</strong></td>
+                        <td>${subMax}</td>
+                        <td><span style="font-weight: 700; color: ${isPass ? '#059669' : '#DC2626'};">${scored}</span></td>
+                        <td><span class="badge ${isPass ? 'badge-active' : 'badge-danger'}">${grade}</span></td>
+                        <td>
+                          <span class="badge" style="${isPass ? 'background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;' : 'background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;'} font-size: 0.72rem; font-weight: 700;">
+                            ${isPass ? 'Pass' : 'Fail'}
+                          </span>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      ` : ''}
 
     </div>
 
