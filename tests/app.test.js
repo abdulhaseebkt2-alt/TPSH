@@ -8599,5 +8599,49 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         db.set('tps_users', origUsers);
       }
     });
+
+    it('Faculty Assignment Tenure & Clean Classroom Modal: Room/Capacity removed and attendance tracking starts strictly from teacher_assigned_date', async () => {
+      // 1. Verify sections UI code does not contain Room / Hall or Capacity form inputs
+      const sectionsCode = fs.readFileSync('src/modules/sections/index.js', 'utf8');
+      expect(sectionsCode).not.toContain('id="cls-room-input"');
+      expect(sectionsCode).not.toContain('id="edit-cls-room-input"');
+      expect(sectionsCode).not.toContain('id="cls-cap-input"');
+      expect(sectionsCode).not.toContain('id="edit-cls-cap-input"');
+      expect(sectionsCode).not.toContain('Room / Hall (Optional)');
+      expect(sectionsCode).not.toContain('Capacity (Optional)');
+
+      // 2. Create classroom assigned to teacher starting 2026-11-08
+      const testClass = await db.addClassroom({
+        name: 'Girls coaching',
+        teacher_id: 'usr-firdoushi',
+        teacher_assigned_date: '2026-11-08',
+        start_time: '18:55',
+        end_time: '20:00',
+        days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+      });
+
+      // 3. Verify isTeacherAssignedOnDate returns false for dates before 2026-11-08 (e.g. 2026-11-01 to 2026-11-06)
+      const assignments = await db.getTeacherAssignments();
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', testClass, '2026-11-01', assignments)).toBe(false);
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', testClass, '2026-11-06', assignments)).toBe(false);
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', testClass, '2026-11-07', assignments)).toBe(false);
+
+      // 4. Verify isTeacherAssignedOnDate returns true from 2026-11-08 onwards
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', testClass, '2026-11-08', assignments)).toBe(true);
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', testClass, '2026-11-09', assignments)).toBe(true);
+
+      // 5. Update assigned date to 2026-11-05 and verify synchronization
+      await db.updateClassroom(testClass.id, {
+        teacher_id: 'usr-firdoushi',
+        teacher_assigned_date: '2026-11-05'
+      });
+      const updatedAssignments = await db.getTeacherAssignments();
+      const updatedClass = (await db.getClassrooms()).find(c => c.id === testClass.id);
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', updatedClass, '2026-11-04', updatedAssignments)).toBe(false);
+      expect(db.isTeacherAssignedOnDate('usr-firdoushi', updatedClass, '2026-11-05', updatedAssignments)).toBe(true);
+
+      // Clean up
+      await db.deleteClassroom(testClass.id);
+    });
   });
 });

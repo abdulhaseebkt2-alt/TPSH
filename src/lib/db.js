@@ -2675,8 +2675,10 @@ class DatabaseService {
 
     // Faculty tenure lifecycle tracking:
     // If teacher assignment changed or removal was explicitly recorded
+    let assignments = this.get('tps_teacher_assignments') || [];
+    const currentTeacher = sanitized.teacher_id !== undefined ? sanitized.teacher_id : oldTeacherId;
+
     if (sanitized.teacher_id !== undefined && sanitized.teacher_id !== oldTeacherId) {
-      let assignments = this.get('tps_teacher_assignments') || [];
       const newTeacherId = sanitized.teacher_id;
 
       // 1. If classroom had an old teacher, close their assignment tenure on removal date
@@ -2690,7 +2692,7 @@ class DatabaseService {
             id: 't-asg-' + Date.now() + '-old',
             classroom_id: classroomId,
             teacher_id: oldTeacherId,
-            assigned_date: oldCls.teacher_assigned_date || '2026-10-01',
+            assigned_date: oldCls.teacher_assigned_date || todayIso,
             removed_date: removalDate
           });
         }
@@ -2714,14 +2716,26 @@ class DatabaseService {
       }
 
       this.set('tps_teacher_assignments', assignments);
-    } else if (sanitized.teacher_removed_date && sanitized.teacher_removed_date !== oldCls.teacher_removed_date) {
-      // Explicit removal date updated
-      let assignments = this.get('tps_teacher_assignments') || [];
-      const currentTeacher = sanitized.teacher_id || oldTeacherId;
+    } else {
+      // Same teacher or no teacher change: sync assigned_date / removed_date if updated
       if (currentTeacher) {
         const openIdx = assignments.findIndex(a => a.classroom_id === classroomId && a.teacher_id === currentTeacher && !a.removed_date);
         if (openIdx >= 0) {
-          assignments[openIdx].removed_date = sanitized.teacher_removed_date;
+          if (sanitized.teacher_assigned_date) {
+            assignments[openIdx].assigned_date = sanitized.teacher_assigned_date;
+          }
+          if (sanitized.teacher_removed_date !== undefined) {
+            assignments[openIdx].removed_date = sanitized.teacher_removed_date || null;
+          }
+          this.set('tps_teacher_assignments', assignments);
+        } else if (sanitized.teacher_assigned_date) {
+          assignments.push({
+            id: 't-asg-' + Date.now(),
+            classroom_id: classroomId,
+            teacher_id: currentTeacher,
+            assigned_date: sanitized.teacher_assigned_date,
+            removed_date: sanitized.teacher_removed_date || null
+          });
           this.set('tps_teacher_assignments', assignments);
         }
       }
@@ -2780,6 +2794,33 @@ class DatabaseService {
       assignments = [...INITIAL_TEACHER_ASSIGNMENTS];
       this.set('tps_teacher_assignments', assignments);
     }
+
+    // Auto-reconcile open assignment with active classroom setting
+    const classrooms = this.get('tps_classrooms') || [];
+    let modified = false;
+    classrooms.forEach(c => {
+      if (c.teacher_id && c.teacher_assigned_date) {
+        const openAsg = assignments.find(a => a.classroom_id === c.id && a.teacher_id === c.teacher_id && !a.removed_date);
+        if (openAsg && openAsg.assigned_date !== c.teacher_assigned_date) {
+          openAsg.assigned_date = c.teacher_assigned_date;
+          modified = true;
+        } else if (!openAsg) {
+          assignments.push({
+            id: 't-asg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+            classroom_id: c.id,
+            teacher_id: c.teacher_id,
+            assigned_date: c.teacher_assigned_date,
+            removed_date: c.teacher_removed_date || null
+          });
+          modified = true;
+        }
+      }
+    });
+    if (modified) {
+      this.set('tps_teacher_assignments', assignments);
+      this.pushCloudKey('tps_teacher_assignments', assignments).catch(() => {});
+    }
+
     return assignments;
   }
 
@@ -2797,15 +2838,22 @@ class DatabaseService {
       return isTester1 && isTester2;
     };
 
+    const isCurrentActive = isMatch(classroom.teacher_id, teacherId);
+
     // Check historical assignment log entries for this classroom and teacher
     const classTeacherAssignments = (assignments || []).filter(a => 
-      a.classroom_id === classroom.id && (isMatch(a.teacher_id, teacherId) || (isMatch(classroom.teacher_id, teacherId) && !a.teacher_id))
+      a.classroom_id === classroom.id && (isMatch(a.teacher_id, teacherId) || (isCurrentActive && !a.teacher_id))
     );
 
     if (classTeacherAssignments.length > 0) {
       return classTeacherAssignments.some(a => {
-        const start = a.assigned_date || '2026-10-01';
-        const end = a.removed_date || null;
+        const isActiveAssignment = !a.removed_date && isCurrentActive;
+        const start = (isActiveAssignment && classroom.teacher_assigned_date)
+          ? classroom.teacher_assigned_date
+          : (a.assigned_date || classroom.teacher_assigned_date || '2026-10-01');
+        const end = (isActiveAssignment && classroom.teacher_removed_date)
+          ? classroom.teacher_removed_date
+          : (a.removed_date || null);
         if (dateStr < start) return false;
         if (end && dateStr > end) return false;
         return true;
@@ -2813,7 +2861,7 @@ class DatabaseService {
     }
 
     // Direct classroom property fallback
-    if (isMatch(classroom.teacher_id, teacherId)) {
+    if (isCurrentActive) {
       const start = classroom.teacher_assigned_date || '2026-10-01';
       const end = classroom.teacher_removed_date || null;
       if (dateStr < start) return false;

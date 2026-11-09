@@ -654,9 +654,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
             ${gridDays.map(cell => {
               if (!cell.isCurrentMonth) {
                 return `
-                  <div class="cal-pad-cell">
-                    <span>${cell.dayNumber}</span>
-                  </div>
+                  <div class="cal-pad-cell"></div>
                 `;
               }
 
@@ -827,7 +825,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     let statusBadge = '<span class="badge badge-default">Scheduled</span>';
 
     if (!isTeacherAssigned) {
-      const assignedStart = activeClass?.teacher_assigned_date || '2026-10-01';
+      const assignedStart = activeClass?.teacher_assigned_date || new Date().toISOString().slice(0, 10);
       const removedEnd = activeClass?.teacher_removed_date || null;
       if (dateStr < assignedStart) {
         statusTitle = 'Faculty Not Assigned (Prior to Class Assignment)';
