@@ -5709,6 +5709,41 @@ class DatabaseService {
   async getTripLogs(filter = {}) {
     await this.pullCloudKeys(['tps_trip_logs'], false);
     let list = this.get('tps_trip_logs') || [];
+    const vehicles = this.get('tps_vehicles') || [];
+
+    // Self-healing: ensure any completed trip with missing, invalid or object total_amount is reconciled
+    let hasRepairs = false;
+    list = list.map(t => {
+      let changed = false;
+      let totalAmount = t.total_amount;
+      if (typeof totalAmount === 'object' && totalAmount !== null) {
+        totalAmount = Number(totalAmount.totalAmount) || 0;
+        changed = true;
+      }
+      if (totalAmount === undefined && t.total_bill !== undefined) {
+        totalAmount = Number(t.total_bill);
+        changed = true;
+      }
+      if ((!totalAmount || isNaN(totalAmount)) && t.status === 'Completed' && Number(t.total_km) > 0) {
+        const veh = vehicles.find(v => v.id === t.vehicle_id);
+        const rate = Number(t.applied_rate_per_km || t.rate_per_km) > 0 
+          ? Number(t.applied_rate_per_km || t.rate_per_km) 
+          : (Number(veh?.fallback_rate_per_km) > 0 ? Number(veh.fallback_rate_per_km) : 15);
+        totalAmount = Math.round(Number(t.total_km) * rate * 100) / 100;
+        changed = true;
+      }
+      if (changed) {
+        hasRepairs = true;
+        return { ...t, total_amount: totalAmount, total_bill: totalAmount };
+      }
+      return t;
+    });
+
+    if (hasRepairs) {
+      this.set('tps_trip_logs', list);
+      this.pushCloudKey('tps_trip_logs', list).catch(() => {});
+    }
+
     if (filter.user_id) {
       list = list.filter(t => t.user_id === filter.user_id);
     }
@@ -5726,14 +5761,34 @@ class DatabaseService {
 
   async saveTripLog(tripData) {
     const list = this.get('tps_trip_logs') || [];
+    let cleanTrip = { ...tripData };
+    if (typeof cleanTrip.total_amount === 'object' && cleanTrip.total_amount !== null) {
+      cleanTrip.total_amount = Number(cleanTrip.total_amount.totalAmount) || 0;
+    }
+    if (cleanTrip.total_amount === undefined && cleanTrip.total_bill !== undefined) {
+      cleanTrip.total_amount = Number(cleanTrip.total_bill);
+    }
+    if (cleanTrip.total_bill === undefined && cleanTrip.total_amount !== undefined) {
+      cleanTrip.total_bill = Number(cleanTrip.total_amount);
+    }
+    if ((!cleanTrip.total_amount || isNaN(cleanTrip.total_amount)) && cleanTrip.status === 'Completed' && Number(cleanTrip.total_km) > 0) {
+      const vehicles = this.get('tps_vehicles') || [];
+      const veh = vehicles.find(v => v.id === cleanTrip.vehicle_id);
+      const rate = Number(cleanTrip.applied_rate_per_km || cleanTrip.rate_per_km) > 0 
+        ? Number(cleanTrip.applied_rate_per_km || cleanTrip.rate_per_km) 
+        : (Number(veh?.fallback_rate_per_km) > 0 ? Number(veh.fallback_rate_per_km) : 15);
+      cleanTrip.total_amount = Math.round(Number(cleanTrip.total_km) * rate * 100) / 100;
+      cleanTrip.total_bill = cleanTrip.total_amount;
+    }
+
     let saved;
-    if (tripData.id) {
-      const idx = list.findIndex(t => t.id === tripData.id);
+    if (cleanTrip.id) {
+      const idx = list.findIndex(t => t.id === cleanTrip.id);
       if (idx >= 0) {
-        saved = { ...list[idx], ...tripData, updated_at: new Date().toISOString() };
+        saved = { ...list[idx], ...cleanTrip, updated_at: new Date().toISOString() };
         list[idx] = saved;
       } else {
-        saved = { ...tripData, created_at: tripData.created_at || new Date().toISOString() };
+        saved = { ...cleanTrip, created_at: cleanTrip.created_at || new Date().toISOString() };
         list.push(saved);
       }
     } else {
@@ -5744,7 +5799,7 @@ class DatabaseService {
         trip_id: tripCode,
         status: 'Pending Approval',
         payment_status: 'Unpaid',
-        ...tripData,
+        ...cleanTrip,
         created_at: new Date().toISOString()
       };
       list.unshift(saved);
@@ -5785,11 +5840,14 @@ class DatabaseService {
 
   async recordVehiclePayment(paymentData) {
     const list = this.get('tps_vehicle_payments') || [];
+    const amountVal = Number(paymentData.amount !== undefined ? paymentData.amount : paymentData.amount_paid) || 0;
     const record = {
       id: 'vpay-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
       payment_date: new Date().toISOString(),
       created_at: new Date().toISOString(),
-      ...paymentData
+      ...paymentData,
+      amount: amountVal,
+      amount_paid: amountVal
     };
     list.unshift(record);
     this.set('tps_vehicle_payments', list);
@@ -5800,9 +5858,9 @@ class DatabaseService {
       const trips = this.get('tps_trip_logs') || [];
       const targetTrip = trips.find(t => t.id === record.trip_id || t.trip_id === record.trip_id);
       if (targetTrip) {
-        const totalAmount = Number(targetTrip.total_amount) || 0;
+        const totalAmount = Number(targetTrip.total_amount !== undefined ? targetTrip.total_amount : targetTrip.total_bill) || 0;
         const previousPaid = Number(targetTrip.amount_paid) || 0;
-        const currentPay = Number(record.amount_paid) || 0;
+        const currentPay = amountVal;
         const newPaidTotal = previousPaid + currentPay;
         targetTrip.amount_paid = newPaidTotal;
 

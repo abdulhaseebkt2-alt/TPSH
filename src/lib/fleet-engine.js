@@ -205,16 +205,33 @@ export function getDocumentExpiryStatus(expiryDateStr, referenceDate = new Date(
 /**
  * 100% Billable Usage Trip Bill Calculator:
  * Round(Total KM * Applied Rate Per KM, 2)
+ * Supports both signatures:
+ *   - calculateTripBill(startKm, endKm, ratePerKm)
+ *   - calculateTripBill(totalKm, ratePerKm)
  */
-export function calculateTripBill(startKm, endKm, ratePerKm) {
-  const start = Number(startKm) || 0;
-  const end = Number(endKm) || 0;
-  const rate = Number(ratePerKm) || 0;
-  const distance = Math.max(0, end - start);
+export function calculateTripBill(arg1, arg2, arg3) {
+  let distance = 0;
+  let rate = 0;
+
+  if (arg3 !== undefined) {
+    // Called with (startKm, endKm, ratePerKm)
+    const start = Number(arg1) || 0;
+    const end = Number(arg2) || 0;
+    rate = Number(arg3) || 0;
+    distance = Math.max(0, Math.round((end - start) * 100) / 100);
+  } else {
+    // Called with (totalKm, ratePerKm)
+    distance = Math.max(0, Math.round(Number(arg1 || 0) * 100) / 100);
+    rate = Number(arg2) || 0;
+  }
+
   const amount = Math.round(distance * rate * 100) / 100;
   return {
     totalKm: distance,
     appliedRate: rate,
-    totalAmount: amount
+    totalAmount: amount,
+    valueOf: () => amount,
+    toString: () => String(amount),
+    [Symbol.toPrimitive]: (hint) => (hint === 'string' ? String(amount) : amount)
   };
 }

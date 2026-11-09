@@ -727,15 +727,19 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
     if (endKmInput && activeTrip && activeTrip.status === 'In Progress') {
       const startKm = Number(activeTrip.start_km || 0);
-      const rate = Number(activeTrip.applied_rate_per_km || 15);
+      const veh = vehicles.find(v => v.id === activeTrip.vehicle_id);
+      const rate = Number(activeTrip.applied_rate_per_km) > 0 
+        ? Number(activeTrip.applied_rate_per_km) 
+        : (Number(veh?.fallback_rate_per_km) > 0 ? Number(veh.fallback_rate_per_km) : 15);
 
       endKmInput.addEventListener('input', () => {
         const val = parseFloat(endKmInput.value);
         if (!isNaN(val) && val >= startKm) {
           const dist = Math.round((val - startKm) * 100) / 100;
-          const bill = calculateTripBill(dist, rate);
+          const bill = calculateTripBill(startKm, val, rate);
+          const costNum = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
           if (previewDistance) previewDistance.textContent = `${dist} KM`;
-          if (previewCost) previewCost.textContent = formatCurrency(bill);
+          if (previewCost) previewCost.textContent = formatCurrency(costNum);
         } else {
           if (previewDistance) previewDistance.textContent = '0 KM';
           if (previewCost) previewCost.textContent = '₹0.00';
@@ -756,13 +760,17 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       }
 
       const totalKm = Math.round((endKm - startKm) * 100) / 100;
-      const rate = Number(activeTrip.applied_rate_per_km || 15);
-      const totalAmount = calculateTripBill(totalKm, rate);
+      const rate = Number(activeTrip.applied_rate_per_km) > 0 
+        ? Number(activeTrip.applied_rate_per_km) 
+        : (Number(veh?.fallback_rate_per_km) > 0 ? Number(veh.fallback_rate_per_km) : 15);
+      const bill = calculateTripBill(startKm, endKm, rate);
+      const totalAmount = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
 
       // Complete trip log
       activeTrip.status = 'Completed';
       activeTrip.end_km = endKm;
       activeTrip.total_km = totalKm;
+      activeTrip.applied_rate_per_km = rate;
       activeTrip.total_amount = totalAmount;
       activeTrip.completed_at = new Date().toISOString();
       activeTrip.payment_status = 'Unpaid';

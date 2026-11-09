@@ -8349,6 +8349,50 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(remainingPayments.length).toBe(0);
     });
 
+    it('Trip Bill Calculation & Fallback Rate: calculateTripBill handles 2 args (totalKm, rate) and trips calculate total_amount using vehicle fallback rate (10 KM at ₹6.50/KM = ₹65.00)', async () => {
+      // 1. Verify 2-arg signature: calculateTripBill(totalKm, rate)
+      const directBill = calculateTripBill(10, 6.5);
+      expect(directBill.totalKm).toBe(10);
+      expect(directBill.appliedRate).toBe(6.5);
+      expect(directBill.totalAmount).toBe(65);
+      expect(Number(directBill)).toBe(65);
+
+      // 2. Verify 3-arg signature backwards compatibility: calculateTripBill(startKm, endKm, rate)
+      const legacyBill = calculateTripBill(100, 110, 6.5);
+      expect(legacyBill.totalKm).toBe(10);
+      expect(legacyBill.appliedRate).toBe(6.5);
+      expect(legacyBill.totalAmount).toBe(65);
+      expect(Number(legacyBill)).toBe(65);
+
+      // 3. Save vehicle with fallback rate 6.50
+      const testVeh = await db.saveVehicle({
+        name: 'Honda Unicorn',
+        reg_number: 'WB-67-V-0909',
+        type: 'Bike',
+        fallback_rate_per_km: 6.5,
+        status: 'Active'
+      });
+
+      // 4. Save completed trip without explicit total_amount; verify fallback rate auto-multiplies to 65
+      const trip10km = await db.saveTripLog({
+        vehicle_id: testVeh.id,
+        user_id: 'u-user',
+        user_name: 'Test Driver',
+        start_km: 500,
+        end_km: 510,
+        total_km: 10,
+        status: 'Completed',
+        payment_status: 'Unpaid'
+      });
+
+      expect(trip10km.total_amount).toBe(65);
+      expect(trip10km.total_bill).toBe(65);
+
+      // Clean up
+      await db.deleteTripLog(trip10km.id);
+      await db.deleteVehicle(testVeh.id);
+    });
+
     it('Leave Overdue Accuracy: Future return dates (including DD.MMM.YYYY format) and newest active pass prevent false overdue classification in Dashboard Carousel and Radar', async () => {
       // 1. Verify isLeaveOverdueSafe with future dates (both ISO and DD.MMM.YYYY)
       const refNow = new Date('2026-11-06T17:19:00');
