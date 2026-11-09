@@ -6,6 +6,58 @@ import { enhanceDateInput } from '../../components/date-picker.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 
+export function isTripForUser(trip, user) {
+  if (!trip || !user) return false;
+  const uid = String(user.id || '').trim().toLowerCase();
+  const uTpsId = String(user.tps_id || '').trim().toLowerCase();
+  const uEmail = String(user.email || '').trim().toLowerCase();
+  const uName = String(user.full_name || user.name || '').trim().toLowerCase();
+
+  const tUserId = String(trip.user_id || '').trim().toLowerCase();
+  const tUserEmail = String(trip.user_email || '').trim().toLowerCase();
+  const tUserName = String(trip.user_name || '').trim().toLowerCase();
+
+  // 1. Direct ID match
+  if (uid && tUserId === uid) return true;
+  if (uTpsId && tUserId === uTpsId) return true;
+
+  // 2. Direct Email match
+  if (uEmail && (tUserId === uEmail || tUserEmail === uEmail)) return true;
+
+  // 3. Direct Name match
+  if (uName && tUserName === uName) return true;
+
+  // 4. Primary Super Admin Alias matching:
+  // u-1 <=> abdulhaseebkt2@gmail.com <=> Abdul Haseeb <=> Haseeb Mubarak <=> Haseeb Mueeni <=> Hasib
+  const isSuperAdminUser = (
+    uid === 'u-1' || 
+    uEmail === 'abdulhaseebkt2@gmail.com' || 
+    user.is_super_admin || 
+    user.role === 'super_admin' || 
+    /haseeb/i.test(uName)
+  );
+  const isSuperAdminTrip = (
+    tUserId === 'u-1' || 
+    tUserEmail === 'abdulhaseebkt2@gmail.com' || 
+    trip.user_role === 'super_admin' || 
+    /haseeb/i.test(tUserName) ||
+    /hasib/i.test(tUserName)
+  );
+  if (isSuperAdminUser && isSuperAdminTrip) {
+    return true;
+  }
+
+  // 5. Name parts intersection
+  if (uName && tUserName) {
+    if (uName.includes(tUserName) || tUserName.includes(uName)) return true;
+    const uParts = uName.split(/\s+/).filter(p => p.length > 2);
+    const tParts = tUserName.split(/\s+/).filter(p => p.length > 2);
+    if (uParts.some(up => tParts.includes(up))) return true;
+  }
+
+  return false;
+}
+
 export async function renderVehicleUserCardModule(container, options = {}) {
   const onNavigate = options.onNavigate;
   container.innerHTML = `
@@ -25,8 +77,12 @@ export async function renderVehicleUserCardModule(container, options = {}) {
     db.getVehiclePayments()
   ]);
 
-  // All users eligible for vehicle usage: vehicle_user, teacher, admin
-  const eligibleUsers = users.filter(u => ['vehicle_user', 'teacher', 'admin', 'super_admin'].includes(u.role));
+  // All users eligible for vehicle usage: vehicle_user, teacher, admin, super_admin, plus any user with logged trips
+  const usersWithTrips = users.filter(u => allTrips.some(t => isTripForUser(t, u)));
+  const eligibleUsers = Array.from(new Set([
+    ...users.filter(u => ['vehicle_user', 'teacher', 'admin', 'super_admin'].includes(u.role)),
+    ...usersWithTrips
+  ].filter(Boolean)));
 
   // Determine currently selected user:
   // ALWAYS default to passed userId option or currentUser (so it never opens for a random user with 0 trips!)
@@ -35,30 +91,14 @@ export async function renderVehicleUserCardModule(container, options = {}) {
     u.id === selectedUserId || 
     (u.tps_id && u.tps_id === selectedUserId) || 
     (u.email && u.email === selectedUserId) || 
-    (u.full_name && u.full_name === selectedUserId)
+    (u.full_name && u.full_name === selectedUserId) ||
+    ((/haseeb/i.test(u.full_name) || u.email === 'abdulhaseebkt2@gmail.com') && (/haseeb/i.test(selectedUserId) || selectedUserId === 'u-1'))
   ) || currentUser;
 
   function render() {
-    // Current user's trips: Robust matching by ID, TPS ID, Email, or Full Name
+    // Current user's trips: Robust matching by ID, TPS ID, Email, Full Name, and Super Admin alias
     const userTrips = allTrips
-      .filter(t => {
-        if (!t) return false;
-        const sId = String(selectedUser?.id || '').trim().toLowerCase();
-        const sTpsId = String(selectedUser?.tps_id || '').trim().toLowerCase();
-        const sEmail = String(selectedUser?.email || '').trim().toLowerCase();
-        const sName = String(selectedUser?.full_name || '').trim().toLowerCase();
-        
-        const tUserId = String(t.user_id || '').trim().toLowerCase();
-        const tUserEmail = String(t.user_email || '').trim().toLowerCase();
-        const tUserName = String(t.user_name || '').trim().toLowerCase();
-        
-        return (
-          (sId && tUserId === sId) ||
-          (sTpsId && tUserId === sTpsId) ||
-          (sEmail && (tUserId === sEmail || tUserEmail === sEmail)) ||
-          (sName && tUserName === sName)
-        );
-      })
+      .filter(t => isTripForUser(t, selectedUser))
       .sort((a, b) => new Date(b.created_at || b.start_time || 0) - new Date(a.created_at || a.start_time || 0));
 
     // Calculate User KPI Metrics
@@ -360,17 +400,11 @@ export async function renderVehicleUserCardModule(container, options = {}) {
             <div class="role-picker-list">
               ${eligibleUsers.map(u => {
                 const isSelected = u.id === selectedUser.id;
-                const uTrips = allTrips.filter(t => {
-                  const sId = String(u.id || '').trim().toLowerCase();
-                  const sTpsId = String(u.tps_id || '').trim().toLowerCase();
-                  const sEmail = String(u.email || '').trim().toLowerCase();
-                  const sName = String(u.full_name || '').trim().toLowerCase();
-                  const tId = String(t.user_id || '').trim().toLowerCase();
-                  const tEmail = String(t.user_email || '').trim().toLowerCase();
-                  const tName = String(t.user_name || '').trim().toLowerCase();
-                  return (sId && tId === sId) || (sTpsId && tId === sTpsId) || (sEmail && (tId === sEmail || tEmail === sEmail)) || (sName && tName === sName);
-                });
+                const uTrips = allTrips.filter(t => isTripForUser(t, u));
                 const dueCount = uTrips.filter(t => t.status === 'Completed' && t.payment_status !== 'Paid').length;
+                const totalDueAmount = uTrips
+                  .filter(t => t.status === 'Completed' && t.payment_status !== 'Paid')
+                  .reduce((sum, t) => sum + (Number(t.total_amount) || 0) - (Number(t.amount_paid) || 0), 0);
 
                 return `
                   <div class="role-picker-item ${isSelected ? 'active' : ''}" data-user-id="${u.id}" role="button" tabindex="0" style="cursor: pointer; padding: 0.85rem 1rem;">
@@ -384,9 +418,9 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                           ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">CURRENT</span>` : ''}
                         </div>
                         <span class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
-                          <span>${uTrips.length} Trips logged</span>
+                          <span>${uTrips.length} Trip${uTrips.length !== 1 ? 's' : ''} logged</span>
                           <span>•</span>
-                          ${dueCount > 0 ? `<span style="color: #DC2626; font-weight: 700;">${dueCount} payment due</span>` : '<span style="color: #059669; font-weight: 600;">✓ No dues</span>'}
+                          ${dueCount > 0 ? `<span style="color: #DC2626; font-weight: 700;">${formatCurrency(totalDueAmount)} due (${dueCount} trip${dueCount > 1 ? 's' : ''})</span>` : '<span style="color: #059669; font-weight: 600;">✓ No dues</span>'}
                         </span>
                       </div>
                     </div>

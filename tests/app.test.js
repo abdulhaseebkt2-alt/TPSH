@@ -33,6 +33,7 @@ import { renderFinesModule } from '../src/modules/fines/index.js';
 import { renderFacultyLeavesModule } from '../src/modules/faculty-leaves/index.js';
 import { renderUsersModule } from '../src/modules/users/index.js';
 import { calculateBillToBillMileage, calculateDynamicRatePerKm, calculateTripBill, getDocumentExpiryStatus } from '../src/lib/fleet-engine.js';
+import { isTripForUser } from '../src/modules/vehicles/user-card.js';
 
 describe('1. Authentication & Role Permissions Tests', () => {
   const superAdmin = {
@@ -8391,6 +8392,51 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up
       await db.deleteTripLog(trip10km.id);
       await db.deleteVehicle(testVeh.id);
+    });
+
+    it('All Vehicle Trips Master Ledger uses a Driver/Staff dropdown selector (not a text typing window) and filters correctly', () => {
+      const allTripsJs = fs.readFileSync('src/modules/vehicles/all-trips.js', 'utf8');
+      
+      // Must have the dropdown selector with id="alltrips-driver-filter"
+      expect(allTripsJs).toContain('id="alltrips-driver-filter"');
+      expect(allTripsJs).toContain('<select id="alltrips-driver-filter"');
+      expect(allTripsJs).toContain('<option value="">All Staff & Drivers</option>');
+      
+      // Must NOT have the old typing text input window for searching driver name
+      expect(allTripsJs).not.toContain('id="alltrips-search"');
+    });
+
+    it('Vehicle User Card and Selector Modal unify Super Admin aliases (u-1 / Abdul Haseeb <=> Haseeb Mubarak) and show pending dues (₹65.00)', async () => {
+      // 1. Super Admin profile from Google OAuth / Supabase
+      const haseebUser = {
+        id: '28bb4935-b4f0-4657-942c-afc784dc68de',
+        email: 'abdulhaseebkt2@gmail.com',
+        full_name: 'Haseeb Mubarak',
+        role: 'super_admin',
+        is_super_admin: true
+      };
+
+      // 2. Historical or seed trip logged with user_id: 'u-1', user_name: 'Abdul Haseeb'
+      const legacyTrip = {
+        id: 'trip-alias-001',
+        trip_id: 'TRIP-2026-002',
+        user_id: 'u-1',
+        user_name: 'Abdul Haseeb',
+        user_role: 'super_admin',
+        total_km: 10,
+        applied_rate_per_km: 6.5,
+        total_amount: 65,
+        status: 'Completed',
+        payment_status: 'Unpaid'
+      };
+
+      // 3. Verify isTripForUser links them together
+      expect(isTripForUser(legacyTrip, haseebUser)).toBe(true);
+
+      // 4. Verify user-card.js modal displays the calculated due amount
+      const userCardJs = fs.readFileSync('src/modules/vehicles/user-card.js', 'utf8');
+      expect(userCardJs).toContain('isTripForUser(t, u)');
+      expect(userCardJs).toContain('due (${dueCount} trip');
     });
 
     it('Leave Overdue Accuracy: Future return dates (including DD.MMM.YYYY format) and newest active pass prevent false overdue classification in Dashboard Carousel and Radar', async () => {

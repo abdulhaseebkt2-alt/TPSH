@@ -4,6 +4,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { formatDate, formatCurrency } from '../../lib/utils.js';
 import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
+import { isTripForUser } from './user-card.js';
 
 export async function renderAllVehicleTripsModule(container, options = {}) {
   const onNavigate = options.onNavigate;
@@ -27,12 +28,48 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
     db.getUsers()
   ]);
 
+  // Eligible users / drivers list for the dropdown
+  const usersWithTrips = allTrips.map(t => ({
+    id: t.user_id,
+    full_name: t.user_name || 'Driver / Staff',
+    email: t.user_email || '',
+    role: t.user_role || 'staff'
+  })).filter(u => u.id && u.full_name);
+
+  const eligibleUsers = [...users];
+  for (const uwt of usersWithTrips) {
+    if (!eligibleUsers.some(u => isTripForUser({ user_id: uwt.id, user_name: uwt.full_name, user_email: uwt.email }, u))) {
+      eligibleUsers.push(uwt);
+    }
+  }
+
+  // Pre-select current logged in user or options.userId
+  let selectedDriverId = options.userId || '';
+  if (!selectedDriverId && currentUser) {
+    const matched = eligibleUsers.find(u => 
+      u.id === currentUser.id || 
+      isTripForUser({ user_id: currentUser.id, user_name: currentUser.full_name, user_email: currentUser.email }, u)
+    );
+    if (matched) {
+      selectedDriverId = matched.id;
+    }
+  }
+
   let activeFilter = 'all'; // 'all', 'unpaid', 'paid', 'active'
-  let searchQuery = currentUser?.full_name || '';
 
   function render() {
-    // Sort all trips descending by date
-    let filteredTrips = [...allTrips].sort(
+    const selectedDriverUser = selectedDriverId 
+      ? (eligibleUsers.find(u => u.id === selectedDriverId) || { id: selectedDriverId, full_name: selectedDriverId })
+      : null;
+
+    // Filter by Selected Driver (or all)
+    let driverTrips = allTrips;
+    if (selectedDriverUser) {
+      driverTrips = allTrips.filter(t => isTripForUser(t, selectedDriverUser));
+    }
+
+    // Sort descending by date
+    let filteredTrips = [...driverTrips].sort(
       (a, b) => new Date(b.created_at || b.start_time || 0) - new Date(a.created_at || a.start_time || 0)
     );
 
@@ -45,23 +82,8 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
       filteredTrips = filteredTrips.filter(t => ['In Progress', 'Approved', 'Pending Approval'].includes(t.status));
     }
 
-    // Apply Search Query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filteredTrips = filteredTrips.filter(t => {
-        const veh = vehicles.find(v => v.id === t.vehicle_id);
-        return (
-          (t.user_name || '').toLowerCase().includes(q) ||
-          (t.trip_id || '').toLowerCase().includes(q) ||
-          (t.destination || '').toLowerCase().includes(q) ||
-          (veh?.vehicle_name || '').toLowerCase().includes(q) ||
-          (veh?.reg_number || '').toLowerCase().includes(q)
-        );
-      });
-    }
-
-    // KPI Summary
-    const completedList = allTrips.filter(t => t.status === 'Completed');
+    // KPI Summary (calculated for driverTrips)
+    const completedList = driverTrips.filter(t => t.status === 'Completed');
     const totalBilled = completedList.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0);
     const totalPaid = completedList.reduce((sum, t) => sum + (Number(t.amount_paid) || (t.payment_status === 'Paid' ? Number(t.total_amount) || 0 : 0)), 0);
     const totalUnpaid = Math.max(0, totalBilled - totalPaid);
@@ -105,7 +127,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
         <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow-sm);">
           <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Trips</div>
-          <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">${allTrips.length}</div>
+          <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">${driverTrips.length}</div>
         </div>
         <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow-sm);">
           <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Distance</div>
@@ -122,12 +144,12 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
         </div>
       </div>
 
-      <!-- Filter Controls & Search Box -->
+      <!-- Filter Controls & Staff/Driver Dropdown -->
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
         <!-- Filter Tabs -->
         <div style="display: flex; background: #F1F5F9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-medium); gap: 2px; overflow-x: auto; max-width: 100%;">
           <button type="button" class="btn-alltrips-filter ${activeFilter === 'all' ? 'active' : ''}" data-filter="all" style="border: none; background: ${activeFilter === 'all' ? '#4F46E5' : 'transparent'}; color: ${activeFilter === 'all' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'all' ? '700' : '600'}; font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-            All (${allTrips.length})
+            All (${driverTrips.length})
           </button>
           <button type="button" class="btn-alltrips-filter ${activeFilter === 'unpaid' ? 'active' : ''}" data-filter="unpaid" style="border: none; background: ${activeFilter === 'unpaid' ? '#DC2626' : 'transparent'}; color: ${activeFilter === 'unpaid' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'unpaid' ? '700' : '600'}; font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
             Unpaid Dues (${unpaidCount})
@@ -140,9 +162,16 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
           </button>
         </div>
 
-        <!-- Search Bar -->
+        <!-- Staff / Driver Dropdown Filter -->
         <div style="position: relative; min-width: 220px; flex: 1; max-width: 320px;">
-          <input type="text" id="alltrips-search" class="form-control" placeholder="Search staff, vehicle, ID..." value="${searchQuery}" style="width: 100%; font-size: 0.82rem; padding: 0.45rem 0.65rem;" />
+          <select id="alltrips-driver-filter" class="form-control" style="width: 100%; font-size: 0.85rem; font-weight: 600; padding: 0.48rem 0.75rem; border-radius: 8px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: #1E293B; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <option value="">All Staff & Drivers</option>
+            ${eligibleUsers.map(u => `
+              <option value="${u.id}" ${u.id === selectedDriverId ? 'selected' : ''}>
+                ${u.full_name || u.name}
+              </option>
+            `).join('')}
+          </select>
         </div>
       </div>
 
@@ -302,7 +331,13 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
   function attachEvents() {
     // Header navigations
     container.querySelector('#btn-alltrips-user-card')?.addEventListener('click', () => {
-      if (onNavigate) onNavigate('vehicle_card');
+      if (onNavigate) {
+        if (selectedDriverId) {
+          onNavigate('vehicle_card', { userId: selectedDriverId });
+        } else {
+          onNavigate('vehicle_card');
+        }
+      }
     });
     container.querySelector('#btn-alltrips-book')?.addEventListener('click', () => {
       if (onNavigate) onNavigate('vehicle_trips');
@@ -319,17 +354,11 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
       });
     });
 
-    // Search Box
-    const searchInput = container.querySelector('#alltrips-search');
-    searchInput?.addEventListener('input', (e) => {
-      searchQuery = e.target.value;
+    // Staff / Driver Dropdown Filter
+    const driverSelect = container.querySelector('#alltrips-driver-filter');
+    driverSelect?.addEventListener('change', (e) => {
+      selectedDriverId = e.target.value;
       render();
-      // Keep focus and cursor in search box
-      const refreshed = container.querySelector('#alltrips-search');
-      if (refreshed) {
-        refreshed.focus();
-        refreshed.setSelectionRange(searchQuery.length, searchQuery.length);
-      }
     });
 
     // Settle Payment Action Modal (Supports Full and Partial Payments)
