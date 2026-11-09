@@ -8404,6 +8404,14 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       
       // Must NOT have the old typing text input window for searching driver name
       expect(allTripsJs).not.toContain('id="alltrips-search"');
+
+      // Filter tabs must be arranged in single screen 4-column equal grid
+      expect(allTripsJs).toContain('grid-template-columns: repeat(4, 1fr)');
+      expect(allTripsJs).toContain('Paid\n          </button>');
+      expect(allTripsJs).toContain('Active\n          </button>');
+      expect(allTripsJs).not.toContain('Settled / Paid');
+      expect(allTripsJs).not.toContain('Active / Queue');
+      expect(allTripsJs).not.toContain('overflow-x: auto');
     });
 
     it('Vehicle User Card and Selector Modal unify Super Admin aliases (u-1 / Abdul Haseeb <=> Haseeb Mubarak) and show pending dues (₹65.00)', async () => {

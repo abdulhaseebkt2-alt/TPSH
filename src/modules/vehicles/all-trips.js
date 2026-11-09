@@ -144,26 +144,26 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
         </div>
       </div>
 
-      <!-- Filter Controls & Staff/Driver Dropdown -->
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
-        <!-- Filter Tabs -->
-        <div style="display: flex; background: #F1F5F9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-medium); gap: 2px; overflow-x: auto; max-width: 100%;">
-          <button type="button" class="btn-alltrips-filter ${activeFilter === 'all' ? 'active' : ''}" data-filter="all" style="border: none; background: ${activeFilter === 'all' ? '#4F46E5' : 'transparent'}; color: ${activeFilter === 'all' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'all' ? '700' : '600'}; font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-            All (${driverTrips.length})
+      <!-- Filter Controls & Staff/Driver Dropdown (Arranged cleanly on a single screen without overflow) -->
+      <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1rem; width: 100%;">
+        <!-- Filter Tabs: 4-Column Equal Grid fitting 100% on any mobile screen -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; background: #F1F5F9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-medium); gap: 3px; box-sizing: border-box;">
+          <button type="button" class="btn-alltrips-filter ${activeFilter === 'all' ? 'active' : ''}" data-filter="all" style="border: none; background: ${activeFilter === 'all' ? '#4F46E5' : 'transparent'}; color: ${activeFilter === 'all' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'all' ? '700' : '600'}; font-size: 0.76rem; padding: 6px 2px; border-radius: 6px; cursor: pointer; white-space: nowrap; text-align: center; display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;">
+            All ${driverTrips.length > 0 ? `(${driverTrips.length})` : ''}
           </button>
-          <button type="button" class="btn-alltrips-filter ${activeFilter === 'unpaid' ? 'active' : ''}" data-filter="unpaid" style="border: none; background: ${activeFilter === 'unpaid' ? '#DC2626' : 'transparent'}; color: ${activeFilter === 'unpaid' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'unpaid' ? '700' : '600'}; font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-            Unpaid Dues (${unpaidCount})
+          <button type="button" class="btn-alltrips-filter ${activeFilter === 'unpaid' ? 'active' : ''}" data-filter="unpaid" style="border: none; background: ${activeFilter === 'unpaid' ? '#DC2626' : 'transparent'}; color: ${activeFilter === 'unpaid' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'unpaid' ? '700' : '600'}; font-size: 0.76rem; padding: 6px 2px; border-radius: 6px; cursor: pointer; white-space: nowrap; text-align: center; display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;">
+            Unpaid ${unpaidCount > 0 ? `(${unpaidCount})` : ''}
           </button>
-          <button type="button" class="btn-alltrips-filter ${activeFilter === 'paid' ? 'active' : ''}" data-filter="paid" style="border: none; background: ${activeFilter === 'paid' ? '#059669' : 'transparent'}; color: ${activeFilter === 'paid' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'paid' ? '700' : '600'}; font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-            Settled / Paid
+          <button type="button" class="btn-alltrips-filter ${activeFilter === 'paid' ? 'active' : ''}" data-filter="paid" style="border: none; background: ${activeFilter === 'paid' ? '#059669' : 'transparent'}; color: ${activeFilter === 'paid' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'paid' ? '700' : '600'}; font-size: 0.76rem; padding: 6px 2px; border-radius: 6px; cursor: pointer; white-space: nowrap; text-align: center; display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;">
+            Paid
           </button>
-          <button type="button" class="btn-alltrips-filter ${activeFilter === 'active' ? 'active' : ''}" data-filter="active" style="border: none; background: ${activeFilter === 'active' ? '#2563EB' : 'transparent'}; color: ${activeFilter === 'active' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'active' ? '700' : '600'}; font-size: 0.78rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-            Active / Queue
+          <button type="button" class="btn-alltrips-filter ${activeFilter === 'active' ? 'active' : ''}" data-filter="active" style="border: none; background: ${activeFilter === 'active' ? '#2563EB' : 'transparent'}; color: ${activeFilter === 'active' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'active' ? '700' : '600'}; font-size: 0.76rem; padding: 6px 2px; border-radius: 6px; cursor: pointer; white-space: nowrap; text-align: center; display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;">
+            Active
           </button>
         </div>
 
         <!-- Staff / Driver Dropdown Filter -->
-        <div style="position: relative; min-width: 220px; flex: 1; max-width: 320px;">
+        <div style="position: relative; width: 100%; box-sizing: border-box;">
           <select id="alltrips-driver-filter" class="form-control" style="width: 100%; font-size: 0.85rem; font-weight: 600; padding: 0.48rem 0.75rem; border-radius: 8px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: #1E293B; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
             <option value="">All Staff & Drivers</option>
             ${eligibleUsers.map(u => `
