@@ -8797,5 +8797,88 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up test user
       db.set('tps_users', usersBefore);
     });
+
+    it('2516: All 5 sidebar categories and 31 assignable windows are configurable in RBAC matrix and custom permissions', async () => {
+      const { RBAC_WINDOW_GROUPS, RBAC_ROLES, RBAC_ROLE_THEMES } = await import('../src/modules/users/index.js');
+      const { canAccessModule, canPerformAction, getRBACMatrix, saveRBACMatrix, saveUserCustomPermissions, clearUserCustomPermissions } = await import('../src/lib/permissions.js');
+
+      // 1. Verify 5 distinct window groups matching the sidebar structure
+      expect(RBAC_WINDOW_GROUPS).toHaveLength(5);
+      const groupTitles = RBAC_WINDOW_GROUPS.map(g => g.title);
+      expect(groupTitles).toContain('Student & Academic Windows');
+      expect(groupTitles).toContain('Hostel Operations Windows');
+      expect(groupTitles).toContain('Examinations & Results Windows');
+      expect(groupTitles).toContain('Administration & Communication Windows');
+      expect(groupTitles).toContain('Fleet & Transport Windows');
+
+      // 2. Verify all assignable modules exist across the 5 groups (total = 31 assignable modules)
+      const allModulesInGroups = RBAC_WINDOW_GROUPS.flatMap(g => g.modules.map(m => m.key));
+      expect(allModulesInGroups).toHaveLength(31);
+
+      // Verify specific modules that were previously missing
+      expect(allModulesInGroups).toContain('calendar');
+      expect(allModulesInGroups).toContain('attendance_report');
+      expect(allModulesInGroups).toContain('faculty_leaves');
+      expect(allModulesInGroups).toContain('leave_card');
+      expect(allModulesInGroups).toContain('audit');
+      expect(allModulesInGroups).toContain('vehicles');
+      expect(allModulesInGroups).toContain('vehicle_requests');
+      expect(allModulesInGroups).toContain('vehicle_expenses');
+      expect(allModulesInGroups).toContain('vehicle_billing');
+      expect(allModulesInGroups).toContain('vehicle_all_trips');
+      expect(allModulesInGroups).toContain('vehicle_staff');
+      expect(allModulesInGroups).toContain('vehicle_card');
+      expect(allModulesInGroups).toContain('vehicle_trips');
+
+      // 3. Verify vehicle_user role is in RBAC_ROLES and RBAC_ROLE_THEMES
+      const vehicleRole = RBAC_ROLES.find(r => r.key === 'vehicle_user');
+      expect(vehicleRole).toBeDefined();
+      expect(vehicleRole.label).toBe('Driver / Transport User');
+      expect(RBAC_ROLE_THEMES.vehicle_user).toBeDefined();
+      expect(RBAC_ROLE_THEMES.vehicle_user.color).toBe('#4F46E5');
+
+      // 4. Verify that toggling any module to 'off', 'view', 'full' works dynamically
+      const testTeacher = {
+        id: 'test-rbac-teacher-2516',
+        email: 'teacher2516@thaiba.edu',
+        role: 'teacher',
+        approval_status: 'approved',
+        is_super_admin: false
+      };
+
+      // By default teacher does not have access to 'vehicles'
+      expect(canAccessModule(testTeacher, 'vehicles')).toBe(false);
+
+      // Super Admin grants view access to 'vehicles' in the matrix
+      const matrix = getRBACMatrix();
+      matrix.teacher.vehicles = 'view';
+      saveRBACMatrix(matrix);
+
+      expect(canAccessModule(testTeacher, 'vehicles')).toBe(true);
+      expect(canPerformAction(testTeacher, 'vehicles', 'view')).toBe(true);
+      expect(canPerformAction(testTeacher, 'vehicles', 'edit')).toBe(false);
+
+      // Super Admin grants full access to 'vehicles' in the matrix
+      matrix.teacher.vehicles = 'full';
+      saveRBACMatrix(matrix);
+
+      expect(canAccessModule(testTeacher, 'vehicles')).toBe(true);
+      expect(canPerformAction(testTeacher, 'vehicles', 'view')).toBe(true);
+      expect(canPerformAction(testTeacher, 'vehicles', 'edit')).toBe(true);
+
+      // Reset matrix back to off for vehicles
+      matrix.teacher.vehicles = 'off';
+      saveRBACMatrix(matrix);
+      expect(canAccessModule(testTeacher, 'vehicles')).toBe(false);
+
+      // 5. Verify individual user custom permissions work for newly surfaced modules (e.g. audit or vehicle_all_trips)
+      saveUserCustomPermissions(testTeacher.id, { vehicle_all_trips: 'full' });
+      expect(canAccessModule(testTeacher, 'vehicle_all_trips')).toBe(true);
+      expect(canPerformAction(testTeacher, 'vehicle_all_trips', 'view')).toBe(true);
+      expect(canPerformAction(testTeacher, 'vehicle_all_trips', 'edit')).toBe(true);
+
+      clearUserCustomPermissions(testTeacher.id);
+      expect(canAccessModule(testTeacher, 'vehicle_all_trips')).toBe(false);
+    });
   });
 });

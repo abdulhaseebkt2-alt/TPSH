@@ -1,3 +1,4 @@
+import { db } from './db.js';
 // TPS Hostel ERP - Granular Role & Permission Access Matrix
 // Tri-State Module Access System:
 // - LEFT ('off'): Window is OFF. Role cannot see or access it (hidden from sidebar).
@@ -227,6 +228,9 @@ export function saveUserCustomPermissions(userId, customModules) {
       return false;
     }
   }
+  if (typeof db !== 'undefined' && db?.pushCloudKey) {
+    db.pushCloudKey(USER_CUSTOM_PERM_KEY, all).catch(e => console.warn('Cloud sync custom perm warning:', e));
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('tps:permissions-updated'));
   }
@@ -296,6 +300,9 @@ export function saveRBACMatrix(matrix) {
       return false;
     }
   }
+  if (typeof db !== 'undefined' && db?.pushCloudKey) {
+    db.pushCloudKey(RBAC_STORAGE_KEY, normalized).catch(e => console.warn('Cloud sync RBAC warning:', e));
+  }
   return true;
 }
 
@@ -325,8 +332,6 @@ export function getModuleAccessLevel(profile, moduleKey) {
   // Dashboard is common to all approved roles
   if (moduleKey === 'dashboard') return 'full';
 
-  // Core administrative security modules reserved strictly for Super Admin
-  if (moduleKey === 'audit') return 'off';
 
   // Disciplinary module unification: discipline_card follows discipline
   if (moduleKey === 'discipline_card') {
@@ -381,7 +386,6 @@ export function canAccessModule(profile, moduleKey) {
   if (profile.approval_status !== 'approved') return false;
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
   if (moduleKey === 'dashboard') return true; // Common to all categories
-  if (moduleKey === 'audit') return false;
 
   const level = getModuleAccessLevel(profile, moduleKey);
   return level === 'view' || level === 'full';
@@ -396,8 +400,8 @@ export function canPerformAction(profile, moduleKey, action) {
   if (!profile || profile.approval_status !== 'approved') return false;
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
 
-  // Root modules strictly reserved for Super Admin
-  if (moduleKey === 'audit') {
+  // Root audit logs are immutable: viewable if granted, but mutation is strictly forbidden
+  if (moduleKey === 'audit' && action !== 'view') {
     return false;
   }
 

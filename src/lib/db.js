@@ -841,7 +841,9 @@ class DatabaseService {
       this.setStorageItem('tps_vehicle_expenses', JSON.stringify(INITIAL_VEHICLE_EXPENSES));
       this.setStorageItem('tps_trip_logs', JSON.stringify(INITIAL_TRIP_LOGS));
       this.setStorageItem('tps_vehicle_payments', JSON.stringify(INITIAL_VEHICLE_PAYMENTS));
-      this.setStorageItem('tps_vehicle_users', JSON.stringify(INITIAL_VEHICLE_USERS));
+      this.setStorageItem('tps_vehicle_users',
+    'tps_rbac_matrix',
+    'tps_user_custom_modules', JSON.stringify(INITIAL_VEHICLE_USERS));
     } else {
       if (!this.getStorageItem('tps_vehicle_documents')) {
         this.setStorageItem('tps_vehicle_documents', JSON.stringify(INITIAL_VEHICLE_DOCUMENTS));
