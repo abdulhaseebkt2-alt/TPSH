@@ -363,10 +363,6 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                           Password
                         </button>
-                        <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set password for ${u.full_name || u.email}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    Password
-                  </button>
                   <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Reject</button>
                       </div>
                     ` : `
@@ -447,6 +443,18 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           const currentRole = btn.getAttribute('data-role');
           showApprovalModal(id, email, currentRole);
         });
+      });
+
+      // Mobile & desktop delegation for pending accounts password button
+      if (tabContent && typeof tabContent.addEventListener === 'function') tabContent.addEventListener('click', (e) => {
+        const pwBtn = e.target.closest('.btn-set-password');
+        if (pwBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = pwBtn.getAttribute('data-id');
+          const u = pendingUsers.find(item => item.id === id) || (db.get('tps_users') || []).find(item => item.id === id);
+          if (u) showSetPasswordModal(u);
+        }
       });
 
       tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
@@ -584,16 +592,21 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         </div>
       `;
 
-      tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-id');
-          const u = activeUsers.find(item => item.id === id);
+      // Mobile & desktop delegation for suspended accounts password button
+      if (tabContent && typeof tabContent.addEventListener === 'function') tabContent.addEventListener('click', (e) => {
+        const pwBtn = e.target.closest('.btn-set-password');
+        if (pwBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = pwBtn.getAttribute('data-id');
+          const u = suspendedUsers.find(item => item.id === id) || (db.get('tps_users') || []).find(item => item.id === id);
           if (u) showSetPasswordModal(u);
-        });
+        }
       });
 
       tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const id = btn.getAttribute('data-id');
           const u = suspendedUsers.find(item => item.id === id);
           if (u) showSetPasswordModal(u);
@@ -695,6 +708,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                           Permissions
                         </button>
                       ` : ''}
+                      <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set or reset password for ${u.full_name || u.email}">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Password
+                      </button>
                       <button class="btn btn-sm btn-outline btn-profile" data-id="${u.id}">Profile</button>
                       ${!u.is_super_admin && !isViewOnly ? `
                         <button class="btn btn-sm btn-outline btn-suspend" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">Suspend</button>
@@ -800,6 +817,27 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           }).join('')}
         </div>
       `;
+
+      tabContent.querySelectorAll('.btn-set-password').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          const u = activeUsers.find(item => item.id === id);
+          if (u) showSetPasswordModal(u);
+        });
+      });
+
+      // Resilient event delegation ensuring mobile touch & desktop clicks on Password button always fire
+      if (tabContent && typeof tabContent.addEventListener === 'function') tabContent.addEventListener('click', (e) => {
+        const pwBtn = e.target.closest('.btn-set-password');
+        if (pwBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = pwBtn.getAttribute('data-id');
+          const u = activeUsers.find(item => item.id === id) || (db.get('tps_users') || []).find(item => item.id === id);
+          if (u) showSetPasswordModal(u);
+        }
+      });
 
       tabContent.querySelectorAll('.btn-profile').forEach(btn => {
         btn.addEventListener('click', () => {

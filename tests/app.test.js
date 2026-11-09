@@ -8779,6 +8779,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(usersCode).toContain('showSetPasswordModal');
       expect(usersCode).toContain('Set User Password');
       expect(usersCode).toContain('🎲 Suggest Password');
+      // Verify no duplicate password button in pending table
+      expect(usersCode).not.toMatch(/btn-set-password[\s\S]{1,200}btn-set-password[\s\S]{1,100}Reject/);
+      // Verify active desktop table has Password button
+      expect(usersCode).toContain('btn-set-password" data-id="${u.id}" style="color: #4F46E5;');
 
       // 6. Code inspection: verify Settings module and Profile modal have Password settings
       const settingsCode = fs.readFileSync('src/modules/settings/index.js', 'utf8');

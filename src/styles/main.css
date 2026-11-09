@@ -4781,6 +4781,13 @@ body.tps-wheel-open {
   grid-template-columns: 1fr;
 }
 
+.btn-set-password {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-set-password * {
+  pointer-events: none;
+}
 .user-card-actions .btn {
   display: inline-flex;
   align-items: center;
