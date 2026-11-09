@@ -477,10 +477,9 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                 Record fuel refills and maintenance costs with automated bill-to-bill fuel efficiency (km/L).
               </p>
             </div>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-goto-expense-ledger" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; padding: 0.45rem 0.9rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              View Expense Ledger (${expenses.length})
-            </button>
+            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 700; font-size: 0.76rem;">
+              ${expenses.length} Records Logged
+            </span>
           </div>
 
           <div class="card-panel-body" style="padding: 1.5rem;">
@@ -563,11 +562,10 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                     2. Bill-to-Bill Fuel Metrics & Notes
                   </h4>
 
-                  <!-- CONDITIONAL BILL-TO-BILL FUEL METRICS -->
+                  <!-- CONDITIONAL BILL-TO-BILL FUEL METRICS (NO EMOJI/SVG) -->
                   <div id="fuel-fields-box" style="background: #F8FAFC; border: 1.5px solid var(--border-medium); border-radius: 10px; padding: 1rem; margin-bottom: 0.85rem;">
-                    <div style="font-size: 0.8rem; font-weight: 700; color: #0F172A; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.35rem;">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669;"><path d="M3 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V2"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-                      <span>Fuel Metrics (Auto Mileage Calculation)</span>
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A; margin-bottom: 0.65rem;">
+                      Fuel Metrics (Auto Mileage Calculation)
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
@@ -604,32 +602,38 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             </form>
           </div>
         </div>
+
+        <!-- Integrated Vehicle Expense Ledger Section -->
+        <div id="vehicle-expense-ledger-section" style="margin-top: 1.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Vehicle Expense Ledger</h3>
+              <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+                Real-time bill-to-bill fuel efficiency (km/L) and maintenance records
+              </p>
+            </div>
+            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 700; font-size: 0.76rem;">
+              ${expenses.length} Recorded Expense${expenses.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          ${renderExpenseLedgerTable()}
+        </div>
       </div>
     `;
   }
 
-  // --- TAB: EXPENSE & FUEL EFFICIENCY LEDGER (DEDICATED MOBILE FRIENDLY WINDOW) ---
-  function renderExpenseLedgerTab() {
-    return `
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
-          <div>
-            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 700; font-size: 0.76rem;">
-              Total Logged Records: ${expenses.length}
-            </span>
-          </div>
-          <button type="button" class="btn btn-primary" id="btn-goto-log-expense" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 700;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Log New Expense
-          </button>
+  // --- TAB: EXPENSE & FUEL EFFICIENCY LEDGER (CONTENT RENDERER) ---
+  function renderExpenseLedgerTable() {
+    if (expenses.length === 0) {
+      return `
+        <div class="empty-state" style="padding: 2.5rem; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px dashed var(--border-medium); text-align: center;">
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">No vehicle expenses or fuel fills recorded yet.</p>
         </div>
+      `;
+    }
 
-        ${expenses.length === 0 ? `
-          <div class="empty-state" style="padding: 3rem; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px dashed var(--border-medium); text-align: center;">
-            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">No vehicle expenses or fuel fills recorded yet.</p>
-            <button type="button" class="btn btn-primary" id="btn-empty-log-expense">Log First Vehicle Expense</button>
-          </div>
-        ` : `
+    return `
           <!-- Desktop View (Only): Clean Full Data Table -->
           <div class="card-panel expense-desktop-table" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; overflow-x: auto; box-shadow: var(--shadow-sm);">
             <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
@@ -776,9 +780,12 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
               `;
             }).join('')}
           </div>
-        `}
       </div>
     `;
+  }
+
+  function renderExpenseLedgerTab() {
+    return renderExpensesTab();
   }
 
   // --- TAB 4: BILLING & PAYMENTS ---
@@ -1352,7 +1359,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       expenses = await db.getVehicleExpenses();
       vehicles = await db.getVehicles();
       toast.success('Vehicle expense logged successfully.');
-      activeTab = 'expense_ledger';
+      activeTab = 'expenses';
       render();
     });
 

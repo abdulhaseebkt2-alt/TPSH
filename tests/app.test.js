@@ -8472,6 +8472,24 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(vehicleIdxJs).toContain('flex-wrap: wrap');
     });
 
+    it('Vehicle Expenses: Fuel & Expense Ledger is unified into Log Vehicle Expense (no separate sidebar window) and no emoji before Fuel Metrics', () => {
+      const sidebarJs = fs.readFileSync('src/components/sidebar.js', 'utf8');
+      const permsJs = fs.readFileSync('src/lib/permissions.js', 'utf8');
+      const vehicleIdxJs = fs.readFileSync('src/modules/vehicles/index.js', 'utf8');
+
+      // vehicle_expense_ledger must not be a separate window in sidebar or MODULE_DEFINITIONS
+      expect(sidebarJs).not.toContain("'vehicle_expense_ledger'");
+      expect(permsJs).not.toContain("key: 'vehicle_expense_ledger'");
+
+      // Log Vehicle Expense module embeds the Expense Ledger section directly below the form
+      expect(vehicleIdxJs).toContain('id="vehicle-expense-ledger-section"');
+      expect(vehicleIdxJs).toContain('renderExpenseLedgerTable()');
+
+      // No emoji or svg before Fuel Metrics
+      expect(vehicleIdxJs).not.toContain('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #059669;"><path d="M3 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V2"/><line x1="12" y1="18" x2="12" y2="22"/></svg>');
+      expect(vehicleIdxJs).toContain('Fuel Metrics (Auto Mileage Calculation)');
+    });
+
     it('Leave Overdue Accuracy: Future return dates (including DD.MMM.YYYY format) and newest active pass prevent false overdue classification in Dashboard Carousel and Radar', async () => {
       // 1. Verify isLeaveOverdueSafe with future dates (both ISO and DD.MMM.YYYY)
       const refNow = new Date('2026-11-06T17:19:00');
