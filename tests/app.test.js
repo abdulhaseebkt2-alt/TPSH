@@ -8412,7 +8412,7 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         student_id: testStudent.id,
         student_name: testStudent.full_name,
         departure_date: '2026-11-05',
-        expected_return_date: '08.Nov.2026',
+        expected_return_date: '28.Nov.2026',
         expected_return_time: '18:00',
         status: 'Away',
         created_at: '2026-11-05T10:00:00.000Z'
@@ -8497,6 +8497,63 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(lInfo.isLate).toBe(true);
       expect(lInfo.punctuality).toBe('late');
       expect(lInfo.lateMinutes).toBe(12);
+    });
+
+    it('Attendance Report Dropdown Scoping: Assigned Section and Assigned Classroom Session are strictly taken from Sections & Classrooms window and scoped exclusively to the assigned teacher', async () => {
+      // Setup teacher with specific assigned classrooms
+      const teacherUser = {
+        id: 'usr-teacher-test-scoped',
+        full_name: 'Usthad Abdullah',
+        email: 'abdullah@thaibaschool.edu.in',
+        role: 'teacher',
+        approval_status: 'approved',
+        is_super_admin: false
+      };
+      updateCurrentUserProfile(teacherUser);
+
+      // Setup sections (programs) and classrooms matching Sections & Classrooms window
+      const testPrograms = [
+        { id: 'prog-moral', name: 'Hostel Moral Class' },
+        { id: 'prog-coaching', name: 'Hostel Coching' },
+        { id: 'prog-unassigned', name: 'Unassigned Section' }
+      ];
+      const testClassrooms = [
+        { id: 'cls-arabic', name: 'Arabic Reding Class', program_id: 'prog-moral', teacher_id: teacherUser.id, days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], start_time: '06:00', end_time: '07:00' },
+        { id: 'cls-quran', name: 'Quran Class', program_id: 'prog-moral', teacher_id: teacherUser.id, days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], start_time: '07:00', end_time: '08:00' },
+        { id: 'cls-coaching', name: 'Girls. Moral Class', program_id: 'prog-coaching', teacher_id: teacherUser.id, days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], start_time: '18:00', end_time: '19:00' },
+        { id: 'cls-other', name: 'Other Teacher Class', program_id: 'prog-unassigned', teacher_id: 'other-teacher-id', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], start_time: '06:00', end_time: '07:00' }
+      ];
+
+      const origPrograms = await db.getPrograms();
+      const origClassrooms = await db.getClassrooms();
+      const origUsers = await db.getUsers();
+
+      try {
+        db.set('tps_programs', testPrograms);
+        db.set('tps_classrooms', testClassrooms);
+        db.set('tps_users', [...origUsers, teacherUser]);
+
+        const container = {
+          innerHTML: '',
+          querySelector: () => null,
+          querySelectorAll: () => []
+        };
+
+        await renderAttendanceReportModule(container, { onNavigate: () => {} });
+        const html = container.innerHTML;
+
+        // 1. Assigned Section dropdown must ONLY show the teacher's assigned sections (Hostel Moral Class)
+        expect(html).toContain('Hostel Moral Class');
+        expect(html).not.toContain('Unassigned Section');
+
+        // 2. Assigned Classroom Session dropdown must ONLY show classrooms belonging to that teacher
+        expect(html).toContain('Arabic Reding Class');
+        expect(html).not.toContain('Other Teacher Class');
+      } finally {
+        db.set('tps_programs', origPrograms);
+        db.set('tps_classrooms', origClassrooms);
+        db.set('tps_users', origUsers);
+      }
     });
   });
 });

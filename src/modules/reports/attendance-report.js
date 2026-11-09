@@ -38,15 +38,33 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
   // Helper to match teacher IDs with seeded UUID aliases
   function isTeacherAssignedToClass(u, c) {
     if (!u || !c) return false;
-    const uIds = [u.id, u.email, u.full_name].filter(Boolean);
-    if (u.id === 'u-2' || u.id === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || u.email === 'teacher@thaibaschool.edu.in' || (u.full_name && u.full_name.includes('Rashid'))) {
-      uIds.push('u-2', '3ba0d909-6656-43eb-87fb-fe8e30088d55', 'teacher@thaibaschool.edu.in');
+    const uId = String(u.id || '').trim().toLowerCase();
+    const uEmail = String(u.email || '').trim().toLowerCase();
+    const uName = String(u.full_name || u.name || '').trim().toLowerCase();
+    const cTeacher = String(c.teacher_id || '').trim().toLowerCase();
+    const cTeacherName = String(c.teacher_name || '').trim().toLowerCase();
+
+    // 1. Exact or case-insensitive match on ID, email, or full name
+    if (uId && cTeacher && uId === cTeacher) return true;
+    if (uEmail && cTeacher && uEmail === cTeacher) return true;
+    if (uName && cTeacher && (uName === cTeacher || cTeacher.includes(uName) || uName.includes(cTeacher))) return true;
+    if (uName && cTeacherName && (uName === cTeacherName || cTeacherName.includes(uName) || uName.includes(cTeacherName))) return true;
+
+    // 2. Partial/first-name matching for teachers (e.g. "Haseeb" matching "Abdul Haseeb")
+    const uFirstName = uName.split(' ')[0];
+    if (uFirstName && uFirstName.length >= 4 && (cTeacher.includes(uFirstName) || cTeacherName.includes(uFirstName))) return true;
+
+    // 3. Seeded aliases for Rashid Sir
+    if (uId === 'u-2' || uId === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || uEmail === 'teacher@thaibaschool.edu.in' || (uName.includes('rashid') && u.role === 'teacher')) {
+      if (cTeacher === 'u-2' || cTeacher === '3ba0d909-6656-43eb-87fb-fe8e30088d55' || cTeacher === 'teacher@thaibaschool.edu.in') return true;
     }
-    const cTeacher = c.teacher_id;
-    if (cTeacher && uIds.includes(cTeacher)) return true;
-    if (Array.isArray(teacherAssignments) && teacherAssignments.some(a => 
-      a.classroom_id === c.id && uIds.includes(a.teacher_id) && !a.removed_date
-    )) {
+
+    // 4. Historical / Active teacher assignments table
+    if (Array.isArray(teacherAssignments) && teacherAssignments.some(a => {
+      if (a.classroom_id !== c.id || a.removed_date) return false;
+      const aT = String(a.teacher_id || '').toLowerCase();
+      return aT === uId || (uEmail && aT === uEmail) || (uName && aT === uName);
+    })) {
       return true;
     }
     return false;
@@ -54,7 +72,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
   // 2. Prepare eligible teachers list: ONLY users who are actually assigned to at least one classroom
   const eligibleTeachers = users.filter(u => {
-    if (u.approval_status !== 'approved') return false;
+    if (u.approval_status !== 'approved' && u.approval_status) return false;
     return allClassrooms.some(c => isTeacherAssignedToClass(u, c));
   }).sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
 
@@ -63,15 +81,35 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     eligibleTeachers.unshift(user);
   }
 
+  // If logged-in user is an admin who is assigned to classrooms, ensure they are present in eligibleTeachers
+  if (isAdmin && user && allClassrooms.some(c => isTeacherAssignedToClass(user, c)) && !eligibleTeachers.some(t => t.id === user.id)) {
+    eligibleTeachers.unshift(user);
+  }
+
   // Safety fallback if no teachers found with assignments yet
   if (eligibleTeachers.length === 0) {
-    const fallback = users.filter(u => u.approval_status === 'approved' && (u.role === 'teacher' || u.role === 'admin'));
+    const fallback = users.filter(u => (u.approval_status === 'approved' || !u.approval_status) && (u.role === 'teacher' || u.role === 'admin' || u.role === 'super_admin'));
     eligibleTeachers.push(...fallback);
   }
 
   // State
   // Teachers are strictly scoped to their own account; Admin can select any assigned faculty
-  let selectedTeacherId = isTeacher ? user.id : (eligibleTeachers.find(t => allClassrooms.some(c => isTeacherAssignedToClass(t, c)))?.id || eligibleTeachers[0]?.id || 'u-2');
+  let selectedTeacherId = '';
+  if (isTeacher) {
+    selectedTeacherId = user.id;
+  } else {
+    // If admin matches a teacher assigned to classrooms, default to them; otherwise first eligible teacher with classes
+    const selfTeacher = eligibleTeachers.find(t => 
+      t.id === user?.id || 
+      (t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase()) ||
+      (user?.full_name && t.full_name && t.full_name.trim().toLowerCase() === user.full_name.trim().toLowerCase() && user.role !== 'admin') ||
+      (user?.full_name && t.full_name && t.full_name.toLowerCase().includes('haseeb') && user.full_name.toLowerCase().includes('haseeb'))
+    );
+    const selfTeacherHasCls = selfTeacher && allClassrooms.some(c => isTeacherAssignedToClass(selfTeacher, c));
+    selectedTeacherId = (selfTeacher && selfTeacherHasCls)
+      ? selfTeacher.id 
+      : (eligibleTeachers.find(t => allClassrooms.some(c => isTeacherAssignedToClass(t, c)))?.id || eligibleTeachers[0]?.id || 'u-2');
+  }
   let selectedSectionId = '';
   let selectedClassroomId = '';
 
@@ -92,45 +130,63 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Helper: Find classrooms assigned to a teacher
+  // Helper: Find classrooms assigned to a teacher (strictly assigned only)
   function getAssignedClassroomsForTeacher(teacherId) {
-    const tUser = users.find(u => u.id === teacherId) || { id: teacherId };
-    const assigned = allClassrooms.filter(c => isTeacherAssignedToClass(tUser, c));
+    if (!teacherId) return [];
+    const tUser = users.find(u => u.id === teacherId) || (user && user.id === teacherId ? user : { id: teacherId });
+    return allClassrooms.filter(c => isTeacherAssignedToClass(tUser, c));
+  }
 
-    if (assigned.length > 0) return assigned;
+  // Helper: Get sections assigned to a teacher (strictly institutional sections from Sections & Classrooms window)
+  function getAssignedSectionsForTeacher(teacherId) {
+    const teacherCls = getAssignedClassroomsForTeacher(teacherId);
+    if (!teacherCls || teacherCls.length === 0) return [];
 
-    // Fallback if teacher doesn't have explicit classrooms assigned yet
-    if (isTeacher) {
-      return allClassrooms.slice(0, 1);
+    const progSecMap = {};
+    allPrograms.forEach(p => {
+      progSecMap[p.id] = (allSections || []).filter(s => s.program_id === p.id).map(s => s.id);
+    });
+
+    // 1. Gather matching sections strictly from the teacher's assigned classrooms (allPrograms)
+    const matchedPrograms = allPrograms.filter(p => 
+      teacherCls.some(c => c.program_id === p.id || (c.section_id && progSecMap[p.id]?.includes(c.section_id)))
+    );
+
+    if (matchedPrograms.length > 0) {
+      return matchedPrograms;
     }
+
+    // Fallback: If classrooms directly reference sections
+    const secIds = new Set(teacherCls.map(c => c.section_id || c.program_id).filter(Boolean));
+    const matchedSections = (allSections || []).filter(s => secIds.has(s.id));
+    if (matchedSections.length > 0) {
+      return matchedSections;
+    }
+
     return [];
   }
 
-  // Helper: Get sections assigned to a teacher (strictly sections with their assigned classes)
-  function getAssignedSectionsForTeacher(teacherId) {
-    const teacherCls = getAssignedClassroomsForTeacher(teacherId);
-    const secIds = new Set(teacherCls.map(c => c.section_id).filter(Boolean));
-    const progIds = new Set(teacherCls.map(c => c.program_id).filter(Boolean));
-
-    // Gather matching sections strictly from the teacher's assigned classrooms
-    let matchingSections = allSections.filter(s => secIds.has(s.id));
-    if (matchingSections.length === 0) {
-      matchingSections = allSections.filter(s => progIds.has(s.program_id));
-      if (matchingSections.length === 0) {
-        matchingSections = allPrograms
-          .filter(p => progIds.has(p.id) || secIds.has(p.id))
-          .map(p => ({ id: p.id, name: p.name, program_id: p.id }));
-      }
-    }
-    return matchingSections;
-  }
-
-  // Helper: Get classes assigned to a teacher in a given section
+  // Helper: Get classes assigned to a teacher in a given section (strictly from Sections & Classrooms window)
   function getAssignedClassesForTeacherAndSection(teacherId, sectionId) {
     const teacherCls = getAssignedClassroomsForTeacher(teacherId);
-    const filtered = teacherCls.filter(c => c.section_id === sectionId || c.program_id === sectionId);
-    if (filtered.length > 0) return filtered;
-    return teacherCls;
+    if (!teacherCls || teacherCls.length === 0) return [];
+
+    if (!sectionId) return teacherCls;
+
+    const progSecMap = {};
+    allPrograms.forEach(p => {
+      progSecMap[p.id] = (allSections || []).filter(s => s.program_id === p.id).map(s => s.id);
+    });
+
+    const childSecIds = progSecMap[sectionId] || [];
+
+    const filtered = teacherCls.filter(c => 
+      c.program_id === sectionId || 
+      c.section_id === sectionId || 
+      (c.section_id && childSecIds.includes(c.section_id))
+    );
+
+    return filtered;
   }
 
   // Initialize cascading selection
@@ -270,11 +326,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
     const assignedSections = getAssignedSectionsForTeacher(selectedTeacherId);
     const assignedClasses = getAssignedClassesForTeacherAndSection(selectedTeacherId, selectedSectionId);
-    const activeClass = assignedClasses.find(c => c.id === selectedClassroomId) || assignedClasses[0];
+    const activeClass = assignedClasses.find(c => c.id === selectedClassroomId) || assignedClasses[0] || null;
     const activeTeacher = users.find(u => u.id === selectedTeacherId) || eligibleTeachers[0];
     const activeProgram = allPrograms.find(p => p.id === activeClass?.program_id);
 
-    const gridDays = getCalendarGridDays(currentYear, currentMonth, activeClass);
+    const gridDays = activeClass ? getCalendarGridDays(currentYear, currentMonth, activeClass) : [];
     const currentMonthDays = gridDays.filter(d => d.isCurrentMonth);
     const unlocks = await db.getAttendanceUnlocks();
 
@@ -285,7 +341,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
     const unlockedSessions = currentMonthDays.filter(d => d.isMissedAttendance && unlocks.includes(`${activeClass?.id}_${d.dateStr}`)).length;
     const allMonthMissedUnlocked = missedSessions > 0 && unlockedSessions === missedSessions;
 
-    // Build 3-line graph data (Punctual <=15m, Late >15m, Missed) for this class across the month
+    // Build 3-line graph data (Punctual <=10m, Late >10m, Missed) for this class across the month
     const timelineDays = currentMonthDays.map(d => {
       const sess = attendanceSessions.find(s => s.classroom_id === activeClass?.id && s.session_date === d.dateStr);
       let punctual = 0;
@@ -293,7 +349,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       let missed = d.isMissedAttendance ? 1 : 0;
 
       if (sess && Array.isArray(sess.records) && sess.records.length > 0) {
-        const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sess, activeClass?.start_time) : { isLate: sess.submission_punctuality === 'late' || (Number(sess.late_submission_minutes) > 15) };
+        const pInfo = db.getSessionPunctualityInfo ? db.getSessionPunctualityInfo(sess, activeClass?.start_time) : { isLate: sess.submission_punctuality === 'late' || (Number(sess.late_submission_minutes) > 10) };
         const isLate = pInfo.isLate;
         if (isLate) {
           late = 1;
@@ -311,11 +367,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
       };
     });
 
-    const punctualityChartHtml = generatePunctualityChartHtml({
+    const punctualityChartHtml = activeClass ? generatePunctualityChartHtml({
       timelineDays,
       title: `${activeClass?.name || 'Classroom'} Attendance Punctuality Trends`,
-      subtitle: `3-line analysis: Punctual (≤15 min), Late (>15 min), and Missed sessions for ${MONTH_NAMES[currentMonth - 1]} ${currentYear}`
-    });
+      subtitle: `3-line analysis: Punctual (≤10 min), Late (>10 min), and Missed sessions for ${MONTH_NAMES[currentMonth - 1]} ${currentYear}`
+    }) : '';
 
     container.innerHTML = `
       <div class="attendance-report-container" style="padding-bottom: 2.5rem;">
@@ -404,8 +460,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Assigned Section
               </label>
-              <select id="att-rep-section-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis; box-sizing: border-box;">
-                ${assignedSections.map(s => `<option value="${s.id}" ${s.id === selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('')}
+              <select id="att-rep-section-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis; box-sizing: border-box;" ${assignedSections.length === 0 ? 'disabled' : ''}>
+                ${assignedSections.length > 0
+                  ? assignedSections.map(s => `<option value="${s.id}" ${s.id === selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('')
+                  : '<option value="">-- No Assigned Section --</option>'
+                }
               </select>
             </div>
 
@@ -414,8 +473,11 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
               <label style="display: block; font-size: 0.74rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Assigned Classroom Session
               </label>
-              <select id="att-rep-class-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis; box-sizing: border-box;">
-                ${assignedClasses.map(c => `<option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')}
+              <select id="att-rep-class-select" class="form-control select-full-width" data-full-width="true" style="width: 100%; border-radius: 10px; font-weight: 600; font-size: 0.86rem; cursor: pointer; border-color: #CBD5E1; text-overflow: ellipsis; box-sizing: border-box;" ${assignedClasses.length === 0 ? 'disabled' : ''}>
+                ${assignedClasses.length > 0
+                  ? assignedClasses.map(c => `<option value="${c.id}" ${c.id === selectedClassroomId ? 'selected' : ''}>${c.name}</option>`).join('')
+                  : '<option value="">-- No Assigned Classroom --</option>'
+                }
               </select>
             </div>
           </div>
@@ -458,6 +520,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
           ` : ''}
         </div>
 
+        ${activeClass ? `
         <!-- 4-METRICS STATS ROW -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
           <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.75rem 0.9rem;">
@@ -700,6 +763,17 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
 
         <!-- 3-LINE ATTENDANCE PUNCTUALITY & COMPLIANCE TREND GRAPH (Positioned under the calendar) -->
         ${punctualityChartHtml}
+        ` : `
+        <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 16px; padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05);">
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: #F8FAFC; border: 1px solid #E2E8F0; margin: 0 auto 0.75rem; display: flex; align-items: center; justify-content: center; color: #94A3B8;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h4 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.35rem;">No Assigned Classroom Sessions</h4>
+          <p style="font-size: 0.82rem; color: #64748B; max-width: 420px; margin: 0 auto;">
+            No active classroom sessions found for <strong>${activeTeacher?.full_name || 'this faculty member'}</strong> in the selected section. Assign classrooms in Sections &amp; Classrooms to display attendance records.
+          </p>
+        </div>
+        `}
 
       </div>
     `;
@@ -872,7 +946,7 @@ export async function renderAttendanceReportModule(container, { onNavigate } = {
                   const isLate = r.status === 'Late Present';
                   const isPres = r.status === 'Present';
                   const isOnLeave = r.status === 'Leave' || r.status === 'On Leave';
-                  const lateMin = r.late_minutes || 15;
+                  const lateMin = r.late_minutes || 10;
                   return `
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 8px; background: ${isOnLeave ? '#EFF6FF' : isLate ? '#FFFDF5' : (isPres ? '#F0FDF4' : '#FEF2F2')}; border: 1px solid ${isOnLeave ? '#BFDBFE' : isLate ? '#FDE68A' : (isPres ? '#BBF7D0' : '#FECACA')}; font-size: 0.78rem; ${isOnLeave ? 'opacity: 0.85;' : ''}">
                       <div>
