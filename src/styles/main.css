@@ -9496,3 +9496,91 @@ aside.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-che
   }
 }
 
+/* ==========================================================================
+   Preset Destinations Responsive Styles
+   ========================================================================== */
+.destinations-tabs-bar {
+  display: flex;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-medium);
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+.destinations-tabs-bar .dest-tab-btn {
+  flex: 1 1 33.33%;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.destinations-tabs-bar .dest-tab-btn.active {
+  background: #4F46E5;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.destinations-tabs-bar .dest-tab-btn .tab-badge {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: #E2E8F0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.destinations-tabs-bar .dest-tab-btn.active .tab-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+.destinations-tabs-bar .dest-tab-btn .tab-badge.warning {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.destinations-tabs-bar .dest-tab-btn.active .tab-badge.warning {
+  background: #F59E0B;
+  color: #FFFFFF;
+}
+
+@media (max-width: 640px) {
+  .dest-desktop-table {
+    display: none !important;
+  }
+  .dest-mobile-cards {
+    display: flex !important;
+  }
+  .destinations-header-actions {
+    width: 100% !important;
+  }
+  .destinations-header-actions .btn {
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .dest-desktop-table {
+    display: block !important;
+  }
+  .dest-mobile-cards {
+    display: none !important;
+  }
+}
+

@@ -81,7 +81,8 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       <!-- ACTIVE TRIP CONTROL BOX (IF A TRIP IS PENDING OR RUNNING) -->
       ${renderActiveTripBox(activeTrip)}
 
-      <!-- MAIN FORM CONTAINER -->
+      <!-- MAIN FORM CONTAINER (DISMISSES COMPLETELY WHEN A TRIP IS ACTIVE / BOOKED UNTIL CANCELLED OR COMPLETED) -->
+      ${!activeTrip ? `
       <div id="section-book-vehicle" class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
           <div>
@@ -296,6 +297,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           </div>
         </form>
       </div>
+      ` : ''}
     `;
 
     attachEvents(activeTrip);

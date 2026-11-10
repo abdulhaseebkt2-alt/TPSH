@@ -53,7 +53,7 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
           </div>
         </div>
 
-        <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <div class="page-actions destinations-header-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button class="btn btn-primary" id="btn-add-destination" style="font-weight: 600;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Preset Destination
@@ -61,19 +61,19 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
-      <div class="tabs-nav" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-medium); margin-bottom: 1.25rem; overflow-x: auto; padding-bottom: 2px;">
-        <button class="tab-item ${activeTab === 'destinations' ? 'active' : ''}" data-tab="destinations" style="padding: 0.65rem 1rem; border: none; background: transparent; font-size: 0.88rem; font-weight: ${activeTab === 'destinations' ? '700' : '600'}; color: ${activeTab === 'destinations' ? '#4F46E5' : 'var(--text-muted)'}; border-bottom: 2px solid ${activeTab === 'destinations' ? '#4F46E5' : 'transparent'}; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
-          <span>📍 Preset Destinations</span>
-          <span class="badge" style="background: #EEF2FF; color: #4338CA; font-size: 0.72rem;">${destinations.length}</span>
+      <!-- Navigation Tabs (Responsive Segmented Bar) -->
+      <div class="destinations-tabs-bar">
+        <button class="tab-item dest-tab-btn ${activeTab === 'destinations' ? 'active' : ''}" data-tab="destinations">
+          <span>Destinations</span>
+          <span class="tab-badge">${destinations.length}</span>
         </button>
-        <button class="tab-item ${activeTab === 'pending_reviews' ? 'active' : ''}" data-tab="pending_reviews" style="padding: 0.65rem 1rem; border: none; background: transparent; font-size: 0.88rem; font-weight: ${activeTab === 'pending_reviews' ? '700' : '600'}; color: ${activeTab === 'pending_reviews' ? '#D97706' : 'var(--text-muted)'}; border-bottom: 2px solid ${activeTab === 'pending_reviews' ? '#D97706' : 'transparent'}; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
-          <span>⏳ Pending Discrepancy Reviews</span>
-          ${pendingTrips.length > 0 ? `<span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.72rem; font-weight: 700;">${pendingTrips.length} Action Needed</span>` : '<span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.72rem;">0</span>'}
+        <button class="tab-item dest-tab-btn ${activeTab === 'pending_reviews' ? 'active' : ''}" data-tab="pending_reviews">
+          <span>Pending</span>
+          <span class="tab-badge ${pendingTrips.length > 0 ? 'warning' : ''}">${pendingTrips.length}</span>
         </button>
-        <button class="tab-item ${activeTab === 'history' ? 'active' : ''}" data-tab="history" style="padding: 0.65rem 1rem; border: none; background: transparent; font-size: 0.88rem; font-weight: ${activeTab === 'history' ? '700' : '600'}; color: ${activeTab === 'history' ? '#059669' : 'var(--text-muted)'}; border-bottom: 2px solid ${activeTab === 'history' ? '#059669' : 'transparent'}; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
-          <span>📋 Reviewed History</span>
-          <span class="badge" style="background: #F1F5F9; color: #64748B; font-size: 0.72rem;">${reviewedTrips.length}</span>
+        <button class="tab-item dest-tab-btn ${activeTab === 'history' ? 'active' : ''}" data-tab="history">
+          <span>History</span>
+          <span class="tab-badge">${reviewedTrips.length}</span>
         </button>
       </div>
 
@@ -89,7 +89,8 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
             </div>
           </div>
 
-          <div class="table-responsive">
+          <!-- Desktop Table View -->
+          <div class="dest-desktop-table table-responsive">
             <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
@@ -131,6 +132,45 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
                 `).join('')}
               </tbody>
             </table>
+          </div>
+
+          <!-- Mobile Cards View (Responsive on Phone Screens) -->
+          <div class="dest-mobile-cards" style="display: none; flex-direction: column; gap: 0.75rem;">
+            ${destinations.map(d => `
+              <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid var(--border-subtle); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-xs);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.4rem;">
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 700; color: #0F172A; font-size: 0.95rem; line-height: 1.3;">
+                      📍 ${d.name}
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.35;">
+                      ${d.description || 'Official campus travel route'}
+                    </div>
+                  </div>
+                  <div style="text-align: right; flex-shrink: 0;">
+                    <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 800; font-family: monospace; font-size: 0.85rem; padding: 4px 8px; display: inline-block;">
+                      ${d.standard_distance_km} KM
+                    </span>
+                    <div style="margin-top: 0.35rem;">
+                      ${d.is_active !== false ? `
+                        <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700; font-size: 0.7rem;">Active</span>
+                      ` : `
+                        <span class="badge" style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.7rem;">Inactive</span>
+                      `}
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
+                  <button class="btn btn-sm btn-outline btn-edit-dest" data-id="${d.id}" style="flex: 1; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; text-align: center;">
+                    Edit
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-delete-dest" data-id="${d.id}" style="flex: 1; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; color: #DC2626; border-color: #FECACA; text-align: center;">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
       ` : ''}
@@ -240,7 +280,8 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
               No reviewed discrepancy records found.
             </div>
           ` : `
-            <div class="table-responsive">
+            <!-- Desktop Table View -->
+            <div class="dest-desktop-table table-responsive">
               <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
                 <thead>
                   <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
@@ -284,6 +325,43 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
                   }).join('')}
                 </tbody>
               </table>
+            </div>
+
+            <!-- Mobile Cards View -->
+            <div class="dest-mobile-cards" style="display: none; flex-direction: column; gap: 0.75rem;">
+              ${reviewedTrips.map(t => {
+                const isApproved = t.discrepancy_status === 'Approved Exemption';
+                return `
+                  <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid var(--border-subtle); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-xs);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.45rem;">
+                      <div>
+                        <strong style="color: #0F172A; font-size: 0.95rem;">${t.user_name}</strong>
+                        <div style="font-family: monospace; font-size: 0.72rem; color: #64748B; margin-top: 0.15rem;">${t.trip_id}</div>
+                      </div>
+                      <div>
+                        ${isApproved ? `
+                          <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700; font-size: 0.72rem;">✓ Waived</span>
+                        ` : `
+                          <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-weight: 700; font-size: 0.72rem;">✕ Charged</span>
+                        `}
+                      </div>
+                    </div>
+
+                    <div style="background: #F8FAFC; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.8rem;">
+                      <div>📍 Destination: <strong>${t.destination}</strong></div>
+                      <div style="display: flex; gap: 1rem; margin-top: 0.35rem; color: #475569;">
+                        <span>Actual: <strong style="font-family: monospace;">${t.total_km} KM</strong></span>
+                        <span>Excess: <strong style="color: #DC2626; font-family: monospace;">+${t.excess_km || 0} KM</strong></span>
+                      </div>
+                    </div>
+
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                      By: <strong>${t.discrepancy_reviewed_by || 'Admin'}</strong> on ${formatDate(t.discrepancy_reviewed_at)}
+                      ${t.discrepancy_admin_notes ? `<div style="color: #475569; font-style: italic; margin-top: 2px;">"${t.discrepancy_admin_notes}"</div>` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           `}
         </div>

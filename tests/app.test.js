@@ -9438,9 +9438,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(userTripsCode).toContain('Block Trip for Others');
       expect(userTripsCode).not.toContain('👥 Block Trip for Others');
       expect(userTripsCode).toContain('openDiscrepancyModal');
+      expect(userTripsCode).toContain('${!activeTrip ?');
     });
 
-    it('verifies Official Destinations module routing and permissions', () => {
+    it('verifies Official Destinations module routing, permissions, and mobile responsive cards', () => {
       const permsCode = fs.readFileSync('src/lib/permissions.js', 'utf8');
       expect(permsCode).toContain('vehicle_destinations');
 
@@ -9450,6 +9451,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       const appCode = fs.readFileSync('src/app.js', 'utf8');
       expect(appCode).toContain('vehicle_destinations');
       expect(appCode).toContain('renderVehicleDestinationsModule');
+
+      const destCode = fs.readFileSync('src/modules/vehicles/destinations.js', 'utf8');
+      expect(destCode).toContain('destinations-tabs-bar');
+      expect(destCode).toContain('dest-desktop-table');
+      expect(destCode).toContain('dest-mobile-cards');
     });
   });
 });
