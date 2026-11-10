@@ -328,6 +328,44 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
   const allUsersList = await db.getUsers();
   const users = allUsersList.filter(u => !isDummyOrTestUser(u, true));
   const allStudents = await db.getStudents();
+  const parentMap = (db && typeof db.get === 'function') ? (db.get('tps_parent_assignments') || {}) : {};
+
+  function getAssignedChildrenForUser(u) {
+    if (!u) return [];
+    const fromMap = parentMap[u.id] || (u.email && parentMap[u.email.toLowerCase()]);
+    const meta = u.metadata || {};
+    const childIds = (Array.isArray(u.assigned_student_ids) && u.assigned_student_ids.length > 0) ? u.assigned_student_ids
+      : (Array.isArray(meta.assigned_student_ids) && meta.assigned_student_ids.length > 0) ? meta.assigned_student_ids
+      : (Array.isArray(u.student_ids) && u.student_ids.length > 0) ? u.student_ids
+      : (Array.isArray(meta.student_ids) && meta.student_ids.length > 0) ? meta.student_ids
+      : (Array.isArray(u.child_ids) && u.child_ids.length > 0) ? u.child_ids
+      : (Array.isArray(meta.child_ids) && meta.child_ids.length > 0) ? meta.child_ids
+      : (Array.isArray(fromMap) && fromMap.length > 0) ? fromMap
+      : [];
+
+    let matched = Array.isArray(childIds) && childIds.length > 0
+      ? allStudents.filter(s => childIds.includes(s.id))
+      : [];
+
+    // Fallback: match by phone or father name if not explicitly linked by ID
+    if (matched.length === 0 && u.role === 'parent') {
+      const phone = (u.phone_number || u.phone || '').replace(/[^0-9]/g, '');
+      if (phone && phone.length >= 10) {
+        matched = allStudents.filter(s => {
+          const fPhone = (s.father_phone || '').replace(/[^0-9]/g, '');
+          const mPhone = (s.mother_phone || '').replace(/[^0-9]/g, '');
+          const wPhone = (s.whatsapp_number || '').replace(/[^0-9]/g, '');
+          return phone === fPhone || phone === mPhone || phone === wPhone;
+        });
+      }
+      if (matched.length === 0 && u.full_name) {
+        const pName = u.full_name.toLowerCase().trim();
+        matched = allStudents.filter(s => s.father_name && s.father_name.toLowerCase().trim() === pName);
+      }
+    }
+    return matched;
+  }
+
   const pendingUsers = users.filter(u => u.approval_status === 'pending');
   const activeUsers = users.filter(u => u.approval_status === 'approved');
   const suspendedUsers = users.filter(u => u.approval_status === 'suspended');
@@ -765,8 +803,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               ${activeUsers.map(u => {
                 const userCustom = getUserCustomPermissions(u.id);
                 const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
-                const childIds = u.assigned_student_ids || u.student_ids || u.child_ids || [];
-                const assignedChildren = Array.isArray(childIds) ? allStudents.filter(s => childIds.includes(s.id)) : [];
+                const assignedChildren = getAssignedChildrenForUser(u);
                 return `
                 <tr>
                   <td>
@@ -782,7 +819,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                         ${u.role === 'parent' ? `
                           <div style="margin-top: 3px; font-size: 0.73rem; color: ${assignedChildren.length > 0 ? '#059669' : '#D97706'}; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                             <span>👨‍👧‍👦</span>
-                            <span>${assignedChildren.length > 0 ? `${assignedChildren.length} Children: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
+                            <span>${assignedChildren.length > 0 ? `${assignedChildren.length} Child${assignedChildren.length > 1 ? 'ren' : ''}: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
                           </div>
                         ` : ''}
                       </div>
@@ -832,8 +869,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           ${activeUsers.map(u => {
             const userCustom = getUserCustomPermissions(u.id);
             const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
-            const childIds = u.assigned_student_ids || u.student_ids || u.child_ids || [];
-            const assignedChildren = Array.isArray(childIds) ? allStudents.filter(s => childIds.includes(s.id)) : [];
+            const assignedChildren = getAssignedChildrenForUser(u);
             return `
             <div class="user-card-item">
               <div class="user-card-header">
@@ -877,7 +913,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 `}
                 ${u.role === 'parent' ? `
                   <div class="user-card-contact-item" style="color: ${assignedChildren.length > 0 ? '#059669' : '#D97706'}; font-weight: 600; font-size: 0.74rem;">
-                    <span>👨‍👧‍👦 ${assignedChildren.length > 0 ? `${assignedChildren.length} Children: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
+                    <span>👨‍👧‍👦 ${assignedChildren.length > 0 ? `${assignedChildren.length} Child${assignedChildren.length > 1 ? 'ren' : ''}: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
                   </div>
                 ` : ''}
               </div>
@@ -1834,8 +1870,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       toast.warning('View-only access: modifying accounts is disabled.');
       return;
     }
-    const allUsers = (db.get('tps_users') || []);
-    const targetUser = allUsers.find(u => u.id === userId) || {};
+    const targetUser = users.find(u => u.id === userId || (email && u.email && u.email.toLowerCase() === email.toLowerCase())) ||
+                       (db.get('tps_users') || []).find(u => u.id === userId || (email && u.email && u.email.toLowerCase() === email.toLowerCase())) ||
+                       {};
     if (targetUser.is_super_admin) {
       toast.error('The Initial Super Admin account cannot be modified.');
       return;
@@ -1843,33 +1880,20 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     const allStudents = await db.getStudents();
 
     // Determine existing assigned children
-    let currentAssigned = [];
-    if (Array.isArray(targetUser.assigned_student_ids) && targetUser.assigned_student_ids.length > 0) {
-      currentAssigned = [...targetUser.assigned_student_ids];
-    } else if (Array.isArray(targetUser.student_ids) && targetUser.student_ids.length > 0) {
-      currentAssigned = [...targetUser.student_ids];
-    } else if (Array.isArray(targetUser.child_ids) && targetUser.child_ids.length > 0) {
-      currentAssigned = [...targetUser.child_ids];
-    } else if (currentRole === 'parent' || targetUser.role === 'parent') {
-      // Intelligent auto-match based on parent mobile number or full name
-      const phone = (targetUser.phone_number || targetUser.phone || '').replace(/[^0-9]/g, '');
-      if (phone) {
-        allStudents.forEach(s => {
-          const fPhone = (s.father_phone || '').replace(/[^0-9]/g, '');
-          const mPhone = (s.mother_phone || '').replace(/[^0-9]/g, '');
-          const wPhone = (s.whatsapp_number || '').replace(/[^0-9]/g, '');
-          if (phone === fPhone || phone === mPhone || phone === wPhone) {
-            currentAssigned.push(s.id);
-          }
-        });
-      }
-      if (currentAssigned.length === 0 && targetUser.full_name) {
-        const pName = targetUser.full_name.toLowerCase().trim();
-        allStudents.forEach(s => {
-          if (s.father_name && s.father_name.toLowerCase().trim() === pName) {
-            currentAssigned.push(s.id);
-          }
-        });
+    let currentAssigned = getAssignedChildrenForUser(targetUser).map(c => c.id);
+    if (currentAssigned.length === 0) {
+      const fromMap = parentMap[userId] || (email && parentMap[email.toLowerCase()]);
+      const meta = targetUser.metadata || {};
+      const fallbackIds = (Array.isArray(targetUser.assigned_student_ids) && targetUser.assigned_student_ids.length > 0) ? targetUser.assigned_student_ids
+        : (Array.isArray(meta.assigned_student_ids) && meta.assigned_student_ids.length > 0) ? meta.assigned_student_ids
+        : (Array.isArray(targetUser.student_ids) && targetUser.student_ids.length > 0) ? targetUser.student_ids
+        : (Array.isArray(meta.student_ids) && meta.student_ids.length > 0) ? meta.student_ids
+        : (Array.isArray(targetUser.child_ids) && targetUser.child_ids.length > 0) ? targetUser.child_ids
+        : (Array.isArray(meta.child_ids) && meta.child_ids.length > 0) ? meta.child_ids
+        : (Array.isArray(fromMap) && fromMap.length > 0) ? fromMap
+        : [];
+      if (Array.isArray(fallbackIds) && fallbackIds.length > 0) {
+        currentAssigned = [...fallbackIds];
       }
     }
 
@@ -2181,6 +2205,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               : `Account approved with role: ${role.toUpperCase()}`
           );
           close();
+          if (db._usersCache !== undefined) {
+            db._usersCache = null;
+            db._usersCacheTime = 0;
+          }
           renderUsersModule(container, { onNavigate });
         });
       }

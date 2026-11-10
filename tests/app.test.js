@@ -9237,5 +9237,51 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db.set('tps_user_passwords', pwMap);
       db.set('tps_users', currentUsers);
     });
+
+    it('2522: Parent Account Child Assignment Sync across Profiles Metadata, Cloud State, and Users UI', async () => {
+      // 1. Set up a parent account with assigned children in db
+      const parentId = 'u-parent-' + Date.now();
+      const parentEmail = 'testparent@thaibaschool.edu.in';
+      const assignedIds = ['std-001', 'std-002'];
+
+      // Add parent to local users
+      const currentUsers = db.get('tps_users') || [];
+      currentUsers.push({
+        id: parentId,
+        full_name: 'Test Parent',
+        email: parentEmail,
+        role: 'parent',
+        approval_status: 'approved'
+      });
+      db.set('tps_users', currentUsers);
+
+      // Assign children
+      await db.setParentAssignedStudents(parentId, assignedIds, parentEmail);
+
+      // Verify getParentAssignedStudents returns the IDs
+      const fetchedIds = await db.getParentAssignedStudents(parentId, parentEmail);
+      expect(fetchedIds).toEqual(assignedIds);
+
+      // Verify db.getUsers enriches parent user with assigned_student_ids
+      const allUsers = await db.getUsers(true);
+      const parentUser = allUsers.find(u => u.id === parentId || (u.email && u.email.toLowerCase() === parentEmail.toLowerCase()));
+      expect(parentUser).toBeDefined();
+      expect(parentUser.assigned_student_ids).toEqual(assignedIds);
+
+      // 2. Code inspection: verify Users module renders linked children for parents and resolves fallback
+      const usersCode = fs.readFileSync('src/modules/users/index.js', 'utf8');
+      expect(usersCode).toContain('getAssignedChildrenForUser');
+      expect(usersCode).toContain('btn-assign-children');
+      expect(usersCode).toContain('No children linked yet');
+
+      // Clean up
+      const pMap = db.get('tps_parent_assignments') || {};
+      delete pMap[parentId];
+      delete pMap[parentEmail];
+      db.set('tps_parent_assignments', pMap);
+      const usersList = (db.get('tps_users') || []).filter(u => u.id !== parentId && u.email !== parentEmail);
+      db.set('tps_users', usersList);
+      db._usersCache = null;
+    });
   });
 });

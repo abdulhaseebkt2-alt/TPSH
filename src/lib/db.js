@@ -4798,16 +4798,39 @@ class DatabaseService {
     let p = null;
     p = (async () => {
       try {
-        await this.pullCloudKeys(['tps_user_passwords']);
+        await this.pullCloudKeys(['tps_user_passwords', 'tps_parent_assignments']);
         const passwordsMap = this.get('tps_user_passwords') || {};
+        const parentAssignmentsMap = this.get('tps_parent_assignments') || {};
 
         if (supabase) {
           try {
+            // 1. Fetch full remote profiles including metadata
+            let remoteProfiles = [];
+            try {
+              const { data: profs, error: pErr } = await supabase.from('profiles').select('*');
+              if (!pErr && Array.isArray(profs) && profs.length > 0) {
+                remoteProfiles = profs;
+              }
+            } catch (pEx) {
+              console.warn('Supabase profiles fetch in getUsers:', pEx);
+            }
+
+            const profilesById = new Map();
+            remoteProfiles.forEach(p => {
+              if (p.id) profilesById.set(p.id, p);
+              if (p.email) profilesById.set(p.email.toLowerCase(), p);
+            });
+
+            // 2. Fetch manageable users via RPC or fallback to remoteProfiles
             const { data, error } = await supabase.rpc('get_manageable_users');
-            if (!error && Array.isArray(data) && data.length > 0) {
+            const sourceUsers = (!error && Array.isArray(data) && data.length > 0)
+              ? data
+              : (remoteProfiles.length > 0 ? remoteProfiles : []);
+
+            if (sourceUsers.length > 0) {
               const cleanRemote = !isTestEnv 
-                ? data.filter(u => !isDummyOrTestUser(u, true))
-                : data;
+                ? sourceUsers.filter(u => !isDummyOrTestUser(u, true))
+                : sourceUsers;
               const localUsers = !isTestEnv
                 ? (this.get('tps_users') || []).filter(u => u && !isDummyOrTestUser(u, true))
                 : (this.get('tps_users') || []);
@@ -4817,10 +4840,52 @@ class DatabaseService {
                 ...localUsers.filter(lu => !remoteEmails.has((lu.email || '').toLowerCase()) && lu.id !== 'u-pending')
               ];
 
-              // Enrich all users with securely stored passwords
+              // Enrich all users with profiles metadata, passwords, and assigned student IDs
               combined.forEach(u => {
                 const localMatch = localUsers.find(lu => lu.id === u.id || (lu.email && u.email && lu.email.toLowerCase() === u.email.toLowerCase()));
-                const meta = u.metadata || {};
+                const prof = profilesById.get(u.id) || (u.email && profilesById.get(u.email.toLowerCase()));
+                const meta = {
+                  ...(prof?.metadata || {}),
+                  ...(localMatch?.metadata || {}),
+                  ...(u.metadata || {})
+                };
+                u.metadata = meta;
+
+                // Sync basic fields if missing
+                if (!u.phone && (prof?.phone || localMatch?.phone)) u.phone = prof?.phone || localMatch?.phone;
+                if (!u.phone_number && (prof?.phone || localMatch?.phone_number || localMatch?.phone)) u.phone_number = prof?.phone || localMatch?.phone_number || localMatch?.phone;
+                if (!u.blood_group && (prof?.blood_group || localMatch?.blood_group)) u.blood_group = prof?.blood_group || localMatch?.blood_group;
+                if (!u.tps_id && (prof?.tps_id || localMatch?.tps_id)) u.tps_id = prof?.tps_id || localMatch?.tps_id;
+                if (!u.avatar_url && (prof?.avatar_url || localMatch?.avatar_url)) u.avatar_url = prof?.avatar_url || localMatch?.avatar_url;
+
+                // Enrich parent assigned students
+                const cloudAssigned = parentAssignmentsMap[u.id] || (u.email && parentAssignmentsMap[u.email.toLowerCase()]);
+                const childIds = u.assigned_student_ids || 
+                                 meta.assigned_student_ids || 
+                                 meta.student_ids || 
+                                 meta.child_ids || 
+                                 cloudAssigned || 
+                                 localMatch?.assigned_student_ids || 
+                                 localMatch?.student_ids || 
+                                 localMatch?.child_ids || 
+                                 [];
+                if (Array.isArray(childIds) && childIds.length > 0) {
+                  u.assigned_student_ids = childIds;
+                  u.student_ids = childIds;
+                  u.child_ids = childIds;
+                  meta.assigned_student_ids = childIds;
+                  meta.student_ids = childIds;
+                  meta.child_ids = childIds;
+                  parentAssignmentsMap[u.id] = childIds;
+                  if (u.email) parentAssignmentsMap[u.email.toLowerCase()] = childIds;
+                }
+
+                // Enrich mentor properties
+                if (meta.mentor_type && !u.mentor_type) u.mentor_type = meta.mentor_type;
+                if (meta.hostel_unit && !u.hostel_unit) u.hostel_unit = meta.hostel_unit;
+                if (meta.gender && !u.gender) u.gender = meta.gender;
+
+                // Enrich securely stored passwords
                 const storedPw = passwordsMap[u.id] || 
                                  (u.email && passwordsMap[u.email.toLowerCase()]) || 
                                  meta.password || 
@@ -4837,6 +4902,7 @@ class DatabaseService {
                 combined = combined.filter(u => !isDummyOrTestUser(u, true));
               }
 
+              this.set('tps_parent_assignments', parentAssignmentsMap);
               this._usersCache = combined;
               this._usersCacheTime = Date.now();
               return combined;
@@ -4852,6 +4918,20 @@ class DatabaseService {
 
         res.forEach(u => {
           const meta = u.metadata || {};
+          const cloudAssigned = parentAssignmentsMap[u.id] || (u.email && parentAssignmentsMap[u.email.toLowerCase()]);
+          const childIds = u.assigned_student_ids || 
+                           meta.assigned_student_ids || 
+                           meta.student_ids || 
+                           meta.child_ids || 
+                           cloudAssigned || 
+                           [];
+          if (Array.isArray(childIds) && childIds.length > 0) {
+            u.assigned_student_ids = childIds;
+            u.student_ids = childIds;
+            u.child_ids = childIds;
+            meta.assigned_student_ids = childIds;
+          }
+
           const storedPw = passwordsMap[u.id] || 
                            (u.email && passwordsMap[u.email.toLowerCase()]) || 
                            meta.password || 
@@ -5089,6 +5169,7 @@ class DatabaseService {
     pMap[user_id] = student_ids;
     if (email) pMap[email.toLowerCase()] = student_ids;
     this.set('tps_parent_assignments', pMap);
+    await this.pushCloudKey('tps_parent_assignments', pMap);
 
     // Keep tps_users up to date locally
     const users = this.get('tps_users') || [];
@@ -5098,7 +5179,13 @@ class DatabaseService {
         ...users[idx],
         assigned_student_ids: student_ids,
         student_ids,
-        child_ids: student_ids
+        child_ids: student_ids,
+        metadata: {
+          ...(users[idx].metadata || {}),
+          assigned_student_ids: student_ids,
+          student_ids,
+          child_ids: student_ids
+        }
       };
       this.set('tps_users', users);
     }
@@ -5120,6 +5207,9 @@ class DatabaseService {
         console.warn('Supabase setParentAssignedStudents error:', e);
       }
     }
+    this._usersCache = null;
+    this._usersCacheTime = 0;
+    this._usersInFlightPromise = null;
     return student_ids;
   }
 
