@@ -9402,3 +9402,62 @@ aside.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-che
   background: #1E293B !important;
   color: #10B981 !important;
 }
+
+/* ==========================================================================
+   Vehicle Booking & Ride Responsive Styles
+   ========================================================================== */
+.trip-mode-toggle-bar {
+  display: flex;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-medium);
+  gap: 4px;
+  width: 100%;
+}
+
+.trip-mode-toggle-bar .btn-trip-mode {
+  flex: 1 1 50%;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.trip-mode-toggle-bar .btn-trip-mode.active {
+  background: #4F46E5;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+@media (min-width: 641px) {
+  .trip-mode-toggle-bar {
+    width: auto;
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 640px) {
+  .trip-mode-toggle-bar {
+    width: 100% !important;
+    margin-top: 0.5rem;
+  }
+  .trip-mode-toggle-bar .btn-trip-mode {
+    flex: 1 1 50% !important;
+    padding: 9px 8px !important;
+    font-size: 0.82rem !important;
+  }
+  .trip-category-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+}
+

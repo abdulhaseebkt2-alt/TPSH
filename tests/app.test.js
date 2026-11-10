@@ -9421,13 +9421,16 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(userCardCode).toContain('openViewOnlyTripModal(targetTrip, userName)');
     });
 
-    it('verifies trip persistence, side-by-side odometer inputs, and cancel trip controls in user-trips.js', () => {
+    it('verifies trip persistence, in-progress odometer inputs, responsive toggle bar, category selector, and cancel trip controls in user-trips.js', () => {
       const userTripsCode = fs.readFileSync('src/modules/vehicles/user-trips.js', 'utf8');
       expect(userTripsCode).toContain('tps_active_trip_id');
       expect(userTripsCode).toContain('btn-cancel-active-trip');
       expect(userTripsCode).toContain('btn-block-for-others');
       expect(userTripsCode).toContain('short-ride-start-km');
-      expect(userTripsCode).toContain('short-ride-end-km');
+      expect(userTripsCode).toContain('end-km-input');
+      expect(userTripsCode).toContain('trip-mode-toggle-bar');
+      expect(userTripsCode).toContain('card-cat-personal');
+      expect(userTripsCode).toContain('card-cat-official');
       expect(userTripsCode).toContain('openDiscrepancyModal');
     });
 
