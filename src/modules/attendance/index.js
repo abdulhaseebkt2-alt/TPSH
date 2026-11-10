@@ -1,4 +1,5 @@
-import { db } from '../../lib/db.js';
+import { db, isDummyOrTestUser } from '../../lib/db.js';
+import { isTestEnv } from '../../lib/supabase.js';
 import { toast } from '../../lib/toast.js';
 import { confirmDialog } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -24,51 +25,72 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   const canSubmitAction = canPerformAction(user, 'attendance', 'submit_attendance') || canPerformAction(user, 'attendance', 'edit');
   const isViewOnly = isViewOnlyModule(user, 'attendance');
 
-  const [allPrograms, allClassrooms, rawStudents, users, leaves, facultyLeaves, academicCalendar] = await Promise.all([
+  const [allPrograms, allClassrooms, rawStudents, users, leaves, facultyLeaves, academicCalendar, teacherAssignments] = await Promise.all([
     db.getPrograms(),
     db.getClassrooms(),
     db.getStudents(),
     db.getUsers(),
     db.getLeaves(),
     db.getFacultyLeaves(),
-    db.getAcademicCalendar()
+    db.getAcademicCalendar(),
+    db.getTeacherAssignments()
   ]);
 
   // Strictly filter to active students only (exclude temporary break, dropped out, inactive)
   const students = (rawStudents || []).filter(s => isStudentActive(s));
 
-  // Eligible teachers list for Admin filter
-  const eligibleTeachers = users.filter(u => 
-    (u.approval_status === 'approved' || !u.approval_status || u.approval_status === 'active' || u.is_super_admin || u.role === 'super_admin' || u.role === 'admin') && 
-    (u.role === 'teacher' || u.role === 'admin' || u.role === 'super_admin' || !u.role)
-  );
+  // Helper: check if a user is assigned to a classroom (via teacher_id, name, email, or tenure history)
+  function isTeacherAssignedToClass(u, c) {
+    if (!u || !c) return false;
+    const uId = String(u.id || '').toLowerCase();
+    const uEmail = String(u.email || '').toLowerCase();
+    const uName = String(u.full_name || u.name || '').trim().toLowerCase();
+    const cTId = String(c.teacher_id || '').toLowerCase();
+    const cTName = String(c.teacher_name || '').trim().toLowerCase();
+    const uFirstName = uName.split(' ')[0];
 
-  // Ensure current logged-in user is present in eligibleTeachers if faculty/admin
-  if (user && !eligibleTeachers.some(t => t.id === user.id || (t.email && user.email && t.email.toLowerCase() === user.email.toLowerCase()))) {
+    if (uId && cTId === uId) return true;
+    if (uEmail && cTId === uEmail) return true;
+    if (uName && (cTId === uName || cTName === uName)) return true;
+    if (uFirstName && uFirstName.length > 2 && (cTName.includes(uFirstName) || cTId.includes(uFirstName))) return true;
+    if ((uId === 'u-2' || uEmail === 'teacher@thaibaschool.edu.in') && cTId === '3ba0d909-6656-43eb-87fb-fe8e30088d55') return true;
+
+    // Check teacher assignments table
+    const asgList = (teacherAssignments || []).filter(a => a.classroom_id === c.id);
+    if (asgList.some(a => {
+      const aT = String(a.teacher_id || '').toLowerCase();
+      return aT === uId || (uEmail && aT === uEmail) || (uName && aT === uName);
+    })) {
+      return true;
+    }
+    return false;
+  }
+
+  // Eligible teachers list for Admin filter: ONLY faculty/users who are actually assigned to at least one classroom
+  const eligibleTeachers = users.filter(u => {
+    if (isDummyOrTestUser(u, true)) return false;
+    if (u.approval_status !== 'approved' && u.approval_status && u.approval_status !== 'active') return false;
+    return allClassrooms.some(c => isTeacherAssignedToClass(u, c));
+  }).sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
+
+  // If currently logged-in user is an admin or teacher who has assigned classes (or in test env), ensure they are present in eligibleTeachers
+  if (user && (isTestEnv || allClassrooms.some(c => isTeacherAssignedToClass(user, c))) && !eligibleTeachers.some(t => t.id === user.id || (t.email && user.email && t.email.toLowerCase() === user.email.toLowerCase()))) {
     eligibleTeachers.unshift(user);
   }
 
+  // Safety fallback only if no classrooms have teachers assigned yet across the entire institution
+  if (eligibleTeachers.length === 0) {
+    const fallback = users.filter(u => !isDummyOrTestUser(u, true) && (u.approval_status === 'approved' || !u.approval_status) && (u.role === 'teacher' || u.role === 'admin' || u.role === 'super_admin'));
+    eligibleTeachers.push(...fallback);
+  }
+
   // Helper: Find classrooms assigned to a given user
-  function getAssignedClassroomsForUser(targetUser) {
+  function getAssignedClassroomsForUser(targetUser, allowAdminFallback = false) {
     if (!targetUser) return [];
-    const tId = targetUser.id;
-    const tEmail = (targetUser.email || '').toLowerCase();
-    const tName = (targetUser.full_name || targetUser.name || '').trim().toLowerCase();
-    const tFirstName = tName.split(' ')[0];
+    const matched = allClassrooms.filter(c => isTeacherAssignedToClass(targetUser, c));
 
-    const matched = allClassrooms.filter(c => {
-      const cTeacherId = (c.teacher_id || '').toLowerCase();
-      const cTeacherName = (c.teacher_name || '').toLowerCase();
-      if (tId && c.teacher_id === tId) return true;
-      if (tEmail && cTeacherId === tEmail) return true;
-      if (tName && (cTeacherId === tName || cTeacherName === tName)) return true;
-      if (tFirstName && tFirstName.length > 2 && (cTeacherName.includes(tFirstName) || cTeacherId.includes(tFirstName))) return true;
-      if ((tId === 'u-2' || tEmail === 'teacher@thaibaschool.edu.in') && c.teacher_id === '3ba0d909-6656-43eb-87fb-fe8e30088d55') return true;
-      return false;
-    });
-
-    // If no direct classroom assignment found for this admin, fallback to allClassrooms so they don't see an empty screen
-    if (matched.length === 0 && (targetUser.role === 'super_admin' || targetUser.role === 'admin' || targetUser.is_super_admin)) {
+    // Fallback to allClassrooms only if explicitly requested for an admin with zero assigned classes
+    if (matched.length === 0 && allowAdminFallback && (targetUser.role === 'super_admin' || targetUser.role === 'admin' || targetUser.is_super_admin)) {
       return allClassrooms;
     }
 
@@ -106,6 +128,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
       eligibleTeachers.find(t => t.full_name && user?.full_name && t.full_name.toLowerCase().includes('haseeb') && user.full_name.toLowerCase().includes('haseeb'));
     if (selfTeacher) {
       selectedAdminTeacherId = selfTeacher.id;
+    } else if (eligibleTeachers.length > 0) {
+      selectedAdminTeacherId = eligibleTeachers[0].id;
     }
   }
 
@@ -543,17 +567,17 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           </div>
         ` : ''}
 
-        <!-- TIMETABLE SCHEDULE TABS -->
+        <!-- TIMETABLE SCHEDULE TABS (Live First, Today Second, Weekly Third) -->
         <div class="att-timetable-tabs" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; width: 100%; box-sizing: border-box; background: #F1F5F9; padding: 0.3rem; border-radius: 12px; margin-bottom: 1.25rem;">
+          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'live' ? 'is-active' : ''}" data-tab="live" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
+            ${liveList.length > 0 ? `<span class="live-pulse-dot" style="margin-right: 2px;"></span>` : ''}
+            Live (${liveList.length})
+          </button>
           <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'today' ? 'is-active' : ''}" data-tab="today" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
             Today (${todayList.length})
           </button>
           <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'weekly' ? 'is-active' : ''}" data-tab="weekly" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
             Weekly (${displayList.length})
-          </button>
-          <button type="button" class="att-timetable-tab-btn ${timetableFilterTab === 'live' ? 'is-active' : ''}" data-tab="live" style="padding: 0.5rem 0.2rem; font-size: 0.78rem; width: 100%; min-width: 0; text-align: center; justify-content: center; white-space: nowrap;">
-            ${liveList.length > 0 ? `<span class="live-pulse-dot" style="margin-right: 2px;"></span>` : ''}
-            Live (${liveList.length})
           </button>
         </div>
 

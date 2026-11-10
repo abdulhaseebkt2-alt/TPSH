@@ -9127,5 +9127,33 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Verify mobile pending cards include password button
       expect(usersCode).toContain('data-email="${u.email}" style="color: #4F46E5;');
     });
+
+    it('2519: Attendance Duty Tab Ordering (Live First, Today Second, Weekly Third) & Scoped Faculty Dropdown to Assigned Teachers', async () => {
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAttendanceModule(container, { onNavigate: () => {} });
+      const html = container.innerHTML;
+
+      // 1. Verify tab order: Live is first, Today is second, Weekly is third
+      const livePos = html.indexOf('data-tab="live"');
+      const todayPos = html.indexOf('data-tab="today"');
+      const weeklyPos = html.indexOf('data-tab="weekly"');
+
+      expect(livePos).toBeGreaterThan(-1);
+      expect(todayPos).toBeGreaterThan(-1);
+      expect(weeklyPos).toBeGreaterThan(-1);
+
+      expect(livePos).toBeLessThan(todayPos);
+      expect(todayPos).toBeLessThan(weeklyPos);
+
+      // 2. Code inspection: verify Attendance module filters eligible teachers by classroom assignment
+      const attCode = fs.readFileSync('src/modules/attendance/index.js', 'utf8');
+      expect(attCode).toContain('allClassrooms.some(c => isTeacherAssignedToClass(u, c))');
+      expect(attCode).toMatch(/data-tab="live"[\s\S]*data-tab="today"[\s\S]*data-tab="weekly"/);
+    });
   });
 });

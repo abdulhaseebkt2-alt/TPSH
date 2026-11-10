@@ -106,7 +106,7 @@ export async function renderTimetableModule(container, { onNavigate }) {
       displayClassrooms = displayClassrooms.filter(c => c.teacher_id === selectedFacultyFilter);
     }
 
-    const eligibleTeachers = users.filter(u => u.approval_status === 'approved' && (u.role === 'teacher' || u.role === 'mentor' || u.role === 'hostel_leader'));
+    const eligibleTeachers = users.filter(u => u.approval_status === 'approved' && (u.role === 'teacher' || u.role === 'mentor' || u.role === 'hostel_leader') && classrooms.some(c => c.teacher_id === u.id));
 
     // Current day & time for live badge evaluation
     const now = new Date();
