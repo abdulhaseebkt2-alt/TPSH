@@ -1,4 +1,4 @@
-import { db } from '../../lib/db.js';
+import { db, isDummyOrTestUser } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
 import { 
@@ -10,6 +10,7 @@ import { enhanceDateInput } from '../../components/date-picker.js';
 import { attachWheelTimePicker } from '../../lib/wheelTimePicker.js';
 import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
+import { isTripForUser } from './user-card.js';
 
 export async function renderUserVehicleTripsModule(container, { onNavigate } = {}) {
   const currentUser = getCurrentUser();
@@ -19,35 +20,36 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
   }
 
   // Load data
-  let vehicles = await db.getVehicles();
-  let expenses = await db.getVehicleExpenses();
-  let allTrips = await db.getTripLogs();
+  let [vehicles, expenses, allTrips, destinations, allUsers] = await Promise.all([
+    db.getVehicles(),
+    db.getVehicleExpenses(),
+    db.getTripLogs(),
+    db.getVehicleDestinations(),
+    db.getUsers()
+  ]);
 
   // Active vehicle selection state
   const availableVehicles = vehicles.filter(v => v.status !== 'Inactive');
   let selectedVehicleId = availableVehicles[0]?.id || vehicles[0]?.id;
 
   function render() {
-    // Current user's trips
-    const userTrips = allTrips.filter(t => {
-      if (!t) return false;
-      const sId = String(currentUser?.id || '').trim().toLowerCase();
-      const sTpsId = String(currentUser?.tps_id || '').trim().toLowerCase();
-      const sEmail = String(currentUser?.email || '').trim().toLowerCase();
-      const sName = String(currentUser?.full_name || '').trim().toLowerCase();
-      const tUserId = String(t.user_id || '').trim().toLowerCase();
-      const tUserEmail = String(t.user_email || '').trim().toLowerCase();
-      const tUserName = String(t.user_name || '').trim().toLowerCase();
-      return (
-        (sId && tUserId === sId) ||
-        (sTpsId && tUserId === sTpsId) ||
-        (sEmail && (tUserId === sEmail || tUserEmail === sEmail)) ||
-        (sName && tUserName === sName)
-      );
-    });
+    // Current user's trips using robust matching
+    const userTrips = allTrips.filter(t => isTripForUser(t, currentUser));
 
-    // Active trip for this user (Pending Approval, Approved, or In Progress)
-    const activeTrip = userTrips.find(t => ['Pending Approval', 'Approved', 'In Progress'].includes(t.status));
+    // Active trip persistence: check localStorage first, then active user trips
+    const storedActiveTripId = localStorage.getItem('tps_active_trip_id');
+    let activeTrip = null;
+    if (storedActiveTripId) {
+      activeTrip = allTrips.find(t => (t.id === storedActiveTripId || t.trip_id === storedActiveTripId) && ['Pending Approval', 'Approved', 'In Progress'].includes(t.status));
+    }
+    if (!activeTrip) {
+      activeTrip = userTrips.find(t => ['Pending Approval', 'Approved', 'In Progress'].includes(t.status));
+    }
+    if (activeTrip) {
+      localStorage.setItem('tps_active_trip_id', activeTrip.id);
+    } else {
+      localStorage.removeItem('tps_active_trip_id');
+    }
 
     // Get selected vehicle object
     let selectedVeh = vehicles.find(v => v.id === selectedVehicleId) || availableVehicles[0] || vehicles[0];
@@ -56,9 +58,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     }
 
     const dynamicRateInfo = selectedVeh ? calculateDynamicRatePerKm(selectedVeh, expenses, allTrips) : { rate: 16 };
-    const isBike = normalizeVehicleCategory(selectedVeh?.vehicle_type) === '2 Wheeler';
     const isInstantAllowed = selectedVeh?.allow_instant_short_ride !== false;
-
     const isAdmin = currentUser.is_super_admin || currentUser.role === 'super_admin' || currentUser.role === 'admin';
 
     container.innerHTML = `
@@ -84,6 +84,10 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
             My Ledger & Past Trips
           </button>
           ${isAdmin ? `
+            <button class="btn btn-outline" id="btn-destinations-admin" style="font-weight: 600; color: #065F46; border-color: #A7F3D0; background: #ECFDF5;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Preset Destinations & Reviews
+            </button>
             <button class="btn btn-secondary" id="btn-all-trips-master" style="font-weight: 600;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
               All Trips Master
@@ -120,7 +124,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           </div>
         </div>
 
-        <!-- 1. VEHICLE SELECTOR CARD (MATCHING SECTIONS & CLASSROOMS DESIGN PATTERN) -->
+        <!-- 1. VEHICLE SELECTOR CARD -->
         <div style="margin-bottom: 1.25rem;">
           <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E293B; margin-bottom: 0.4rem;">
             Assigned Vehicle
@@ -179,44 +183,77 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         <form id="form-book-vehicle">
           <!-- Short Ride Instant Box (Default mode) -->
           <div id="short-ride-box" style="background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
               <strong style="color: #3730A3; font-size: 0.98rem;">Short Ride Mode (Meter-to-Meter)</strong>
+              <div style="display: flex; gap: 0.4rem;">
+                <label id="opt-short-personal" style="display: flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1.5px solid #4F46E5; background: #FFF; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: #4338CA;">
+                  <input type="radio" name="short_trip_category" value="Personal" checked style="accent-color: #4F46E5;" />
+                  Personal Ride
+                </label>
+                <label id="opt-short-official" style="display: flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1.5px solid #CBD5E1; background: #FFF; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: #475569;">
+                  <input type="radio" name="short_trip_category" value="Official" style="accent-color: #059669;" />
+                  Official Trip
+                </label>
+              </div>
             </div>
-            
+
+            <!-- Official Preset Destination Dropdown (Shown when Official is selected) -->
+            <div id="short-official-dest-box" style="display: none; background: #FFFFFF; border: 1.5px solid #A7F3D0; border-radius: 8px; padding: 0.75rem; margin-bottom: 0.85rem;">
+              <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #065F46; margin-bottom: 0.35rem;">
+                Select Official Preset Destination Benchmark *
+              </label>
+              <select id="short-official-dest-select" class="form-control" style="width: 100%; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.4rem;">
+                ${destinations.filter(d => d.is_active !== false).map(d => `
+                  <option value="${d.id}" data-km="${d.standard_distance_km}">${d.name} (${d.standard_distance_km} KM standard benchmark)</option>
+                `).join('')}
+                <option value="other">Other (Custom Destination)</option>
+              </select>
+              <div id="short-custom-dest-row" style="display: none; grid-template-columns: 2fr 1fr; gap: 0.5rem;">
+                <input type="text" id="short-custom-dest-name" class="form-control" placeholder="Destination name / office..." style="font-size: 0.82rem;" />
+                <input type="number" id="short-custom-dest-km" class="form-control" min="1" placeholder="Standard KM" style="font-size: 0.82rem; font-family: monospace;" />
+              </div>
+            </div>
+
             <p style="font-size: 0.8rem; color: #4338CA; margin: 0 0 1rem; line-height: 1.4;">
               ${isInstantAllowed 
-                ? 'Enter your current starting meter reading (KM) and begin driving immediately. When you return, enter your ending meter reading to compute the exact bill.'
-                : `Trips on <strong>${selectedVeh?.vehicle_name}</strong> require administrator review. Submitting below will log your start meter reading and send an approval request to the administration office.`}
+                ? 'Verify your starting meter reading below and start driving. You can also specify an optional ending meter reading to finish directly.'
+                : `Trips on <strong>${selectedVeh?.vehicle_name}</strong> require administrator review. Submitting below will log your start meter reading and send an approval request.`}
             </p>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: flex-end;">
+            <!-- Minimalist Side-by-Side Inputs -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
               <div>
-                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E1B4B; margin-bottom: 0.3rem;">
-                  Current Starting Meter Reading (KM) *
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E1B4B; margin-bottom: 0.25rem;">
+                  Current Starting Odometer (KM) *
                 </label>
-                <input type="number" id="short-ride-start-km" class="form-control" required value="${selectedVeh?.current_odometer || 0}" min="${selectedVeh?.current_odometer || 0}" placeholder="e.g. ${selectedVeh?.current_odometer || 0}" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1.1rem; padding: 0.55rem 0.75rem;" />
+                <input type="number" id="short-ride-start-km" class="form-control" required value="${selectedVeh?.current_odometer || 0}" min="${selectedVeh?.current_odometer || 0}" placeholder="e.g. ${selectedVeh?.current_odometer || 0}" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1.05rem;" />
               </div>
               <div>
-                ${isInstantAllowed ? `
-                  <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="width: 100%; padding: 0.65rem 1rem; font-weight: 700; background: #4F46E5; border-color: #4F46E5; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-                    Start Instant Short Ride
-                  </button>
-                ` : `
-                  <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="width: 100%; padding: 0.65rem 1rem; font-weight: 700; background: #D97706; border-color: #D97706;">
-                    Submit Request for Admin Approval
-                  </button>
-                `}
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E1B4B; margin-bottom: 0.25rem;">
+                  Post-Trip / End Odometer (KM)
+                </label>
+                <input type="number" id="short-ride-end-km" class="form-control" placeholder="+1 KM min (${Number(selectedVeh?.current_odometer || 0) + 1})" min="${Number(selectedVeh?.current_odometer || 0) + 1}" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1.05rem;" />
               </div>
             </div>
 
-            ${!isInstantAllowed ? `
-              <div style="margin-top: 0.85rem; font-size: 0.76rem; color: #92400E; display: flex; align-items: center; gap: 0.35rem;">
-                <span>•</span> Note: Once an admin reviews and approves this request, your trip will be activated to start driving.
-              </div>
-            ` : ''}
+            <!-- Action Buttons: Start Short Ride & Block Trip for Others -->
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              ${isInstantAllowed ? `
+                <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="flex: 1 1 200px; padding: 0.65rem 1rem; font-weight: 700; background: #4F46E5; border-color: #4F46E5; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
+                  Start Instant Short Ride
+                </button>
+              ` : `
+                <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="flex: 1 1 200px; padding: 0.65rem 1rem; font-weight: 700; background: #D97706; border-color: #D97706;">
+                  Submit Request for Admin Approval
+                </button>
+              `}
+              <button type="button" id="btn-block-for-others" class="btn btn-outline" style="font-weight: 700; padding: 0.65rem 1rem; border-color: #C7D2FE; color: #4338CA; background: #FFFFFF; white-space: nowrap;">
+                👥 Block Trip for Others
+              </button>
+            </div>
           </div>
 
-          <!-- Scheduled Booking Box (Shown when switched to Scheduled Trip) -->
+          <!-- Scheduled Booking Box -->
           <div id="scheduled-booking-box" style="display: none;">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
               <div>
@@ -224,8 +261,8 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 <input type="text" id="trip-destination" class="form-control" placeholder="e.g. Kozhikode Medical College & Return" style="width: 100%;" />
               </div>
               <div>
-                <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Purpose of Personal Travel *</label>
-                <input type="text" id="trip-purpose" class="form-control" placeholder="e.g. Personal errand / Family travel" style="width: 100%;" />
+                <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.25rem;">Purpose of Travel *</label>
+                <input type="text" id="trip-purpose" class="form-control" placeholder="e.g. Official campus errand / Personal travel" style="width: 100%;" />
               </div>
             </div>
 
@@ -287,7 +324,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     attachEvents(activeTrip);
   }
 
-  // Helper to render the Active Trip Control Box
+  // Render Active Trip Control Box with side-by-side inputs and persistent Cancel button
   function renderActiveTripBox(activeTrip) {
     if (!activeTrip) return '';
 
@@ -306,7 +343,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 Trip <strong>${activeTrip.trip_id}</strong> (${activeTrip.destination}) with <strong>${veh?.vehicle_name || 'Vehicle'}</strong> (${veh?.reg_number}) is awaiting review by school administration.
               </p>
             </div>
-            <button class="btn btn-sm btn-outline btn-cancel-trip" data-id="${activeTrip.id}" style="color: #DC2626; border-color: #FECACA;">
+            <button class="btn btn-sm btn-outline btn-cancel-trip" data-id="${activeTrip.id}" style="color: #DC2626; border-color: #FECACA; background: #FFF; font-weight: 700;">
               Cancel Request
             </button>
           </div>
@@ -326,13 +363,13 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
             </h4>
           </div>
           <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #047857;">
-            Your trip <strong>${activeTrip.trip_id}</strong> is approved! Locked rate: <strong>₹${Number(activeTrip.applied_rate_per_km || 15).toFixed(2)}/km</strong>. Please verify and enter the starting odometer reading before you drive.
+            Your trip <strong>${activeTrip.trip_id}</strong> is approved! Locked rate: <strong>₹${Number(activeTrip.applied_rate_per_km || 15).toFixed(2)}/km</strong>. Please verify starting odometer reading before you drive.
           </p>
 
           <form id="form-start-trip" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
             <div>
               <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #065F46; margin-bottom: 0.25rem;">
-                Starting Odometer (KM) * (Vehicle Current: ${minOdo} KM)
+                Starting Odometer (KM) * (Vehicle: ${minOdo} KM)
               </label>
               <input type="number" id="start-km-input" class="form-control" required min="${minOdo}" value="${minOdo}" style="width: 220px; font-weight: 700; font-family: monospace;" />
             </div>
@@ -352,6 +389,8 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     if (activeTrip.status === 'In Progress') {
       const startKm = Number(activeTrip.start_km || 0);
       const rate = Number(activeTrip.applied_rate_per_km || 15);
+      const isOfficial = activeTrip.trip_category === 'Official';
+      const standardKm = Number(activeTrip.standard_km || 0);
 
       return `
         <div class="card-panel" style="background: #EFF6FF; border: 2px solid #3B82F6; border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem;">
@@ -362,33 +401,48 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 Active Trip Control: Journey In Progress
               </h4>
             </div>
-            <span class="badge" style="background: #DBEAFE; color: #1E40AF; font-weight: 700;">
-              Started at ${startKm} KM • Rate: ₹${rate.toFixed(2)}/km
-            </span>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+              <span class="badge" style="background: #DBEAFE; color: #1E40AF; font-weight: 700;">
+                Started at ${startKm} KM • Rate: ₹${rate.toFixed(2)}/km
+              </span>
+              ${isOfficial ? `<span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700;">Official (Benchmark: ${standardKm} KM)</span>` : ''}
+            </div>
           </div>
 
           <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #1E3A8A;">
-            Destination: <strong>${activeTrip.destination}</strong> with <strong>${veh?.vehicle_name || 'Vehicle'}</strong> (${veh?.reg_number}). When you return to campus, enter the final odometer reading below to complete the trip and automatically compute your bill.
+            Destination: <strong>${activeTrip.destination}</strong> with <strong>${veh?.vehicle_name || 'Vehicle'}</strong> (${veh?.reg_number}). When you return, enter ending odometer reading below to complete the trip.
           </p>
 
           <form id="form-complete-trip" style="background: #FFFFFF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 1rem;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
+              <!-- Start KM Display -->
+              <div>
+                <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #64748B; margin-bottom: 0.25rem;">
+                  Starting Odometer (Logged)
+                </label>
+                <div style="background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 6px; padding: 0.55rem 0.75rem; font-weight: 800; font-family: monospace; font-size: 1rem; color: #334155;">
+                  ${startKm} KM
+                </div>
+              </div>
+
+              <!-- End KM Input -->
               <div>
                 <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #1E40AF; margin-bottom: 0.25rem;">
-                  Ending Odometer Reading (KM) * (Must be >= ${startKm})
+                  Ending Odometer Reading (KM) * (>= ${startKm + 1} KM)
                 </label>
-                <input type="number" id="end-km-input" class="form-control" required min="${startKm}" placeholder="e.g. ${startKm + 45}" style="width: 100%; font-weight: 700; font-family: monospace;" />
+                <input type="number" id="end-km-input" class="form-control" required min="${startKm + 1}" value="${startKm + 1}" placeholder="e.g. ${startKm + 45}" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1rem;" />
               </div>
 
               <!-- Live bill computation preview -->
               <div id="live-bill-calc-preview" style="font-size: 0.85rem; color: #1E40AF; padding: 0.5rem 0.75rem; background: #F8FAFC; border-radius: 6px; border: 1px dashed #CBD5E1;">
-                <div>Distance: <strong id="preview-distance">0 KM</strong></div>
-                <div>Estimated Bill: <strong id="preview-cost" style="color: #DC2626;">₹0.00</strong></div>
+                <div>Distance: <strong id="preview-distance">1 KM</strong></div>
+                <div>${isOfficial ? 'Excess Discrepancy:' : 'Estimated Bill:'} <strong id="preview-cost" style="color: ${isOfficial ? '#D97706' : '#DC2626'};">₹0.00</strong></div>
               </div>
 
+              <!-- Side-by-Side Action Buttons: Complete & Cancel -->
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button type="submit" class="btn btn-primary" style="flex: 1 1 auto; padding: 0.65rem 1rem; font-weight: 700; background: #2563EB;">
-                  Complete Trip & Generate Bill
+                  Complete Trip & Finalize
                 </button>
                 <button type="button" id="btn-cancel-active-trip" class="btn btn-outline" style="color: #DC2626; border-color: #FECACA; background: #FFF5F5; font-weight: 700; padding: 0.65rem 1rem; white-space: nowrap;">
                   ✕ Cancel Trip
@@ -408,6 +462,9 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     container.querySelector('#btn-view-user-card')?.addEventListener('click', () => {
       if (onNavigate) onNavigate('vehicle_card');
     });
+    container.querySelector('#btn-destinations-admin')?.addEventListener('click', () => {
+      if (onNavigate) onNavigate('vehicle_destinations');
+    });
     container.querySelector('#btn-all-trips-master')?.addEventListener('click', () => {
       if (onNavigate) onNavigate('vehicle_all_trips');
     });
@@ -415,7 +472,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       if (onNavigate) onNavigate('vehicles');
     });
 
-    // 1. VEHICLE SELECTOR MODAL DIALOG (MATCHING SECTIONS & CLASSROOMS MODAL PATTERN)
+    // 1. VEHICLE SELECTOR MODAL DIALOG
     container.querySelector('#sec-vehicle-trigger')?.addEventListener('click', () => {
       openModal({
         title: 'Select Vehicle to Ride',
@@ -423,7 +480,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         contentHtml: `
           <div style="margin-bottom: 0.5rem;">
             <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem;">
-              Choose an available school vehicle for your personal trip:
+              Choose an available school vehicle for your trip:
             </p>
             <div class="role-picker-list">
               ${vehicles.filter(v => v.status !== 'Inactive').map(v => {
@@ -432,7 +489,6 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 const vehCategory = normalizeVehicleCategory(v.vehicle_type);
                 const vehIcon = getVehicleTypeIcon(v.vehicle_type);
                 const isInstant = v.allow_instant_short_ride !== false;
-                const isAvail = v.status === 'Available';
 
                 return `
                   <div class="role-picker-item ${isSelected ? 'active' : ''}" data-veh-id="${v.id}" role="button" tabindex="0" style="cursor: pointer; padding: 0.85rem 1rem;">
@@ -492,11 +548,47 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       });
     });
 
+    // Official vs Personal toggle in Short Ride
+    let shortTripCategory = 'Personal';
+    const optPersonal = container.querySelector('#opt-short-personal');
+    const optOfficial = container.querySelector('#opt-short-official');
+    const officialDestBox = container.querySelector('#short-official-dest-box');
+    const officialDestSelect = container.querySelector('#short-official-dest-select');
+    const customDestRow = container.querySelector('#short-custom-dest-row');
+
+    container.querySelectorAll('input[name="short_trip_category"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        shortTripCategory = radio.value;
+        if (optPersonal && optOfficial) {
+          if (shortTripCategory === 'Personal') {
+            optPersonal.style.borderColor = '#4F46E5';
+            optPersonal.style.color = '#4338CA';
+            optOfficial.style.borderColor = '#CBD5E1';
+            optOfficial.style.color = '#475569';
+            if (officialDestBox) officialDestBox.style.display = 'none';
+          } else {
+            optOfficial.style.borderColor = '#059669';
+            optOfficial.style.color = '#065F46';
+            optPersonal.style.borderColor = '#CBD5E1';
+            optPersonal.style.color = '#475569';
+            if (officialDestBox) officialDestBox.style.display = 'block';
+          }
+        }
+      });
+    });
+
+    officialDestSelect?.addEventListener('change', () => {
+      if (customDestRow) {
+        customDestRow.style.display = officialDestSelect.value === 'other' ? 'grid' : 'none';
+      }
+    });
+
     // Ride Mode Toggle: Short Ride vs Scheduled
     let currentMode = 'short';
     const shortBox = container.querySelector('#short-ride-box');
     const scheduledBox = container.querySelector('#scheduled-booking-box');
     const startKmInput = container.querySelector('#short-ride-start-km');
+    const endKmInputDirect = container.querySelector('#short-ride-end-km');
 
     container.querySelectorAll('.btn-trip-mode').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -513,6 +605,11 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       });
     });
 
+    // "Block Trip for Others" Button Handler
+    container.querySelector('#btn-block-for-others')?.addEventListener('click', () => {
+      openBlockTripForOthersModal();
+    });
+
     // Start / Request Short Ride Handler
     container.querySelector('#btn-start-short-ride')?.addEventListener('click', async () => {
       if (activeTrip) {
@@ -526,33 +623,198 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         return;
       }
 
-      const startKm = parseFloat(startKmInput.value);
-      if (isNaN(startKm) || startKm < Number(veh.current_odometer || 0)) {
+      let startKm = parseFloat(startKmInput.value);
+      if (isNaN(startKm)) {
+        startKm = Number(veh.current_odometer || 0);
+      }
+      if (startKm < Number(veh.current_odometer || 0)) {
         toast.error(`Start meter reading cannot be less than current odometer (${veh.current_odometer || 0} KM).`);
         return;
+      }
+
+      // Check if user filled optional End KM for direct instant finish
+      const endKmDirectVal = parseFloat(endKmInputDirect?.value);
+      const isDirectFinish = !isNaN(endKmDirectVal) && endKmDirectVal > startKm;
+
+      // Destination & benchmark configuration
+      let tripDestName = 'Short Ride (Local / Campus)';
+      let stdKm = 0;
+      if (shortTripCategory === 'Official') {
+        const destChoice = officialDestSelect?.value;
+        if (destChoice === 'other') {
+          const customName = container.querySelector('#short-custom-dest-name')?.value.trim();
+          const customKm = parseFloat(container.querySelector('#short-custom-dest-km')?.value) || 0;
+          tripDestName = customName || 'Official Duty (Custom)';
+          stdKm = customKm;
+        } else {
+          const targetDest = destinations.find(d => d.id === destChoice);
+          tripDestName = targetDest?.name || 'Official Duty';
+          stdKm = Number(targetDest?.standard_distance_km || 0);
+        }
       }
 
       const dynamicRateInfo = calculateDynamicRatePerKm(veh, expenses, allTrips);
       const isInstantAllowed = veh.allow_instant_short_ride !== false;
 
-      if (isInstantAllowed) {
-        // INSTANT START: Directly 'In Progress'
-        await db.saveTripLog({
+      if (isDirectFinish && isInstantAllowed) {
+        // Direct complete instant ride!
+        const finalEndKm = Math.max(endKmDirectVal, startKm + 1);
+        const totalKm = Math.round((finalEndKm - startKm) * 100) / 100;
+        const rate = dynamicRateInfo.rate;
+
+        // Discrepancy check if official
+        if (shortTripCategory === 'Official' && stdKm > 0 && totalKm > stdKm) {
+          const excessKm = Math.round((totalKm - stdKm) * 100) / 100;
+          const excessAmount = Math.round(excessKm * rate * 100) / 100;
+
+          openDiscrepancyModal({
+            tripCode: `TRIP-${new Date().getFullYear()}-TEMP`,
+            destination: tripDestName,
+            standardKm: stdKm,
+            actualKm: totalKm,
+            excessKm,
+            excessAmount,
+            rate,
+            onConfirm: async () => {
+              const saved = await db.saveTripLog({
+                vehicle_id: veh.id,
+                user_id: currentUser.id,
+                user_name: currentUser.full_name,
+                user_email: currentUser.email || '',
+                user_role: currentUser.role,
+                destination: tripDestName,
+                purpose: 'Official Campus Travel',
+                start_time: new Date().toISOString(),
+                start_km: startKm,
+                end_km: finalEndKm,
+                total_km: totalKm,
+                applied_rate_per_km: rate,
+                total_amount: excessAmount,
+                status: 'Completed',
+                payment_status: 'Unpaid',
+                trip_category: 'Official',
+                standard_km: stdKm,
+                excess_km: excessKm,
+                discrepancy_status: 'Accepted',
+                completed_at: new Date().toISOString()
+              });
+              veh.current_odometer = finalEndKm;
+              veh.status = 'Available';
+              await db.saveVehicle(veh);
+              allTrips = await db.getTripLogs();
+              vehicles = await db.getVehicles();
+              localStorage.removeItem('tps_active_trip_id');
+              toast.success(`Trip completed! Excess ${excessKm} KM (₹${excessAmount}) logged on your Vehicle Card.`);
+              render();
+            },
+            onSubmitJustification: async (reason) => {
+              const saved = await db.saveTripLog({
+                vehicle_id: veh.id,
+                user_id: currentUser.id,
+                user_name: currentUser.full_name,
+                user_email: currentUser.email || '',
+                user_role: currentUser.role,
+                destination: tripDestName,
+                purpose: 'Official Campus Travel',
+                start_time: new Date().toISOString(),
+                start_km: startKm,
+                end_km: finalEndKm,
+                total_km: totalKm,
+                applied_rate_per_km: rate,
+                total_amount: excessAmount,
+                status: 'Completed',
+                payment_status: 'Pending Exemption Review',
+                trip_category: 'Official',
+                standard_km: stdKm,
+                excess_km: excessKm,
+                discrepancy_status: 'Pending Review',
+                discrepancy_reason: reason,
+                completed_at: new Date().toISOString()
+              });
+              veh.current_odometer = finalEndKm;
+              veh.status = 'Available';
+              await db.saveVehicle(veh);
+              allTrips = await db.getTripLogs();
+              vehicles = await db.getVehicles();
+              localStorage.removeItem('tps_active_trip_id');
+              toast.info(`Trip completed! Justification submitted for administrator review.`);
+              render();
+            }
+          });
+          return;
+        }
+
+        const bill = calculateTripBill(startKm, finalEndKm, rate);
+        const billAmt = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
+        const totalAmount = shortTripCategory === 'Official' ? 0 : billAmt;
+
+        const saved = await db.saveTripLog({
           vehicle_id: veh.id,
           user_id: currentUser.id,
           user_name: currentUser.full_name,
           user_email: currentUser.email || '',
           user_role: currentUser.role,
-          destination: 'Short Ride (Local / Campus)',
-          purpose: 'Personal Short Travel',
+          destination: tripDestName,
+          purpose: shortTripCategory === 'Official' ? 'Official Campus Travel' : 'Personal Short Travel',
+          start_time: new Date().toISOString(),
+          start_km: startKm,
+          end_km: finalEndKm,
+          total_km: totalKm,
+          applied_rate_per_km: rate,
+          total_amount: totalAmount,
+          status: 'Completed',
+          payment_status: totalAmount > 0 ? 'Unpaid' : 'Official Exemption',
+          trip_category: shortTripCategory,
+          standard_km: stdKm,
+          excess_km: 0,
+          discrepancy_status: 'None',
+          completed_at: new Date().toISOString()
+        });
+
+        veh.current_odometer = finalEndKm;
+        veh.status = 'Available';
+        await db.saveVehicle(veh);
+
+        allTrips = await db.getTripLogs();
+        vehicles = await db.getVehicles();
+        localStorage.removeItem('tps_active_trip_id');
+
+        openTripBillModal({
+          tripCode: saved.trip_id,
+          vehicleName: veh.vehicle_name,
+          regNumber: veh.reg_number,
+          startKm,
+          endKm: finalEndKm,
+          totalKm,
+          rate,
+          totalAmount
+        });
+
+        render();
+        return;
+      }
+
+      if (isInstantAllowed) {
+        // INSTANT START: Directly 'In Progress'
+        const saved = await db.saveTripLog({
+          vehicle_id: veh.id,
+          user_id: currentUser.id,
+          user_name: currentUser.full_name,
+          user_email: currentUser.email || '',
+          user_role: currentUser.role,
+          destination: tripDestName,
+          purpose: shortTripCategory === 'Official' ? 'Official Campus Travel' : 'Personal Short Travel',
           start_time: new Date().toISOString(),
           start_km: startKm,
           applied_rate_per_km: dynamicRateInfo.rate,
           status: 'In Progress',
-          payment_status: 'Unpaid'
+          payment_status: 'Unpaid',
+          trip_category: shortTripCategory,
+          standard_km: stdKm
         });
 
-        // Set vehicle to On Trip
+        localStorage.setItem('tps_active_trip_id', saved.id);
+
         veh.status = 'On Trip';
         await db.saveVehicle(veh);
 
@@ -562,21 +824,24 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         render();
       } else {
         // APPROVAL REQUIRED: Saves as 'Pending Approval'
-        await db.saveTripLog({
+        const saved = await db.saveTripLog({
           vehicle_id: veh.id,
           user_id: currentUser.id,
           user_name: currentUser.full_name,
           user_email: currentUser.email || '',
           user_role: currentUser.role,
-          destination: 'Short Ride (Local / Campus)',
-          purpose: 'Personal Short Travel',
+          destination: tripDestName,
+          purpose: shortTripCategory === 'Official' ? 'Official Campus Travel' : 'Personal Short Travel',
           start_time: new Date().toISOString(),
           start_km: startKm,
           applied_rate_per_km: dynamicRateInfo.rate,
           status: 'Pending Approval',
-          payment_status: 'Unpaid'
+          payment_status: 'Unpaid',
+          trip_category: shortTripCategory,
+          standard_km: stdKm
         });
 
+        localStorage.setItem('tps_active_trip_id', saved.id);
         allTrips = await db.getTripLogs();
         toast.info('Trip request submitted for administrator review and approval.');
         render();
@@ -605,13 +870,14 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       });
       if (confirmed) {
         await db.deleteTripLog(activeTrip.id);
+        localStorage.removeItem('tps_active_trip_id');
         allTrips = await db.getTripLogs();
         toast.info('Trip request cancelled.');
         render();
       }
     });
 
-    // Cancel active trip (In Progress or Approved - Abort before journey / reset vehicle status)
+    // Cancel active trip (In Progress or Approved - Abort before/during journey & release vehicle)
     const handleCancelActiveTrip = async () => {
       if (!activeTrip) return;
       const confirmed = await confirmDialog({
@@ -628,6 +894,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           await db.saveVehicle(veh);
         }
         await db.deleteTripLog(activeTrip.id);
+        localStorage.removeItem('tps_active_trip_id');
         allTrips = await db.getTripLogs();
         vehicles = await db.getVehicles();
         toast.info('Trip cancelled successfully. Vehicle returned to Available.');
@@ -675,7 +942,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
       const dynamicRateInfo = calculateDynamicRatePerKm(veh, expenses, allTrips);
 
-      await db.saveTripLog({
+      const saved = await db.saveTripLog({
         vehicle_id: veh.id,
         user_id: currentUser.id,
         user_name: currentUser.full_name,
@@ -691,6 +958,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         payment_status: 'Unpaid'
       });
 
+      localStorage.setItem('tps_active_trip_id', saved.id);
       allTrips = await db.getTripLogs();
       toast.success('Trip request submitted for administrator review and approval.');
       render();
@@ -734,17 +1002,28 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       const rate = Number(activeTrip.applied_rate_per_km) > 0 
         ? Number(activeTrip.applied_rate_per_km) 
         : (Number(veh?.fallback_rate_per_km) > 0 ? Number(veh.fallback_rate_per_km) : 15);
+      const isOfficial = activeTrip.trip_category === 'Official';
+      const stdKm = Number(activeTrip.standard_km || 0);
 
       endKmInput.addEventListener('input', () => {
         const val = parseFloat(endKmInput.value);
         if (!isNaN(val) && val >= startKm) {
-          const dist = Math.round((val - startKm) * 100) / 100;
-          const bill = calculateTripBill(startKm, val, rate);
-          const costNum = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
+          // Automatic 1 KM extra logic minimum
+          const finalVal = Math.max(val, startKm + 1);
+          const dist = Math.round((finalVal - startKm) * 100) / 100;
           if (previewDistance) previewDistance.textContent = `${dist} KM`;
-          if (previewCost) previewCost.textContent = formatCurrency(costNum);
+
+          if (isOfficial && stdKm > 0) {
+            const excess = Math.max(0, dist - stdKm);
+            const excessAmt = excess * rate;
+            if (previewCost) previewCost.textContent = excess > 0 ? `+${excess} KM (₹${excessAmt.toFixed(2)})` : '₹0.00 (Exempt)';
+          } else {
+            const bill = calculateTripBill(startKm, finalVal, rate);
+            const costNum = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
+            if (previewCost) previewCost.textContent = formatCurrency(costNum);
+          }
         } else {
-          if (previewDistance) previewDistance.textContent = '0 KM';
+          if (previewDistance) previewDistance.textContent = '1 KM';
           if (previewCost) previewCost.textContent = '₹0.00';
         }
       });
@@ -753,33 +1032,101 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     // Submit Complete Trip
     container.querySelector('#form-complete-trip')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const endKm = parseFloat(endKmInput.value);
+      const rawEndKm = parseFloat(endKmInput.value);
       const startKm = Number(activeTrip.start_km || 0);
       const veh = vehicles.find(v => v.id === activeTrip.vehicle_id);
 
-      if (isNaN(endKm) || endKm < startKm) {
-        toast.error(`Ending odometer must be greater than or equal to start odometer (${startKm} KM).`);
-        return;
-      }
-
+      // Enforce at least 1 KM extra compared to starting baseline as per current logic
+      const endKm = Math.max(isNaN(rawEndKm) ? startKm + 1 : rawEndKm, startKm + 1);
       const totalKm = Math.round((endKm - startKm) * 100) / 100;
       const rate = Number(activeTrip.applied_rate_per_km) > 0 
         ? Number(activeTrip.applied_rate_per_km) 
         : (Number(veh?.fallback_rate_per_km) > 0 ? Number(veh.fallback_rate_per_km) : 15);
-      const bill = calculateTripBill(startKm, endKm, rate);
-      const totalAmount = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
 
-      // Complete trip log
+      const isOfficial = activeTrip.trip_category === 'Official';
+      const stdKm = Number(activeTrip.standard_km || 0);
+
+      // Handle Official trip discrepancy if actual distance exceeds preset benchmark
+      if (isOfficial && stdKm > 0 && totalKm > stdKm) {
+        const excessKm = Math.round((totalKm - stdKm) * 100) / 100;
+        const excessAmount = Math.round(excessKm * rate * 100) / 100;
+
+        openDiscrepancyModal({
+          tripCode: activeTrip.trip_id,
+          destination: activeTrip.destination,
+          standardKm: stdKm,
+          actualKm: totalKm,
+          excessKm,
+          excessAmount,
+          rate,
+          onConfirm: async () => {
+            activeTrip.status = 'Completed';
+            activeTrip.end_km = endKm;
+            activeTrip.total_km = totalKm;
+            activeTrip.excess_km = excessKm;
+            activeTrip.applied_rate_per_km = rate;
+            activeTrip.total_amount = excessAmount;
+            activeTrip.completed_at = new Date().toISOString();
+            activeTrip.payment_status = 'Unpaid';
+            activeTrip.discrepancy_status = 'Accepted';
+            await db.saveTripLog(activeTrip);
+
+            if (veh) {
+              veh.current_odometer = endKm;
+              veh.status = 'Available';
+              await db.saveVehicle(veh);
+            }
+
+            allTrips = await db.getTripLogs();
+            vehicles = await db.getVehicles();
+            localStorage.removeItem('tps_active_trip_id');
+            toast.success(`Trip completed! Excess charge of ₹${excessAmount} added to your card.`);
+            render();
+          },
+          onSubmitJustification: async (reason) => {
+            activeTrip.status = 'Completed';
+            activeTrip.end_km = endKm;
+            activeTrip.total_km = totalKm;
+            activeTrip.excess_km = excessKm;
+            activeTrip.applied_rate_per_km = rate;
+            activeTrip.total_amount = excessAmount;
+            activeTrip.completed_at = new Date().toISOString();
+            activeTrip.payment_status = 'Pending Exemption Review';
+            activeTrip.discrepancy_status = 'Pending Review';
+            activeTrip.discrepancy_reason = reason;
+            await db.saveTripLog(activeTrip);
+
+            if (veh) {
+              veh.current_odometer = endKm;
+              veh.status = 'Available';
+              await db.saveVehicle(veh);
+            }
+
+            allTrips = await db.getTripLogs();
+            vehicles = await db.getVehicles();
+            localStorage.removeItem('tps_active_trip_id');
+            toast.info('Trip completed! Justification submitted for administrator review.');
+            render();
+          }
+        });
+        return;
+      }
+
+      // Normal or Within-Standard Official Trip
+      const bill = calculateTripBill(startKm, endKm, rate);
+      const billAmt = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
+      const totalAmount = isOfficial ? 0 : billAmt;
+
       activeTrip.status = 'Completed';
       activeTrip.end_km = endKm;
       activeTrip.total_km = totalKm;
       activeTrip.applied_rate_per_km = rate;
       activeTrip.total_amount = totalAmount;
       activeTrip.completed_at = new Date().toISOString();
-      activeTrip.payment_status = 'Unpaid';
+      activeTrip.payment_status = totalAmount > 0 ? 'Unpaid' : 'Official Exemption';
+      activeTrip.discrepancy_status = 'None';
       await db.saveTripLog(activeTrip);
 
-      // Update vehicle odometer and release status
       if (veh) {
         veh.current_odometer = endKm;
         veh.status = 'Available';
@@ -788,6 +1135,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
       allTrips = await db.getTripLogs();
       vehicles = await db.getVehicles();
+      localStorage.removeItem('tps_active_trip_id');
 
       // Show Completion & Invoice Popup Modal
       openTripBillModal({
@@ -805,6 +1153,425 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     });
   }
 
+  // MODAL: BLOCK TRIP FOR OTHERS
+  function openBlockTripForOthersModal() {
+    const eligibleStaff = allUsers.filter(u => 
+      u && !isDummyOrTestUser(u, true) && 
+      (u.approval_status === 'approved' || !u.approval_status || u.approval_status === 'active') &&
+      u.role !== 'student'
+    );
+
+    const targetVeh = vehicles.find(v => v.id === selectedVehicleId) || vehicles[0];
+    const minOdo = Number(targetVeh?.current_odometer || 0);
+
+    openModal({
+      title: 'Block / Log Trip for Staff & Faculty',
+      contentHtml: `
+        <form id="form-block-trip-for-others" style="display: flex; flex-direction: column; gap: 1rem;">
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.5rem; line-height: 1.4;">
+            Log an official or personal trip on behalf of another teacher, staff member, or driver. The trip and calculated dues will be directly recorded onto their personal Vehicle Card.
+          </p>
+
+          <!-- Select Staff / Faculty Member -->
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E293B; margin-bottom: 0.3rem;">
+              Select Faculty / Staff User *
+            </label>
+            <select id="block-user-select" class="form-control" required style="width: 100%; font-size: 0.88rem; font-weight: 600;">
+              ${eligibleStaff.map(u => `
+                <option value="${u.id}">${u.full_name} (${u.role || 'Staff'})</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- Select Vehicle -->
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E293B; margin-bottom: 0.3rem;">
+              Vehicle *
+            </label>
+            <select id="block-veh-select" class="form-control" required style="width: 100%; font-size: 0.88rem;">
+              ${vehicles.filter(v => v.status !== 'Inactive').map(v => `
+                <option value="${v.id}" data-odo="${v.current_odometer || 0}" ${v.id === targetVeh.id ? 'selected' : ''}>
+                  ${v.vehicle_name} (${v.reg_number}) • Odo: ${v.current_odometer || 0} KM
+                </option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- Trip Type: Personal vs Official -->
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E293B; margin-bottom: 0.3rem;">
+              Trip Purpose / Category *
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <label id="block-label-personal" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem; border: 1.5px solid #4F46E5; background: #EEF2FF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #4338CA;">
+                <input type="radio" name="block_trip_category" value="Personal" checked style="accent-color: #4F46E5;" />
+                Personal Ride
+              </label>
+              <label id="block-label-official" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem; border: 1.5px solid #CBD5E1; background: #FFFFFF; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #475569;">
+                <input type="radio" name="block_trip_category" value="Official" style="accent-color: #059669;" />
+                Official Duty
+              </label>
+            </div>
+          </div>
+
+          <!-- Official Preset Destination Selector (Shown if Official) -->
+          <div id="block-official-dest-box" style="display: none; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 0.75rem;">
+            <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #065F46; margin-bottom: 0.3rem;">
+              Preset Benchmark Destination
+            </label>
+            <select id="block-official-dest-select" class="form-control" style="width: 100%; font-size: 0.84rem; font-weight: 600;">
+              ${destinations.filter(d => d.is_active !== false).map(d => `
+                <option value="${d.id}" data-km="${d.standard_distance_km}">${d.name} (${d.standard_distance_km} KM standard benchmark)</option>
+              `).join('')}
+              <option value="other">Other (Custom Destination)</option>
+            </select>
+            <div id="block-custom-dest-row" style="display: none; grid-template-columns: 2fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+              <input type="text" id="block-custom-dest-name" class="form-control" placeholder="Destination name..." style="font-size: 0.82rem;" />
+              <input type="number" id="block-custom-dest-km" class="form-control" min="1" placeholder="Std KM" style="font-size: 0.82rem; font-family: monospace;" />
+            </div>
+          </div>
+
+          <!-- Side-by-Side Start KM & End KM -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E293B; margin-bottom: 0.25rem;">
+                Start Kilometer (KM) *
+              </label>
+              <input type="number" id="block-start-km" class="form-control" required value="${minOdo}" min="${minOdo}" style="width: 100%; font-weight: 700; font-family: monospace;" />
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E293B; margin-bottom: 0.25rem;">
+                End Kilometer (KM) * (>= ${minOdo + 1})
+              </label>
+              <input type="number" id="block-end-km" class="form-control" required value="${minOdo + 1}" min="${minOdo + 1}" style="width: 100%; font-weight: 700; font-family: monospace;" />
+            </div>
+          </div>
+
+          <!-- Destination / Route Notes -->
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #1E293B; margin-bottom: 0.25rem;">
+              Trip Notes / Destination Description
+            </label>
+            <input type="text" id="block-notes" class="form-control" placeholder="e.g. Campus errand / local transport" style="width: 100%; font-size: 0.84rem;" />
+          </div>
+
+          <!-- Fare Preview Box -->
+          <div id="block-fare-preview" style="background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 8px; padding: 0.75rem; font-size: 0.84rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.75rem;">Traveled Distance:</span>
+              <strong id="block-calc-dist" style="font-family: monospace; font-size: 0.95rem; color: #4F46E5; margin-left: 4px;">1 KM</strong>
+            </div>
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.75rem;">Recorded Fare:</span>
+              <strong id="block-calc-fare" style="font-size: 1.05rem; color: #DC2626; margin-left: 4px;">₹16.00</strong>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="submit" class="btn btn-primary" style="font-weight: 700; background: #059669; border-color: #059669; padding: 0.65rem 1.25rem;">
+              Record on User's Vehicle Card
+            </button>
+          </div>
+        </form>
+      `,
+      onMount: ({ container: modalBody, close }) => {
+        const userSelect = modalBody.querySelector('#block-user-select');
+        const vehSelect = modalBody.querySelector('#block-veh-select');
+        const startInput = modalBody.querySelector('#block-start-km');
+        const endInput = modalBody.querySelector('#block-end-km');
+        const notesInput = modalBody.querySelector('#block-notes');
+        const calcDistEl = modalBody.querySelector('#block-calc-dist');
+        const calcFareEl = modalBody.querySelector('#block-calc-fare');
+        const officialBox = modalBody.querySelector('#block-official-dest-box');
+        const officialSelect = modalBody.querySelector('#block-official-dest-select');
+        const customRow = modalBody.querySelector('#block-custom-dest-row');
+
+        let blockCategory = 'Personal';
+
+        // Toggle category
+        modalBody.querySelectorAll('input[name="block_trip_category"]').forEach(r => {
+          r.addEventListener('change', () => {
+            blockCategory = r.value;
+            const pLabel = modalBody.querySelector('#block-label-personal');
+            const oLabel = modalBody.querySelector('#block-label-official');
+            if (blockCategory === 'Personal') {
+              pLabel.style.borderColor = '#4F46E5';
+              pLabel.style.color = '#4338CA';
+              oLabel.style.borderColor = '#CBD5E1';
+              oLabel.style.color = '#475569';
+              if (officialBox) officialBox.style.display = 'none';
+            } else {
+              oLabel.style.borderColor = '#059669';
+              oLabel.style.color = '#065F46';
+              pLabel.style.borderColor = '#CBD5E1';
+              pLabel.style.color = '#475569';
+              if (officialBox) officialBox.style.display = 'block';
+            }
+            recalcPreview();
+          });
+        });
+
+        officialSelect?.addEventListener('change', () => {
+          if (customRow) customRow.style.display = officialSelect.value === 'other' ? 'grid' : 'none';
+          recalcPreview();
+        });
+
+        // Vehicle switch updates minimum odometer
+        vehSelect.addEventListener('change', () => {
+          const opt = vehSelect.selectedOptions[0];
+          const odo = parseFloat(opt.getAttribute('data-odo')) || 0;
+          startInput.value = odo;
+          startInput.min = odo;
+          endInput.value = odo + 1;
+          endInput.min = odo + 1;
+          recalcPreview();
+        });
+
+        function recalcPreview() {
+          const s = parseFloat(startInput.value) || 0;
+          const e = parseFloat(endInput.value) || (s + 1);
+          const v = vehicles.find(veh => veh.id === vehSelect.value);
+          const rateInfo = v ? calculateDynamicRatePerKm(v, expenses, allTrips) : { rate: 16 };
+          const dist = Math.max(1, Math.round((e - s) * 100) / 100);
+          calcDistEl.textContent = `${dist} KM`;
+
+          if (blockCategory === 'Official') {
+            let std = 0;
+            if (officialSelect.value === 'other') {
+              std = parseFloat(modalBody.querySelector('#block-custom-dest-km')?.value) || 0;
+            } else {
+              const d = destinations.find(dest => dest.id === officialSelect.value);
+              std = Number(d?.standard_distance_km || 0);
+            }
+            const excess = Math.max(0, dist - std);
+            const excessCost = Math.round(excess * rateInfo.rate * 100) / 100;
+            calcFareEl.textContent = excess > 0 ? `+${excess} KM (₹${excessCost.toFixed(2)})` : '₹0.00 (Exempt)';
+          } else {
+            const bill = calculateTripBill(s, e, rateInfo.rate);
+            const total = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
+            calcFareEl.textContent = formatCurrency(total);
+          }
+        }
+
+        startInput.addEventListener('input', recalcPreview);
+        endInput.addEventListener('input', recalcPreview);
+
+        modalBody.querySelector('#form-block-trip-for-others').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const targetUserId = userSelect.value;
+          const targetUserObj = eligibleStaff.find(u => u.id === targetUserId);
+          if (!targetUserObj) {
+            toast.error('Please select a valid user.');
+            return;
+          }
+
+          const targetVehObj = vehicles.find(v => v.id === vehSelect.value);
+          const startKm = parseFloat(startInput.value);
+          const rawEndKm = parseFloat(endInput.value);
+
+          if (isNaN(startKm) || isNaN(rawEndKm) || rawEndKm <= startKm) {
+            toast.error('End Kilometer must be greater than Start Kilometer.');
+            return;
+          }
+
+          const endKm = Math.max(rawEndKm, startKm + 1);
+          const totalKm = Math.round((endKm - startKm) * 100) / 100;
+          const rateInfo = targetVehObj ? calculateDynamicRatePerKm(targetVehObj, expenses, allTrips) : { rate: 16 };
+
+          let destTitle = notesInput.value.trim() || 'Short Ride / Campus Errand';
+          let stdKm = 0;
+          if (blockCategory === 'Official') {
+            if (officialSelect.value === 'other') {
+              const cName = modalBody.querySelector('#block-custom-dest-name')?.value.trim();
+              const cKm = parseFloat(modalBody.querySelector('#block-custom-dest-km')?.value) || 0;
+              destTitle = cName || 'Official Duty (Custom)';
+              stdKm = cKm;
+            } else {
+              const d = destinations.find(dest => dest.id === officialSelect.value);
+              destTitle = d?.name || 'Official Duty';
+              stdKm = Number(d?.standard_distance_km || 0);
+            }
+          }
+
+          let totalAmount = 0;
+          let excessKm = 0;
+          let paymentStatus = 'Unpaid';
+          let discrepancyStatus = 'None';
+
+          if (blockCategory === 'Official') {
+            if (stdKm > 0 && totalKm > stdKm) {
+              excessKm = Math.round((totalKm - stdKm) * 100) / 100;
+              totalAmount = Math.round(excessKm * rateInfo.rate * 100) / 100;
+              discrepancyStatus = 'Accepted';
+              paymentStatus = 'Unpaid';
+            } else {
+              totalAmount = 0;
+              paymentStatus = 'Official Exemption';
+            }
+          } else {
+            const bill = calculateTripBill(startKm, endKm, rateInfo.rate);
+            totalAmount = typeof bill === 'object' && bill !== null ? bill.totalAmount : Number(bill);
+            paymentStatus = 'Unpaid';
+          }
+
+          const tripDate = new Date().toISOString();
+
+          await db.saveTripLog({
+            vehicle_id: targetVehObj.id,
+            user_id: targetUserObj.id,
+            user_name: targetUserObj.full_name,
+            user_email: targetUserObj.email || '',
+            user_role: targetUserObj.role || 'Staff',
+            destination: destTitle,
+            purpose: `Logged on behalf of ${targetUserObj.full_name} by ${currentUser.full_name}`,
+            start_time: tripDate,
+            end_time: tripDate,
+            start_km: startKm,
+            end_km: endKm,
+            total_km: totalKm,
+            applied_rate_per_km: rateInfo.rate,
+            total_amount: totalAmount,
+            status: 'Completed',
+            payment_status: paymentStatus,
+            trip_category: blockCategory,
+            standard_km: stdKm,
+            excess_km: excessKm,
+            discrepancy_status: discrepancyStatus,
+            booked_by: currentUser.full_name,
+            booked_by_id: currentUser.id,
+            completed_at: tripDate
+          });
+
+          // Update vehicle odometer
+          targetVehObj.current_odometer = endKm;
+          targetVehObj.status = 'Available';
+          await db.saveVehicle(targetVehObj);
+
+          allTrips = await db.getTripLogs();
+          vehicles = await db.getVehicles();
+
+          close();
+          toast.success(`Trip recorded directly onto ${targetUserObj.full_name}'s Vehicle Card!`);
+          render();
+        });
+      }
+    });
+  }
+
+  // MODAL: ODOMETER DISCREPANCY CONFIRMATION & JUSTIFICATION
+  function openDiscrepancyModal({ tripCode, destination, standardKm, actualKm, excessKm, excessAmount, rate, onConfirm, onSubmitJustification }) {
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-backdrop';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;';
+
+    modalOverlay.innerHTML = `
+      <div class="card-panel" style="background: var(--bg-surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <!-- Header -->
+        <div style="background: #FEF3C7; border-bottom: 2px solid #F59E0B; padding: 1.25rem 1rem; text-align: center;">
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: #FDE68A; color: #B45309; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem; font-size: 1.5rem;">
+            ⚠️
+          </div>
+          <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #92400E;">Destination Distance Exceeded</h3>
+          <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: #78350F;">Official Trip Benchmark Surcharge Notice</p>
+        </div>
+
+        <div style="padding: 1.25rem;">
+          <div style="font-size: 0.84rem; color: #475569; margin-bottom: 1rem; line-height: 1.4;">
+            Your recorded journey for official destination <strong>${destination}</strong> exceeded the preset standard benchmark. The excess distance is calculated below:
+          </div>
+
+          <!-- Breakdown Box -->
+          <div style="background: #F8FAFC; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem; font-size: 0.82rem; display: flex; flex-direction: column; gap: 0.45rem;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Standard Benchmark Distance</span>
+              <strong style="font-family: monospace;">${standardKm} KM</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Recorded Traveled Distance</span>
+              <strong style="font-family: monospace; color: #2563EB;">${actualKm} KM</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 0.35rem;">
+              <span style="color: #92400E; font-weight: 700;">Excess Distance</span>
+              <strong style="font-family: monospace; color: #DC2626; font-size: 0.95rem;">+${excessKm} KM</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 0.35rem;">
+              <span style="color: #DC2626; font-weight: 800;">Extra Amount Added to Card</span>
+              <strong style="font-size: 1.15rem; color: #DC2626;">${formatCurrency(excessAmount)}</strong>
+            </div>
+          </div>
+
+          <!-- Justification Input Area (Hidden initially, shown when user clicks "Reason") -->
+          <div id="discrepancy-reason-box" style="display: none; margin-bottom: 1rem;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E293B; margin-bottom: 0.25rem;">
+              Explain Reason for Extra Mileage *
+            </label>
+            <textarea id="discrepancy-reason-text" class="form-control" rows="3" placeholder="e.g. Road detour due to bridge repair, or official extra stops requested by school administration..." style="width: 100%; font-size: 0.84rem;"></textarea>
+            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; display: block;">
+              If administration approves your reason, the extra amount will be waived from your Vehicle Card.
+            </span>
+          </div>
+
+          <!-- Actions -->
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div id="discrepancy-primary-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <button type="button" id="btn-show-reason" class="btn btn-outline" style="font-weight: 700; font-size: 0.82rem; padding: 0.55rem; color: #B45309; border-color: #FDE68A; background: #FFFBEB;">
+                ✍️ Reason / Justification
+              </button>
+              <button type="button" id="btn-accept-excess" class="btn btn-primary" style="font-weight: 700; font-size: 0.82rem; padding: 0.55rem; background: #DC2626; border-color: #DC2626;">
+                Confirm & Accept Charge
+              </button>
+            </div>
+
+            <div id="discrepancy-submit-reason-actions" style="display: none; justify-content: flex-end; gap: 0.5rem;">
+              <button type="button" id="btn-cancel-reason" class="btn btn-secondary" style="font-size: 0.82rem; padding: 0.5rem 0.85rem;">
+                Back
+              </button>
+              <button type="button" id="btn-submit-reason" class="btn btn-primary" style="font-weight: 700; font-size: 0.82rem; padding: 0.5rem 1rem; background: #059669; border-color: #059669;">
+                Submit Justification to Admin
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalOverlay);
+
+    const reasonBox = modalOverlay.querySelector('#discrepancy-reason-box');
+    const primaryActions = modalOverlay.querySelector('#discrepancy-primary-actions');
+    const submitActions = modalOverlay.querySelector('#discrepancy-submit-reason-actions');
+    const reasonText = modalOverlay.querySelector('#discrepancy-reason-text');
+
+    modalOverlay.querySelector('#btn-show-reason')?.addEventListener('click', () => {
+      reasonBox.style.display = 'block';
+      primaryActions.style.display = 'none';
+      submitActions.style.display = 'flex';
+      reasonText.focus();
+    });
+
+    modalOverlay.querySelector('#btn-cancel-reason')?.addEventListener('click', () => {
+      reasonBox.style.display = 'none';
+      primaryActions.style.display = 'grid';
+      submitActions.style.display = 'none';
+    });
+
+    modalOverlay.querySelector('#btn-accept-excess')?.addEventListener('click', () => {
+      modalOverlay.remove();
+      onConfirm();
+    });
+
+    modalOverlay.querySelector('#btn-submit-reason')?.addEventListener('click', () => {
+      const reason = reasonText.value.trim();
+      if (!reason) {
+        toast.error('Please enter a reason explaining the extra mileage.');
+        return;
+      }
+      modalOverlay.remove();
+      onSubmitJustification(reason);
+    });
+  }
+
   // MODAL: TRIP BILL SUMMARY & INVOICE POPUP
   function openTripBillModal({ tripCode, vehicleName, regNumber, startKm, endKm, totalKm, rate, totalAmount }) {
     const modalOverlay = document.createElement('div');
@@ -818,7 +1585,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <h3 style="margin: 0; font-size: 1.35rem; font-weight: 700;">Trip Completed Successfully!</h3>
-          <p style="margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.85rem;">Official Usage Invoice Generated • Personal Use</p>
+          <p style="margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.85rem;">Official Usage Invoice Generated</p>
         </div>
 
         <div style="padding: 1.5rem; text-align: left;">
@@ -850,11 +1617,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           <!-- Total Bill Box -->
           <div style="background: #F8FAFC; border: 2px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: 700; font-size: 0.95rem;">Total Amount Due</span>
-            <span style="font-size: 1.5rem; font-weight: 800; color: #DC2626;">${formatCurrency(totalAmount)}</span>
-          </div>
-
-          <div style="font-size: 0.76rem; color: #64748B; margin-top: 0.75rem; line-height: 1.4; text-align: center;">
-            Please visit the administration office or scan the official school QR code to settle this trip bill.
+            <span style="font-size: 1.5rem; font-weight: 800; color: ${totalAmount > 0 ? '#DC2626' : '#059669'};">${formatCurrency(totalAmount)}</span>
           </div>
 
           <div style="margin-top: 1.25rem;">

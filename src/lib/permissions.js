@@ -34,6 +34,7 @@ export const MODULE_DEFINITIONS = [
   { key: 'vehicle_billing', label: 'Usage Billing & Ledger', icon: 'credit-card', roles: ['super_admin', 'admin'] },
   { key: 'vehicle_all_trips', label: 'All Vehicle Trips', icon: 'list', roles: ['super_admin', 'admin'] },
   { key: 'vehicle_staff', label: 'Drivers & Staff', icon: 'users', roles: ['super_admin', 'admin'] },
+  { key: 'vehicle_destinations', label: 'Official Destinations & Reviews', icon: 'map-pin', roles: ['super_admin', 'admin'] },
   { key: 'vehicle_card', label: 'Vehicle User Card', icon: 'id-card', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
   { key: 'vehicle_trips', label: 'My Vehicle Trips', icon: 'car', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
   { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
@@ -72,6 +73,7 @@ export const DEFAULT_RBAC_MATRIX = {
     vehicle_billing: 'full',
     vehicle_all_trips: 'full',
     vehicle_staff: 'full',
+    vehicle_destinations: 'full',
     vehicle_card: 'full',
     vehicle_trips: 'full',
     settings: 'full'

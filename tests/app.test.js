@@ -9284,4 +9284,163 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       db._usersCache = null;
     });
   });
+
+  describe('Vehicle Management Redesign & Advanced Features', () => {
+    it('provides Preset Destinations with standard distances and persists them in db and cloud keys', async () => {
+      const destinations = await db.getVehicleDestinations();
+      expect(Array.isArray(destinations)).toBe(true);
+      expect(destinations.length).toBeGreaterThanOrEqual(1);
+
+      // Verify a default destination
+      const deo = destinations.find(d => d.name.includes('DEO Office'));
+      expect(deo).toBeDefined();
+      expect(deo.standard_distance_km).toBe(22);
+
+      // Save a new destination
+      const savedDest = await db.saveVehicleDestination({
+        name: 'Test Destination Airport',
+        standard_distance_km: 55,
+        description: 'Airport guest transit'
+      });
+      expect(savedDest.id).toBeDefined();
+      expect(savedDest.standard_distance_km).toBe(55);
+
+      // Verify retrieval
+      const updatedList = await db.getVehicleDestinations();
+      expect(updatedList.some(d => d.id === savedDest.id)).toBe(true);
+
+      // Delete destination
+      await db.deleteVehicleDestination(savedDest.id);
+      const afterDelete = await db.getVehicleDestinations();
+      expect(afterDelete.some(d => d.id === savedDest.id)).toBe(false);
+
+      // Check CLOUD_SYNC_KEYS / pullCloudKeys includes tps_vehicle_destinations
+      const dbCode = fs.readFileSync('src/lib/db.js', 'utf8');
+      expect(dbCode).toContain("'tps_vehicle_destinations'");
+    });
+
+    it('supports "Block Trip for Others" recording trip directly on another user vehicle card with custom odometer', async () => {
+      const targetUserId = 'u-test-driver-99';
+      const targetUserName = 'Sameer Driver Test';
+
+      const trip = await db.saveTripLog({
+        vehicle_id: 'veh-1',
+        user_id: targetUserId,
+        user_name: targetUserName,
+        user_email: 'driver99@test.com',
+        user_role: 'vehicle_user',
+        destination: 'Campus Errand (Blocked by Admin)',
+        purpose: 'Blocked on behalf of driver',
+        start_time: new Date().toISOString(),
+        end_time: new Date().toISOString(),
+        start_km: 33000,
+        end_km: 33020,
+        total_km: 20,
+        applied_rate_per_km: 16,
+        total_amount: 320,
+        status: 'Completed',
+        payment_status: 'Unpaid',
+        trip_category: 'Personal',
+        booked_by: 'Abdul Haseeb',
+        completed_at: new Date().toISOString()
+      });
+
+      expect(trip.id).toBeDefined();
+      expect(trip.user_id).toBe(targetUserId);
+      expect(trip.total_km).toBe(20);
+      expect(trip.total_amount).toBe(320);
+
+      // Verify trip is logged and queryable
+      const allTrips = await db.getTripLogs();
+      const userTrips = allTrips.filter(t => t.user_id === targetUserId);
+      expect(userTrips.length).toBeGreaterThanOrEqual(1);
+      expect(userTrips[0].start_km).toBe(33000);
+      expect(userTrips[0].end_km).toBe(33020);
+
+      // Clean up
+      await db.deleteTripLog(trip.id);
+    });
+
+    it('calculates discrepancy on official trips exceeding benchmark and supports admin exemption resolution', async () => {
+      const trip = await db.saveTripLog({
+        vehicle_id: 'veh-1',
+        user_id: 'u-official-test',
+        user_name: 'Official Traveler',
+        user_email: 'traveler@test.com',
+        user_role: 'teacher',
+        destination: 'DEO Office Manjeri',
+        purpose: 'Official education visit',
+        start_time: new Date().toISOString(),
+        start_km: 30000,
+        end_km: 30030,
+        total_km: 30, // standard is 22 KM, excess is 8 KM
+        standard_km: 22,
+        excess_km: 8,
+        applied_rate_per_km: 16,
+        total_amount: 128, // 8 KM * 16 = 128
+        status: 'Completed',
+        trip_category: 'Official',
+        payment_status: 'Pending Exemption Review',
+        discrepancy_status: 'Pending Review',
+        discrepancy_reason: 'Traffic roadblock diversion via bypass road',
+        completed_at: new Date().toISOString()
+      });
+
+      expect(trip.discrepancy_status).toBe('Pending Review');
+      expect(trip.excess_km).toBe(8);
+      expect(trip.total_amount).toBe(128);
+
+      // Admin approves exemption: waives excess surcharge
+      const approvedTrip = await db.resolveTripDiscrepancy(trip.id, {
+        decision: 'exempt',
+        adminNotes: 'Valid diversion confirmed by administration',
+        adminName: 'Super Admin'
+      });
+      expect(approvedTrip.discrepancy_status).toBe('Approved Exemption');
+      expect(approvedTrip.total_amount).toBe(0);
+      expect(approvedTrip.payment_status).toBe('Official Exemption');
+
+      // Admin rejects exemption scenario
+      const rejectedTrip = await db.resolveTripDiscrepancy(trip.id, {
+        decision: 'reject',
+        adminNotes: 'Unauthorized personal detour',
+        adminName: 'Super Admin'
+      });
+      expect(rejectedTrip.discrepancy_status).toBe('Rejected Exemption');
+      expect(rejectedTrip.payment_status).toBe('Unpaid');
+
+      // Clean up
+      await db.deleteTripLog(trip.id);
+    });
+
+    it('enforces view-only access on Vehicle Card for non-admins and restricts settlement/deletion to admins', () => {
+      const userCardCode = fs.readFileSync('src/modules/vehicles/user-card.js', 'utf8');
+      expect(userCardCode).toContain('openViewOnlyTripModal');
+      expect(userCardCode).toContain('Trip Usage Details');
+      expect(userCardCode).toContain('isAdmin');
+      expect(userCardCode).toContain('openViewOnlyTripModal(targetTrip, userName)');
+    });
+
+    it('verifies trip persistence, side-by-side odometer inputs, and cancel trip controls in user-trips.js', () => {
+      const userTripsCode = fs.readFileSync('src/modules/vehicles/user-trips.js', 'utf8');
+      expect(userTripsCode).toContain('tps_active_trip_id');
+      expect(userTripsCode).toContain('btn-cancel-active-trip');
+      expect(userTripsCode).toContain('btn-block-for-others');
+      expect(userTripsCode).toContain('short-ride-start-km');
+      expect(userTripsCode).toContain('short-ride-end-km');
+      expect(userTripsCode).toContain('openDiscrepancyModal');
+    });
+
+    it('verifies Official Destinations module routing and permissions', () => {
+      const permsCode = fs.readFileSync('src/lib/permissions.js', 'utf8');
+      expect(permsCode).toContain('vehicle_destinations');
+
+      const sidebarCode = fs.readFileSync('src/components/sidebar.js', 'utf8');
+      expect(sidebarCode).toContain('vehicle_destinations');
+
+      const appCode = fs.readFileSync('src/app.js', 'utf8');
+      expect(appCode).toContain('vehicle_destinations');
+      expect(appCode).toContain('renderVehicleDestinationsModule');
+    });
+  });
 });

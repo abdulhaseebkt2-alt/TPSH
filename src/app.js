@@ -38,6 +38,7 @@ import { renderVehicleManagementModule } from './modules/vehicles/index.js';
 import { renderUserVehicleTripsModule } from './modules/vehicles/user-trips.js';
 import { renderVehicleUserCardModule } from './modules/vehicles/user-card.js';
 import { renderAllVehicleTripsModule } from './modules/vehicles/all-trips.js';
+import { renderVehicleDestinationsModule } from './modules/vehicles/destinations.js';
 
 const MODULE_ROUTERS = {
   dashboard: renderDashboard,
@@ -75,6 +76,7 @@ const MODULE_ROUTERS = {
   vehicle_billing: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'billing' }),
   vehicle_all_trips: renderAllVehicleTripsModule,
   vehicle_staff: (container, opts) => renderVehicleManagementModule(container, { ...opts, initialTab: 'users' }),
+  vehicle_destinations: renderVehicleDestinationsModule,
   vehicle_card: renderVehicleUserCardModule,
   vehicle_trips: renderUserVehicleTripsModule,
   rbac: (container, props) => renderUsersModule(container, { ...props, initialTab: 'rbac' })

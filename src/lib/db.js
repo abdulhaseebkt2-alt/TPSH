@@ -669,6 +669,15 @@ export const INITIAL_VEHICLE_PAYMENTS = [];
 
 export const INITIAL_VEHICLE_USERS = [];
 
+export const INITIAL_VEHICLE_DESTINATIONS = [
+  { id: 'dest-1', name: 'DEO Office Manjeri', standard_distance_km: 22, description: 'Education office official visits (Round trip)', is_active: true },
+  { id: 'dest-2', name: 'Calicut University Campus, Thenhipalam', standard_distance_km: 30, description: 'University official errands (Round trip)', is_active: true },
+  { id: 'dest-3', name: 'Kozhikode Railway Station', standard_distance_km: 45, description: 'Official guest pickup / drops (Round trip)', is_active: true },
+  { id: 'dest-4', name: 'Kozhikode Medical College', standard_distance_km: 42, description: 'Official campus health visits (Round trip)', is_active: true },
+  { id: 'dest-5', name: 'SBI Main Branch / Bank Errand', standard_distance_km: 12, description: 'Campus treasury / banking work (Round trip)', is_active: true },
+  { id: 'dest-6', name: 'District Collectorate, Civil Station', standard_distance_km: 26, description: 'Revenue & administrative paperwork (Round trip)', is_active: true }
+];
+
 export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
   if (isTestEnv) {
     const cleanId = String(identifier || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -913,6 +922,9 @@ class DatabaseService {
       if (!this.getStorageItem('tps_vehicle_users')) {
         this.setStorageItem('tps_vehicle_users', JSON.stringify(INITIAL_VEHICLE_USERS));
       }
+      if (!this.getStorageItem('tps_vehicle_destinations')) {
+        this.setStorageItem('tps_vehicle_destinations', JSON.stringify(INITIAL_VEHICLE_DESTINATIONS));
+      }
     }
     if (!this.getStorageItem('tps_users')) {
       const defaultUsers = isTestEnv ? [
@@ -1102,6 +1114,7 @@ class DatabaseService {
     'tps_trip_logs',
     'tps_vehicle_payments',
     'tps_vehicle_users',
+    'tps_vehicle_destinations',
     'tps_rbac_matrix',
     'tps_user_custom_modules',
     'tps_exams',
@@ -5971,6 +5984,77 @@ class DatabaseService {
     this.set('tps_vehicle_users', filtered);
     await this.pushCloudKey('tps_vehicle_users', filtered);
     return true;
+  }
+
+  // --- VEHICLE PRESET DESTINATIONS & DISCREPANCIES ---
+  async getVehicleDestinations() {
+    await this.pullCloudKeys(['tps_vehicle_destinations'], false);
+    let list = this.get('tps_vehicle_destinations');
+    if (!list || !Array.isArray(list) || list.length === 0) {
+      list = INITIAL_VEHICLE_DESTINATIONS;
+      this.set('tps_vehicle_destinations', list);
+      await this.pushCloudKey('tps_vehicle_destinations', list);
+    }
+    return list;
+  }
+
+  async saveVehicleDestination(destData) {
+    const list = await this.getVehicleDestinations();
+    let saved;
+    if (destData.id) {
+      const idx = list.findIndex(d => d.id === destData.id);
+      if (idx >= 0) {
+        saved = { ...list[idx], ...destData, updated_at: new Date().toISOString() };
+        list[idx] = saved;
+      } else {
+        saved = { ...destData, updated_at: new Date().toISOString() };
+        list.push(saved);
+      }
+    } else {
+      saved = {
+        id: 'dest-' + Date.now(),
+        is_active: true,
+        ...destData,
+        created_at: new Date().toISOString()
+      };
+      list.push(saved);
+    }
+    this.set('tps_vehicle_destinations', list);
+    await this.pushCloudKey('tps_vehicle_destinations', list);
+    return saved;
+  }
+
+  async deleteVehicleDestination(id) {
+    const list = await this.getVehicleDestinations();
+    const filtered = list.filter(d => d.id !== id);
+    this.set('tps_vehicle_destinations', filtered);
+    await this.pushCloudKey('tps_vehicle_destinations', filtered);
+    return true;
+  }
+
+  async resolveTripDiscrepancy(tripId, { decision, adminNotes, adminName }) {
+    const trips = this.get('tps_trip_logs') || [];
+    const targetTrip = trips.find(t => t.id === tripId || t.trip_id === tripId);
+    if (!targetTrip) throw new Error('Trip not found');
+
+    targetTrip.discrepancy_reviewed_at = new Date().toISOString();
+    targetTrip.discrepancy_reviewed_by = adminName || 'Admin';
+    targetTrip.discrepancy_admin_notes = adminNotes || '';
+
+    if (decision === 'exempt') {
+      targetTrip.discrepancy_status = 'Approved Exemption';
+      targetTrip.total_amount = 0;
+      targetTrip.payment_status = 'Official Exemption';
+      targetTrip.is_paid = true;
+    } else {
+      targetTrip.discrepancy_status = 'Rejected Exemption';
+      targetTrip.payment_status = 'Unpaid';
+      targetTrip.is_paid = false;
+    }
+
+    this.set('tps_trip_logs', trips);
+    await this.pushCloudKey('tps_trip_logs', trips);
+    return targetTrip;
   }
 
   // --- AUDIT LOGS ---

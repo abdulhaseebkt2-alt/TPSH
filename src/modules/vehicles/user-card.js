@@ -453,10 +453,14 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       });
     });
 
-    // Settle / Pay Button (Supports Full and Partial Payments)
+    // Settle / Pay Button (Supports Full and Partial Payments - Strictly Admin only)
     container.querySelectorAll('.btn-settle-due').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!isAdmin) {
+          toast.info('Trip settlements are managed by school administration.');
+          return;
+        }
         const tripId = btn.getAttribute('data-id');
         const tripCode = btn.getAttribute('data-code');
         const remainingDue = parseFloat(btn.getAttribute('data-due')) || 0;
@@ -473,7 +477,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       });
     });
 
-    // Row click to inspect trip details, settle payment, or delete trip
+    // Row click to inspect trip details (View-Only for non-admins, Settle/Delete for admins)
     container.querySelectorAll('.user-card-row').forEach(row => {
       row.addEventListener('click', (e) => {
         if (e.target.closest('button')) return; // handled by button
@@ -482,6 +486,12 @@ export async function renderVehicleUserCardModule(container, options = {}) {
         const remainingDue = parseFloat(row.getAttribute('data-due')) || 0;
         const totalAmount = parseFloat(row.getAttribute('data-total')) || 0;
         const userName = row.getAttribute('data-user');
+        const targetTrip = allTrips.find(t => t.id === tripId || t.trip_id === tripCode);
+
+        if (!isAdmin) {
+          openViewOnlyTripModal(targetTrip, userName);
+          return;
+        }
 
         openSettlePaymentModal({
           tripId,
@@ -494,9 +504,122 @@ export async function renderVehicleUserCardModule(container, options = {}) {
     });
   }
 
+  // View-Only Modal for Non-Admins (Strictly View-Only, no editing or settlement)
+  function openViewOnlyTripModal(targetTrip, userName) {
+    if (!targetTrip) return;
+    const veh = vehicles.find(v => v.id === targetTrip.vehicle_id);
+    const totalAmt = Number(targetTrip.total_amount) || 0;
+    const paidAmt = Number(targetTrip.amount_paid) || (targetTrip.payment_status === 'Paid' ? totalAmt : 0);
+    const remainingDue = Math.max(0, totalAmt - paidAmt);
+    const isPaid = targetTrip.payment_status === 'Paid' || remainingDue <= 0;
+    const isExempt = targetTrip.payment_status === 'Official Exemption' || targetTrip.discrepancy_status === 'Approved Exemption';
+
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-backdrop';
+    modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 0.75rem; box-sizing: border-box;';
+
+    modalOverlay.innerHTML = `
+      <div class="card-panel modal-mobile-responsive" style="background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 440px; box-shadow: var(--shadow-xl); overflow: hidden; margin: auto;">
+        <div style="padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M14 10h4"/><path d="M14 14h3"/></svg>
+            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Trip Usage Details</h3>
+          </div>
+          <button type="button" class="btn-close-modal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px;">✕</button>
+        </div>
+
+        <div style="padding: 1.25rem; max-height: 75vh; overflow-y: auto;">
+          <!-- Status Banner -->
+          <div style="background: ${isExempt ? '#ECFDF5' : (isPaid ? '#F0FDF4' : '#FEF2F2')}; border: 1px solid ${isExempt ? '#A7F3D0' : (isPaid ? '#BBF7D0' : '#FECACA')}; border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">STATUS</div>
+              <div style="font-weight: 800; font-size: 1rem; color: ${isExempt ? '#065F46' : (isPaid ? '#166534' : '#DC2626')};">
+                ${isExempt ? '✓ Official Exemption (₹0)' : (isPaid ? '✓ Fully Paid' : `Pending Due: ${formatCurrency(remainingDue)}`)}
+              </div>
+              <div style="font-family: monospace; font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">${targetTrip.trip_id}</div>
+            </div>
+            <div style="text-align: right;">
+              <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 700; font-size: 0.74rem;">${targetTrip.trip_category || 'Personal'}</span>
+            </div>
+          </div>
+
+          <!-- Trip details table -->
+          <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.84rem;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Driver / Staff</span>
+              <strong>${userName || targetTrip.user_name}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Vehicle</span>
+              <strong>${veh?.vehicle_name || 'Vehicle'} (${veh?.reg_number || ''})</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Date & Time</span>
+              <span>${formatDate(targetTrip.start_time || targetTrip.created_at)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Destination / Route</span>
+              <strong style="text-align: right; max-width: 60%;">${targetTrip.destination || 'Short Ride'}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Odometer Span</span>
+              <span style="font-family: monospace;">${targetTrip.start_km || 0} KM ➔ ${targetTrip.end_km || targetTrip.start_km || 0} KM</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Distance Traveled</span>
+              <strong style="color: #4F46E5; font-family: monospace;">${targetTrip.total_km || 0} KM</strong>
+            </div>
+            ${targetTrip.applied_rate_per_km ? `
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                <span style="color: var(--text-muted);">Rate per KM</span>
+                <span>₹${Number(targetTrip.applied_rate_per_km).toFixed(2)}/km</span>
+              </div>
+            ` : ''}
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <span style="color: var(--text-muted);">Total Billed Amount</span>
+              <strong style="font-size: 0.95rem; color: #0F172A;">${formatCurrency(totalAmt)}</strong>
+            </div>
+            ${paidAmt > 0 ? `
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                <span style="color: var(--text-muted);">Amount Settled</span>
+                <strong style="color: #059669;">${formatCurrency(paidAmt)}</strong>
+              </div>
+            ` : ''}
+            ${targetTrip.discrepancy_reason ? `
+              <div style="background: #FEF9C3; border: 1px solid #FDE68A; padding: 0.65rem; border-radius: 6px; margin-top: 0.35rem; font-size: 0.78rem;">
+                <div style="font-weight: 700; color: #854D0E;">Submitted Reason:</div>
+                <div style="color: #713F12; margin-top: 2px;">"${targetTrip.discrepancy_reason}"</div>
+                ${targetTrip.discrepancy_status ? `
+                  <div style="margin-top: 4px; font-weight: 700; color: ${targetTrip.discrepancy_status === 'Approved Exemption' ? '#065F46' : '#92400E'};">
+                    Review Status: ${targetTrip.discrepancy_status}
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <div style="margin-top: 1.25rem;">
+            <button type="button" class="btn btn-secondary btn-close-modal" style="width: 100%; padding: 0.6rem; font-weight: 600;">
+              Close Details
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalOverlay);
+    modalOverlay.querySelectorAll('.btn-close-modal').forEach(b => {
+      b.addEventListener('click', () => modalOverlay.remove());
+    });
+  }
+
   // Modal: Pay or Partial Pay with Student Leave Card Features & Delete Option
   function openSettlePaymentModal({ tripId, tripCode, remainingDue, totalAmount, userName }) {
     const targetTrip = allTrips.find(t => t.id === tripId || t.trip_id === tripCode);
+    if (!isAdmin) {
+      openViewOnlyTripModal(targetTrip, userName);
+      return;
+    }
     const isInProgress = targetTrip?.status === 'In Progress';
     const isCompleted = targetTrip?.status === 'Completed' || (!isInProgress && targetTrip?.status !== 'Pending Approval');
     const isPaid = isCompleted && remainingDue <= 0;
