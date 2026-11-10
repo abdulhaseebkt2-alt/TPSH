@@ -9185,5 +9185,57 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       // Clean up test driver
       await db.deleteVehicleUser(testDriverId);
     });
+
+    it('2521: Distributed Email + Password Sign-In for Super Admin and Remote Accounts across Fresh Sessions', async () => {
+      const { signInWithEmail, getCurrentUser } = await import('../src/lib/auth.js');
+
+      // 1. Set password for a test remote user in db passwords map
+      const testEmail = 'remote.teacher@thaibaschool.edu.in';
+      const testUserId = 'u-remote-' + Date.now();
+      const testPassword = 'RemotePassword123!';
+
+      // Ensure local storage tps_users does NOT contain this user (simulating fresh browser session)
+      const currentUsers = db.get('tps_users') || [];
+      db.set('tps_users', currentUsers.filter(u => (u.email || '').toLowerCase() !== testEmail));
+
+      // Register password in cloud/db dictionary
+      await db.setUserPassword(testUserId, testPassword, testEmail);
+
+      // Verify sign-in fails with wrong password
+      await expect(signInWithEmail(testEmail, 'WrongPassword999')).rejects.toThrow(/incorrect password/i);
+
+      // Verify sign-in fails for unknown email
+      await expect(signInWithEmail('nonexistent.user.123@thaibaschool.edu', 'AnyPassword123')).rejects.toThrow(/no account found/i);
+
+      // Verify sign-in succeeds using the remote/cloud password map
+      const loginResult = await signInWithEmail(testEmail, testPassword);
+      expect(loginResult).toBeDefined();
+      expect(loginResult.user).toBeDefined();
+      expect(loginResult.user.email.toLowerCase()).toBe(testEmail);
+      expect(loginResult.user.has_password).toBe(true);
+
+      // Verify current profile is active
+      const activeUser = getCurrentUser();
+      expect(activeUser).toBeDefined();
+      expect(activeUser.email.toLowerCase()).toBe(testEmail);
+
+      // 2. Verify Super Admin email + password login fallback when empty local session
+      const superAdminEmail = 'abdulhaseebkt2@gmail.com';
+      const superAdminPass = '789321456Hkt';
+      await db.setUserPassword('28bb4935-b4f0-4657-942c-afc784dc68de', superAdminPass, superAdminEmail);
+
+      const superLogin = await signInWithEmail(superAdminEmail, superAdminPass);
+      expect(superLogin.user.email.toLowerCase()).toBe(superAdminEmail);
+      expect(superLogin.user.role).toBe('super_admin');
+      expect(superLogin.user.is_super_admin).toBe(true);
+      expect(superLogin.user.approval_status).toBe('approved');
+
+      // Clean up
+      const pwMap = db.get('tps_user_passwords') || {};
+      delete pwMap[testUserId];
+      delete pwMap[testEmail];
+      db.set('tps_user_passwords', pwMap);
+      db.set('tps_users', currentUsers);
+    });
   });
 });

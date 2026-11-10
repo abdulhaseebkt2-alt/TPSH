@@ -141,16 +141,50 @@ export async function initAuth() {
           localStorage.setItem('tps_real_auth_profile', JSON.stringify(realProf));
         }
       } else {
-        realAuthenticatedSession = null;
-        realAuthenticatedProfile = null;
-        currentSession = null;
-        currentProfile = null;
-        localStorage.removeItem('tps_real_auth_profile');
+        const savedDevProfile = (typeof localStorage !== 'undefined') ? localStorage.getItem('tps_dev_profile') : null;
+        if (savedDevProfile) {
+          try {
+            const parsed = JSON.parse(savedDevProfile);
+            if (parsed && (parsed.id || parsed.email)) {
+              currentProfile = parsed;
+              currentSession = { user: { id: parsed.id, email: parsed.email } };
+            } else {
+              currentSession = null;
+              currentProfile = null;
+            }
+          } catch {
+            currentSession = null;
+            currentProfile = null;
+          }
+        } else {
+          realAuthenticatedSession = null;
+          realAuthenticatedProfile = null;
+          currentSession = null;
+          currentProfile = null;
+          localStorage.removeItem('tps_real_auth_profile');
+        }
       }
     } catch (e) {
       console.warn('initAuth getSession check:', e);
-      currentSession = null;
-      currentProfile = null;
+      const savedDevProfile = (typeof localStorage !== 'undefined') ? localStorage.getItem('tps_dev_profile') : null;
+      if (savedDevProfile) {
+        try {
+          const parsed = JSON.parse(savedDevProfile);
+          if (parsed && (parsed.id || parsed.email)) {
+            currentProfile = parsed;
+            currentSession = { user: { id: parsed.id, email: parsed.email } };
+          } else {
+            currentSession = null;
+            currentProfile = null;
+          }
+        } catch {
+          currentSession = null;
+          currentProfile = null;
+        }
+      } else {
+        currentSession = null;
+        currentProfile = null;
+      }
     }
   } else {
     currentSession = null;
@@ -183,14 +217,29 @@ export async function initAuth() {
 
   // Subscribe to auth state changes
   supabase.auth.onAuthStateChange(async (event, session) => {
-    currentSession = session;
     if (session?.user) {
+      currentSession = session;
       realAuthenticatedSession = session;
       await loadUserProfile(session.user);
+      notifyListeners();
     } else {
+      // Don't wipe if we have an active password/dev profile saved in localStorage
+      const savedDevProfile = (typeof localStorage !== 'undefined') ? localStorage.getItem('tps_dev_profile') : null;
+      if (savedDevProfile) {
+        try {
+          const parsed = JSON.parse(savedDevProfile);
+          if (parsed && (parsed.id || parsed.email)) {
+            currentProfile = parsed;
+            currentSession = { user: { id: parsed.id, email: parsed.email } };
+            notifyListeners();
+            return;
+          }
+        } catch {}
+      }
+      currentSession = null;
       currentProfile = null;
+      notifyListeners();
     }
-    notifyListeners();
   });
 
   notifyListeners();
@@ -371,6 +420,12 @@ export async function signInWithEmail(email, password) {
         currentSession = data.session;
         realAuthenticatedSession = data.session;
         await loadUserProfile(data.session.user);
+        if (typeof localStorage !== 'undefined' && currentProfile) {
+          try {
+            localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile));
+            localStorage.setItem('tps_real_auth_profile', JSON.stringify(currentProfile));
+          } catch {}
+        }
         notifyListeners();
         return data;
       }
@@ -379,41 +434,142 @@ export async function signInWithEmail(email, password) {
     }
   }
 
-  // 2. Check local/institutional users in tps_users
-  try {
-    const localUsers = (db && typeof db.get === 'function')
-      ? (db.get('tps_users') || [])
-      : (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('tps_users') || '[]') : []);
-    const user = localUsers.find(u => (u.email || '').toLowerCase() === cleanEmail);
+  // 2. Query remote Supabase profiles (direct lookup by email)
+  let targetUser = null;
+  let storedPw = '';
 
-    if (user) {
-      const storedPw = user.password || user.metadata?.password;
-      if (storedPw) {
-        if (storedPw === cleanPassword) {
-          currentProfile = {
-            ...user,
-            approval_status: user.approval_status || 'approved'
-          };
-          currentSession = { user: { id: user.id, email: user.email } };
-          if (typeof localStorage !== 'undefined') {
-            try { localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile)); } catch {}
-          }
-          notifyListeners();
-          return { session: currentSession, user: currentProfile };
-        } else {
-          throw new Error('Incorrect password. Please verify and try again.');
-        }
-      } else {
-        throw new Error('No password has been set for this account yet. Please ask an Administrator to set your password.');
+  if (supabase) {
+    try {
+      const { data: remoteProfile, error: pErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (!pErr && remoteProfile) {
+        targetUser = remoteProfile;
+        storedPw = remoteProfile.metadata?.password || remoteProfile.password || '';
       }
-    }
-  } catch (parseErr) {
-    if (parseErr.message.includes('Incorrect password') || parseErr.message.includes('No password has been set')) {
-      throw parseErr;
+    } catch (err) {
+      console.warn('Supabase profiles query in signInWithEmail:', err);
     }
   }
 
-  throw new Error('No account found with this email. Please check your credentials or contact an Administrator.');
+  // 3. Pull cloud keys (tps_user_passwords and tps_users) to sync distributed credentials
+  if (db && typeof db.pullCloudKeys === 'function') {
+    try {
+      await db.pullCloudKeys(['tps_user_passwords', 'tps_users'], true);
+    } catch (err) {
+      console.warn('Cloud pull error in signInWithEmail:', err);
+    }
+  }
+
+  // 4. Check passwords map in db
+  if (!storedPw && db && typeof db.getUserPassword === 'function') {
+    storedPw = db.getUserPassword(targetUser?.id, cleanEmail);
+  }
+
+  // 5. Check local/institutional users in db or localStorage
+  if (!targetUser) {
+    try {
+      const localUsers = (db && typeof db.get === 'function')
+        ? (db.get('tps_users') || [])
+        : (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('tps_users') || '[]') : []);
+      const found = localUsers.find(u => (u.email || '').toLowerCase() === cleanEmail);
+      if (found) {
+        targetUser = found;
+        if (!storedPw) {
+          storedPw = found.password || found.metadata?.password || '';
+        }
+      }
+    } catch (err) {
+      console.warn('Local users lookup in signInWithEmail:', err);
+    }
+  }
+
+  // 6. Super Admin fallback if email matches SUPER_ADMIN_EMAIL
+  if (!targetUser && cleanEmail === SUPER_ADMIN_EMAIL) {
+    targetUser = {
+      id: '28bb4935-b4f0-4657-942c-afc784dc68de',
+      email: SUPER_ADMIN_EMAIL,
+      full_name: 'Abdul Haseeb',
+      role: 'super_admin',
+      is_super_admin: true,
+      approval_status: 'approved',
+      profile_completed: true
+    };
+  }
+
+  if (targetUser && !storedPw && db && typeof db.getUserPassword === 'function') {
+    storedPw = db.getUserPassword(targetUser.id, cleanEmail);
+  }
+
+  if (!targetUser) {
+    throw new Error('No account found with this email. Please check your credentials or contact an Administrator.');
+  }
+
+  if (!storedPw) {
+    throw new Error('No password has been set for this account yet. Please ask an Administrator to set your password.');
+  }
+
+  if (String(storedPw).trim() !== cleanPassword) {
+    throw new Error('Incorrect password. Please verify and try again.');
+  }
+
+  // 7. Assemble authenticated user profile
+  const isInitialSuper = cleanEmail === SUPER_ADMIN_EMAIL || Boolean(targetUser.is_super_admin) || targetUser.role === 'super_admin';
+  const meta = targetUser.metadata || {};
+
+  currentProfile = {
+    ...targetUser,
+    ...meta,
+    assigned_student_ids: targetUser.assigned_student_ids || meta.assigned_student_ids || [],
+    student_ids: targetUser.student_ids || meta.student_ids || meta.assigned_student_ids || [],
+    child_ids: targetUser.child_ids || meta.child_ids || meta.assigned_student_ids || [],
+    mentor_type: targetUser.mentor_type || meta.mentor_type || null,
+    hostel_unit: targetUser.hostel_unit || meta.hostel_unit || null,
+    gender: targetUser.gender || meta.gender || null,
+    avatar_url: targetUser.avatar_url || meta.avatar_url || '',
+    is_super_admin: isInitialSuper,
+    role: isInitialSuper ? 'super_admin' : (targetUser.role || 'approved'),
+    approval_status: isInitialSuper ? 'approved' : (targetUser.approval_status || 'approved'),
+    has_password: true
+  };
+
+  currentSession = {
+    user: {
+      id: currentProfile.id || ('usr_' + Date.now()),
+      email: currentProfile.email
+    }
+  };
+  realAuthenticatedSession = currentSession;
+  realAuthenticatedProfile = { ...currentProfile };
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile));
+      localStorage.setItem('tps_real_auth_profile', JSON.stringify(currentProfile));
+    } catch {}
+  }
+
+  // Cache user locally with password flag
+  if (db && typeof db.get === 'function' && typeof db.set === 'function') {
+    try {
+      const users = db.get('tps_users') || [];
+      const idx = users.findIndex(u => (u.email || '').toLowerCase() === cleanEmail);
+      if (idx >= 0) {
+        users[idx] = { ...users[idx], ...currentProfile, password: cleanPassword, has_password: true };
+      } else {
+        users.push({ ...currentProfile, password: cleanPassword, has_password: true });
+      }
+      db.set('tps_users', users);
+    } catch (syncErr) {
+      console.warn('Error caching authenticated user locally:', syncErr);
+    }
+  }
+
+  notifyListeners();
+  return { session: currentSession, user: currentProfile };
 }
 
 export async function signOut() {
