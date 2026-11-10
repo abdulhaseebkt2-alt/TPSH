@@ -161,52 +161,24 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         <form id="form-book-vehicle">
           <!-- Short Ride Instant Box (Default mode) -->
           <div id="short-ride-box" style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
-            <!-- Handsome User-Friendly Trip Category Selector Cards -->
+            <!-- Trip Category Toggle Bar (Responsive 50/50 division like Instant Ride & Scheduled Ride) -->
             <div style="margin-bottom: 1.25rem;">
-              <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem;">
-                Select Trip Type & Nature *
+              <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E293B; margin-bottom: 0.45rem;">
+                Select Trip Type *
               </label>
-              <div class="trip-category-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <!-- Personal Ride Card -->
-                <div id="card-cat-personal" class="trip-cat-card active" data-cat="Personal" role="button" tabindex="0" style="position: relative; background: #FFFFFF; border: 2px solid #4F46E5; border-radius: 12px; padding: 0.95rem 1rem; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12); display: flex; align-items: flex-start; gap: 0.65rem;">
-                  <div style="width: 38px; height: 38px; border-radius: 10px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                  </div>
-                  <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.25rem;">
-                      <strong style="font-size: 0.92rem; color: #1E1B4B; font-weight: 700;">Personal Ride</strong>
-                      <span class="cat-check-badge" style="display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #4F46E5; color: #FFF; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800;">✓</span>
-                    </div>
-                    <p style="margin: 0.25rem 0 0; font-size: 0.74rem; color: #6366F1; line-height: 1.3; font-weight: 500;">
-                      Personal travel • 100% Billable
-                    </p>
-                  </div>
-                  <input type="radio" name="short_trip_category" value="Personal" checked style="display: none;" />
-                </div>
-
-                <!-- Official Campus Duty Card -->
-                <div id="card-cat-official" class="trip-cat-card" data-cat="Official" role="button" tabindex="0" style="position: relative; background: #FFFFFF; border: 2px solid #E2E8F0; border-radius: 12px; padding: 0.95rem 1rem; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: var(--shadow-sm); display: flex; align-items: flex-start; gap: 0.65rem;">
-                  <div style="width: 38px; height: 38px; border-radius: 10px; background: #F0FDF4; color: #059669; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M9 9h1"/><path d="M9 13h1"/><path d="M9 17h1"/><path d="M14 9h1"/><path d="M14 13h1"/><path d="M14 17h1"/></svg>
-                  </div>
-                  <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.25rem;">
-                      <strong style="font-size: 0.92rem; color: #0F172A; font-weight: 700;">Official Trip</strong>
-                      <span class="cat-check-badge" style="display: none; width: 18px; height: 18px; border-radius: 50%; background: #059669; color: #FFF; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800;">✓</span>
-                    </div>
-                    <p style="margin: 0.25rem 0 0; font-size: 0.74rem; color: #64748B; line-height: 1.3; font-weight: 500;">
-                      Institutional errand & benchmarks
-                    </p>
-                  </div>
-                  <input type="radio" name="short_trip_category" value="Official" style="display: none;" />
-                </div>
+              <div class="trip-category-toggle-bar">
+                <button type="button" id="card-cat-personal" class="btn-trip-cat active" data-cat="Personal">
+                  Personal Ride
+                </button>
+                <button type="button" id="card-cat-official" class="btn-trip-cat" data-cat="Official">
+                  Official Ride
+                </button>
               </div>
             </div>
 
             <!-- Official Preset Destination Dropdown (Smoothly revealed when Official is selected) -->
             <div id="short-official-dest-box" style="display: none; background: #F0FDF4; border: 1.5px solid #A7F3D0; border-radius: 10px; padding: 0.95rem; margin-bottom: 1.25rem;">
               <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;">
-                <span style="font-size: 1rem;">📍</span>
                 <label style="font-size: 0.8rem; font-weight: 700; color: #065F46; margin: 0;">
                   Official Preset Destination & Mileage Benchmark *
                 </label>
@@ -216,9 +188,9 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               </p>
               <select id="short-official-dest-select" class="form-control" style="width: 100%; font-size: 0.86rem; font-weight: 600; margin-bottom: 0.4rem; background: #FFFFFF;">
                 ${destinations.filter(d => d.is_active !== false).map(d => `
-                  <option value="${d.id}" data-km="${d.standard_distance_km}">📍 ${d.name} (${d.standard_distance_km} KM standard benchmark)</option>
+                  <option value="${d.id}" data-km="${d.standard_distance_km}">${d.name} (${d.standard_distance_km} KM standard benchmark)</option>
                 `).join('')}
-                <option value="other">✍️ Other (Custom Destination & Route)</option>
+                <option value="other">Other (Custom Destination & Route)</option>
               </select>
               <div id="short-custom-dest-row" style="display: none; grid-template-columns: 2fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
                 <input type="text" id="short-custom-dest-name" class="form-control" placeholder="Destination name / office..." style="font-size: 0.82rem; background: #FFF;" />
@@ -237,23 +209,23 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 placeholder="e.g. ${selectedVeh?.current_odometer || 0}" 
                 style="width: 100%; font-weight: 800; font-family: monospace; font-size: 1.15rem; padding: 0.65rem 0.85rem; border: 2px solid #C7D2FE; border-radius: 8px; background: #FFFFFF;" />
               <div style="font-size: 0.74rem; color: #6366F1; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.35rem;">
-                <span>ℹ️</span> Pre-filled with <strong>${selectedVeh?.vehicle_name || 'Vehicle'}</strong>'s live odometer (${selectedVeh?.current_odometer || 0} KM). Return meter will be recorded when finishing the trip.
+                Pre-filled with <strong>${selectedVeh?.vehicle_name || 'Vehicle'}</strong>'s live odometer (${selectedVeh?.current_odometer || 0} KM). Return meter will be recorded when finishing the trip.
               </div>
             </div>
 
-            <!-- Action Buttons: Start Short Ride & Block Trip for Others -->
-            <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+            <!-- Action Buttons: Start Short Ride & Block Trip for Others (Responsive Solid Buttons, No Emojis) -->
+            <div class="trip-actions-row">
               ${isInstantAllowed ? `
-                <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="flex: 1 1 200px; padding: 0.75rem 1rem; font-weight: 700; font-size: 0.92rem; background: #4F46E5; border-color: #4F46E5; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25); border-radius: 8px;">
-                  🚀 Start Instant Short Ride
+                <button type="button" id="btn-start-short-ride" class="btn btn-primary btn-trip-action-main" style="background: #4F46E5; border-color: #4F46E5; color: #FFFFFF; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
+                  Start Instant Short Ride
                 </button>
               ` : `
-                <button type="button" id="btn-start-short-ride" class="btn btn-primary" style="flex: 1 1 200px; padding: 0.75rem 1rem; font-weight: 700; font-size: 0.92rem; background: #D97706; border-color: #D97706; border-radius: 8px;">
+                <button type="button" id="btn-start-short-ride" class="btn btn-primary btn-trip-action-main" style="background: #D97706; border-color: #D97706; color: #FFFFFF;">
                   Submit Request for Admin Approval
                 </button>
               `}
-              <button type="button" id="btn-block-for-others" class="btn btn-outline" style="font-weight: 700; font-size: 0.88rem; padding: 0.75rem 1.1rem; border: 1.5px solid #C7D2FE; color: #4338CA; background: #FFFFFF; white-space: nowrap; border-radius: 8px;">
-                👥 Block Trip for Others
+              <button type="button" id="btn-block-for-others" class="btn btn-trip-action-main" style="background: #059669; border-color: #059669; color: #FFFFFF; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);">
+                Block Trip for Others
               </button>
             </div>
           </div>
@@ -539,7 +511,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       });
     });
 
-    // User-friendly Personal vs Official Trip Selection Cards
+    // User-friendly Personal vs Official Trip Selection
     let shortTripCategory = 'Personal';
     const cardPersonal = container.querySelector('#card-cat-personal');
     const cardOfficial = container.querySelector('#card-cat-official');
@@ -549,44 +521,13 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
     function updateCategoryUI(cat) {
       shortTripCategory = cat;
-      const checkPersonal = cardPersonal?.querySelector('.cat-check-badge');
-      const checkOfficial = cardOfficial?.querySelector('.cat-check-badge');
-
       if (cat === 'Personal') {
-        if (cardPersonal) {
-          cardPersonal.classList.add('active');
-          cardPersonal.style.borderColor = '#4F46E5';
-          cardPersonal.style.background = '#FFFFFF';
-          cardPersonal.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.12)';
-        }
-        if (checkPersonal) checkPersonal.style.display = 'inline-flex';
-
-        if (cardOfficial) {
-          cardOfficial.classList.remove('active');
-          cardOfficial.style.borderColor = '#E2E8F0';
-          cardOfficial.style.background = '#FFFFFF';
-          cardOfficial.style.boxShadow = 'var(--shadow-sm)';
-        }
-        if (checkOfficial) checkOfficial.style.display = 'none';
-
+        cardPersonal?.classList.add('active');
+        cardOfficial?.classList.remove('active');
         if (officialDestBox) officialDestBox.style.display = 'none';
       } else {
-        if (cardOfficial) {
-          cardOfficial.classList.add('active');
-          cardOfficial.style.borderColor = '#059669';
-          cardOfficial.style.background = '#FFFFFF';
-          cardOfficial.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.15)';
-        }
-        if (checkOfficial) checkOfficial.style.display = 'inline-flex';
-
-        if (cardPersonal) {
-          cardPersonal.classList.remove('active');
-          cardPersonal.style.borderColor = '#E2E8F0';
-          cardPersonal.style.background = '#FFFFFF';
-          cardPersonal.style.boxShadow = 'var(--shadow-sm)';
-        }
-        if (checkPersonal) checkPersonal.style.display = 'none';
-
+        cardOfficial?.classList.add('active');
+        cardPersonal?.classList.remove('active');
         if (officialDestBox) officialDestBox.style.display = 'block';
       }
     }

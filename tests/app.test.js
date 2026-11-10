@@ -9429,8 +9429,14 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(userTripsCode).toContain('short-ride-start-km');
       expect(userTripsCode).toContain('end-km-input');
       expect(userTripsCode).toContain('trip-mode-toggle-bar');
+      expect(userTripsCode).toContain('trip-category-toggle-bar');
       expect(userTripsCode).toContain('card-cat-personal');
       expect(userTripsCode).toContain('card-cat-official');
+      expect(userTripsCode).toContain('trip-actions-row');
+      expect(userTripsCode).toContain('Start Instant Short Ride');
+      expect(userTripsCode).not.toContain('🚀 Start Instant Short Ride');
+      expect(userTripsCode).toContain('Block Trip for Others');
+      expect(userTripsCode).not.toContain('👥 Block Trip for Others');
       expect(userTripsCode).toContain('openDiscrepancyModal');
     });
 
