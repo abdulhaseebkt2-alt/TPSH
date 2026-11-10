@@ -76,6 +76,53 @@ const PROD_CLASSROOMS = [
 
 const INITIAL_CLASSROOMS = isTestEnv ? TEST_CLASSROOMS : PROD_CLASSROOMS;
 
+export function isDummyOrTestUser(u, strict = false) {
+  if (!u) return true;
+  if (isTestEnv && !strict) return false;
+  const id = String(u.id || '').trim();
+  const email = String(u.email || '').toLowerCase().trim();
+  const name = String(u.full_name || '').toLowerCase().trim();
+
+  // Explicit test / dummy user IDs
+  const dummyUserIds = [
+    'u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'u-pending',
+    'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55',
+    'd0000000-0000-0000-0000-000000000007',
+    'd0000000-0000-0000-0000-000000000003',
+    'd0000000-0000-0000-0000-000000000004',
+    'd0000000-0000-0000-0000-000000000005',
+    'd0000000-0000-0000-0000-000000000006',
+    'd0000000-0000-0000-0000-000000000008',
+    'd0000000-0000-0000-0000-000000000009',
+    'd0000000-0000-0000-0000-000000000010'
+  ];
+  if (dummyUserIds.includes(id)) return true;
+  if (id.startsWith('d0000000-') && id !== 'd0000000-0000-0000-0000-000000000001') return true;
+
+  // Explicit test / dummy emails
+  const dummyEmails = [
+    'applicant@gmail.com',
+    'new_applicant@gmail.com',
+    'tpsmoraledu@gmail.com',
+    'teacher@thaibaschool.edu.in',
+    'mentor@thaibaschool.edu.in',
+    'parent@example.com',
+    'driver@thaibaschool.edu.in',
+    'abdurahiman@thaibaschool.edu.in',
+    'girls_mentor@thaibaschool.edu.in',
+    'student@thaibaschool.edu.in',
+    'leader@thaibaschool.edu.in'
+  ];
+  if (dummyEmails.includes(email)) return true;
+  if (email.startsWith('applicant@') || email.startsWith('new_applicant@')) return true;
+
+  // Explicit test / dummy names
+  if (['new applicant', 'tester teacher', 'test user', 'dummy user', 'sample user'].includes(name)) return true;
+  if (name.includes('new applicant') || name.includes('tester teacher')) return true;
+
+  return false;
+}
+
 export const INITIAL_TEACHER_ASSIGNMENTS = isTestEnv ? [
   { id: 'asg-1', classroom_id: 'cls-1', teacher_id: 'u-2', assigned_date: '2026-10-01', removed_date: null },
   { id: 'asg-2', classroom_id: 'cls-2', teacher_id: 'u-2', assigned_date: '2026-10-01', removed_date: null },
@@ -883,18 +930,14 @@ class DatabaseService {
     }
 
     // Purge dummy demo entries from client storage (teachers, admins, parents, mentors, students, drivers & dummy logs)
-    if (!isTestEnv && !this.getStorageItem('tps_dummy_purged_v2026')) {
+    if (!isTestEnv && !this.getStorageItem('tps_dummy_purged_v2026_rev3')) {
       try {
-        const dummyUserIds = new Set(['u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55']);
-        const dummyEmails = new Set(['tpsmoraledu@gmail.com', 'teacher@thaibaschool.edu.in', 'mentor@thaibaschool.edu.in', 'parent@example.com', 'applicant@gmail.com', 'driver@thaibaschool.edu.in', 'abdurahiman@thaibaschool.edu.in', 'girls_mentor@thaibaschool.edu.in']);
-
         // 1. Purge tps_users
         const rawUsers = this.get('tps_users') || [];
         if (Array.isArray(rawUsers)) {
           const cleanUsers = rawUsers.filter(u => {
             if (!u || !u.id) return false;
-            if (dummyUserIds.has(u.id)) return false;
-            if (u.email && dummyEmails.has(String(u.email).toLowerCase())) return false;
+            if (isDummyOrTestUser(u, true)) return false;
             if (u.id === '28bb4935-b4f0-4657-942c-afc784dc68de' && !u.email) return false;
             return true;
           });
@@ -902,6 +945,7 @@ class DatabaseService {
             { id: 'u-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb', role: 'super_admin', approval_status: 'approved', is_super_admin: true }
           ]));
         }
+        this.setStorageItem('tps_dummy_purged_v2026_rev3', 'true');
 
         // 2. Purge tps_teacher_assignments
         const rawAsg = this.get('tps_teacher_assignments') || [];
@@ -1062,7 +1106,8 @@ class DatabaseService {
     'tps_user_custom_modules',
     'tps_exams',
     'tps_exam_subjects',
-    'tps_marks'
+    'tps_marks',
+    'tps_user_passwords'
   ], force = false) {
     if (!supabase || isTestEnv) return;
     const now = Date.now();
@@ -4753,24 +4798,45 @@ class DatabaseService {
     let p = null;
     p = (async () => {
       try {
+        await this.pullCloudKeys(['tps_user_passwords']);
+        const passwordsMap = this.get('tps_user_passwords') || {};
+
         if (supabase) {
           try {
             const { data, error } = await supabase.rpc('get_manageable_users');
             if (!error && Array.isArray(data) && data.length > 0) {
-              const dummyIds = new Set(['u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55']);
-              const dummyEmails = new Set(['tpsmoraledu@gmail.com', 'teacher@thaibaschool.edu.in', 'mentor@thaibaschool.edu.in', 'parent@example.com', 'applicant@gmail.com', 'driver@thaibaschool.edu.in', 'abdurahiman@thaibaschool.edu.in', 'girls_mentor@thaibaschool.edu.in']);
-
               const cleanRemote = !isTestEnv 
-                ? data.filter(u => !dummyIds.has(u.id) && !dummyEmails.has(String(u.email || '').toLowerCase()))
+                ? data.filter(u => !isDummyOrTestUser(u, true))
                 : data;
               const localUsers = !isTestEnv
-                ? (this.get('tps_users') || []).filter(u => u && !dummyIds.has(u.id) && !dummyEmails.has(String(u.email || '').toLowerCase()))
+                ? (this.get('tps_users') || []).filter(u => u && !isDummyOrTestUser(u, true))
                 : (this.get('tps_users') || []);
               const remoteEmails = new Set(cleanRemote.map(u => (u.email || '').toLowerCase()));
-              const combined = [
+              let combined = [
                 ...cleanRemote,
                 ...localUsers.filter(lu => !remoteEmails.has((lu.email || '').toLowerCase()) && lu.id !== 'u-pending')
               ];
+
+              // Enrich all users with securely stored passwords
+              combined.forEach(u => {
+                const localMatch = localUsers.find(lu => lu.id === u.id || (lu.email && u.email && lu.email.toLowerCase() === u.email.toLowerCase()));
+                const meta = u.metadata || {};
+                const storedPw = passwordsMap[u.id] || 
+                                 (u.email && passwordsMap[u.email.toLowerCase()]) || 
+                                 meta.password || 
+                                 localMatch?.password || 
+                                 u.password;
+                if (storedPw) {
+                  u.password = storedPw;
+                  u.has_password = true;
+                  u.password_updated_at = passwordsMap[u.id + '_at'] || meta.password_updated_at || localMatch?.password_updated_at || u.password_updated_at;
+                }
+              });
+
+              if (!isTestEnv) {
+                combined = combined.filter(u => !isDummyOrTestUser(u, true));
+              }
+
               this._usersCache = combined;
               this._usersCacheTime = Date.now();
               return combined;
@@ -4779,11 +4845,28 @@ class DatabaseService {
             console.warn('Supabase get_manageable_users fallback:', err);
           }
         }
-        const dummyIds = new Set(['u-2', 'u-3', 'u-4', 'u-5', 'u-6', 'u-7', 'vu-abdurahiman', 'vu-sameer', '3ba0d909-6656-43eb-87fb-fe8e30088d55']);
-        const dummyEmails = new Set(['tpsmoraledu@gmail.com', 'teacher@thaibaschool.edu.in', 'mentor@thaibaschool.edu.in', 'parent@example.com', 'applicant@gmail.com', 'driver@thaibaschool.edu.in', 'abdurahiman@thaibaschool.edu.in', 'girls_mentor@thaibaschool.edu.in']);
-        const res = !isTestEnv
-          ? (this.get('tps_users') || []).filter(u => u && !dummyIds.has(u.id) && !dummyEmails.has(String(u.email || '').toLowerCase()))
+
+        let res = !isTestEnv
+          ? (this.get('tps_users') || []).filter(u => u && !isDummyOrTestUser(u, true))
           : (this.get('tps_users') || []);
+
+        res.forEach(u => {
+          const meta = u.metadata || {};
+          const storedPw = passwordsMap[u.id] || 
+                           (u.email && passwordsMap[u.email.toLowerCase()]) || 
+                           meta.password || 
+                           u.password;
+          if (storedPw) {
+            u.password = storedPw;
+            u.has_password = true;
+            u.password_updated_at = passwordsMap[u.id + '_at'] || meta.password_updated_at || u.password_updated_at;
+          }
+        });
+
+        if (!isTestEnv) {
+          res = res.filter(u => !isDummyOrTestUser(u, true));
+        }
+
         this._usersCache = res;
         this._usersCacheTime = Date.now();
         return res;
@@ -4802,7 +4885,18 @@ class DatabaseService {
     return p;
   }
 
-  async setUserPassword(user_id, new_password) {
+  getUserPassword(user_id, user_email = '') {
+    const passwordsMap = this.get('tps_user_passwords') || {};
+    if (user_id && passwordsMap[user_id]) return passwordsMap[user_id];
+    if (user_email && passwordsMap[user_email.toLowerCase()]) return passwordsMap[user_email.toLowerCase()];
+    const users = this.get('tps_users') || [];
+    const u = users.find(x => (user_id && x.id === user_id) || (user_email && x.email && x.email.toLowerCase() === user_email.toLowerCase()));
+    if (u?.password) return u.password;
+    if (u?.metadata?.password) return u.metadata.password;
+    return '';
+  }
+
+  async setUserPassword(user_id, new_password, user_email = '') {
     if (!user_id || !new_password) {
       throw new Error('User ID and password are required');
     }
@@ -4814,7 +4908,18 @@ class DatabaseService {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id);
     const nowIso = new Date().toISOString();
 
-    // 1. Update in Supabase profiles table if available
+    // 1. Persist in cloud & local passwords dictionary
+    const passwordsMap = this.get('tps_user_passwords') || {};
+    passwordsMap[user_id] = cleanPw;
+    passwordsMap[user_id + '_at'] = nowIso;
+    if (user_email) {
+      passwordsMap[user_email.toLowerCase()] = cleanPw;
+      passwordsMap[user_email.toLowerCase() + '_at'] = nowIso;
+    }
+    this.set('tps_user_passwords', passwordsMap);
+    await this.pushCloudKey('tps_user_passwords', passwordsMap);
+
+    // 2. Update in Supabase profiles table if available
     if (supabase && isUuid) {
       try {
         const { data: prof } = await supabase.from('profiles').select('metadata').eq('id', user_id).maybeSingle();
@@ -4842,12 +4947,13 @@ class DatabaseService {
       }
     }
 
-    // 2. Persist in local storage `tps_users`
+    // 3. Persist in local storage `tps_users`
     const users = this.get('tps_users') || [];
-    const idx = users.findIndex(u => u.id === user_id || (u.email && users.find(x => x.id === user_id)?.email?.toLowerCase() === u.email.toLowerCase()));
+    const idx = users.findIndex(u => u.id === user_id || (user_email && u.email && u.email.toLowerCase() === user_email.toLowerCase()));
     if (idx >= 0) {
       users[idx] = {
         ...users[idx],
+        email: users[idx].email || user_email,
         password: cleanPw,
         has_password: true,
         password_updated_at: nowIso
@@ -4856,6 +4962,7 @@ class DatabaseService {
     } else {
       users.push({
         id: user_id,
+        email: user_email,
         password: cleanPw,
         has_password: true,
         password_updated_at: nowIso
@@ -4863,10 +4970,10 @@ class DatabaseService {
       this.set('tps_users', users);
     }
 
-    // Also check current active dev profile in local storage
+    // 4. Update current active dev profile in local storage if matching
     try {
       const devProfile = JSON.parse(localStorage.getItem('tps_dev_profile') || 'null');
-      if (devProfile && devProfile.id === user_id) {
+      if (devProfile && (devProfile.id === user_id || (user_email && devProfile.email?.toLowerCase() === user_email.toLowerCase()))) {
         devProfile.password = cleanPw;
         devProfile.has_password = true;
         devProfile.password_updated_at = nowIso;
@@ -4876,7 +4983,7 @@ class DatabaseService {
 
     this._usersCache = null;
     this._usersCacheTime = 0;
-    this.logAudit('USER_PASSWORD_UPDATE', 'profiles', user_id, 'User password set/updated');
+    this.logAudit('USER_PASSWORD_UPDATE', 'profiles', user_id, `User password set/updated for ${user_email || user_id}`);
     return { success: true, user_id, updated_at: nowIso };
   }
 

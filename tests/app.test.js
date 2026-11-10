@@ -9082,5 +9082,50 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       await db.deleteExam('ex-past-expired');
       await db.deleteExam('ex-active-live');
     });
+
+    it('2518: User password persistence across sessions, dummy tester account filtering, and mobile password button support', async () => {
+      const { isDummyOrTestUser } = await import('../src/lib/db.js');
+
+      // 1. Verify dummy/tester users are recognized and filtered
+      expect(isDummyOrTestUser({ email: 'applicant@gmail.com' }, true)).toBe(true);
+      expect(isDummyOrTestUser({ email: 'new_applicant@gmail.com' }, true)).toBe(true);
+      expect(isDummyOrTestUser({ email: 'tpsmoraledu@gmail.com' }, true)).toBe(true);
+      expect(isDummyOrTestUser({ full_name: 'New Applicant' }, true)).toBe(true);
+      expect(isDummyOrTestUser({ full_name: 'Tester Teacher' }, true)).toBe(true);
+      expect(isDummyOrTestUser({ id: 'u-5' }, true)).toBe(true);
+
+      // Real users must NOT be marked as dummy
+      expect(isDummyOrTestUser({ id: 'u-real-1', email: 'abdulhaseebkt2@gmail.com', full_name: 'Abdul Haseeb' }, true)).toBe(false);
+      expect(isDummyOrTestUser({ id: 'u-real-2', email: 'cmbasith786@gmail.com', full_name: 'Basith' }, true)).toBe(false);
+
+      // 2. Set and retrieve user password without blank values
+      const testUid = 'user-pw-persist-test';
+      const testEmail = 'persisted_user@thaibaschool.edu.in';
+      await db.setUserPassword(testUid, 'StoredSecret@123', testEmail);
+
+      // Verify immediate retrieval via ID and Email
+      expect(db.getUserPassword(testUid)).toBe('StoredSecret@123');
+      expect(db.getUserPassword(null, testEmail)).toBe('StoredSecret@123');
+
+      // 3. Verify users list merges passwords and filters dummies
+      const usersList = await db.getUsers(true);
+      const testUser = usersList.find(u => u.id === testUid || u.email === testEmail);
+      if (testUser) {
+        expect(testUser.password).toBe('StoredSecret@123');
+        expect(testUser.has_password).toBe(true);
+      }
+      const activeCleanUsers = usersList.filter(u => !isDummyOrTestUser(u, true));
+      expect(activeCleanUsers.some(u => u.email === 'applicant@gmail.com')).toBe(false);
+      expect(activeCleanUsers.some(u => u.email === 'tpsmoraledu@gmail.com')).toBe(false);
+
+      // 4. Code inspection: verify Users module UI enhancements
+      const usersCode = fs.readFileSync('src/modules/users/index.js', 'utf8');
+      expect(usersCode).toContain('Current Stored Password');
+      expect(usersCode).toContain('btn-copy-stored-pw');
+      expect(usersCode).toContain('btn-toggle-stored-pw');
+      expect(usersCode).toContain('display-stored-pw');
+      // Verify mobile pending cards include password button
+      expect(usersCode).toContain('data-email="${u.email}" style="color: #4F46E5;');
+    });
   });
 });

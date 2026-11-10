@@ -1,4 +1,4 @@
-import { db } from '../../lib/db.js';
+import { db, isDummyOrTestUser } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { confirmDialog, openModal } from '../../lib/dialog.js';
 import { getCurrentUser } from '../../lib/auth.js';
@@ -325,7 +325,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
   const isViewOnly = isViewOnlyModule(currentUser, 'users');
 
-  const users = await db.getUsers();
+  const allUsersList = await db.getUsers();
+  const users = allUsersList.filter(u => !isDummyOrTestUser(u, true));
   const allStudents = await db.getStudents();
   const pendingUsers = users.filter(u => u.approval_status === 'pending');
   const activeUsers = users.filter(u => u.approval_status === 'approved');
@@ -516,14 +517,18 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               </div>
 
               ${!isViewOnly ? `
-                <div class="user-card-actions" style="grid-template-columns: 1fr 1fr;">
+                <div class="user-card-actions" style="grid-template-columns: 1fr 1fr; gap: 0.45rem;">
                   <button class="btn btn-sm btn-primary btn-approve" data-id="${u.id}" data-email="${u.email}" data-role="${u.role || (isParentReq ? 'parent' : 'teacher')}" style="font-weight: 700;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    ${isParentReq ? 'Approve & Assign' : 'Approve & Role'}
+                    ${isParentReq ? 'Approve' : 'Approve'}
                   </button>
-                  <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA;">
+                  <button class="btn btn-sm btn-outline btn-set-password" data-id="${u.id}" data-email="${u.email}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 600;" title="Set password for ${u.full_name || u.email}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Password
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-reject" data-id="${u.id}" style="color: #DC2626; border-color: #FECACA; grid-column: span 2;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    Reject
+                    Reject Application
                   </button>
                 </div>
               ` : ''}
@@ -1427,6 +1432,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
     const userName = targetUser.full_name || (targetUser.email ? targetUser.email.split('@')[0] : 'User');
     const userEmail = targetUser.email || '';
     const userRole = (targetUser.role || 'Staff').replace('_', ' ').toUpperCase();
+    const currentPw = targetUser.password || db.getUserPassword(targetUser.id, targetUser.email) || '';
+    const hasExistingPw = Boolean(currentPw && currentPw.trim().length > 0);
 
     openModal({
       title: 'Set User Password',
@@ -1441,23 +1448,51 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
               <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                 <strong style="font-size: 0.95rem; color: #1E293B;">${userName}</strong>
                 <span class="badge" style="background: #E0E7FF; color: #3730A3; font-weight: 700; font-size: 0.68rem;">${userRole}</span>
-                ${targetUser.has_password ? `<span class="badge badge-present" style="font-size: 0.65rem;">Password Configured</span>` : ''}
+                ${hasExistingPw ? `<span class="badge badge-present" style="font-size: 0.65rem;">Active Password Saved</span>` : `<span class="badge badge-leave" style="font-size: 0.65rem;">No Password Set</span>`}
               </div>
               <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">${userEmail}</div>
             </div>
           </div>
 
+          <!-- Stored Password Status / Reveal Box -->
+          ${hasExistingPw ? `
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 0.85rem 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.72rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Current Stored Password
+                </span>
+                <div style="display: flex; gap: 0.4rem;">
+                  <button type="button" id="btn-copy-stored-pw" class="btn btn-xs btn-outline" style="font-size: 0.72rem; color: #15803D; border-color: #86EFAC; background: #FFFFFF; font-weight: 600;">
+                    📋 Copy
+                  </button>
+                  <button type="button" id="btn-toggle-stored-pw" class="btn btn-xs btn-outline" style="font-size: 0.72rem; color: #15803D; border-color: #86EFAC; background: #FFFFFF; font-weight: 600;">
+                    👁️ Reveal
+                  </button>
+                </div>
+              </div>
+              <div id="display-stored-pw" style="font-family: monospace; font-size: 1.05rem; font-weight: 700; color: #14532D; letter-spacing: 2px; word-break: break-all; background: #FFFFFF; border: 1px dashed #86EFAC; padding: 0.4rem 0.75rem; border-radius: 6px;">
+                ••••••••
+              </div>
+            </div>
+          ` : `
+            <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.8rem; color: #92400E; display: flex; align-items: center; gap: 0.5rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>No password configured yet. Set one below so this user can log in with their email and password.</span>
+            </div>
+          `}
+
           <!-- Set Password Form -->
           <form id="form-modal-set-password" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                <label style="font-size: 0.82rem; font-weight: 600; color: #334155;" for="modal-input-new-pw">New Password *</label>
+                <label style="font-size: 0.82rem; font-weight: 600; color: #334155;" for="modal-input-new-pw">${hasExistingPw ? 'Update / Change Password *' : 'New Password *'}</label>
                 <button type="button" id="btn-suggest-pw" class="btn btn-xs btn-outline" style="font-size: 0.72rem; color: #4F46E5; border-color: #C7D2FE; font-weight: 600;">
                   🎲 Suggest Password
                 </button>
               </div>
               <div style="position: relative;">
-                <input type="password" id="modal-input-new-pw" class="form-control" placeholder="Enter at least 6 characters" required minlength="6" style="padding-right: 2.5rem; font-family: inherit; font-size: 0.9rem;" />
+                <input type="password" id="modal-input-new-pw" class="form-control" placeholder="Enter at least 6 characters" required minlength="6" value="${hasExistingPw ? currentPw : ''}" style="padding-right: 2.5rem; font-family: inherit; font-size: 0.9rem;" />
                 <button type="button" id="toggle-modal-new-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 4px;" title="Toggle Password Visibility">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -1467,7 +1502,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             <div>
               <label style="font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem; display: block;" for="modal-input-confirm-pw">Confirm Password *</label>
               <div style="position: relative;">
-                <input type="password" id="modal-input-confirm-pw" class="form-control" placeholder="Confirm new password" required minlength="6" style="padding-right: 2.5rem; font-family: inherit; font-size: 0.9rem;" />
+                <input type="password" id="modal-input-confirm-pw" class="form-control" placeholder="Confirm password" required minlength="6" value="${hasExistingPw ? currentPw : ''}" style="padding-right: 2.5rem; font-family: inherit; font-size: 0.9rem;" />
                 <button type="button" id="toggle-modal-confirm-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748B; padding: 4px;" title="Toggle Password Visibility">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -1475,14 +1510,14 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             </div>
 
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.74rem; color: #64748B; line-height: 1.4;">
-              💡 <strong>Instant Access:</strong> Setting this password enables <strong>${userName}</strong> to sign in using their email (<strong>${userEmail}</strong>) and this password immediately.
+              💡 <strong>Instant Access:</strong> Setting or updating this password enables <strong>${userName}</strong> to sign in using their email (<strong>${userEmail}</strong>) and this password immediately.
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
               <button type="button" class="btn btn-outline" id="btn-cancel-modal-pw">Cancel</button>
               <button type="submit" class="btn btn-primary" id="btn-submit-modal-pw" style="background: #4F46E5; border-color: #4F46E5;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                Save Password
+                ${hasExistingPw ? 'Save Changes' : 'Set Password'}
               </button>
             </div>
           </form>
@@ -1496,6 +1531,36 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         const btnSuggest = modalContainer.querySelector('#btn-suggest-pw');
         const btnCancel = modalContainer.querySelector('#btn-cancel-modal-pw');
         const form = modalContainer.querySelector('#form-modal-set-password');
+        const btnCopyStored = modalContainer.querySelector('#btn-copy-stored-pw');
+        const btnToggleStored = modalContainer.querySelector('#btn-toggle-stored-pw');
+        const displayStoredPw = modalContainer.querySelector('#display-stored-pw');
+
+        let isStoredRevealed = false;
+        btnToggleStored?.addEventListener('click', () => {
+          isStoredRevealed = !isStoredRevealed;
+          if (displayStoredPw) {
+            displayStoredPw.textContent = isStoredRevealed ? currentPw : '••••••••';
+          }
+          if (btnToggleStored) {
+            btnToggleStored.textContent = isStoredRevealed ? '🔒 Mask' : '👁️ Reveal';
+          }
+        });
+
+        btnCopyStored?.addEventListener('click', async () => {
+          if (!currentPw) return;
+          try {
+            await navigator.clipboard.writeText(currentPw);
+            toast.success('Password copied to clipboard!');
+          } catch {
+            const ta = document.createElement('textarea');
+            ta.value = currentPw;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            toast.success('Password copied to clipboard!');
+          }
+        });
 
         const toggleVisibility = (inputEl, btnEl) => {
           if (!inputEl) return;
@@ -1538,10 +1603,10 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           }
 
           try {
-            await db.setUserPassword(targetUser.id, newPw);
+            await db.setUserPassword(targetUser.id, newPw, targetUser.email);
             targetUser.has_password = true;
             targetUser.password = newPw;
-            toast.success(`Password set successfully for ${userName}!`);
+            toast.success(`Password saved successfully for ${userName}!`);
             close();
             renderUsersModule(container, { onNavigate });
           } catch (err) {
