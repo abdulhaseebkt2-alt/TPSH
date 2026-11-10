@@ -52,6 +52,14 @@ export function getBottomNavItems(profile) {
       { key: 'marks', label: 'Marks', icon: 'marks' },
       { key: 'exams', label: 'Exams', icon: 'exams' }
     ];
+  } else if (role === 'vehicle_head') {
+    candidates = [
+      { key: 'dashboard', label: 'Home', icon: 'home' },
+      { key: 'vehicles', label: 'Fleet', icon: 'truck' },
+      { key: 'vehicle_requests', label: 'Requests', icon: 'clipboard' },
+      { key: 'vehicle_billing', label: 'Dues', icon: 'fees' },
+      { key: 'vehicle_trips', label: 'Trips', icon: 'car' }
+    ];
   } else if (role === 'vehicle_user') {
     candidates = [
       { key: 'dashboard', label: 'Home', icon: 'home' },
@@ -123,6 +131,8 @@ function getIconSvg(type) {
       return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>`;
     case 'truck':
       return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 17h4V5H2v12h3"></path><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"></path><circle cx="7.5" cy="17.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>`;
+    case 'clipboard':
+      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="m9 14 2 2 4-4"></path></svg>`;
     default:
       return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle></svg>`;
   }

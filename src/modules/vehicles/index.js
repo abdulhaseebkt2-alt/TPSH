@@ -28,28 +28,44 @@ import { enhanceDateInput } from '../../components/date-picker.js';
 
 export async function renderVehicleManagementModule(container, { onNavigate, initialTab = 'fleet' }) {
   const currentUser = getCurrentUser();
+  const isVehicleHead = currentUser?.role === 'vehicle_head';
   const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
-  if (!isAdmin) {
+  if (!isAdmin && !isVehicleHead) {
     container.innerHTML = `
       <div class="empty-state" style="margin-top: 4rem;">
         <div class="empty-icon" style="color: #DC2626; display: flex; justify-content: center; margin-bottom: 1rem;">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
         </div>
         <h4>Access Restricted</h4>
-        <p>Only School Administrators can access the Vehicle Fleet Management & Compliance console.</p>
+        <p>Only School Administrators and Vehicle Department Heads can access the Vehicle Fleet Management & Compliance console.</p>
       </div>
     `;
     return;
   }
 
+  const vHeadMap = (db && typeof db.get === 'function') ? (db.get('tps_vehicle_head_assignments') || {}) : {};
+  const assignedFromMap = vHeadMap[currentUser?.id] || (currentUser?.email && vHeadMap[currentUser.email.toLowerCase()]);
+  const assignedVehicleIds = currentUser?.assigned_vehicle_ids ||
+                             currentUser?.metadata?.assigned_vehicle_ids ||
+                             currentUser?.vehicle_ids ||
+                             assignedFromMap ||
+                             [];
+  const headVehicleSet = new Set(assignedVehicleIds);
+
+  const filterVehicles = (list) => isVehicleHead ? (list || []).filter(v => headVehicleSet.has(v.id)) : (list || []);
+  const filterDocs = (list) => isVehicleHead ? (list || []).filter(d => headVehicleSet.has(d.vehicle_id)) : (list || []);
+  const filterExpenses = (list) => isVehicleHead ? (list || []).filter(e => headVehicleSet.has(e.vehicle_id)) : (list || []);
+  const filterTrips = (list) => isVehicleHead ? (list || []).filter(t => headVehicleSet.has(t.vehicle_id)) : (list || []);
+  const filterPayments = (list, tripList) => isVehicleHead ? (list || []).filter(p => (tripList || trips || []).some(t => t.id === p.trip_id || t.trip_id === p.trip_id)) : (list || []);
+
   // Load all required vehicle data
   let activeTab = initialTab;
-  let vehicles = await db.getVehicles();
-  let documents = await db.getVehicleDocuments();
-  let expenses = await db.getVehicleExpenses();
-  let trips = await db.getTripLogs();
-  let payments = await db.getVehiclePayments();
+  let vehicles = filterVehicles(await db.getVehicles());
+  let documents = filterDocs(await db.getVehicleDocuments());
+  let expenses = filterExpenses(await db.getVehicleExpenses());
+  let trips = filterTrips(await db.getTripLogs());
+  let payments = filterPayments(await db.getVehiclePayments(), trips);
   let vehicleUsers = await db.getVehicleUsers();
   let selectedExpenseVehicleId = vehicles[0]?.id || '';
 
@@ -1119,7 +1135,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         });
         if (confirmed) {
           await db.deleteVehicle(id);
-          vehicles = await db.getVehicles();
+          vehicles = filterVehicles(await db.getVehicles());
           toast.success('Vehicle removed from fleet.');
           render();
         }
@@ -1149,7 +1165,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         targetTrip.approved_at = new Date().toISOString();
 
         await db.saveTripLog(targetTrip);
-        trips = await db.getTripLogs();
+        trips = filterTrips(await db.getTripLogs());
         toast.success(`Trip ${targetTrip.trip_id} approved! Locked rate: ₹${appliedRate.toFixed(2)}/km.`);
         render();
       });
@@ -1175,7 +1191,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         targetTrip.rejection_reason = reason.trim() || 'Declined by Administrator';
 
         await db.saveTripLog(targetTrip);
-        trips = await db.getTripLogs();
+        trips = filterTrips(await db.getTripLogs());
         toast.info(`Trip request ${targetTrip.trip_id} rejected.`);
         render();
       });
@@ -1356,8 +1372,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         logged_by: currentUser?.full_name || 'Admin'
       });
 
-      expenses = await db.getVehicleExpenses();
-      vehicles = await db.getVehicles();
+      expenses = filterExpenses(await db.getVehicleExpenses());
+      vehicles = filterVehicles(await db.getVehicles());
       toast.success('Vehicle expense logged successfully.');
       activeTab = 'expenses';
       render();
@@ -1376,7 +1392,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         });
         if (confirmed) {
           await db.deleteVehicleExpense(id);
-          expenses = await db.getVehicleExpenses();
+          expenses = filterExpenses(await db.getVehicleExpenses());
           toast.success('Expense deleted.');
           render();
         }
@@ -1600,7 +1616,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         allow_instant_short_ride: vAllowInstant
       });
 
-      vehicles = await db.getVehicles();
+      vehicles = filterVehicles(await db.getVehicles());
       modalOverlay.remove();
       toast.success('New vehicle added to fleet!');
       render();
@@ -1752,7 +1768,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         allow_instant_short_ride: modalOverlay.querySelector('#ev-instant-ride')?.checked ?? true
       });
 
-      vehicles = await db.getVehicles();
+      vehicles = filterVehicles(await db.getVehicles());
       modalOverlay.remove();
       toast.success('Vehicle updated successfully.');
       render();
@@ -1898,7 +1914,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           notes
         });
 
-        documents = await db.getVehicleDocuments();
+        documents = filterDocs(await db.getVehicleDocuments());
         toast.success(`${type} added successfully.`);
         renderDocsList();
         render(); // update background badge warnings
@@ -1917,7 +1933,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           });
           if (!confirmed) return;
           await db.deleteVehicleDocument(docId);
-          documents = await db.getVehicleDocuments();
+          documents = filterDocs(await db.getVehicleDocuments());
           toast.success('Document deleted.');
           renderDocsList();
           render();
@@ -2045,8 +2061,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           }
         }
         await db.deleteTripLog(tripId);
-        trips = await db.getTripLogs();
-        payments = await db.getVehiclePayments();
+        trips = filterTrips(await db.getTripLogs());
+        payments = filterPayments(await db.getVehiclePayments(), trips);
         modalOverlay.remove();
         toast.success(`Trip ${tripCode} deleted successfully.`);
         render();
@@ -2117,8 +2133,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         notes
       });
 
-      trips = await db.getTripLogs();
-      payments = await db.getVehiclePayments();
+      trips = filterTrips(await db.getTripLogs());
+      payments = filterPayments(await db.getVehiclePayments(), trips);
       modalOverlay.remove();
       toast.success(`Payment of ${formatCurrency(amountPaid)} recorded for ${userName}!`);
       render();
@@ -2202,8 +2218,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       });
       if (confirmed) {
         await db.deleteVehiclePayment(payment.id);
-        payments = await db.getVehiclePayments();
-        trips = await db.getTripLogs();
+        payments = filterPayments(await db.getVehiclePayments(), trips);
+        trips = filterTrips(await db.getTripLogs());
         modalOverlay.remove();
         toast.success('Settlement record deleted successfully.');
         render();

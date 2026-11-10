@@ -9457,5 +9457,57 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(destCode).toContain('dest-desktop-table');
       expect(destCode).toContain('dest-mobile-cards');
     });
+
+    it('verifies Vehicle Department Head role permissions, assignment storage, users assignment modal, and dedicated dashboard', async () => {
+      // 1. Permissions verification
+      const permsCode = fs.readFileSync('src/lib/permissions.js', 'utf8');
+      expect(permsCode).toContain('vehicle_head');
+      expect(permsCode).toContain("key: 'vehicles'");
+      expect(permsCode).toContain("'vehicle_head'");
+
+      // 2. Database methods and cloud sync keys
+      expect(typeof db.setVehicleHeadAssignedVehicles).toBe('function');
+      expect(typeof db.getVehicleHeadAssignedVehicles).toBe('function');
+      await db.setVehicleHeadAssignedVehicles('v-head-test-1', ['veh-101', 'veh-102'], 'vhead@tps.edu');
+      const assigned = await db.getVehicleHeadAssignedVehicles('v-head-test-1', 'vhead@tps.edu');
+      expect(assigned).toEqual(['veh-101', 'veh-102']);
+
+      // 3. User Management Multi-Vehicle Assignment Section
+      const usersCode = fs.readFileSync('src/modules/users/index.js', 'utf8');
+      expect(usersCode).toContain('modal-vehicle-head-assignment-section');
+      expect(usersCode).toContain('chk-assign-vehicle');
+      expect(usersCode).toContain('filter-vtype-btn');
+      expect(usersCode).toContain('btn-clear-assigned-vehicles');
+      expect(usersCode).toContain('btn-assign-vehicles');
+      expect(usersCode).toContain('Vehicle Department Head');
+
+      // 4. Vehicle Department Head Dashboard
+      const dashIndexCode = fs.readFileSync('src/modules/dashboard/index.js', 'utf8');
+      expect(dashIndexCode).toContain('renderVehicleHeadDashboard');
+      expect(dashIndexCode).toContain("case 'vehicle_head':");
+
+      const headDashCode = fs.readFileSync('src/modules/dashboard/vehicle-head-dashboard.js', 'utf8');
+      expect(headDashCode).toContain('renderVehicleHeadDashboard');
+      expect(headDashCode).toContain('Assigned Fleet Roster');
+      expect(headDashCode).toContain('Pending Trip Requests');
+      expect(headDashCode).toContain('Collectable Payment Dues');
+      expect(headDashCode).toContain('btn-head-approve-req');
+      expect(headDashCode).toContain('btn-head-reject-req');
+      expect(headDashCode).toContain('btn-head-collect-due');
+      expect(headDashCode).toContain('openHeadSettlementModal');
+
+      // 5. Scoped Vehicles Management Console
+      const vehModuleCode = fs.readFileSync('src/modules/vehicles/index.js', 'utf8');
+      expect(vehModuleCode).toContain('isVehicleHead');
+      expect(vehModuleCode).toContain('tps_vehicle_head_assignments');
+      expect(vehModuleCode).toContain('filterVehicles');
+      expect(vehModuleCode).toContain('filterTrips');
+      expect(vehModuleCode).toContain('filterPayments');
+
+      // 6. User Card dues collection permission for Vehicle Heads
+      const userCardCode = fs.readFileSync('src/modules/vehicles/user-card.js', 'utf8');
+      expect(userCardCode).toContain('isVehicleHead');
+      expect(userCardCode).toContain('canManageTripSettlement');
+    });
   });
 });

@@ -11,6 +11,7 @@ const ROLE_POSITION_TITLES = {
   parent: 'Parent',
   student: 'Student',
   hostel_leader: 'Hostel Leader',
+  vehicle_head: 'Vehicle Department Head',
   vehicle_user: 'Driver / Staff'
 };
 

@@ -6,7 +6,7 @@ import { db } from './db.js';
 // - RIGHT ('full'): Full Access. Role can view, create, edit, delete, and apply.
 
 export const MODULE_DEFINITIONS = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
+  { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader', 'vehicle_head', 'vehicle_user'] },
   { key: 'users', label: 'User & Permissions', icon: 'shield-check', roles: ['super_admin', 'admin'] },
   { key: 'admissions', label: 'Student Admissions', icon: 'user-plus', roles: ['super_admin', 'admin'] },
   { key: 'students', label: 'Student Directory', icon: 'users', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'parent', 'hostel_leader'] },
@@ -28,15 +28,15 @@ export const MODULE_DEFINITIONS = [
   { key: 'notices', label: 'Notices & WhatsApp', icon: 'bell', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher', 'parent', 'student', 'hostel_leader'] },
   { key: 'maintenance', label: 'Hostel Maintenance', icon: 'wrench', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'hostel_leader'] },
   { key: 'reports', label: 'Reports Center', icon: 'bar-chart-3', roles: ['super_admin', 'admin', 'mentor', 'boys_mentor', 'girls_mentor', 'teacher'] },
-  { key: 'vehicles', label: 'Fleet & Documents', icon: 'truck', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_requests', label: 'Trip Requests', icon: 'clipboard-check', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_expenses', label: 'Log Vehicle Expense', icon: 'wrench', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_billing', label: 'Usage Billing & Ledger', icon: 'credit-card', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_all_trips', label: 'All Vehicle Trips', icon: 'list', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_staff', label: 'Drivers & Staff', icon: 'users', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_destinations', label: 'Official Destinations & Reviews', icon: 'map-pin', roles: ['super_admin', 'admin'] },
-  { key: 'vehicle_card', label: 'Vehicle User Card', icon: 'id-card', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
-  { key: 'vehicle_trips', label: 'My Vehicle Trips', icon: 'car', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user'] },
+  { key: 'vehicles', label: 'Fleet & Documents', icon: 'truck', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_requests', label: 'Trip Requests', icon: 'clipboard-check', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_expenses', label: 'Log Vehicle Expense', icon: 'wrench', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_billing', label: 'Usage Billing & Ledger', icon: 'credit-card', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_all_trips', label: 'All Vehicle Trips', icon: 'list', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_staff', label: 'Drivers & Staff', icon: 'users', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_destinations', label: 'Official Destinations & Reviews', icon: 'map-pin', roles: ['super_admin', 'admin', 'vehicle_head'] },
+  { key: 'vehicle_card', label: 'Vehicle User Card', icon: 'id-card', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user', 'vehicle_head'] },
+  { key: 'vehicle_trips', label: 'My Vehicle Trips', icon: 'car', roles: ['super_admin', 'admin', 'teacher', 'vehicle_user', 'vehicle_head'] },
   { key: 'audit', label: 'Audit Logs', icon: 'history', roles: ['super_admin'] },
   { key: 'settings', label: 'Institution Settings', icon: 'settings', roles: ['super_admin'] }
 ];
@@ -167,6 +167,20 @@ export const DEFAULT_RBAC_MATRIX = {
     discipline: 'view',
     marks: 'view',
     fees: 'view',
+    notices: 'view'
+  },
+  vehicle_head: {
+    dashboard: 'full',
+    vehicles: 'full',
+    vehicle_requests: 'full',
+    vehicle_expenses: 'full',
+    vehicle_billing: 'full',
+    vehicle_all_trips: 'full',
+    vehicle_staff: 'view',
+    vehicle_destinations: 'view',
+    vehicle_card: 'full',
+    vehicle_trips: 'full',
+    calendar: 'view',
     notices: 'view'
   },
   vehicle_user: {

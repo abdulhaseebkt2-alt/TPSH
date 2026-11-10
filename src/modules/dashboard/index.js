@@ -5,12 +5,17 @@ import { renderMentorDashboard } from './mentor-dashboard.js';
 import { renderParentDashboard } from './parent-dashboard.js';
 import { renderStudentDashboard } from './student-dashboard.js';
 import { renderVehicleUserDashboard } from './vehicle-user-dashboard.js';
+import { renderVehicleHeadDashboard } from './vehicle-head-dashboard.js';
 
 export async function renderDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
   const role = user?.role || 'admin';
 
   switch (role) {
+    case 'vehicle_head':
+      await renderVehicleHeadDashboard(container, { onNavigate });
+      break;
+
     case 'vehicle_user':
       await renderVehicleUserDashboard(container, { onNavigate });
       break;

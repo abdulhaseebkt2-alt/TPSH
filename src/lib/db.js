@@ -1034,12 +1034,12 @@ class DatabaseService {
     try {
       const item = this.getStorageItem(key);
       if (!item) {
-        if (key === 'tps_parent_assignments') return {};
+        if (key === 'tps_parent_assignments' || key === 'tps_vehicle_head_assignments') return {};
         return [];
       }
       return JSON.parse(item);
     } catch {
-      if (key === 'tps_parent_assignments') return {};
+      if (key === 'tps_parent_assignments' || key === 'tps_vehicle_head_assignments') return {};
       return [];
     }
   }
@@ -1108,6 +1108,7 @@ class DatabaseService {
     'tps_fines',
     'tps_black_marks',
     'tps_parent_assignments',
+    'tps_vehicle_head_assignments',
     'tps_vehicles',
     'tps_vehicle_documents',
     'tps_vehicle_expenses',
@@ -4811,9 +4812,10 @@ class DatabaseService {
     let p = null;
     p = (async () => {
       try {
-        await this.pullCloudKeys(['tps_user_passwords', 'tps_parent_assignments']);
+        await this.pullCloudKeys(['tps_user_passwords', 'tps_parent_assignments', 'tps_vehicle_head_assignments']);
         const passwordsMap = this.get('tps_user_passwords') || {};
         const parentAssignmentsMap = this.get('tps_parent_assignments') || {};
+        const vehicleHeadAssignmentsMap = this.get('tps_vehicle_head_assignments') || {};
 
         if (supabase) {
           try {
@@ -4893,6 +4895,24 @@ class DatabaseService {
                   if (u.email) parentAssignmentsMap[u.email.toLowerCase()] = childIds;
                 }
 
+                // Enrich vehicle department head assigned vehicles
+                const cloudVehicles = vehicleHeadAssignmentsMap[u.id] || (u.email && vehicleHeadAssignmentsMap[u.email.toLowerCase()]);
+                const assignedVehs = u.assigned_vehicle_ids ||
+                                     meta.assigned_vehicle_ids ||
+                                     meta.vehicle_ids ||
+                                     cloudVehicles ||
+                                     localMatch?.assigned_vehicle_ids ||
+                                     localMatch?.vehicle_ids ||
+                                     [];
+                if (Array.isArray(assignedVehs) && assignedVehs.length > 0) {
+                  u.assigned_vehicle_ids = assignedVehs;
+                  u.vehicle_ids = assignedVehs;
+                  meta.assigned_vehicle_ids = assignedVehs;
+                  meta.vehicle_ids = assignedVehs;
+                  vehicleHeadAssignmentsMap[u.id] = assignedVehs;
+                  if (u.email) vehicleHeadAssignmentsMap[u.email.toLowerCase()] = assignedVehs;
+                }
+
                 // Enrich mentor properties
                 if (meta.mentor_type && !u.mentor_type) u.mentor_type = meta.mentor_type;
                 if (meta.hostel_unit && !u.hostel_unit) u.hostel_unit = meta.hostel_unit;
@@ -4916,6 +4936,7 @@ class DatabaseService {
               }
 
               this.set('tps_parent_assignments', parentAssignmentsMap);
+              this.set('tps_vehicle_head_assignments', vehicleHeadAssignmentsMap);
               this._usersCache = combined;
               this._usersCacheTime = Date.now();
               return combined;
@@ -4943,6 +4964,19 @@ class DatabaseService {
             u.student_ids = childIds;
             u.child_ids = childIds;
             meta.assigned_student_ids = childIds;
+          }
+
+          const cloudVehicles = vehicleHeadAssignmentsMap[u.id] || (u.email && vehicleHeadAssignmentsMap[u.email.toLowerCase()]);
+          const assignedVehs = u.assigned_vehicle_ids ||
+                               meta.assigned_vehicle_ids ||
+                               meta.vehicle_ids ||
+                               cloudVehicles ||
+                               [];
+          if (Array.isArray(assignedVehs) && assignedVehs.length > 0) {
+            u.assigned_vehicle_ids = assignedVehs;
+            u.vehicle_ids = assignedVehs;
+            meta.assigned_vehicle_ids = assignedVehs;
+            meta.vehicle_ids = assignedVehs;
           }
 
           const storedPw = passwordsMap[u.id] || 
@@ -5126,6 +5160,13 @@ class DatabaseService {
             if (updates.email) pMap[updates.email.toLowerCase()] = assigned;
             this.set('tps_parent_assignments', pMap);
           }
+          const assignedVehs = extra.assigned_vehicle_ids || extra.vehicle_ids;
+          if (assignedVehs && Array.isArray(assignedVehs)) {
+            const vMap = this.get('tps_vehicle_head_assignments') || {};
+            vMap[user_id] = assignedVehs;
+            if (updates.email) vMap[updates.email.toLowerCase()] = assignedVehs;
+            this.set('tps_vehicle_head_assignments', vMap);
+          }
           this._usersCache = null;
           this._usersCacheTime = 0;
           this._usersInFlightPromise = null;
@@ -5149,6 +5190,13 @@ class DatabaseService {
       pMap[user_id] = assigned;
       if (updates.email) pMap[updates.email.toLowerCase()] = assigned;
       this.set('tps_parent_assignments', pMap);
+    }
+    const assignedVehs = extra.assigned_vehicle_ids || extra.vehicle_ids;
+    if (assignedVehs && Array.isArray(assignedVehs)) {
+      const vMap = this.get('tps_vehicle_head_assignments') || {};
+      vMap[user_id] = assignedVehs;
+      if (updates.email) vMap[updates.email.toLowerCase()] = assignedVehs;
+      this.set('tps_vehicle_head_assignments', vMap);
     }
     if (role === 'vehicle_user' || role === 'driver') {
       const vUsers = this.get('tps_vehicle_users') || [];
@@ -5231,6 +5279,60 @@ class DatabaseService {
     const pMap = this.get('tps_parent_assignments') || {};
     if (user_id && pMap[user_id]) return pMap[user_id];
     if (email && pMap[email.toLowerCase()]) return pMap[email.toLowerCase()];
+    return [];
+  }
+
+  async setVehicleHeadAssignedVehicles(user_id, vehicle_ids = [], email = '') {
+    const vMap = this.get('tps_vehicle_head_assignments') || {};
+    vMap[user_id] = vehicle_ids;
+    if (email) vMap[email.toLowerCase()] = vehicle_ids;
+    this.set('tps_vehicle_head_assignments', vMap);
+    await this.pushCloudKey('tps_vehicle_head_assignments', vMap);
+
+    // Keep tps_users up to date locally
+    const users = this.get('tps_users') || [];
+    const idx = users.findIndex(u => u.id === user_id || (email && (u.email || '').toLowerCase() === email.toLowerCase()));
+    if (idx >= 0) {
+      users[idx] = {
+        ...users[idx],
+        assigned_vehicle_ids: vehicle_ids,
+        vehicle_ids,
+        metadata: {
+          ...(users[idx].metadata || {}),
+          assigned_vehicle_ids: vehicle_ids,
+          vehicle_ids
+        }
+      };
+      this.set('tps_users', users);
+    }
+
+    // Persist to profiles.metadata if Supabase is active
+    if (supabase && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id)) {
+      try {
+        const { data: prof } = await supabase.from('profiles').select('metadata').eq('id', user_id).maybeSingle();
+        const prevMeta = prof?.metadata || {};
+        await supabase.from('profiles').update({
+          metadata: {
+            ...prevMeta,
+            assigned_vehicle_ids: vehicle_ids,
+            vehicle_ids
+          }
+        }).eq('id', user_id);
+      } catch (e) {
+        console.warn('Supabase setVehicleHeadAssignedVehicles error:', e);
+      }
+    }
+    this._usersCache = null;
+    this._usersCacheTime = 0;
+    this._usersInFlightPromise = null;
+    return vehicle_ids;
+  }
+
+  async getVehicleHeadAssignedVehicles(user_id, email = '') {
+    await this.pullCloudKeys(['tps_vehicle_head_assignments']);
+    const vMap = this.get('tps_vehicle_head_assignments') || {};
+    if (user_id && vMap[user_id]) return vMap[user_id];
+    if (email && vMap[email.toLowerCase()]) return vMap[email.toLowerCase()];
     return [];
   }
 

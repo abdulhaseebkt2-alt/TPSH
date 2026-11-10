@@ -327,8 +327,28 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
 
   const allUsersList = await db.getUsers();
   const users = allUsersList.filter(u => !isDummyOrTestUser(u, true));
-  const allStudents = await db.getStudents();
+  const [allStudents, allVehicles] = await Promise.all([
+    db.getStudents(),
+    db.getVehicles()
+  ]);
   const parentMap = (db && typeof db.get === 'function') ? (db.get('tps_parent_assignments') || {}) : {};
+  const vehicleHeadMap = (db && typeof db.get === 'function') ? (db.get('tps_vehicle_head_assignments') || {}) : {};
+
+  function getAssignedVehiclesForHead(u) {
+    if (!u) return [];
+    const fromMap = vehicleHeadMap[u.id] || (u.email && vehicleHeadMap[u.email.toLowerCase()]);
+    const meta = u.metadata || {};
+    const vehIds = (Array.isArray(u.assigned_vehicle_ids) && u.assigned_vehicle_ids.length > 0) ? u.assigned_vehicle_ids
+      : (Array.isArray(meta.assigned_vehicle_ids) && meta.assigned_vehicle_ids.length > 0) ? meta.assigned_vehicle_ids
+      : (Array.isArray(u.vehicle_ids) && u.vehicle_ids.length > 0) ? u.vehicle_ids
+      : (Array.isArray(meta.vehicle_ids) && meta.vehicle_ids.length > 0) ? meta.vehicle_ids
+      : (Array.isArray(fromMap) && fromMap.length > 0) ? fromMap
+      : [];
+
+    return Array.isArray(vehIds) && vehIds.length > 0
+      ? allVehicles.filter(v => vehIds.includes(v.id))
+      : [];
+  }
 
   function getAssignedChildrenForUser(u) {
     if (!u) return [];
@@ -804,6 +824,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 const userCustom = getUserCustomPermissions(u.id);
                 const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
                 const assignedChildren = getAssignedChildrenForUser(u);
+                const assignedVehicles = getAssignedVehiclesForHead(u);
                 return `
                 <tr>
                   <td>
@@ -822,11 +843,17 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                             <span>${assignedChildren.length > 0 ? `${assignedChildren.length} Child${assignedChildren.length > 1 ? 'ren' : ''}: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
                           </div>
                         ` : ''}
+                        ${u.role === 'vehicle_head' ? `
+                          <div style="margin-top: 3px; font-size: 0.73rem; color: ${assignedVehicles.length > 0 ? '#4F46E5' : '#D97706'}; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            <span>🚗</span>
+                            <span>${assignedVehicles.length > 0 ? `${assignedVehicles.length} Vehicle${assignedVehicles.length > 1 ? 's' : ''}: ${assignedVehicles.map(v => v.name || v.plate_number).join(', ')}` : '⚠️ No vehicles assigned yet'}</span>
+                          </div>
+                        ` : ''}
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span class="badge ${u.is_super_admin ? 'badge-present' : 'badge-leave'}" style="font-weight: 700;">
+                    <span class="badge ${u.is_super_admin ? 'badge-present' : (u.role === 'vehicle_head' ? 'badge-primary' : 'badge-leave')}" style="font-weight: 700;">
                       ${(u.role || 'Staff').toUpperCase()}
                     </span>
                   </td>
@@ -840,6 +867,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                           <button class="btn btn-sm btn-outline btn-assign-children" data-id="${u.id}" data-email="${u.email}" style="color: #059669; border-color: #A7F3D0; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Assign or edit linked students for this parent">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             Assign Children
+                          </button>
+                        ` : ''}
+                        ${u.role === 'vehicle_head' ? `
+                          <button class="btn btn-sm btn-outline btn-assign-vehicles" data-id="${u.id}" data-email="${u.email}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Assign or edit managed fleet for this Vehicle Head">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+                            Assign Vehicles
                           </button>
                         ` : ''}
                         <button class="btn btn-sm ${hasCustom ? 'btn-primary' : 'btn-outline'} btn-custom-perm" data-id="${u.id}" style="${hasCustom ? 'box-shadow: 0 1px 4px rgba(16,185,129,0.3);' : 'color: #059669; border-color: #A7F3D0;'}" title="Customize specific window access for ${u.full_name || u.email}">
@@ -870,6 +903,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             const userCustom = getUserCustomPermissions(u.id);
             const hasCustom = Boolean(userCustom && Object.keys(userCustom).length > 0);
             const assignedChildren = getAssignedChildrenForUser(u);
+            const assignedVehicles = getAssignedVehiclesForHead(u);
             return `
             <div class="user-card-item">
               <div class="user-card-header">
@@ -885,7 +919,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     ${hasCustom ? `<span class="badge" style="background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.62rem; padding: 0.15rem 0.4rem; font-weight: 700;">CUSTOM PERMS</span>` : ''}
                   </div>
                   <div class="user-card-meta-row">
-                    <span class="badge ${u.is_super_admin ? 'badge-present' : 'badge-leave'}" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; font-weight: 700;">
+                    <span class="badge ${u.is_super_admin ? 'badge-present' : (u.role === 'vehicle_head' ? 'badge-primary' : 'badge-leave')}" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; font-weight: 700;">
                       ${(u.role || 'Staff').toUpperCase()}
                     </span>
                     <span class="user-card-status-dot">
@@ -916,6 +950,11 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     <span>👨‍👧‍👦 ${assignedChildren.length > 0 ? `${assignedChildren.length} Child${assignedChildren.length > 1 ? 'ren' : ''}: ${assignedChildren.map(c => c.full_name).join(', ')}` : '⚠️ No children linked yet'}</span>
                   </div>
                 ` : ''}
+                ${u.role === 'vehicle_head' ? `
+                  <div class="user-card-contact-item" style="color: ${assignedVehicles.length > 0 ? '#4F46E5' : '#D97706'}; font-weight: 600; font-size: 0.74rem;">
+                    <span>🚗 ${assignedVehicles.length > 0 ? `${assignedVehicles.length} Vehicle${assignedVehicles.length > 1 ? 's' : ''}: ${assignedVehicles.map(v => v.name || v.plate_number).join(', ')}` : '⚠️ No vehicles assigned yet'}</span>
+                  </div>
+                ` : ''}
               </div>
 
               <div class="user-card-actions ${u.is_super_admin ? 'user-card-actions-single' : ''}">
@@ -928,6 +967,12 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                     <button class="btn btn-sm btn-outline btn-assign-children" data-id="${u.id}" data-email="${u.email}" style="color: #059669; border-color: #A7F3D0; font-weight: 700;">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                       Children
+                    </button>
+                  ` : ''}
+                  ${u.role === 'vehicle_head' ? `
+                    <button class="btn btn-sm btn-outline btn-assign-vehicles" data-id="${u.id}" data-email="${u.email}" style="color: #4F46E5; border-color: #C7D2FE; font-weight: 700;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+                      Vehicles
                     </button>
                   ` : ''}
                   <button class="btn btn-sm ${hasCustom ? 'btn-primary' : 'btn-outline'} btn-custom-perm" data-id="${u.id}" style="${hasCustom ? 'box-shadow: 0 1px 4px rgba(16,185,129,0.3);' : 'color: #059669; border-color: #A7F3D0; font-weight: 600;'}" title="Customize specific window access for ${u.full_name || u.email}">
@@ -1005,6 +1050,14 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           const id = btn.getAttribute('data-id');
           const email = btn.getAttribute('data-email');
           showApprovalModal(id, email, 'parent');
+        });
+      });
+
+      tabContent.querySelectorAll('.btn-assign-vehicles').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const email = btn.getAttribute('data-email');
+          showApprovalModal(id, email, 'vehicle_head');
         });
       });
 
@@ -1878,6 +1931,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       return;
     }
     const allStudents = await db.getStudents();
+    const allVehicles = await db.getVehicles();
 
     // Determine existing assigned children
     let currentAssigned = getAssignedChildrenForUser(targetUser).map(c => c.id);
@@ -1894,6 +1948,23 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
         : [];
       if (Array.isArray(fallbackIds) && fallbackIds.length > 0) {
         currentAssigned = [...fallbackIds];
+      }
+    }
+
+    // Determine existing assigned vehicles for Vehicle Head
+    let currentAssignedVehicles = getAssignedVehiclesForHead(targetUser).map(v => v.id);
+    if (currentAssignedVehicles.length === 0) {
+      const vHeadMap = (db && typeof db.get === 'function') ? (db.get('tps_vehicle_head_assignments') || {}) : {};
+      const fromVMap = vHeadMap[userId] || (email && vHeadMap[email.toLowerCase()]);
+      const meta = targetUser.metadata || {};
+      const fallbackVehIds = (Array.isArray(targetUser.assigned_vehicle_ids) && targetUser.assigned_vehicle_ids.length > 0) ? targetUser.assigned_vehicle_ids
+        : (Array.isArray(meta.assigned_vehicle_ids) && meta.assigned_vehicle_ids.length > 0) ? meta.assigned_vehicle_ids
+        : (Array.isArray(targetUser.vehicle_ids) && targetUser.vehicle_ids.length > 0) ? targetUser.vehicle_ids
+        : (Array.isArray(meta.vehicle_ids) && meta.vehicle_ids.length > 0) ? meta.vehicle_ids
+        : (Array.isArray(fromVMap) && fromVMap.length > 0) ? fromVMap
+        : [];
+      if (Array.isArray(fallbackVehIds) && fallbackVehIds.length > 0) {
+        currentAssignedVehicles = [...fallbackVehIds];
       }
     }
 
@@ -1928,6 +1999,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             <option value="girls_mentor" ${effectiveRole === 'girls_mentor' ? 'selected' : ''}>Girls Hostel Mentor (Girls Hostel Data, Leaves & Class)</option>
             <option value="mentor" ${effectiveRole === 'mentor' ? 'selected' : ''}>General Hostel Mentor / Warden (Hostel & Leave Register)</option>
             <option value="admin" ${effectiveRole === 'admin' ? 'selected' : ''}>Admin (Academic / Records Administrator)</option>
+            <option value="vehicle_head" ${effectiveRole === 'vehicle_head' ? 'selected' : ''}>🚗 Vehicle Department Head (Fleet In-charge / Vehicle Manager)</option>
             <option value="vehicle_user" ${effectiveRole === 'vehicle_user' || effectiveRole === 'driver' ? 'selected' : ''}>🚗 Driver / Transport Staff (Vehicle Bookings & Mileage Trips)</option>
             <option value="hostel_leader" ${effectiveRole === 'hostel_leader' ? 'selected' : ''}>Hostel Leader (Student Assistant)</option>
             <option value="student" ${effectiveRole === 'student' ? 'selected' : ''}>Student (Self Records View Only)</option>
@@ -1937,8 +2009,8 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           </small>
         </div>
 
-        <!-- Scope / Class Assignment for non-parent roles -->
-        <div id="modal-scope-group" class="form-group" style="margin-bottom: 1.25rem; ${effectiveRole === 'parent' ? 'display: none;' : ''}">
+        <!-- Scope / Class Assignment for non-parent / non-vehicle-head roles -->
+        <div id="modal-scope-group" class="form-group" style="margin-bottom: 1.25rem; ${(effectiveRole === 'parent' || effectiveRole === 'vehicle_head') ? 'display: none;' : ''}">
           <label class="form-label" style="font-weight: 700;">Scope / Class Assignment</label>
           <input type="text" id="modal-scope-input" class="form-control" placeholder="e.g. Hostel Moral Class, Study Lab 1, Boys Block A" value="${targetUser.scope || ''}" />
         </div>
@@ -2026,6 +2098,90 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           </div>
         </div>
 
+        <!-- Vehicle Department Head Multi-Vehicle Assignment Section -->
+        <div id="modal-vehicle-head-assignment-section" style="${effectiveRole === 'vehicle_head' ? '' : 'display: none;'} margin-bottom: 1.25rem;">
+          <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 0.85rem 1rem;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+              <div>
+                <div style="font-weight: 800; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                  <span>🚗</span>
+                  <span>Step 2: Assign Managed Vehicles (Multi-Selection)</span>
+                </div>
+                <p style="font-size: 0.78rem; color: #64748B; margin: 0.2rem 0 0 0;">
+                  Check all vehicles under this department head's management. They can view, approve requests, and collect dues only for their assigned fleet.
+                </p>
+              </div>
+              <span id="vehicle-head-selected-count-badge" class="badge" style="background: ${currentAssignedVehicles.length > 0 ? '#EEF2FF' : '#F1F5F9'}; color: ${currentAssignedVehicles.length > 0 ? '#4338CA' : '#64748B'}; border: 1px solid ${currentAssignedVehicles.length > 0 ? '#C7D2FE' : '#CBD5E1'}; font-weight: 700; font-size: 0.78rem; padding: 4px 10px; border-radius: 9999px;">
+                ${currentAssignedVehicles.length} Selected
+              </span>
+            </div>
+
+            <!-- Search & Filters -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.65rem; flex-wrap: wrap;">
+              <div style="position: relative; flex: 1; min-width: 170px;">
+                <input type="text" id="modal-vehicle-search" class="form-control" placeholder="Search vehicle name, plate, category..." style="height: 35px; font-size: 0.82rem; padding-left: 28px;" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" style="position: absolute; left: 9px; top: 10px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style="display: flex; gap: 0.25rem; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="btn btn-sm filter-vtype-btn active" data-vtype="all" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; background: #0F172A; color: #FFFFFF; font-weight: 700; border: none; border-radius: 6px;">All</button>
+                <button type="button" class="btn btn-sm btn-outline filter-vtype-btn" data-vtype="2 Wheeler" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">2 Wheeler</button>
+                <button type="button" class="btn btn-sm btn-outline filter-vtype-btn" data-vtype="4 Wheeler" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">4 Wheeler</button>
+                <button type="button" class="btn btn-sm btn-outline filter-vtype-btn" data-vtype="Heavy" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">Heavy</button>
+                <button type="button" class="btn btn-sm btn-outline filter-vtype-btn" data-vtype="selected" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 6px;">Selected</button>
+              </div>
+            </div>
+
+            <!-- Scrollable Vehicle Roster Checklist -->
+            <div id="modal-vehicle-list" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 2px;">
+              ${allVehicles.length === 0 ? `
+                <div style="text-align: center; padding: 1.5rem; color: #64748B; font-size: 0.85rem;">No vehicles found in school fleet register.</div>
+              ` : allVehicles.map(v => {
+                const isChecked = currentAssignedVehicles.includes(v.id);
+                const vCategory = v.category || v.vehicle_type || 'Vehicle';
+                return `
+                  <label class="head-vehicle-card" data-vehicle-id="${v.id}" data-name="${(v.name || '').toLowerCase()}" data-plate="${(v.plate_number || '').toLowerCase()}" data-category="${vCategory}" style="display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1.5px solid ${isChecked ? '#4F46E5' : '#E2E8F0'}; background: ${isChecked ? '#EEF2FF' : '#FFFFFF'}; cursor: pointer; transition: all 0.15s ease;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0;">
+                      <input type="checkbox" class="chk-assign-vehicle" value="${v.id}" ${isChecked ? 'checked' : ''} style="width: 17px; height: 17px; accent-color: #4F46E5; cursor: pointer; flex-shrink: 0;" />
+                      <div class="user-avatar" style="width: 34px; height: 34px; font-size: 13px; font-weight: 700; border-radius: 6px; flex-shrink: 0; background: #EEF2FF; color: #4F46E5;">
+                        ${v.photo_url || v.image ? `<img src="${v.photo_url || v.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" alt="" />` : '🚗'}
+                      </div>
+                      <div style="min-width: 0;">
+                        <div class="head-vehicle-card-name" style="font-weight: 700; font-size: 0.84rem; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          ${v.name || 'Unnamed Vehicle'}
+                        </div>
+                        <div style="font-size: 0.72rem; color: #64748B; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                          <span style="font-family: monospace; font-weight: 700;">${v.plate_number || 'No Plate'}</span>
+                          <span>•</span>
+                          <span>₹${Number(v.rate_per_km || 0).toFixed(2)}/km</span>
+                          ${v.current_odometer ? `<span>•</span><span>${v.current_odometer} KM</span>` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">
+                      <span class="badge" style="font-size: 0.66rem; padding: 2px 7px; border-radius: 9999px; background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0;">
+                        ${vCategory}
+                      </span>
+                      <span class="badge" style="font-size: 0.66rem; padding: 2px 7px; border-radius: 9999px; background: ${v.status === 'On Trip' ? '#FEF3C7' : '#ECFDF5'}; color: ${v.status === 'On Trip' ? '#92400E' : '#065F46'};">
+                        ${v.status || 'Available'}
+                      </span>
+                    </div>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Quick selection footer -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed #CBD5E1;">
+              <span id="vehicle-head-selected-summary-names" style="font-size: 0.74rem; color: #4F46E5; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">
+                ${currentAssignedVehicles.length > 0 ? allVehicles.filter(v => currentAssignedVehicles.includes(v.id)).map(v => v.name || v.plate_number).join(', ') : 'No vehicles selected yet'}
+              </span>
+              <button type="button" id="btn-clear-assigned-vehicles" class="btn btn-sm btn-outline" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: #DC2626; border-color: #FECACA;">
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
           <button class="btn btn-primary" id="btn-confirm-approve" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2036,14 +2192,21 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
       onMount: ({ container: modalBody, close }) => {
         const roleSelect = modalBody.querySelector('#modal-role-select');
         const parentSection = modalBody.querySelector('#modal-parent-children-section');
+        const vehicleHeadSection = modalBody.querySelector('#modal-vehicle-head-assignment-section');
         const scopeGroup = modalBody.querySelector('#modal-scope-group');
 
         roleSelect.addEventListener('change', () => {
           if (roleSelect.value === 'parent') {
             parentSection.style.display = 'block';
+            if (vehicleHeadSection) vehicleHeadSection.style.display = 'none';
+            scopeGroup.style.display = 'none';
+          } else if (roleSelect.value === 'vehicle_head') {
+            parentSection.style.display = 'none';
+            if (vehicleHeadSection) vehicleHeadSection.style.display = 'block';
             scopeGroup.style.display = 'none';
           } else {
             parentSection.style.display = 'none';
+            if (vehicleHeadSection) vehicleHeadSection.style.display = 'none';
             scopeGroup.style.display = 'block';
           }
         });
@@ -2143,6 +2306,100 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           if (activeGenderFilter === 'selected') filterStudentCards();
         });
 
+        // Vehicle Head Multi-Vehicle Selector Handlers
+        function updateVehicleSelectionDisplay() {
+          const checkedBoxes = Array.from(modalBody.querySelectorAll('.chk-assign-vehicle:checked'));
+          const count = checkedBoxes.length;
+          const badge = modalBody.querySelector('#vehicle-head-selected-count-badge');
+          const namesSpan = modalBody.querySelector('#vehicle-head-selected-summary-names');
+          if (badge) {
+            badge.textContent = `${count} Selected`;
+            badge.style.background = count > 0 ? '#EEF2FF' : '#F1F5F9';
+            badge.style.color = count > 0 ? '#4338CA' : '#64748B';
+            badge.style.borderColor = count > 0 ? '#C7D2FE' : '#CBD5E1';
+          }
+          if (namesSpan) {
+            if (count === 0) {
+              namesSpan.textContent = 'No vehicles selected yet';
+              namesSpan.style.color = '#94A3B8';
+            } else {
+              const names = checkedBoxes.map(cb => {
+                const card = cb.closest('.head-vehicle-card');
+                return card ? card.querySelector('.head-vehicle-card-name')?.textContent.trim() : '';
+              }).filter(Boolean);
+              namesSpan.textContent = names.join(', ');
+              namesSpan.style.color = '#4F46E5';
+            }
+          }
+        }
+
+        modalBody.querySelectorAll('.chk-assign-vehicle').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const card = cb.closest('.head-vehicle-card');
+            if (card) {
+              card.style.borderColor = cb.checked ? '#4F46E5' : '#E2E8F0';
+              card.style.background = cb.checked ? '#EEF2FF' : '#FFFFFF';
+            }
+            updateVehicleSelectionDisplay();
+          });
+        });
+
+        let activeVTypeFilter = 'all';
+        const vSearchInput = modalBody.querySelector('#modal-vehicle-search');
+
+        function filterVehicleCards() {
+          const q = (vSearchInput?.value || '').toLowerCase().trim();
+          modalBody.querySelectorAll('.head-vehicle-card').forEach(card => {
+            const name = card.getAttribute('data-name') || '';
+            const plate = card.getAttribute('data-plate') || '';
+            const cat = card.getAttribute('data-category') || '';
+            const isChecked = card.querySelector('.chk-assign-vehicle')?.checked;
+
+            const matchesQuery = !q || name.includes(q) || plate.includes(q) || cat.toLowerCase().includes(q);
+            let matchesCat = true;
+            if (activeVTypeFilter === 'selected') matchesCat = Boolean(isChecked);
+            else if (activeVTypeFilter !== 'all') matchesCat = cat.toLowerCase().includes(activeVTypeFilter.toLowerCase());
+
+            card.style.display = matchesQuery && matchesCat ? 'flex' : 'none';
+          });
+        }
+
+        vSearchInput?.addEventListener('input', filterVehicleCards);
+
+        modalBody.querySelectorAll('.filter-vtype-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            modalBody.querySelectorAll('.filter-vtype-btn').forEach(b => {
+              b.classList.remove('active');
+              b.style.background = '';
+              b.style.color = '';
+              b.style.fontWeight = '';
+              b.style.border = '';
+              b.classList.add('btn-outline');
+            });
+            btn.classList.add('active');
+            btn.classList.remove('btn-outline');
+            btn.style.background = '#0F172A';
+            btn.style.color = '#FFFFFF';
+            btn.style.fontWeight = '700';
+            btn.style.border = 'none';
+            activeVTypeFilter = btn.getAttribute('data-vtype');
+            filterVehicleCards();
+          });
+        });
+
+        modalBody.querySelector('#btn-clear-assigned-vehicles')?.addEventListener('click', () => {
+          modalBody.querySelectorAll('.chk-assign-vehicle').forEach(cb => {
+            cb.checked = false;
+            const card = cb.closest('.head-vehicle-card');
+            if (card) {
+              card.style.borderColor = '#E2E8F0';
+              card.style.background = '#FFFFFF';
+            }
+          });
+          updateVehicleSelectionDisplay();
+          if (activeVTypeFilter === 'selected') filterVehicleCards();
+        });
+
         modalBody.querySelector('#btn-confirm-approve').addEventListener('click', async () => {
           const role = modalBody.querySelector('#modal-role-select').value;
           const scope = modalBody.querySelector('#modal-scope-input')?.value.trim() || '';
@@ -2161,6 +2418,18 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             payload.assigned_student_ids = selectedStudentIds;
             payload.student_ids = selectedStudentIds;
             payload.child_ids = selectedStudentIds;
+          } else if (role === 'vehicle_head') {
+            const selectedVehicleIds = Array.from(modalBody.querySelectorAll('.chk-assign-vehicle:checked')).map(cb => cb.value);
+            if (selectedVehicleIds.length === 0) {
+              const confirmed = await confirmDialog({
+                title: 'No Vehicles Selected',
+                message: 'No vehicles were selected for this Vehicle Department Head. They will not have any vehicles under their management dashboard until assigned. Proceed anyway?',
+                confirmText: 'Authorize Without Vehicles'
+              });
+              if (!confirmed) return;
+            }
+            payload.assigned_vehicle_ids = selectedVehicleIds;
+            payload.vehicle_ids = selectedVehicleIds;
           } else if (role === 'boys_mentor') {
             payload.gender = 'Boys';
             payload.mentor_type = 'boys';
@@ -2178,6 +2447,9 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           await db.updateUserApproval(userId, payload);
           if (role === 'parent' && payload.assigned_student_ids) {
             await db.setParentAssignedStudents(userId, payload.assigned_student_ids, email);
+          }
+          if (role === 'vehicle_head' && payload.assigned_vehicle_ids) {
+            await db.setVehicleHeadAssignedVehicles(userId, payload.assigned_vehicle_ids, email);
           }
           if (role === 'vehicle_user' || role === 'driver') {
             await db.saveVehicleUser({

@@ -68,6 +68,21 @@ export async function renderVehicleUserCardModule(container, options = {}) {
 
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+  const isVehicleHead = currentUser?.role === 'vehicle_head';
+  const vHeadMap = (db && typeof db.get === 'function') ? (db.get('tps_vehicle_head_assignments') || {}) : {};
+  const assignedFromMap = vHeadMap[currentUser?.id] || (currentUser?.email && vHeadMap[currentUser.email.toLowerCase()]);
+  const assignedVehicleIds = currentUser?.assigned_vehicle_ids ||
+                             currentUser?.metadata?.assigned_vehicle_ids ||
+                             currentUser?.vehicle_ids ||
+                             assignedFromMap ||
+                             [];
+  const headVehicleSet = new Set(assignedVehicleIds);
+
+  const canManageTripSettlement = (trip) => {
+    if (isAdmin) return true;
+    if (isVehicleHead && trip && headVehicleSet.has(trip.vehicle_id)) return true;
+    return false;
+  };
 
   // Load all required data
   const [users, allTrips, vehicles, payments] = await Promise.all([
@@ -129,7 +144,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Book / Short Ride
           </button>
-          ${isAdmin ? `
+          ${isAdmin || isVehicleHead ? `
             <button class="btn btn-secondary" id="btn-card-all-trips" style="font-weight: 600;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
               All Trips Master
@@ -143,7 +158,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       </div>
 
       <!-- 1. SECTION-STYLE USER SELECTOR CARD (MATCHES SECTION & CLASSROOMS DESIGN PATTERN) -->
-      ${isAdmin && eligibleUsers.length > 1 ? `
+      ${(isAdmin || isVehicleHead) && eligibleUsers.length > 1 ? `
         <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 1.25rem;">
           <button type="button" class="rbac-mobile-role-trigger" id="sec-user-trigger" aria-label="Select staff or driver to view ledger">
             <div class="rbac-trigger-left" style="gap: 0.85rem;">
@@ -268,7 +283,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                       data-total="${totalAmt}"
                       data-due="${remainingDue}"
                       data-user="${selectedUser.full_name}"
-                      style="border-bottom: 1px solid var(--border-subtle); vertical-align: top; cursor: ${isCompleted && !isPaid && isAdmin ? 'pointer' : 'default'}; transition: background 0.15s;" 
+                      style="border-bottom: 1px solid var(--border-subtle); vertical-align: top; cursor: ${isCompleted && !isPaid && canManageTripSettlement(t) ? 'pointer' : 'default'}; transition: background 0.15s;" 
                       onmouseover="this.style.background='var(--bg-surface-subtle)'" 
                       onmouseout="this.style.background='transparent'">
                       <!-- SL No -->
@@ -330,7 +345,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                           </div>
                         ` : isPartial ? `
                           <div>
-                            ${isAdmin ? `
+                            ${canManageTripSettlement(t) ? `
                               <button type="button" class="btn btn-sm btn-outline btn-settle-due" 
                                 data-id="${t.id}" 
                                 data-code="${t.trip_id}"
@@ -346,7 +361,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
                           </div>
                         ` : `
                           <div>
-                            ${isAdmin ? `
+                            ${canManageTripSettlement(t) ? `
                               <button type="button" class="btn btn-sm btn-primary btn-settle-due" 
                                 data-id="${t.id}" 
                                 data-code="${t.trip_id}"
@@ -453,19 +468,21 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       });
     });
 
-    // Settle / Pay Button (Supports Full and Partial Payments - Strictly Admin only)
+    // Settle / Pay Button (Supports Full and Partial Payments - Admin and assigned Vehicle Heads)
     container.querySelectorAll('.btn-settle-due').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!isAdmin) {
-          toast.info('Trip settlements are managed by school administration.');
-          return;
-        }
         const tripId = btn.getAttribute('data-id');
         const tripCode = btn.getAttribute('data-code');
         const remainingDue = parseFloat(btn.getAttribute('data-due')) || 0;
         const totalAmount = parseFloat(btn.getAttribute('data-total')) || 0;
         const userName = btn.getAttribute('data-user');
+        const targetTrip = allTrips.find(t => t.id === tripId || t.trip_id === tripCode);
+
+        if (!canManageTripSettlement(targetTrip)) {
+          toast.info('Trip settlements are managed by administrators and assigned Vehicle Heads.');
+          return;
+        }
 
         openSettlePaymentModal({
           tripId,
@@ -477,7 +494,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
       });
     });
 
-    // Row click to inspect trip details (View-Only for non-admins, Settle/Delete for admins)
+    // Row click to inspect trip details (View-Only for non-authorized, Settle/Delete for admins and assigned Vehicle Heads)
     container.querySelectorAll('.user-card-row').forEach(row => {
       row.addEventListener('click', (e) => {
         if (e.target.closest('button')) return; // handled by button
@@ -488,7 +505,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
         const userName = row.getAttribute('data-user');
         const targetTrip = allTrips.find(t => t.id === tripId || t.trip_id === tripCode);
 
-        if (!isAdmin) {
+        if (!canManageTripSettlement(targetTrip)) {
           openViewOnlyTripModal(targetTrip, userName);
           return;
         }
@@ -616,7 +633,7 @@ export async function renderVehicleUserCardModule(container, options = {}) {
   // Modal: Pay or Partial Pay with Student Leave Card Features & Delete Option
   function openSettlePaymentModal({ tripId, tripCode, remainingDue, totalAmount, userName }) {
     const targetTrip = allTrips.find(t => t.id === tripId || t.trip_id === tripCode);
-    if (!isAdmin) {
+    if (!canManageTripSettlement(targetTrip)) {
       openViewOnlyTripModal(targetTrip, userName);
       return;
     }

@@ -102,6 +102,7 @@ export function renderSidebar(container, { activeModule, isCollapsed = false, on
             <option value="parent" ${user?.role === 'parent' ? 'selected' : ''}>Parent</option>
             <option value="student" ${user?.role === 'student' ? 'selected' : ''}>Student</option>
             <option value="hostel_leader" ${user?.role === 'hostel_leader' ? 'selected' : ''}>Hostel Leader</option>
+            <option value="vehicle_head" ${user?.role === 'vehicle_head' ? 'selected' : ''}>Vehicle Department Head</option>
             <option value="vehicle_user" ${user?.role === 'vehicle_user' ? 'selected' : ''}>Vehicle User (Driver / Staff)</option>
           </select>
         </div>
