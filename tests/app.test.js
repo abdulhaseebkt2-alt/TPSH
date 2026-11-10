@@ -9155,5 +9155,35 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(attCode).toContain('allClassrooms.some(c => isTeacherAssignedToClass(u, c))');
       expect(attCode).toMatch(/data-tab="live"[\s\S]*data-tab="today"[\s\S]*data-tab="weekly"/);
     });
+
+    it('2520: Driver / Transport Staff Role Assignment in Users Modal & Automated Synchronization into Authorized Drivers Directory', async () => {
+      // 1. Code inspection: verify Users module role select includes Driver / Transport Staff
+      const usersCode = fs.readFileSync('src/modules/users/index.js', 'utf8');
+      expect(usersCode).toContain('value="vehicle_user"');
+      expect(usersCode).toContain('Driver / Transport Staff');
+      expect(usersCode).toContain('db.saveVehicleUser');
+
+      // 2. Test user approval as vehicle_user
+      const testDriverId = 'u-driver-' + Date.now();
+      const testDriverEmail = 'shuaibmse007@gmail.com';
+      await db.updateUserApproval(testDriverId, {
+        full_name: 'Shuaib Driver',
+        email: testDriverEmail,
+        phone: '+91 98765 43210',
+        approval_status: 'approved',
+        role: 'vehicle_user'
+      });
+
+      // 3. Verify driver automatically appears in getVehicleUsers()
+      const vUsers = await db.getVehicleUsers();
+      const matchedDriver = vUsers.find(vu => vu.id === testDriverId || vu.email === testDriverEmail);
+      expect(matchedDriver).toBeDefined();
+      expect(matchedDriver.full_name).toContain('Shuaib');
+      expect(matchedDriver.status).toBe('Active');
+      expect(matchedDriver.designation).toBe('Driver / Transport Staff');
+
+      // Clean up test driver
+      await db.deleteVehicleUser(testDriverId);
+    });
   });
 });

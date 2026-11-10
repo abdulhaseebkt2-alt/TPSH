@@ -5057,6 +5057,26 @@ class DatabaseService {
       if (updates.email) pMap[updates.email.toLowerCase()] = assigned;
       this.set('tps_parent_assignments', pMap);
     }
+    if (role === 'vehicle_user' || role === 'driver') {
+      const vUsers = this.get('tps_vehicle_users') || [];
+      const userObj = users.find(u => u.id === user_id) || {};
+      const exists = vUsers.some(vu => vu.id === user_id || (vu.email && userObj.email && vu.email.toLowerCase() === userObj.email.toLowerCase()));
+      if (!exists) {
+        const count = vUsers.length + 1;
+        vUsers.push({
+          id: user_id,
+          tps_id: userObj.tps_id || `VUS${String(count).padStart(3, '0')}`,
+          full_name: userObj.full_name || updates.full_name || 'Vehicle Driver',
+          email: userObj.email || updates.email || '',
+          phone: userObj.phone_number || userObj.phone || updates.phone || '',
+          designation: 'Driver / Transport Staff',
+          status: approval_status === 'suspended' ? 'Suspended' : 'Active',
+          created_at: new Date().toISOString()
+        });
+        this.set('tps_vehicle_users', vUsers);
+        this.pushCloudKey('tps_vehicle_users', vUsers).catch(() => {});
+      }
+    }
     this._usersCache = null;
     this._usersCacheTime = 0;
     this._usersInFlightPromise = null;
@@ -5770,8 +5790,42 @@ class DatabaseService {
 
   // --- VEHICLE USERS DIRECTORY ---
   async getVehicleUsers() {
-    await this.pullCloudKeys(['tps_vehicle_users'], false);
-    return this.get('tps_vehicle_users') || [];
+    await this.pullCloudKeys(['tps_vehicle_users', 'tps_users'], false);
+    const vehicleUsersList = this.get('tps_vehicle_users') || [];
+    const allUsers = this.get('tps_users') || [];
+
+    // Automatically incorporate any approved user with role 'vehicle_user' or 'driver'
+    const driversFromUsers = allUsers.filter(u => 
+      u && !isDummyOrTestUser(u, true) && 
+      (u.approval_status === 'approved' || !u.approval_status || u.approval_status === 'active') &&
+      (u.role === 'vehicle_user' || u.role === 'driver')
+    );
+
+    let listModified = false;
+    driversFromUsers.forEach(u => {
+      const exists = vehicleUsersList.some(vu => vu.id === u.id || (vu.email && u.email && vu.email.toLowerCase() === u.email.toLowerCase()));
+      if (!exists) {
+        const count = vehicleUsersList.length + 1;
+        vehicleUsersList.push({
+          id: u.id,
+          tps_id: u.tps_id || `VUS${String(count).padStart(3, '0')}`,
+          full_name: u.full_name || (u.email ? u.email.split('@')[0] : 'Vehicle Driver'),
+          email: u.email || '',
+          phone: u.phone_number || u.phone || '',
+          designation: 'Driver / Transport Staff',
+          status: 'Active',
+          created_at: u.created_at || new Date().toISOString()
+        });
+        listModified = true;
+      }
+    });
+
+    if (listModified) {
+      this.set('tps_vehicle_users', vehicleUsersList);
+      this.pushCloudKey('tps_vehicle_users', vehicleUsersList).catch(() => {});
+    }
+
+    return vehicleUsersList.filter(vu => !isDummyOrTestUser(vu, true));
   }
 
   async saveVehicleUser(userData) {

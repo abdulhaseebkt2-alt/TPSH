@@ -1904,6 +1904,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             <option value="girls_mentor" ${effectiveRole === 'girls_mentor' ? 'selected' : ''}>Girls Hostel Mentor (Girls Hostel Data, Leaves & Class)</option>
             <option value="mentor" ${effectiveRole === 'mentor' ? 'selected' : ''}>General Hostel Mentor / Warden (Hostel & Leave Register)</option>
             <option value="admin" ${effectiveRole === 'admin' ? 'selected' : ''}>Admin (Academic / Records Administrator)</option>
+            <option value="vehicle_user" ${effectiveRole === 'vehicle_user' || effectiveRole === 'driver' ? 'selected' : ''}>🚗 Driver / Transport Staff (Vehicle Bookings & Mileage Trips)</option>
             <option value="hostel_leader" ${effectiveRole === 'hostel_leader' ? 'selected' : ''}>Hostel Leader (Student Assistant)</option>
             <option value="student" ${effectiveRole === 'student' ? 'selected' : ''}>Student (Self Records View Only)</option>
           </select>
@@ -2154,6 +2155,16 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
           if (role === 'parent' && payload.assigned_student_ids) {
             await db.setParentAssignedStudents(userId, payload.assigned_student_ids, email);
           }
+          if (role === 'vehicle_user' || role === 'driver') {
+            await db.saveVehicleUser({
+              id: userId,
+              full_name: targetUser.full_name || (email ? email.split('@')[0] : 'Driver'),
+              email: email,
+              phone: targetUser.phone_number || targetUser.phone || '',
+              designation: 'Driver / Transport Staff',
+              status: 'Active'
+            });
+          }
 
           // If the approved user is currently simulated or authenticated in this session, keep profile updated
           const sessionUser = getCurrentUser();
@@ -2196,6 +2207,7 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             <option value="girls_mentor">Girls Hostel Mentor (Girls Hostel Data & Class)</option>
             <option value="mentor">Hostel Mentor / Warden (General Hostel)</option>
             <option value="admin">Admin (Operational & Records Administrator)</option>
+            <option value="vehicle_user">🚗 Driver / Transport Staff (Fleet & Vehicle Trips)</option>
             <option value="hostel_leader">Hostel Leader (Student Assistant)</option>
             <option value="parent">Parent</option>
             <option value="student">Student</option>
