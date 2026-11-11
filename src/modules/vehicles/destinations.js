@@ -89,89 +89,102 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
             </div>
           </div>
 
-          <!-- Desktop Table View -->
-          <div class="dest-desktop-table table-responsive">
-            <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
-              <thead>
-                <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
-                  <th style="padding: 0.65rem 0.75rem;">Destination Name</th>
-                  <th style="padding: 0.65rem 0.75rem; text-align: center;">Standard Distance</th>
-                  <th style="padding: 0.65rem 0.75rem;">Description / Department</th>
-                  <th style="padding: 0.65rem 0.75rem; text-align: center;">Status</th>
-                  <th style="padding: 0.65rem 0.75rem; text-align: right;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${destinations.map(d => `
-                  <tr style="border-bottom: 1px solid var(--border-subtle);">
-                    <td style="padding: 0.75rem;">
-                      <div style="font-weight: 700; color: #0F172A; font-size: 0.9rem;">
+          ${destinations.length === 0 ? `
+            <div style="text-align: center; padding: 3rem 1.5rem; background: var(--bg-surface-subtle); border: 1.5px dashed var(--border-medium); border-radius: 12px; margin-top: 0.5rem;">
+              <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📍</div>
+              <div style="font-weight: 700; font-size: 1.05rem; color: #0F172A;">No Preset Destinations Configured</div>
+              <p style="margin: 0.35rem auto 1rem; font-size: 0.82rem; color: var(--text-muted); max-width: 420px;">
+                Official institutional destinations and standard benchmark distances will appear here once added.
+              </p>
+              <button class="btn btn-primary btn-sm" id="btn-empty-add-dest" style="font-weight: 600; padding: 0.45rem 1rem; border-radius: 8px;">
+                + Add Preset Destination
+              </button>
+            </div>
+          ` : `
+            <!-- Desktop Table View -->
+            <div class="dest-desktop-table table-responsive">
+              <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border-medium); text-align: left; background: var(--bg-surface-subtle);">
+                    <th style="padding: 0.65rem 0.75rem;">Destination Name</th>
+                    <th style="padding: 0.65rem 0.75rem; text-align: center;">Standard Distance</th>
+                    <th style="padding: 0.65rem 0.75rem;">Description / Department</th>
+                    <th style="padding: 0.65rem 0.75rem; text-align: center;">Status</th>
+                    <th style="padding: 0.65rem 0.75rem; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${destinations.map(d => `
+                    <tr style="border-bottom: 1px solid var(--border-subtle);">
+                      <td style="padding: 0.75rem;">
+                        <div style="font-weight: 700; color: #0F172A; font-size: 0.9rem;">
+                          📍 ${d.name}
+                        </div>
+                      </td>
+                      <td style="padding: 0.75rem; text-align: center;">
+                        <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 800; font-family: monospace; font-size: 0.84rem; padding: 4px 8px;">
+                          ${d.standard_distance_km} KM
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.82rem;">
+                        ${d.description || 'Official campus travel route'}
+                      </td>
+                      <td style="padding: 0.75rem; text-align: center;">
+                        ${d.is_active !== false ? `
+                          <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700; font-size: 0.72rem;">Active</span>
+                        ` : `
+                          <span class="badge" style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.72rem;">Inactive</span>
+                        `}
+                      </td>
+                      <td style="padding: 0.75rem; text-align: right; white-space: nowrap;">
+                        <button class="btn btn-sm btn-outline btn-edit-dest" data-id="${d.id}" style="padding: 3px 8px; font-size: 0.76rem; margin-right: 4px;">Edit</button>
+                        <button class="btn btn-sm btn-outline btn-delete-dest" data-id="${d.id}" style="padding: 3px 8px; font-size: 0.76rem; color: #DC2626; border-color: #FECACA;">Delete</button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile Cards View (Responsive on Phone Screens) -->
+            <div class="dest-mobile-cards" style="display: none; flex-direction: column; gap: 0.75rem;">
+              ${destinations.map(d => `
+                <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid var(--border-subtle); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-xs);">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.4rem;">
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-weight: 700; color: #0F172A; font-size: 0.95rem; line-height: 1.3;">
                         📍 ${d.name}
                       </div>
-                    </td>
-                    <td style="padding: 0.75rem; text-align: center;">
-                      <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 800; font-family: monospace; font-size: 0.84rem; padding: 4px 8px;">
+                      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.35;">
+                        ${d.description || 'Official campus travel route'}
+                      </div>
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0;">
+                      <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 800; font-family: monospace; font-size: 0.85rem; padding: 4px 8px; display: inline-block;">
                         ${d.standard_distance_km} KM
                       </span>
-                    </td>
-                    <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.82rem;">
-                      ${d.description || 'Official campus travel route'}
-                    </td>
-                    <td style="padding: 0.75rem; text-align: center;">
-                      ${d.is_active !== false ? `
-                        <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700; font-size: 0.72rem;">Active</span>
-                      ` : `
-                        <span class="badge" style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.72rem;">Inactive</span>
-                      `}
-                    </td>
-                    <td style="padding: 0.75rem; text-align: right; white-space: nowrap;">
-                      <button class="btn btn-sm btn-outline btn-edit-dest" data-id="${d.id}" style="padding: 3px 8px; font-size: 0.76rem; margin-right: 4px;">Edit</button>
-                      <button class="btn btn-sm btn-outline btn-delete-dest" data-id="${d.id}" style="padding: 3px 8px; font-size: 0.76rem; color: #DC2626; border-color: #FECACA;">Delete</button>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Mobile Cards View (Responsive on Phone Screens) -->
-          <div class="dest-mobile-cards" style="display: none; flex-direction: column; gap: 0.75rem;">
-            ${destinations.map(d => `
-              <div class="card-panel" style="background: #FFFFFF; border: 1.5px solid var(--border-subtle); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-xs);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.4rem;">
-                  <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight: 700; color: #0F172A; font-size: 0.95rem; line-height: 1.3;">
-                      📍 ${d.name}
-                    </div>
-                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.35;">
-                      ${d.description || 'Official campus travel route'}
+                      <div style="margin-top: 0.35rem;">
+                        ${d.is_active !== false ? `
+                          <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700; font-size: 0.7rem;">Active</span>
+                        ` : `
+                          <span class="badge" style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.7rem;">Inactive</span>
+                        `}
+                      </div>
                     </div>
                   </div>
-                  <div style="text-align: right; flex-shrink: 0;">
-                    <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 800; font-family: monospace; font-size: 0.85rem; padding: 4px 8px; display: inline-block;">
-                      ${d.standard_distance_km} KM
-                    </span>
-                    <div style="margin-top: 0.35rem;">
-                      ${d.is_active !== false ? `
-                        <span class="badge" style="background: #ECFDF5; color: #065F46; font-weight: 700; font-size: 0.7rem;">Active</span>
-                      ` : `
-                        <span class="badge" style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.7rem;">Inactive</span>
-                      `}
-                    </div>
+
+                  <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
+                    <button class="btn btn-sm btn-outline btn-edit-dest" data-id="${d.id}" style="flex: 1; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; text-align: center;">
+                      Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-delete-dest" data-id="${d.id}" style="flex: 1; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; color: #DC2626; border-color: #FECACA; text-align: center;">
+                      Delete
+                    </button>
                   </div>
                 </div>
-
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
-                  <button class="btn btn-sm btn-outline btn-edit-dest" data-id="${d.id}" style="flex: 1; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; text-align: center;">
-                    Edit
-                  </button>
-                  <button class="btn btn-sm btn-outline btn-delete-dest" data-id="${d.id}" style="flex: 1; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; color: #DC2626; border-color: #FECACA; text-align: center;">
-                    Delete
-                  </button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
+              `).join('')}
+            </div>
+          `}
         </div>
       ` : ''}
 
@@ -382,6 +395,9 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
 
     // Add Destination Modal
     container.querySelector('#btn-add-destination')?.addEventListener('click', () => {
+      openDestinationModal();
+    });
+    container.querySelector('#btn-empty-add-dest')?.addEventListener('click', () => {
       openDestinationModal();
     });
 

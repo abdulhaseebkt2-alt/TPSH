@@ -669,14 +669,7 @@ export const INITIAL_VEHICLE_PAYMENTS = [];
 
 export const INITIAL_VEHICLE_USERS = [];
 
-export const INITIAL_VEHICLE_DESTINATIONS = [
-  { id: 'dest-1', name: 'DEO Office Manjeri', standard_distance_km: 22, description: 'Education office official visits (Round trip)', is_active: true },
-  { id: 'dest-2', name: 'Calicut University Campus, Thenhipalam', standard_distance_km: 30, description: 'University official errands (Round trip)', is_active: true },
-  { id: 'dest-3', name: 'Kozhikode Railway Station', standard_distance_km: 45, description: 'Official guest pickup / drops (Round trip)', is_active: true },
-  { id: 'dest-4', name: 'Kozhikode Medical College', standard_distance_km: 42, description: 'Official campus health visits (Round trip)', is_active: true },
-  { id: 'dest-5', name: 'SBI Main Branch / Bank Errand', standard_distance_km: 12, description: 'Campus treasury / banking work (Round trip)', is_active: true },
-  { id: 'dest-6', name: 'District Collectorate, Civil Station', standard_distance_km: 26, description: 'Revenue & administrative paperwork (Round trip)', is_active: true }
-];
+export const INITIAL_VEHICLE_DESTINATIONS = [];
 
 export async function uploadStudentPhotoToSupabase(identifier, base64OrBlob) {
   if (isTestEnv) {
@@ -1026,6 +1019,48 @@ class DatabaseService {
         this._studentsCacheTime = 0;
       } catch (err) {
         console.warn('Dummy data purge error:', err);
+      }
+    }
+
+    // Purge dummy/test destinations (dest-1 to dest-6) from client storage and cloud
+    if (!this.getStorageItem('tps_destinations_purged_v1')) {
+      try {
+        const dummyIds = new Set(['dest-1', 'dest-2', 'dest-3', 'dest-4', 'dest-5', 'dest-6']);
+        const dummyNames = ['deo office', 'calicut university', 'kozhikode railway', 'kozhikode medical', 'sbi main branch', 'district collectorate'];
+        const isDummy = (d) => {
+          if (!d) return true;
+          if (dummyIds.has(d.id)) return true;
+          const n = (d.name || '').toLowerCase().trim();
+          return dummyNames.some(dn => n.includes(dn));
+        };
+
+        const rawDest = this.get('tps_vehicle_destinations') || [];
+        if (Array.isArray(rawDest)) {
+          const cleanDest = rawDest.filter(d => !isDummy(d));
+          this.setStorageItem('tps_vehicle_destinations', JSON.stringify(cleanDest));
+          this.pushCloudKey('tps_vehicle_destinations', cleanDest).catch(() => {});
+        } else {
+          this.setStorageItem('tps_vehicle_destinations', JSON.stringify([]));
+          this.pushCloudKey('tps_vehicle_destinations', []).catch(() => {});
+        }
+
+        // Also clean dummy destination trips from trip logs
+        const rawTrips = this.get('tps_trip_logs') || [];
+        if (Array.isArray(rawTrips)) {
+          const cleanTrips = rawTrips.filter(t => {
+            if (!t) return false;
+            if (t.destination_id && dummyIds.has(t.destination_id)) return false;
+            const destStr = (t.destination || '').toLowerCase();
+            if (dummyNames.some(dn => destStr.includes(dn))) return false;
+            return true;
+          });
+          this.setStorageItem('tps_trip_logs', JSON.stringify(cleanTrips));
+          this.pushCloudKey('tps_trip_logs', cleanTrips).catch(() => {});
+        }
+
+        this.setStorageItem('tps_destinations_purged_v1', 'true');
+      } catch (e) {
+        console.warn('Destination dummy purge error:', e);
       }
     }
   }
@@ -6092,8 +6127,22 @@ class DatabaseService {
   async getVehicleDestinations() {
     await this.pullCloudKeys(['tps_vehicle_destinations'], false);
     let list = this.get('tps_vehicle_destinations');
-    if (!list || !Array.isArray(list) || list.length === 0) {
-      list = INITIAL_VEHICLE_DESTINATIONS;
+    if (!list || !Array.isArray(list)) {
+      list = [];
+      this.set('tps_vehicle_destinations', list);
+    }
+    // Filter out dummy/test destinations (dest-1 to dest-6) if present from past seedings
+    const dummyIds = new Set(['dest-1', 'dest-2', 'dest-3', 'dest-4', 'dest-5', 'dest-6']);
+    const dummyNames = ['deo office', 'calicut university', 'kozhikode railway', 'kozhikode medical', 'sbi main branch', 'district collectorate'];
+    const isDummy = (d) => {
+      if (!d || !d.id) return true;
+      if (dummyIds.has(d.id)) return true;
+      const n = (d.name || '').toLowerCase().trim();
+      return dummyNames.some(dn => n.includes(dn));
+    };
+
+    if (list.some(isDummy)) {
+      list = list.filter(d => !isDummy(d));
       this.set('tps_vehicle_destinations', list);
       await this.pushCloudKey('tps_vehicle_destinations', list);
     }

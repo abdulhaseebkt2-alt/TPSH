@@ -9289,21 +9289,15 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     it('provides Preset Destinations with standard distances and persists them in db and cloud keys', async () => {
       const destinations = await db.getVehicleDestinations();
       expect(Array.isArray(destinations)).toBe(true);
-      expect(destinations.length).toBeGreaterThanOrEqual(1);
-
-      // Verify a default destination
-      const deo = destinations.find(d => d.name.includes('DEO Office'));
-      expect(deo).toBeDefined();
-      expect(deo.standard_distance_km).toBe(22);
 
       // Save a new destination
       const savedDest = await db.saveVehicleDestination({
-        name: 'Test Destination Airport',
-        standard_distance_km: 55,
-        description: 'Airport guest transit'
+        name: 'Official Education Office',
+        standard_distance_km: 25,
+        description: 'Campus official transit'
       });
       expect(savedDest.id).toBeDefined();
-      expect(savedDest.standard_distance_km).toBe(55);
+      expect(savedDest.standard_distance_km).toBe(25);
 
       // Verify retrieval
       const updatedList = await db.getVehicleDestinations();
