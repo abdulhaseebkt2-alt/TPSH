@@ -46,11 +46,18 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
   const vHeadMap = (db && typeof db.get === 'function') ? (db.get('tps_vehicle_head_assignments') || {}) : {};
   const assignedFromMap = vHeadMap[currentUser?.id] || (currentUser?.email && vHeadMap[currentUser.email.toLowerCase()]);
-  const assignedVehicleIds = currentUser?.assigned_vehicle_ids ||
-                             currentUser?.metadata?.assigned_vehicle_ids ||
-                             currentUser?.vehicle_ids ||
-                             assignedFromMap ||
-                             [];
+  let assignedVehicleIds = [];
+  if (Array.isArray(currentUser?.assigned_vehicle_ids) && currentUser.assigned_vehicle_ids.length > 0) {
+    assignedVehicleIds = currentUser.assigned_vehicle_ids;
+  } else if (Array.isArray(assignedFromMap) && assignedFromMap.length > 0) {
+    assignedVehicleIds = assignedFromMap;
+  } else if (Array.isArray(currentUser?.metadata?.assigned_vehicle_ids) && currentUser.metadata.assigned_vehicle_ids.length > 0) {
+    assignedVehicleIds = currentUser.metadata.assigned_vehicle_ids;
+  } else if (Array.isArray(currentUser?.vehicle_ids) && currentUser.vehicle_ids.length > 0) {
+    assignedVehicleIds = currentUser.vehicle_ids;
+  } else if (currentUser?.is_dev_profile) {
+    assignedVehicleIds = (db.get('tps_vehicles') || []).slice(0, 2).map(v => v.id);
+  }
   const headVehicleSet = new Set(assignedVehicleIds);
 
   const filterVehicles = (list) => isVehicleHead ? (list || []).filter(v => headVehicleSet.has(v.id)) : (list || []);

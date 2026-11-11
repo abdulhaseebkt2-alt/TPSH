@@ -31,12 +31,20 @@ export async function renderVehicleHeadDashboard(container, { onNavigate }) {
   // Determine assigned vehicles for this department head
   const assignmentsFromStorage = (db && typeof db.get === 'function') ? (db.get('tps_vehicle_head_assignments') || {}) : {};
   const cloudAssigned = assignmentsFromStorage[userId] || (user?.email && assignmentsFromStorage[user.email.toLowerCase()]) || [];
-  const assignedVehicleIds = user?.assigned_vehicle_ids ||
-                             user?.metadata?.assigned_vehicle_ids ||
-                             user?.vehicle_ids ||
-                             vHeadMap ||
-                             cloudAssigned ||
-                             [];
+  let assignedVehicleIds = [];
+  if (Array.isArray(user?.assigned_vehicle_ids) && user.assigned_vehicle_ids.length > 0) {
+    assignedVehicleIds = user.assigned_vehicle_ids;
+  } else if (Array.isArray(vHeadMap) && vHeadMap.length > 0) {
+    assignedVehicleIds = vHeadMap;
+  } else if (Array.isArray(cloudAssigned) && cloudAssigned.length > 0) {
+    assignedVehicleIds = cloudAssigned;
+  } else if (Array.isArray(user?.metadata?.assigned_vehicle_ids) && user.metadata.assigned_vehicle_ids.length > 0) {
+    assignedVehicleIds = user.metadata.assigned_vehicle_ids;
+  } else if (Array.isArray(user?.vehicle_ids) && user.vehicle_ids.length > 0) {
+    assignedVehicleIds = user.vehicle_ids;
+  } else if (user?.is_dev_profile) {
+    assignedVehicleIds = allVehicles.slice(0, 2).map(v => v.id);
+  }
 
   const assignedSet = new Set(Array.isArray(assignedVehicleIds) ? assignedVehicleIds : []);
   const myVehicles = allVehicles.filter(v => assignedSet.has(v.id));

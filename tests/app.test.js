@@ -9508,6 +9508,11 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       const userCardCode = fs.readFileSync('src/modules/vehicles/user-card.js', 'utf8');
       expect(userCardCode).toContain('isVehicleHead');
       expect(userCardCode).toContain('canManageTripSettlement');
+
+      // 7. Dev Role Switcher profile and persistence for vehicle_head
+      const authCode = fs.readFileSync('src/lib/auth.js', 'utf8');
+      expect(authCode).toContain('vehicle_head: {');
+      expect(authCode).toContain('assigned_vehicle_ids');
     });
   });
 });

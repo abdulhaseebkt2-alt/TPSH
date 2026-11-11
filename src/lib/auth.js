@@ -270,6 +270,7 @@ export async function loadUserProfile(user) {
         assigned_student_ids: profile.assigned_student_ids || meta.assigned_student_ids || [],
         student_ids: profile.student_ids || meta.student_ids || meta.assigned_student_ids || [],
         child_ids: profile.child_ids || meta.child_ids || meta.assigned_student_ids || [],
+        assigned_vehicle_ids: profile.assigned_vehicle_ids || meta.assigned_vehicle_ids || [],
         mentor_type: profile.mentor_type || meta.mentor_type || null,
         hostel_unit: profile.hostel_unit || meta.hostel_unit || null,
         gender: profile.gender || meta.gender || null,
@@ -796,6 +797,21 @@ export function getDevProfile(role) {
       blood_group: 'B+',
       phone: '+91 98470 12345'
     },
+    vehicle_head: {
+      id: 'd0000000-0000-0000-0000-000000000011',
+      email: 'vehicle_head@thaibaschool.edu.in',
+      full_name: 'Farooq Transport Head',
+      role: 'vehicle_head',
+      approval_status: 'approved',
+      is_super_admin: false,
+      profile_completed: true,
+      is_dev_profile: true,
+      tps_id: 'VHD001',
+      blood_group: 'B+',
+      phone: '+91 98470 44556',
+      assigned_vehicle_ids: ['veh-1'],
+      avatar_url: null
+    },
     vehicle_user: {
       id: 'd0000000-0000-0000-0000-000000000010',
       email: 'driver@thaibaschool.edu.in',
@@ -867,6 +883,11 @@ export function getCurrentUser() {
           currentProfile.assigned_student_ids = assigned;
           currentProfile.student_ids = assigned;
           currentProfile.child_ids = assigned;
+        }
+        const headMap = JSON.parse(localStorage.getItem('tps_vehicle_head_assignments') || '{}');
+        const headAssigned = (currentProfile.id && headMap[currentProfile.id]) || (currentProfile.email && headMap[currentProfile.email.toLowerCase()]);
+        if (headAssigned && Array.isArray(headAssigned) && headAssigned.length > 0) {
+          currentProfile.assigned_vehicle_ids = headAssigned;
         }
       }
     } catch {}

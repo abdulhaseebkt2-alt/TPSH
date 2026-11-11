@@ -329,10 +329,13 @@ class App {
     // High performance in-place navigation if shell is already mounted
     const sidebarEl = this.appEl.querySelector('#app-sidebar');
     const contentEl = this.appEl.querySelector('#app-content');
-    if (sidebarEl && contentEl) {
+    if (sidebarEl && contentEl && this.currentRenderedUserId === profile.id && this.currentRenderedRole === profile.role) {
       this.renderModuleInPlace(profile, contentEl, sidebarEl);
       return;
     }
+
+    this.currentRenderedUserId = profile.id;
+    this.currentRenderedRole = profile.role;
 
     // Render Full ERP Shell on initial entry
     this.renderAuthenticatedShell(profile);
