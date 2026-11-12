@@ -12,6 +12,26 @@ import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { normalizeVehicleCategory, getVehicleTypeIcon } from './index.js';
 import { isTripForUser } from './user-card.js';
 
+function safeGetItem(key) {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key, val) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, val);
+  } catch {}
+}
+
+function safeRemoveItem(key) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+  } catch {}
+}
+
 export async function renderUserVehicleTripsModule(container, { onNavigate } = {}) {
   const currentUser = getCurrentUser();
   if (!currentUser) {
@@ -37,7 +57,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     const userTrips = allTrips.filter(t => isTripForUser(t, currentUser));
 
     // Active trip persistence: check localStorage first, then active user trips
-    const storedActiveTripId = localStorage.getItem('tps_active_trip_id');
+    const storedActiveTripId = safeGetItem('tps_active_trip_id');
     let activeTrip = null;
     if (storedActiveTripId) {
       activeTrip = allTrips.find(t => (t.id === storedActiveTripId || t.trip_id === storedActiveTripId) && ['Pending Approval', 'Approved', 'In Progress'].includes(t.status));
@@ -46,9 +66,9 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       activeTrip = userTrips.find(t => ['Pending Approval', 'Approved', 'In Progress'].includes(t.status));
     }
     if (activeTrip) {
-      localStorage.setItem('tps_active_trip_id', activeTrip.id);
+      safeSetItem('tps_active_trip_id', activeTrip.id);
     } else {
-      localStorage.removeItem('tps_active_trip_id');
+      safeRemoveItem('tps_active_trip_id');
     }
 
     // Get selected vehicle object
@@ -63,8 +83,8 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     const isVehicleHead = currentUser.role === 'vehicle_head';
 
     container.innerHTML = `
-      <!-- Page Header with Navigation Actions -->
-      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+      <!-- Page Header (Clean & Decluttered) -->
+      <div class="page-header" style="margin-bottom: 1.25rem;">
         <div class="page-title-group">
           <div style="display: flex; align-items: center; gap: 0.65rem;">
             <div style="width: 40px; height: 40px; border-radius: 12px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15); flex-shrink: 0;">
@@ -77,27 +97,6 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               </p>
             </div>
           </div>
-        </div>
-
-        <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button class="btn btn-outline" id="btn-view-user-card" style="font-weight: 600; color: #4F46E5; border-color: #C7D2FE; background: #EEF2FF;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M14 10h4"/><path d="M14 14h3"/></svg>
-            My Ledger & Past Trips
-          </button>
-          ${isAdmin || isVehicleHead ? `
-            <button class="btn btn-outline" id="btn-destinations-admin" style="font-weight: 600; color: #065F46; border-color: #A7F3D0; background: #ECFDF5;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              Preset Destinations & Reviews
-            </button>
-            <button class="btn btn-secondary" id="btn-all-trips-master" style="font-weight: 600;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-              All Trips Master
-            </button>
-            <button class="btn btn-secondary" id="btn-back-fleet-admin" style="font-weight: 600;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-              Fleet Console
-            </button>
-          ` : ''}
         </div>
       </div>
 
@@ -227,13 +226,13 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #1E1B4B; margin-bottom: 0.35rem;">
                 Current Starting Meter Reading (KM) *
               </label>
-              <input type="number" id="short-ride-start-km" class="form-control" required 
-                value="${selectedVeh?.current_odometer || 0}" 
-                min="${selectedVeh?.current_odometer || 0}" 
-                placeholder="e.g. ${selectedVeh?.current_odometer || 0}" 
+              <input type="number" id="short-ride-start-km" class="form-control" required step="any" 
+                value="${Math.floor(selectedVeh?.current_odometer || 0)}" 
+                min="${Math.floor(selectedVeh?.current_odometer || 0)}" 
+                placeholder="e.g. ${Math.floor(selectedVeh?.current_odometer || 0)}" 
                 style="width: 100%; font-weight: 800; font-family: monospace; font-size: 1.15rem; padding: 0.65rem 0.85rem; border: 2px solid #C7D2FE; border-radius: 8px; background: #FFFFFF;" />
               <div style="font-size: 0.74rem; color: #6366F1; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.35rem;">
-                Pre-filled with <strong>${selectedVeh?.vehicle_name || 'Vehicle'}</strong>'s live odometer (${selectedVeh?.current_odometer || 0} KM). Return meter will be recorded when finishing the trip.
+                Pre-filled with <strong>${selectedVeh?.vehicle_name || 'Vehicle'}</strong>'s live odometer (${Math.floor(selectedVeh?.current_odometer || 0)} KM). Return meter will be recorded when finishing the trip.
               </div>
             </div>
 
@@ -354,7 +353,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     }
 
     if (activeTrip.status === 'Approved') {
-      const minOdo = Number(veh?.current_odometer || 0);
+      const minOdo = Math.floor(Number(veh?.current_odometer || 0));
 
       return `
         <div class="card-panel" style="background: #ECFDF5; border: 2px solid #10B981; border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem;">
@@ -460,20 +459,6 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
   }
 
   function attachEvents(activeTrip) {
-    // Top Navigation Header Actions
-    container.querySelector('#btn-view-user-card')?.addEventListener('click', () => {
-      if (typeof onNavigate === 'function') onNavigate('vehicle_card');
-    });
-    container.querySelector('#btn-destinations-admin')?.addEventListener('click', () => {
-      if (typeof onNavigate === 'function') onNavigate('vehicle_destinations');
-    });
-    container.querySelector('#btn-all-trips-master')?.addEventListener('click', () => {
-      if (typeof onNavigate === 'function') onNavigate('vehicle_all_trips');
-    });
-    container.querySelector('#btn-back-fleet-admin')?.addEventListener('click', () => {
-      if (typeof onNavigate === 'function') onNavigate('vehicles');
-    });
-
     // 1. VEHICLE SELECTOR MODAL DIALOG
     container.querySelector('#sec-vehicle-trigger')?.addEventListener('click', () => {
       openModal({
@@ -665,7 +650,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           standard_km: stdKm
         });
 
-        localStorage.setItem('tps_active_trip_id', saved.id);
+        safeSetItem('tps_active_trip_id', saved.id);
 
         veh.status = 'On Trip';
         await db.saveVehicle(veh);
@@ -693,7 +678,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           standard_km: stdKm
         });
 
-        localStorage.setItem('tps_active_trip_id', saved.id);
+        safeSetItem('tps_active_trip_id', saved.id);
         allTrips = await db.getTripLogs();
         toast.info('Trip request submitted for administrator review and approval.');
         render();
@@ -722,7 +707,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
       });
       if (confirmed) {
         await db.deleteTripLog(activeTrip.id);
-        localStorage.removeItem('tps_active_trip_id');
+        safeRemoveItem('tps_active_trip_id');
         allTrips = await db.getTripLogs();
         toast.info('Trip request cancelled.');
         render();
@@ -746,7 +731,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
           await db.saveVehicle(veh);
         }
         await db.deleteTripLog(activeTrip.id);
-        localStorage.removeItem('tps_active_trip_id');
+        safeRemoveItem('tps_active_trip_id');
         allTrips = await db.getTripLogs();
         vehicles = await db.getVehicles();
         toast.info('Trip cancelled successfully. Vehicle returned to Available.');
@@ -810,7 +795,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
         payment_status: 'Unpaid'
       });
 
-      localStorage.setItem('tps_active_trip_id', saved.id);
+      safeSetItem('tps_active_trip_id', saved.id);
       allTrips = await db.getTripLogs();
       toast.success('Trip request submitted for administrator review and approval.');
       render();
@@ -931,7 +916,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
             allTrips = await db.getTripLogs();
             vehicles = await db.getVehicles();
-            localStorage.removeItem('tps_active_trip_id');
+            safeRemoveItem('tps_active_trip_id');
             toast.success(`Trip completed! Excess charge of ₹${excessAmount} added to your card.`);
             render();
           },
@@ -956,7 +941,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
             allTrips = await db.getTripLogs();
             vehicles = await db.getVehicles();
-            localStorage.removeItem('tps_active_trip_id');
+            safeRemoveItem('tps_active_trip_id');
             toast.info('Trip completed! Justification submitted for administrator review.');
             render();
           }
@@ -987,7 +972,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
       allTrips = await db.getTripLogs();
       vehicles = await db.getVehicles();
-      localStorage.removeItem('tps_active_trip_id');
+      safeRemoveItem('tps_active_trip_id');
 
       // Show Completion & Invoice Popup Modal
       openTripBillModal({
@@ -1014,7 +999,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
     );
 
     const targetVeh = vehicles.find(v => v.id === selectedVehicleId) || vehicles[0];
-    const minOdo = Number(targetVeh?.current_odometer || 0);
+    const minOdo = Math.floor(Number(targetVeh?.current_odometer || 0));
 
     openModal({
       title: 'Block / Log Trip for Staff & Faculty',

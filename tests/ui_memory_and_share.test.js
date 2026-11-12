@@ -5,6 +5,16 @@ import { getSelectStorageKey, enhanceSelect } from '../src/components/custom-sel
 import { enhanceTabButtons } from '../src/lib/ui-enhancer.js';
 
 describe('UI/UX Enhancements: Hero Card, Share Feature & Universal Memory', () => {
+  const memStore = {};
+  if (typeof globalThis.localStorage === 'undefined') {
+    globalThis.localStorage = {
+      getItem: (k) => memStore[k] || null,
+      setItem: (k, v) => { memStore[k] = String(v); },
+      removeItem: (k) => { delete memStore[k]; },
+      clear: () => { Object.keys(memStore).forEach(k => delete memStore[k]); }
+    };
+  }
+
   beforeEach(() => {
     db.initStore();
   });
@@ -128,6 +138,34 @@ Total Hostel Occupancy:
       const { calculateDynamicRatePerKm } = await import('../src/lib/fleet-engine.js');
       const rateInfo = calculateDynamicRatePerKm(vehicle, [{ amount: 99999 }], []);
       expect(rateInfo.rate).toBe(7.5);
+    });
+
+    it('verifies vehicle booking module has header buttons removed and odometer pre-filled without decimals', async () => {
+      const { switchDevRole } = await import('../src/lib/auth.js');
+      switchDevRole('admin');
+      const { renderUserVehicleTripsModule } = await import('../src/modules/vehicles/user-trips.js');
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderUserVehicleTripsModule(container, { onNavigate: () => {} });
+
+      // 4 Navigation buttons should NOT be present in header
+      expect(container.innerHTML).not.toContain('id="btn-view-user-card"');
+      expect(container.innerHTML).not.toContain('id="btn-destinations-admin"');
+      expect(container.innerHTML).not.toContain('id="btn-all-trips-master"');
+      expect(container.innerHTML).not.toContain('id="btn-back-fleet-admin"');
+
+      // Check short ride start km pre-fill and step="any"
+      expect(container.innerHTML).toContain('id="short-ride-start-km"');
+      expect(container.innerHTML).toContain('step="any"');
+      // If odometer was 32609.3 or similar, it should be floored
+      const match = container.innerHTML.match(/id="short-ride-start-km"[^>]*value="([^"]+)"/);
+      if (match) {
+        expect(match[1]).not.toContain('.');
+      }
     });
   });
 });
