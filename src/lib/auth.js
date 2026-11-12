@@ -583,6 +583,7 @@ export async function signOut() {
   }
   localStorage.removeItem('tps_dev_profile');
   localStorage.removeItem('tps_real_auth_profile');
+  localStorage.removeItem('tps_current_user');
   realAuthenticatedProfile = null;
   realAuthenticatedSession = null;
   currentSession = null;
@@ -660,6 +661,7 @@ export async function switchDevRole(role) {
   currentProfile = profile;
   currentSession = { user: { id: profile.id, email: profile.email } };
   localStorage.setItem('tps_dev_profile', JSON.stringify(profile));
+  localStorage.setItem('tps_current_user', JSON.stringify(profile));
   notifyListeners();
 }
 
@@ -889,6 +891,7 @@ export function getCurrentUser() {
         if (headAssigned && Array.isArray(headAssigned) && headAssigned.length > 0) {
           currentProfile.assigned_vehicle_ids = headAssigned;
         }
+        localStorage.setItem('tps_current_user', JSON.stringify(currentProfile));
       }
     } catch {}
     return currentProfile;
@@ -920,8 +923,11 @@ export function updateCurrentUserProfile(newProfile) {
       localStorage.setItem('tps_real_auth_profile', JSON.stringify(realAuthenticatedProfile));
     }
   }
-  if (typeof localStorage !== 'undefined' && localStorage.getItem('tps_dev_profile')) {
-    localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('tps_current_user', JSON.stringify(currentProfile));
+    if (localStorage.getItem('tps_dev_profile')) {
+      localStorage.setItem('tps_dev_profile', JSON.stringify(currentProfile));
+    }
   }
   notifyListeners();
   return currentProfile;

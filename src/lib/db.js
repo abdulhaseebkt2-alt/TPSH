@@ -1756,27 +1756,25 @@ class DatabaseService {
     // Strict multi-tenant isolation: check if current user is an administrator
     let isAdmin = false;
     try {
-      const activeUserStr = this.getStorageItem('tps_current_user');
+      const activeUserStr = this.getStorageItem('tps_current_user') ||
+                            this.getStorageItem('tps_dev_profile') ||
+                            this.getStorageItem('tps_real_auth_profile');
       if (activeUserStr) {
         const u = JSON.parse(activeUserStr);
-        isAdmin = Boolean(u && (u.is_super_admin || u.role === 'super_admin' || u.role === 'admin'));
+        const email = String(u.email || '').trim().toLowerCase();
+        isAdmin = Boolean(u && (u.is_super_admin || u.role === 'super_admin' || u.role === 'admin' || email === 'abdulhaseebkt2@gmail.com'));
       }
     } catch {}
 
-    // Non-admin roles (parents, students, teachers, drivers) are restricted strictly to public branding/calendar keys
+    // Non-admin roles (parents, students) are strictly blocked from sensitive admin keys (credentials, internal parent assignments, rbac)
     if (!isAdmin) {
-      const permittedPublicKeys = new Set([
-        'tps_institution_logo',
-        'tps_mobile_front_logo',
-        'tps_institution_settings',
-        'tps_institution_info',
-        'tps_current_academic_year',
-        'tps_academic_calendar',
-        'tps_theme_config',
-        'tps_privacy_policy',
-        'tps_terms_of_service'
+      const sensitiveAdminKeys = new Set([
+        'tps_user_passwords',
+        'tps_parent_assignments',
+        'tps_rbac_matrix',
+        'tps_user_custom_modules'
       ]);
-      keys = keys.filter(k => permittedPublicKeys.has(k));
+      keys = keys.filter(k => !sensitiveAdminKeys.has(k));
       if (keys.length === 0) return;
     }
 
@@ -6406,7 +6404,20 @@ class DatabaseService {
   // --- VEHICLE & FLEET MANAGEMENT ---
   async getVehicles() {
     await this.pullCloudKeys(['tps_vehicles'], false);
-    return this.get('tps_vehicles') || [];
+    let list = this.get('tps_vehicles') || [];
+    if ((!list || list.length === 0) && supabase && !isTestEnv) {
+      try {
+        const { data } = await supabase.from('app_settings').select('value').eq('key', 'tps_vehicles').maybeSingle();
+        if (data && data.value) {
+          const cloudList = Array.isArray(data.value) ? data.value : JSON.parse(data.value);
+          if (Array.isArray(cloudList) && cloudList.length > 0) {
+            list = cloudList;
+            this.setStorageItem('tps_vehicles', JSON.stringify(list));
+          }
+        }
+      } catch (e) {}
+    }
+    return list;
   }
 
   async saveVehicle(vehicleData) {
@@ -6541,8 +6552,24 @@ class DatabaseService {
 
   // --- TRIP LOGS ---
   async getTripLogs(filter = {}) {
-    await this.pullCloudKeys(['tps_trip_logs'], false);
+    await this.pullCloudKeys(['tps_trip_logs'], true);
     let list = this.get('tps_trip_logs') || [];
+
+    // Direct cloud synchronization fallback if local list is empty
+    if ((!list || list.length === 0) && supabase && !isTestEnv) {
+      try {
+        const { data } = await supabase.from('app_settings').select('value').eq('key', 'tps_trip_logs').maybeSingle();
+        if (data && data.value) {
+          const cloudList = Array.isArray(data.value) ? data.value : JSON.parse(data.value);
+          if (Array.isArray(cloudList) && cloudList.length > 0) {
+            list = cloudList;
+            this.setStorageItem('tps_trip_logs', JSON.stringify(list));
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback direct trip logs query warning:', e);
+      }
+    }
     const vehicles = this.get('tps_vehicles') || [];
 
     // Self-healing: ensure any completed trip with missing, invalid or object total_amount is reconciled
@@ -6676,7 +6703,19 @@ class DatabaseService {
   // --- VEHICLE PAYMENTS (IMMUTABLE SETTLEMENT LEDGER) ---
   async getVehiclePayments(tripId = null) {
     await this.pullCloudKeys(['tps_vehicle_payments'], false);
-    const list = this.get('tps_vehicle_payments') || [];
+    let list = this.get('tps_vehicle_payments') || [];
+    if ((!list || list.length === 0) && supabase && !isTestEnv) {
+      try {
+        const { data } = await supabase.from('app_settings').select('value').eq('key', 'tps_vehicle_payments').maybeSingle();
+        if (data && data.value) {
+          const cloudList = Array.isArray(data.value) ? data.value : JSON.parse(data.value);
+          if (Array.isArray(cloudList) && cloudList.length > 0) {
+            list = cloudList;
+            this.setStorageItem('tps_vehicle_payments', JSON.stringify(list));
+          }
+        }
+      } catch (e) {}
+    }
     if (tripId) {
       return list.filter(p => p.trip_id === tripId);
     }

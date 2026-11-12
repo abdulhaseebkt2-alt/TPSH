@@ -167,5 +167,65 @@ Total Hostel Occupancy:
         expect(match[1]).not.toContain('.');
       }
     });
+
+    it('verifies cross-device vehicle trips sync and accurate ledger matching for Haseeb Mubarak', async () => {
+      const { isTripForUser, renderVehicleUserCardModule } = await import('../src/modules/vehicles/user-card.js');
+      const { switchDevRole } = await import('../src/lib/auth.js');
+      switchDevRole('super_admin');
+
+      // 1. Verify trip matching for Haseeb Mubarak against mobile-logged trips
+      const mobileTrip1 = {
+        id: 'trip-mobile-1',
+        trip_id: 'TRIP-2026-001',
+        user_id: 'u-1',
+        user_name: 'Abdul Haseeb',
+        user_email: 'abdulhaseebkt2@gmail.com',
+        destination: 'Model school',
+        total_km: 7,
+        total_amount: 45.50,
+        status: 'Completed'
+      };
+      const mobileTrip2 = {
+        id: 'trip-mobile-2',
+        trip_id: 'TRIP-2026-002',
+        user_id: 'u-1',
+        user_name: 'Abdul Haseeb',
+        user_email: 'abdulhaseebkt2@gmail.com',
+        destination: 'Short Ride (Local / Campus)',
+        total_km: 2,
+        total_amount: 15.00,
+        status: 'Completed'
+      };
+
+      const userHaseeb = {
+        id: 'u-1',
+        tps_id: 'TGI306',
+        full_name: 'Haseeb Mubarak',
+        email: 'abdulhaseebkt2@gmail.com',
+        role: 'super_admin',
+        is_super_admin: true
+      };
+
+      expect(isTripForUser(mobileTrip1, userHaseeb)).toBe(true);
+      expect(isTripForUser(mobileTrip2, userHaseeb)).toBe(true);
+
+      // 2. Save both trips into db store to simulate synced state
+      db.set('tps_trip_logs', [mobileTrip1, mobileTrip2]);
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderVehicleUserCardModule(container, { userId: 'u-1', onNavigate: () => {} });
+
+      // Expect 9 KM total distance, ₹60.50 total billed, and both trips rendered in ledger
+      expect(container.innerHTML).toContain('9 KM');
+      expect(container.innerHTML).toContain('60.50');
+      expect(container.innerHTML).toContain('Model school');
+      expect(container.innerHTML).toContain('Short Ride (Local / Campus)');
+      expect(container.innerHTML).toContain('2 recorded trip(s)');
+    });
   });
 });
