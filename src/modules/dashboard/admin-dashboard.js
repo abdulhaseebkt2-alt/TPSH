@@ -1,6 +1,7 @@
 import { getCurrentUser } from '../../lib/auth.js';
 import { db } from '../../lib/db.js';
 import { formatCurrency, formatDate, getTodayDateStr, isStudentActive, isLeaveOverdueSafe, isDateInFuture } from '../../lib/utils.js';
+import { shareHeroStatusCard } from './card-share.js';
 
 export async function renderAdminDashboard(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -112,7 +113,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   const pendingStudentCount = uniqueStudentPendingMap.size;
   const pendingStudentList = Array.from(uniqueStudentPendingMap.values());
 
-  let heroPillText = 'THAIBASCHOOL CAMPUS';
+  let heroPillText = 'Thaiba Public School Hostel';
   let isLeaveRequestPill = false;
   let leaveRoute = 'faculty_leaves';
   let leaveAlertSubtext = '• Pending review and administrative authorization';
@@ -200,6 +201,7 @@ export async function renderAdminDashboard(container, { onNavigate }) {
   }).length;
   const boysInHostel = Math.max(0, boysCount - boysOnLeave);
   const girlsInHostel = Math.max(0, girlsCount - girlsOnLeave);
+  const totalInHostel = boysInHostel + girlsInHostel;
 
   // Map each active student to their latest active leave pass (newest takes precedence)
   const sortedActiveLeaves = [...activeUnreturnedLeaves].sort((a, b) => {
@@ -379,10 +381,10 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             <span class="m-hero-live-indicator"></span>
             <span class="m-hero-brand-text">${heroPillText}</span>
           </div>
-          <button class="m-hero-eye-btn" id="m-hero-eye-toggle" title="Toggle metrics display" aria-label="Toggle metrics display">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
+          <button class="m-hero-eye-btn m-hero-share-btn" id="m-hero-share-btn" title="Share Hostel Status Card Screenshot" aria-label="Share Hostel Status Card Screenshot">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
           </button>
         </div>
@@ -411,9 +413,9 @@ export async function renderAdminDashboard(container, { onNavigate }) {
             <span class="m-hero-f-val" id="m-hero-girls">${girlsInHostel}</span>
           </div>
           <div class="m-hero-f-divider"></div>
-          <div class="m-hero-f-stat" id="m-hero-live-att-stat" data-route="attendance" style="cursor: pointer;" title="${runningCount} currently running classes / ${receivedCount} classes attendance received (${receivedTodayCount} of ${todayClassrooms.length} attended today). Tap to view live timetable & attendance.">
-            <span class="m-hero-f-label">Running / Received</span>
-            <span class="m-hero-f-val" id="m-hero-live-att-val" style="color: #34D399;">${runningCount} / ${receivedCount}</span>
+          <div class="m-hero-f-stat" id="m-hero-total-hostel-stat" data-route="students" style="cursor: pointer;" title="Total ${totalInHostel} students currently in hostel (${boysInHostel} boys + ${girlsInHostel} girls). Tap to view student directory.">
+            <span class="m-hero-f-label">Total in Hostel</span>
+            <span class="m-hero-f-val" id="m-hero-total-hostel-val" style="color: #34D399; font-weight: 800;">${totalInHostel}</span>
           </div>
         </div>
       </div>
@@ -964,22 +966,26 @@ export async function renderAdminDashboard(container, { onNavigate }) {
     </div>
   `;
 
-  // Interactive Eye Toggle for Hero Metrics
-  let isMetricsHidden = false;
-  const eyeBtn = container.querySelector('#m-hero-eye-toggle');
-  eyeBtn?.addEventListener('click', () => {
-    isMetricsHidden = !isMetricsHidden;
-    const heroVal = container.querySelector('#m-hero-val');
-    const heroBoys = container.querySelector('#m-hero-boys');
-    const heroGirls = container.querySelector('#m-hero-girls');
-    const heroLiveAtt = container.querySelector('#m-hero-live-att-val');
-    if (heroVal) heroVal.textContent = isMetricsHidden ? '••••' : String(activeStudents.length);
-    if (heroBoys) heroBoys.textContent = isMetricsHidden ? '••' : String(boysCount);
-    if (heroGirls) heroGirls.textContent = isMetricsHidden ? '••' : String(girlsCount);
-    if (heroLiveAtt) heroLiveAtt.textContent = isMetricsHidden ? '••/••' : `${runningCount} / ${receivedCount}`;
-    eyeBtn.innerHTML = isMetricsHidden
-      ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
-      : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  // Interactive Share Button for Hero Status Card (renders on white background)
+  const shareBtn = container.querySelector('#m-hero-share-btn') || container.querySelector('#m-hero-eye-toggle');
+  shareBtn?.addEventListener('click', () => {
+    shareHeroStatusCard({
+      brandText: heroPillText,
+      activeCount: activeStudents.length,
+      boysCount,
+      girlsCount,
+      divisionsCount: classrooms.length,
+      boysInHostel,
+      girlsInHostel,
+      totalInHostel
+    });
+  });
+
+  // Total in Hostel Hero Stat: click to open students module
+  container.querySelector('#m-hero-total-hostel-stat')?.addEventListener('click', () => {
+    if (typeof onNavigate === 'function') {
+      onNavigate('students');
+    }
   });
 
   // Interactive Live Attendance Hero Stat: click to open attendance module

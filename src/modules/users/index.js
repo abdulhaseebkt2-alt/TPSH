@@ -2095,6 +2095,39 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
                 Clear Selection
               </button>
             </div>
+
+            <!-- DPDP Act 2023 Section 9 Verifiable Consent & Guardian Verification -->
+            <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed #CBD5E1; background: #F0FDF4; border-radius: 8px; padding: 0.75rem 0.85rem;">
+              <div style="font-weight: 800; font-size: 0.84rem; color: #166534; display: flex; align-items: center; gap: 6px; margin-bottom: 0.35rem;">
+                <span>🛡️</span>
+                <span>DPDP Act 2023 — Verifiable Parental Consent (Section 9)</span>
+              </div>
+              <p style="font-size: 0.75rem; color: #15803D; margin: 0 0 0.5rem 0; line-height: 1.4;">
+                To protect minor students under Indian data privacy law, specify the parental relationship and consent verification method before linking student records.
+              </p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <div>
+                  <label style="font-size: 0.74rem; font-weight: 700; color: #14532D; margin-bottom: 0.2rem; display: block;">Guardian Relationship</label>
+                  <select id="modal-parent-relation-type" class="form-control" style="font-size: 0.78rem; height: 32px;">
+                    <option value="father">Father / Primary Guardian</option>
+                    <option value="mother">Mother / Primary Guardian</option>
+                    <option value="legal_guardian">Court / Officially Appointed Legal Guardian</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 0.74rem; font-weight: 700; color: #14532D; margin-bottom: 0.2rem; display: block;">Verification Mode</label>
+                  <select id="modal-parent-verification-mode" class="form-control" style="font-size: 0.78rem; height: 32px;">
+                    <option value="admission_form">Signed Physical Admission Undertaking</option>
+                    <option value="phone_verification">Verified Phone / Mobile Communication</option>
+                    <option value="in_person">In-Person Campus Identity Verification</option>
+                  </select>
+                </div>
+              </div>
+              <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.76rem; color: #166534; font-weight: 600; margin: 0;">
+                <input type="checkbox" id="modal-chk-dpdp-verified" checked style="width: 16px; height: 16px; accent-color: #059669; margin-top: 1px; flex-shrink: 0;" />
+                <span>Verifiable parental consent obtained and documented in school admissions registry.</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -2418,6 +2451,32 @@ export async function renderUsersModule(container, { onNavigate, initialTab } = 
             payload.assigned_student_ids = selectedStudentIds;
             payload.student_ids = selectedStudentIds;
             payload.child_ids = selectedStudentIds;
+
+            const isConsentChecked = modalBody.querySelector('#modal-chk-dpdp-verified')?.checked;
+            const relationType = modalBody.querySelector('#modal-parent-relation-type')?.value || 'father';
+            const verMode = modalBody.querySelector('#modal-parent-verification-mode')?.value || 'admission_form';
+            payload.guardian_relation = relationType;
+            payload.dpdp_consent = {
+              verified: Boolean(isConsentChecked),
+              relation: relationType,
+              method: verMode,
+              policy_version: '2026.11-v1',
+              verified_at: new Date().toISOString()
+            };
+
+            if (isConsentChecked && typeof db.recordDpdpConsent === 'function') {
+              try {
+                await db.recordDpdpConsent({
+                  userId,
+                  studentId: selectedStudentIds[0] || null,
+                  consentType: 'explicit_dpdp_s9',
+                  verificationMethod: verMode,
+                  metadata: { student_ids: selectedStudentIds, relation: relationType }
+                });
+              } catch (e) {
+                console.warn('DPDP consent log note:', e);
+              }
+            }
           } else if (role === 'vehicle_head') {
             const selectedVehicleIds = Array.from(modalBody.querySelectorAll('.chk-assign-vehicle:checked')).map(cb => cb.value);
             if (selectedVehicleIds.length === 0) {

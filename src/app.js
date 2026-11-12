@@ -39,9 +39,12 @@ import { renderUserVehicleTripsModule } from './modules/vehicles/user-trips.js';
 import { renderVehicleUserCardModule } from './modules/vehicles/user-card.js';
 import { renderAllVehicleTripsModule } from './modules/vehicles/all-trips.js';
 import { renderVehicleDestinationsModule } from './modules/vehicles/destinations.js';
+import { renderPrivacyPolicyPage, renderTermsOfServicePage, showPrivacyPolicyModal, showTermsOfServiceModal, showParentalConsentNoticeModal } from './modules/legal/index.js';
 
 const MODULE_ROUTERS = {
   dashboard: renderDashboard,
+  'privacy-policy': renderPrivacyPolicyPage,
+  terms: renderTermsOfServicePage,
   users: renderUsersModule,
   admissions: renderAdmissionsModule,
   students: renderStudentsModule,
@@ -312,6 +315,10 @@ class App {
 
   render(profile) {
     if (!profile) {
+      if (this.activeModule === 'privacy-policy' || this.activeModule === 'terms') {
+        this.renderPublicLegalShell(this.activeModule);
+        return;
+      }
       this.renderLoginPortal();
       return;
     }
@@ -323,6 +330,18 @@ class App {
 
     if (profile.approval_status === 'rejected' || profile.approval_status === 'suspended') {
       this.renderBlockedAccess(profile);
+      return;
+    }
+
+    // DPDP Act 2023: If parent user logs in, ensure parental consent notice is presented
+    if (profile.role === 'parent' && !profile.dpdp_consent?.acknowledged && !localStorage.getItem('tps_parent_consent_' + profile.id)) {
+      setTimeout(() => {
+        showParentalConsentNoticeModal(profile, () => {
+          try {
+            localStorage.setItem('tps_parent_consent_' + profile.id, 'true');
+          } catch {}
+        });
+      }, 500);
       return;
     }
 
@@ -568,7 +587,7 @@ class App {
               </div>
 
               <p class="tps-terms-text">
-                You are agreeing to the <a href="javascript:void(0)">Terms of Services</a> and <a href="javascript:void(0)">Privacy Policy</a>
+                You are agreeing to the <a href="javascript:void(0)" id="login-link-terms">Terms of Services</a> and <a href="javascript:void(0)" id="login-link-privacy">Privacy Policy</a>
               </p>
 
               <button type="submit" class="tps-btn-login" id="btn-email-submit">
@@ -653,6 +672,56 @@ class App {
 
     this.appEl.querySelector('#btn-google-login')?.addEventListener('click', handleGoogleAuth);
     this.appEl.querySelector('#btn-mobile-google')?.addEventListener('click', handleGoogleAuth);
+
+    this.appEl.querySelector('#login-link-terms')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      showTermsOfServiceModal();
+    });
+    this.appEl.querySelector('#login-link-privacy')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      showPrivacyPolicyModal();
+    });
+  }
+
+  renderPublicLegalShell(moduleKey) {
+    this.appEl.innerHTML = `
+      <div style="min-height: 100vh; background: #F8FAFC; display: flex; flex-direction: column;">
+        <header style="background: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; overflow: hidden; background: #0F172A; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 800;">
+              TPS
+            </div>
+            <div>
+              <strong style="font-size: 0.95rem; color: #0F172A; display: block;">Thaiba Public School & Hostel ERP</strong>
+              <span style="font-size: 0.74rem; color: #64748B;">Institutional Legal Documentation & DPDP Compliance</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" id="btn-public-back-to-login" style="font-weight: 600;">
+            ← Return to Sign In
+          </button>
+        </header>
+        <main id="public-legal-content" style="flex: 1; padding: 1.5rem 1rem;"></main>
+        <footer style="background: #FFFFFF; border-top: 1px solid #E2E8F0; padding: 1rem; text-align: center; font-size: 0.78rem; color: #64748B;">
+          Thaiba Public School • DPDP Act 2023 Compliant Institutional ERP
+        </footer>
+      </div>
+    `;
+
+    const container = this.appEl.querySelector('#public-legal-content');
+    const routerFn = MODULE_ROUTERS[moduleKey] || renderPrivacyPolicyPage;
+    routerFn(container, {
+      onNavigate: (mod) => {
+        if (mod === 'login' || mod === 'dashboard') {
+          this.navigate('');
+        } else {
+          this.navigate(mod);
+        }
+      }
+    });
+
+    this.appEl.querySelector('#btn-public-back-to-login')?.addEventListener('click', () => {
+      this.navigate('');
+    });
   }
 
   renderPendingApproval(profile) {

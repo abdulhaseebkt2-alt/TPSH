@@ -151,7 +151,13 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   let activeClassroomId = preselectedClsId || availableClassrooms[0]?.id || 'cls-1';
   let currentView = preselectedClsId ? 'roster' : 'cards';
-  let timetableFilterTab = (todayKey === 'Sun' || (sessionDate && sessionDate !== todayIso)) ? 'weekly' : 'today'; // 'today' | 'weekly' | 'live'
+  let savedTimetableTab = null;
+  try {
+    savedTimetableTab = localStorage.getItem('tps_attendance_filter_tab');
+  } catch {}
+  let timetableFilterTab = (savedTimetableTab && ['live', 'today', 'weekly'].includes(savedTimetableTab))
+    ? savedTimetableTab
+    : ((todayKey === 'Sun' || (sessionDate && sessionDate !== todayIso)) ? 'weekly' : 'today'); // 'today' | 'weekly' | 'live'
 
   // Time-Window Status Calculation for a classroom on targetDate
   async function checkWindowStatus(clsId, targetDate = sessionDate) {
@@ -914,6 +920,9 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
         const tab = btn.getAttribute('data-tab');
         if (tab) {
           timetableFilterTab = tab;
+          try {
+            localStorage.setItem('tps_attendance_filter_tab', tab);
+          } catch {}
           renderTimetableCardsUI();
         }
       });

@@ -65,6 +65,10 @@ export async function renderStudentsModule(container, { onNavigate }) {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export CSV
           </button>
+          <button class="btn btn-outline" id="btn-dpdp-retention-info" style="border-radius: var(--radius-md); font-weight: 600; font-size: 0.8rem; padding: 0.5rem 0.95rem; color: #047857; border-color: #A7F3D0; display: inline-flex; align-items: center; gap: 5px;" title="View DPDP Act 2023 Purpose Limitation and Data Retention Policy">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            DPDP Governance & Retention
+          </button>
         ` : ''}
 
         ${canCreateStudents && !isViewOnly ? `
@@ -626,27 +630,63 @@ export async function renderStudentsModule(container, { onNavigate }) {
           </div>
         </div>
 
-        ${(canEditStudents || canDeleteStudents) && !isViewOnly ? `
-          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap; width: 100%; box-sizing: border-box;">
-            ${canEditStudents ? `
-              <button class="btn btn-outline" id="modal-btn-edit-student" style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.85rem; flex: 1; min-width: 130px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit Student Record
-              </button>
-            ` : ''}
-            ${canDeleteStudents ? `
-              <button class="btn btn-outline" id="modal-btn-delete-student" style="color: #DC2626; border-color: #FECACA; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.85rem; flex: 1; min-width: 130px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                Delete Student
-              </button>
-            ` : ''}
-          </div>
-        ` : ''}
+        <div style="display: flex; gap: 0.6rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap; width: 100%; box-sizing: border-box;">
+          <button class="btn btn-outline" id="modal-btn-export-dpdp" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.8rem; color: #0284C7; border-color: #BAE6FD; font-weight: 600; flex: 1; min-width: 130px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export PII (DPDP Sec 12)
+          </button>
+          ${canEditStudents && !isViewOnly ? `
+            <button class="btn btn-outline" id="modal-btn-edit-student" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.8rem; flex: 1; min-width: 130px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit Student Record
+            </button>
+          ` : ''}
+          ${canDeleteStudents && !isViewOnly ? `
+            <button class="btn btn-outline" id="modal-btn-dpdp-erasure" style="color: #DC2626; border-color: #FECACA; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 600; flex: 1; min-width: 130px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              DPDP Erasure
+            </button>
+          ` : ''}
+        </div>
       `,
       onMount: ({ container: modalBody, close }) => {
         modalBody.querySelector('.btn-set-status-date-direct')?.addEventListener('click', () => {
           close();
           showEditStudentModal(student);
+        });
+
+        modalBody.querySelector('#modal-btn-export-dpdp')?.addEventListener('click', async () => {
+          try {
+            const data = await db.exportStudentDataJson(student.id);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${student.admission_number || 'student'}_DPDP_Data_Export.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.success('Student personal data exported pursuant to DPDP Act Section 12.');
+          } catch (err) {
+            toast.error('Failed to export student data: ' + err.message);
+          }
+        });
+
+        modalBody.querySelector('#modal-btn-dpdp-erasure')?.addEventListener('click', async () => {
+          const confirmed = await confirmDialog({
+            title: 'DPDP Section 12 — Right to Erasure',
+            message: `Do you want to permanently erase all records for ${student.full_name} (${student.admission_number})? All personal data and links will be irreversibly removed.`,
+            confirmText: 'Permanent Erasure',
+            isDanger: true
+          });
+
+          if (confirmed) {
+            close();
+            await db.eraseStudentData(student.id, { reason: 'Administrative DPDP Erasure Request', actorEmail: (user && user.email) || 'admin' });
+            selectedIds.delete(student.id);
+            toast.success('Student personal data permanently erased under DPDP Section 12.');
+            students = await db.getStudents();
+            renderTable();
+          }
         });
 
         modalBody.querySelector('#modal-btn-edit-student')?.addEventListener('click', () => {
@@ -1013,6 +1053,59 @@ export async function renderStudentsModule(container, { onNavigate }) {
     }));
     exportToCSV('Enrolled_Hostel_Students', exportData);
     toast.success('Enrolled hostel students exported to CSV successfully.');
+  });
+
+  // DPDP Retention & Rights Policy Modal
+  container.querySelector('#btn-dpdp-retention-info')?.addEventListener('click', () => {
+    openModal({
+      title: 'DPDP Act 2023 — Data Retention & Purpose Limitation',
+      size: 'lg',
+      contentHtml: `
+        <div style="font-family: var(--font-sans, system-ui, sans-serif); color: #1E293B; line-height: 1.6;">
+          <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 10px; padding: 0.85rem 1.15rem; margin-bottom: 1.15rem;">
+            <div style="font-weight: 800; color: #166534; font-size: 0.92rem; display: flex; align-items: center; gap: 6px;">
+              <span>🛡️</span>
+              <span>Student Personal Data Retention Schedule (DPDP Act 2023)</span>
+            </div>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.78rem; color: #15803D;">
+              Purpose Limitation & Statutory Compliance for Thaiba Public School & Residential Hostel
+            </p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.84rem; margin-bottom: 1.25rem;">
+            <div style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.75rem 1rem;">
+              <strong style="color: #0F172A; display: block; margin-bottom: 0.25rem;">1. Active Enrolled Students</strong>
+              <p style="margin: 0; color: #475569; font-size: 0.8rem;">
+                Processed continuously for academic education, residential hostel safety, leave out-passes, biometric/manual attendance, and guardian communication.
+              </p>
+            </div>
+
+            <div style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.75rem 1rem;">
+              <strong style="color: #0F172A; display: block; margin-bottom: 0.25rem;">2. Departed / Alumni / Transferred Students (3-Year Statutory Retention)</strong>
+              <p style="margin: 0; color: #475569; font-size: 0.8rem;">
+                Retained for exactly three (3) academic years post-departure in accordance with CBSE / Kerala State Directorate of General Education audit regulations, Transfer Certificate (TC) verification, and financial accounts reconciliation.
+              </p>
+            </div>
+
+            <div style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.75rem 1rem;">
+              <strong style="color: #0F172A; display: block; margin-bottom: 0.25rem;">3. Section 12 Right to Erasure & Portability</strong>
+              <p style="margin: 0; color: #475569; font-size: 0.8rem;">
+                Parents may at any time export a complete machine-readable copy of their child's PII or request immediate personal data redaction/erasure once all institutional clearance dues are settled.
+              </p>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="button" class="btn btn-primary" id="btn-close-dpdp-info-modal" style="font-weight: 700; padding: 0.5rem 1.25rem;">
+              Close Retention Guide
+            </button>
+          </div>
+        </div>
+      `,
+      onMount: ({ container: mBody, close }) => {
+        mBody.querySelector('#btn-close-dpdp-info-modal')?.addEventListener('click', close);
+      }
+    });
   });
 
   // Import CSV / Excel Handler

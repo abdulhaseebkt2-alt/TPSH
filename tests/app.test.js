@@ -3030,10 +3030,10 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('dash-mobile-view');
     expect(container.innerHTML).toContain('dash-desktop-view');
 
-    // 2. Verify dark executive hero card & eye toggle
+    // 2. Verify dark executive hero card & share button
     expect(container.innerHTML).toContain('m-hero-card');
-    expect(container.innerHTML).toContain('m-hero-eye-toggle');
-    expect(container.innerHTML).toContain('THAIBASCHOOL CAMPUS');
+    expect(container.innerHTML).toContain('m-hero-share-btn');
+    expect(container.innerHTML).toContain('Thaiba Public School Hostel');
     expect(container.innerHTML).toContain('TOTAL RESIDENTS ENROLLED');
 
     // 3. Verify 2x2 Bento quick actions (with Parent Leave Request replacing legacy admissions card)
@@ -3066,15 +3066,15 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).toContain('data-nav="settings"');
   });
 
-  it('Admin Dashboard Hero Pill: displays faculty leave requests in place of THAIBASCHOOL CAMPUS with single-faculty name and multi-faculty plural count', async () => {
-    // 1. Initial state: 0 pending requests -> THAIBASCHOOL CAMPUS
+  it('Admin Dashboard Hero Pill: displays faculty leave requests in place of default pill with single-faculty name and multi-faculty plural count', async () => {
+    // 1. Initial state: 0 pending requests -> Thaiba Public School Hostel
     const container = {
       innerHTML: '',
       querySelector: () => null,
       querySelectorAll: () => []
     };
     await renderAdminDashboard(container, { onNavigate: () => {} });
-    expect(container.innerHTML).toContain('THAIBASCHOOL CAMPUS');
+    expect(container.innerHTML).toContain('Thaiba Public School Hostel');
     expect(container.innerHTML).not.toContain('has-leave-request');
 
     // 2. 1 Pending Request -> Show faculty name with requested leave
@@ -3161,29 +3161,23 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     expect(container.innerHTML).not.toContain('Curfew Lock');
     expect(container.innerHTML).not.toContain('09:30 PM Lock');
 
-    // 2. Contains Running / Received label and live attendance stat
-    expect(container.innerHTML).toContain('m-hero-live-att-stat');
-    expect(container.innerHTML).toContain('Running / Received');
-    expect(container.innerHTML).toContain('m-hero-live-att-val');
+    // 2. Contains Total in Hostel label and stat
+    expect(container.innerHTML).toContain('m-hero-total-hostel-stat');
+    expect(container.innerHTML).toContain('Total in Hostel');
+    expect(container.innerHTML).toContain('m-hero-total-hostel-val');
 
     // 3. Desktop view also reflects Live Class Attendance
     expect(container.innerHTML).toContain('Live Class Attendance');
     expect(container.innerHTML).toContain('Running classes / attendance received');
 
-    // 4. Clicking the stat navigates to attendance
-    if (typeof listeners['#m-hero-live-att-stat'] === 'function') {
-      listeners['#m-hero-live-att-stat']();
-      expect(navigatedTo).toBe('attendance');
+    // 4. Clicking the stat navigates to students
+    if (typeof listeners['#m-hero-total-hostel-stat'] === 'function') {
+      listeners['#m-hero-total-hostel-stat']();
+      expect(navigatedTo).toBe('students');
     }
 
-    // 5. Eye toggle button hides and restores live attendance value
-    if (typeof listeners['#m-hero-eye-toggle'] === 'function') {
-      listeners['#m-hero-eye-toggle']();
-      expect(elements['#m-hero-live-att-val'].textContent).toBe('••/••');
-
-      listeners['#m-hero-eye-toggle']();
-      expect(elements['#m-hero-live-att-val'].textContent).toContain('/');
-    }
+    // 5. Share button is present and bound
+    expect(container.innerHTML).toContain('m-hero-share-btn');
   });
 
   it('Full-Width Select Enhancer: enhances full-width selects with 100% trigger width up to the right edge of the card', () => {

@@ -1159,6 +1159,34 @@ class DatabaseService {
     'tps_user_passwords'
   ], force = false) {
     if (!supabase || isTestEnv) return;
+
+    // Strict multi-tenant isolation: check if current user is an administrator
+    let isAdmin = false;
+    try {
+      const activeUserStr = this.getStorageItem('tps_current_user');
+      if (activeUserStr) {
+        const u = JSON.parse(activeUserStr);
+        isAdmin = Boolean(u && (u.is_super_admin || u.role === 'super_admin' || u.role === 'admin'));
+      }
+    } catch {}
+
+    // Non-admin roles (parents, students, teachers, drivers) are restricted strictly to public branding/calendar keys
+    if (!isAdmin) {
+      const permittedPublicKeys = new Set([
+        'tps_institution_logo',
+        'tps_mobile_front_logo',
+        'tps_institution_settings',
+        'tps_institution_info',
+        'tps_current_academic_year',
+        'tps_academic_calendar',
+        'tps_theme_config',
+        'tps_privacy_policy',
+        'tps_terms_of_service'
+      ]);
+      keys = keys.filter(k => permittedPublicKeys.has(k));
+      if (keys.length === 0) return;
+    }
+
     const now = Date.now();
     const TTL = 25000;
     if (!force) {
@@ -1221,6 +1249,121 @@ class DatabaseService {
     };
     list.unshift(entry);
     this.set('tps_audit', list);
+  }
+
+  // --- DPDP ACT 2023 COMPLIANCE & DATA GOVERNANCE ---
+  async recordDpdpConsent({ userId, studentId = null, consentType = 'explicit_dpdp_s9', verificationMethod = 'admission_form', verifiedBy = 'admin', metadata = {} }) {
+    const entry = {
+      id: 'dpdp-' + Date.now(),
+      user_id: userId,
+      student_id: studentId,
+      consent_type: consentType,
+      verification_method: verificationMethod,
+      policy_version: '2026.11-v1',
+      verified_by: verifiedBy,
+      metadata,
+      created_at: new Date().toISOString()
+    };
+    const localLogs = this.get('tps_dpdp_consent_logs') || [];
+    localLogs.unshift(entry);
+    this.set('tps_dpdp_consent_logs', localLogs);
+
+    if (supabase && !isTestEnv) {
+      try {
+        await supabase.from('dpdp_consent_logs').insert([{
+          user_id: userId,
+          student_id: studentId,
+          consent_type: consentType,
+          verification_method: verificationMethod,
+          policy_version: '2026.11-v1',
+          verified_by: verifiedBy,
+          metadata
+        }]);
+      } catch (err) {
+        console.warn('Cloud DPDP consent log sync error:', err);
+      }
+    }
+    this.logAudit('DPDP_CONSENT_RECORDED', 'users', userId, `DPDP verifiable parental consent logged via ${verificationMethod}`);
+    return entry;
+  }
+
+  async exportStudentDataJson(studentId) {
+    const students = await this.getStudents();
+    const student = students.find(s => s.id === studentId);
+    if (!student) throw new Error('Student record not found.');
+
+    const allLeaves = (this.get('tps_student_leave_records') || []).filter(l => l.student_id === studentId);
+    const allDiscipline = (this.get('tps_discipline') || []).filter(d => d.student_id === studentId);
+    const attendanceSessions = (this.get('tps_attendance') || []).filter(sess => {
+      return Array.isArray(sess.records) && sess.records.some(r => r.student_id === studentId);
+    });
+
+    const exportBundle = {
+      export_version: 'DPDP-2023-Sec12-v1',
+      data_fiduciary: 'Thaiba Public School & Residential Hostel',
+      exported_at: new Date().toISOString(),
+      student_personal_data: {
+        id: student.id,
+        full_name: student.full_name,
+        admission_number: student.admission_number,
+        gender: student.gender,
+        date_of_birth: student.date_of_birth || null,
+        blood_group: student.blood_group || null,
+        school_class: student.school_class,
+        school_section: student.school_section,
+        hostel_room: student.hostel_room,
+        hostel_bed: student.hostel_bed,
+        status: student.status
+      },
+      guardian_contacts: {
+        father_name: student.father_name,
+        father_phone: student.father_phone,
+        mother_name: student.mother_name,
+        mother_phone: student.mother_phone,
+        whatsapp_number: student.whatsapp_number,
+        native_village: student.village,
+        native_district: student.district,
+        state: student.state,
+        pin_code: student.pin_code
+      },
+      historical_records: {
+        leave_records_count: allLeaves.length,
+        leaves: allLeaves,
+        attendance_sessions_count: attendanceSessions.length,
+        discipline_records_count: allDiscipline.length,
+        discipline: allDiscipline
+      },
+      legal_disclaimer: 'This data export is generated in compliance with Section 12 (Right to Data Portability & Access) of the Digital Personal Data Protection Act, 2023 (India).'
+    };
+
+    return exportBundle;
+  }
+
+  async eraseStudentData(studentId, { reason = 'Parent/Guardian DPDP Erasure Request', actorEmail = 'admin', anonymizeOnly = false } = {}) {
+    const students = await this.getStudents();
+    const student = students.find(s => s.id === studentId);
+    if (!student) throw new Error('Student record not found.');
+
+    if (anonymizeOnly) {
+      await this.updateStudent(studentId, {
+        full_name: `Redacted Student (${student.admission_number})`,
+        father_name: 'REDACTED',
+        father_phone: '0000000000',
+        mother_name: 'REDACTED',
+        mother_phone: '0000000000',
+        whatsapp_number: '0000000000',
+        village: 'REDACTED',
+        district: 'REDACTED',
+        photo_url: '',
+        remarks: `[DPDP ANONYMIZED: ${new Date().toISOString()}] ${reason}`
+      });
+      this.logAudit('DPDP_ANONYMIZE_STUDENT', 'students', studentId, `Personal PII anonymized under DPDP Sec 12: ${reason}`, actorEmail);
+      return { success: true, mode: 'anonymized' };
+    } else {
+      await this.deleteStudent(studentId);
+      this.logAudit('DPDP_ERASE_STUDENT', 'students', studentId, `Permanent record erasure executed under DPDP Sec 12: ${reason}`, actorEmail);
+      return { success: true, mode: 'erased' };
+    }
   }
 
   // --- STUDENTS ---

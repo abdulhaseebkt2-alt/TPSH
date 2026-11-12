@@ -401,7 +401,7 @@ export function canAccessModule(profile, moduleKey) {
   if (!profile) return false;
   if (profile.approval_status !== 'approved') return false;
   if (profile.is_super_admin || profile.role === 'super_admin') return true;
-  if (moduleKey === 'dashboard') return true; // Common to all categories
+  if (moduleKey === 'dashboard' || moduleKey === 'privacy-policy' || moduleKey === 'terms') return true; // Common to all categories
 
   const level = getModuleAccessLevel(profile, moduleKey);
   return level === 'view' || level === 'full';

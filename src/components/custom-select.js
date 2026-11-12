@@ -8,6 +8,40 @@
 let activeDropdownMenu = null;
 let activeDropdownTrigger = null;
 
+export function getSelectStorageKey(select) {
+  if (!select || typeof select.getAttribute !== 'function') return null;
+  if (select.getAttribute('data-no-persist') === 'true' || select.getAttribute('data-no-memory') === 'true') {
+    return null;
+  }
+  const explicit = select.getAttribute('data-persist-key') || select.getAttribute('data-memory-key');
+  if (explicit) return `tps_dd_mem_${explicit}`;
+
+  if (select.id) {
+    const inEditModal = select.closest && select.closest('.modal-dialog') && (select.id.startsWith('edit-') || select.id.startsWith('modal-edit-'));
+    if (inEditModal) return null;
+    return `tps_dd_mem_${select.id}`;
+  }
+
+  if (select.name) {
+    const inModal = select.closest && select.closest('.modal-dialog');
+    if (!inModal) {
+      const mod = (typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '') || 'app';
+      return `tps_dd_mem_${mod}_${select.name}`;
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    const mod = window.location.hash.replace('#', '') || 'app';
+    const formGroup = select.closest ? select.closest('.form-group, .filter-group, .card-header, .page-header') : null;
+    const label = formGroup?.querySelector('label, .filter-label, h3, h4')?.textContent?.trim()?.replace(/[^a-zA-Z0-9]/g, '_');
+    if (label && label.length > 2 && label.length < 35) {
+      return `tps_dd_mem_${mod}_${label}`;
+    }
+  }
+
+  return null;
+}
+
 export function closeActiveDropdown() {
   if (activeDropdownMenu) {
     activeDropdownMenu.remove();
@@ -91,10 +125,48 @@ export function enhanceSelect(select) {
     labelSpan.innerText = selectedOption ? selectedOption.text : 'Select...';
   }
 
+  const memKey = getSelectStorageKey(select);
+  if (memKey && typeof localStorage !== 'undefined') {
+    try {
+      const savedVal = localStorage.getItem(memKey);
+      if (savedVal !== null && savedVal !== undefined && savedVal !== '') {
+        const optionExists = Array.from(select.options).some(o => o.value === savedVal);
+        if (optionExists && select.value !== savedVal) {
+          select.value = savedVal;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+    } catch {}
+
+    if (typeof MutationObserver !== 'undefined') {
+      const optObserver = new MutationObserver(() => {
+        try {
+          const savedVal = localStorage.getItem(memKey);
+          if (savedVal !== null && savedVal !== undefined && savedVal !== '') {
+            const hasOption = Array.from(select.options).some(o => o.value === savedVal);
+            if (hasOption && select.value !== savedVal) {
+              select.value = savedVal;
+              syncTriggerLabel();
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        } catch {}
+      });
+      optObserver.observe(select, { childList: true });
+    }
+  }
+
   syncTriggerLabel();
 
   // Listen to programmatic or external changes to native select
-  select.addEventListener('change', syncTriggerLabel);
+  select.addEventListener('change', () => {
+    syncTriggerLabel();
+    if (memKey && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(memKey, select.value);
+      } catch {}
+    }
+  });
 
   function toggleMenu(e) {
     if (e) e.stopPropagation();
@@ -154,6 +226,12 @@ function openDropdownMenu(select, trigger, onOptionSelected) {
     item.addEventListener('click', (e) => {
       e.stopPropagation();
       select.selectedIndex = idx;
+      const mKey = getSelectStorageKey(select);
+      if (mKey && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(mKey, select.value);
+        } catch {}
+      }
       select.dispatchEvent(new Event('input', { bubbles: true }));
       select.dispatchEvent(new Event('change', { bubbles: true }));
       if (onOptionSelected) onOptionSelected();

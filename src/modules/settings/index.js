@@ -5,6 +5,7 @@ import { openCropModal } from '../../components/crop-modal.js';
 import { updateSidebarLogo } from '../../components/sidebar.js';
 import { applyInstitutionalAppIcon } from '../../app.js';
 import { getSavedLogo, optimizeLogoImage } from '../../lib/logo-utils.js';
+import { showPrivacyPolicyModal, showTermsOfServiceModal, GRIEVANCE_OFFICER } from '../legal/index.js';
 
 export async function renderSettingsModule(container, { onNavigate }) {
   const user = getCurrentUser();
@@ -257,6 +258,54 @@ export async function renderSettingsModule(container, { onNavigate }) {
         </div>
       </div>
     </div>
+
+    <!-- DPDP Act 2023 & Legal Compliance Card -->
+    <div class="card-panel">
+      <div class="card-panel-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <h3>Data Privacy, DPDP Act 2023 & Legal Governance</h3>
+        </div>
+        <span class="badge badge-present" style="font-weight: 700;">DPDP Active</span>
+      </div>
+      <div class="card-panel-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Thaiba Public School & Residential Hostel processes minor student and guardian personal data in strict compliance with India's <strong>Digital Personal Data Protection (DPDP) Act 2023</strong>.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.85rem; margin-bottom: 1.25rem;">
+          <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+            <strong style="font-size: 0.85rem; color: var(--text-primary); display: block; margin-bottom: 0.25rem;">Section 9: Verifiable Parental Consent</strong>
+            <p style="margin: 0; font-size: 0.78rem; color: var(--text-muted);">
+              All linked children require documented guardian relationship & verification in the Users / Approvals console.
+            </p>
+          </div>
+          <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+            <strong style="font-size: 0.85rem; color: var(--text-primary); display: block; margin-bottom: 0.25rem;">Section 12: Data Portability & Erasure</strong>
+            <p style="margin: 0; font-size: 0.78rem; color: var(--text-muted);">
+              Parents & administrators can export JSON PII bundles or initiate statutory record anonymization from Student profiles.
+            </p>
+          </div>
+          <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+            <strong style="font-size: 0.85rem; color: var(--text-primary); display: block; margin-bottom: 0.25rem;">Grievance Redressal Officer</strong>
+            <p style="margin: 0; font-size: 0.78rem; color: var(--text-muted);">
+              ${GRIEVANCE_OFFICER.email} • ${GRIEVANCE_OFFICER.phone}
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-outline" id="btn-view-privacy-policy" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            View Privacy Policy
+          </button>
+          <button type="button" class="btn btn-outline" id="btn-view-terms" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            View Terms of Service
+          </button>
+        </div>
+      </div>
+    </div>
   `;
 
   const fileInput = container.querySelector('#inst-logo-file-input');
@@ -489,5 +538,13 @@ export async function renderSettingsModule(container, { onNavigate }) {
       btn.disabled = false;
       btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg> Sync All Data to Supabase`;
     }
+  });
+
+  container.querySelector('#btn-view-privacy-policy')?.addEventListener('click', () => {
+    showPrivacyPolicyModal();
+  });
+
+  container.querySelector('#btn-view-terms')?.addEventListener('click', () => {
+    showTermsOfServiceModal();
   });
 }
