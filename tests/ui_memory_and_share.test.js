@@ -31,6 +31,38 @@ describe('UI/UX Enhancements: Hero Card, Share Feature & Universal Memory', () =
       // Share button replacing eye toggle
       expect(container.innerHTML).toContain('m-hero-share-btn');
     });
+
+    it('formats share text according to official WhatsApp report template', () => {
+      const activeCount = 29;
+      const totalInHostel = 26;
+      const boysInHostel = 13;
+      const girlsInHostel = 13;
+      const notInHostel = Math.max(0, activeCount - totalInHostel);
+      const occupancyPercent = Math.round((totalInHostel / activeCount) * 100);
+
+      const reportText = `*THAIBA PUBLIC SCHOOL*
+
+*HOSTEL STATUS REPORT*
+Total Enrolled Students: ${activeCount}
+Total Students in Hostel: ${totalInHostel}
+
+Boys: ${boysInHostel}
+Girls: ${girlsInHostel}
+
+Students Not in Hostel: ${notInHostel}
+_______________
+Total Hostel Occupancy:
+ ${totalInHostel} out of ${activeCount} (${occupancyPercent}%)`;
+
+      expect(reportText).toContain('*THAIBA PUBLIC SCHOOL*');
+      expect(reportText).toContain('*HOSTEL STATUS REPORT*');
+      expect(reportText).toContain('Total Enrolled Students: 29');
+      expect(reportText).toContain('Total Students in Hostel: 26');
+      expect(reportText).toContain('Boys: 13');
+      expect(reportText).toContain('Girls: 13');
+      expect(reportText).toContain('Students Not in Hostel: 3');
+      expect(reportText).toContain('Total Hostel Occupancy:\n 26 out of 29 (90%)');
+    });
   });
 
   describe('2. Universal Dropdown Memory Function', () => {

@@ -246,6 +246,24 @@ export async function shareHeroStatusCard(data) {
   ctx.textAlign = 'center';
   ctx.fillText('ThaibaHive Institutional ERP • Verified Live Census', width / 2, height - 16);
 
+  // Format share message text exactly as requested
+  const notInHostel = Math.max(0, activeCount - totalInHostel);
+  const occupancyPercent = activeCount > 0 ? Math.round((totalInHostel / activeCount) * 100) : 0;
+
+  const shareTextContent = `*THAIBA PUBLIC SCHOOL*
+
+*HOSTEL STATUS REPORT*
+Total Enrolled Students: ${activeCount}
+Total Students in Hostel: ${totalInHostel}
+
+Boys: ${boysInHostel}
+Girls: ${girlsInHostel}
+
+Students Not in Hostel: ${notInHostel}
+_______________
+Total Hostel Occupancy:
+ ${totalInHostel} out of ${activeCount} (${occupancyPercent}%)`;
+
   // Convert canvas to image and open share sheet
   canvas.toBlob(async (blob) => {
     if (!blob) {
@@ -277,7 +295,14 @@ export async function shareHeroStatusCard(data) {
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
               </svg>
-              Share Card (WhatsApp / Apps)
+              Share Card & Report
+            </button>
+
+            <button type="button" class="btn btn-outline" id="btn-modal-copy-text" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+              Copy Report Text
             </button>
 
             <a href="${imageUrl}" download="${fileName}" class="btn btn-outline" id="btn-modal-download-card" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
@@ -290,12 +315,22 @@ export async function shareHeroStatusCard(data) {
         </div>
       `,
       onMount: ({ container: mBody }) => {
+        // Copy formatted report text to clipboard
+        mBody.querySelector('#btn-modal-copy-text')?.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(shareTextContent);
+            toast.success('Hostel status report copied to clipboard!');
+          } catch {
+            toast.info('Report text:\n' + shareTextContent);
+          }
+        });
+
         mBody.querySelector('#btn-modal-native-share')?.addEventListener('click', async () => {
           if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
             try {
               await navigator.share({
-                title: 'Thaiba Public School Hostel Status',
-                text: `Thaiba Public School Hostel Status: ${totalInHostel} Total in Hostel (${boysInHostel} Boys, ${girlsInHostel} Girls) out of ${activeCount} Enrolled Students.`,
+                title: 'THAIBA PUBLIC SCHOOL - HOSTEL STATUS REPORT',
+                text: shareTextContent,
                 files: [imageFile]
               });
               toast.success('Card shared successfully!');
@@ -307,18 +342,21 @@ export async function shareHeroStatusCard(data) {
           } else if (navigator.share) {
             try {
               await navigator.share({
-                title: 'Thaiba Public School Hostel Status',
-                text: `Thaiba Public School Hostel Status: ${totalInHostel} Total in Hostel (${boysInHostel} Boys, ${girlsInHostel} Girls) out of ${activeCount} Enrolled Students.`,
+                title: 'THAIBA PUBLIC SCHOOL - HOSTEL STATUS REPORT',
+                text: shareTextContent,
                 url: window.location.href
               });
             } catch (err) {
               if (err.name !== 'AbortError') toast.info('Share cancelled.');
             }
           } else {
-            // Copy or fallback download
+            // Copy report text and trigger image download
+            try {
+              await navigator.clipboard.writeText(shareTextContent);
+              toast.success('Report copied to clipboard! Downloading image...');
+            } catch {}
             const link = mBody.querySelector('#btn-modal-download-card');
             link?.click();
-            toast.info('Image downloaded to device.');
           }
         });
       }
