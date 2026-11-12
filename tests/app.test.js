@@ -9283,6 +9283,21 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
     it('provides Preset Destinations with standard distances and persists them in db and cloud keys', async () => {
       const destinations = await db.getVehicleDestinations();
       expect(Array.isArray(destinations)).toBe(true);
+      expect(destinations.length).toBeGreaterThanOrEqual(6);
+
+      // Verify restored default destinations
+      const deo = destinations.find(d => d.name.includes('DEO Office'));
+      expect(deo).toBeDefined();
+      expect(deo.standard_distance_km).toBe(22);
+
+      const univ = destinations.find(d => d.name.includes('Calicut University'));
+      expect(univ).toBeDefined();
+      expect(univ.standard_distance_km).toBe(30);
+
+      // Verify restored real trip logs
+      const trips = await db.getTripLogs();
+      expect(trips.length).toBeGreaterThanOrEqual(20);
+      expect(trips.some(t => t.id === 'trip-unicorn-001')).toBe(true);
 
       // Save a new destination
       const savedDest = await db.saveVehicleDestination({

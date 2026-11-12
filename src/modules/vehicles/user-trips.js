@@ -59,10 +59,12 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
 
     const dynamicRateInfo = selectedVeh ? calculateDynamicRatePerKm(selectedVeh, expenses, allTrips) : { rate: 16 };
     const isInstantAllowed = selectedVeh?.allow_instant_short_ride !== false;
+    const isAdmin = currentUser.is_super_admin || currentUser.role === 'super_admin' || currentUser.role === 'admin';
+    const isVehicleHead = currentUser.role === 'vehicle_head';
 
     container.innerHTML = `
-      <!-- Page Header (Clean & decluttered without 4 top buttons) -->
-      <div class="page-header" style="margin-bottom: 1.25rem;">
+      <!-- Page Header with Navigation Actions -->
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
         <div class="page-title-group">
           <div style="display: flex; align-items: center; gap: 0.65rem;">
             <div style="width: 40px; height: 40px; border-radius: 12px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15); flex-shrink: 0;">
@@ -75,6 +77,27 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               </p>
             </div>
           </div>
+        </div>
+
+        <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-outline" id="btn-view-user-card" style="font-weight: 600; color: #4F46E5; border-color: #C7D2FE; background: #EEF2FF;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M14 10h4"/><path d="M14 14h3"/></svg>
+            My Ledger & Past Trips
+          </button>
+          ${isAdmin || isVehicleHead ? `
+            <button class="btn btn-outline" id="btn-destinations-admin" style="font-weight: 600; color: #065F46; border-color: #A7F3D0; background: #ECFDF5;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Preset Destinations & Reviews
+            </button>
+            <button class="btn btn-secondary" id="btn-all-trips-master" style="font-weight: 600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              All Trips Master
+            </button>
+            <button class="btn btn-secondary" id="btn-back-fleet-admin" style="font-weight: 600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+              Fleet Console
+            </button>
+          ` : ''}
         </div>
       </div>
 
@@ -437,6 +460,20 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
   }
 
   function attachEvents(activeTrip) {
+    // Top Navigation Header Actions
+    container.querySelector('#btn-view-user-card')?.addEventListener('click', () => {
+      if (typeof onNavigate === 'function') onNavigate('vehicle_card');
+    });
+    container.querySelector('#btn-destinations-admin')?.addEventListener('click', () => {
+      if (typeof onNavigate === 'function') onNavigate('vehicle_destinations');
+    });
+    container.querySelector('#btn-all-trips-master')?.addEventListener('click', () => {
+      if (typeof onNavigate === 'function') onNavigate('vehicle_all_trips');
+    });
+    container.querySelector('#btn-back-fleet-admin')?.addEventListener('click', () => {
+      if (typeof onNavigate === 'function') onNavigate('vehicles');
+    });
+
     // 1. VEHICLE SELECTOR MODAL DIALOG
     container.querySelector('#sec-vehicle-trigger')?.addEventListener('click', () => {
       openModal({
