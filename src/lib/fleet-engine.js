@@ -73,62 +73,22 @@ export function calculateDynamicRatePerKm(vehicle, allExpenses = [], allTrips = 
       isFallback: true,
       totalExpenses: 0,
       totalKm: 0,
-      bufferPercentage: 10,
-      reason: 'No vehicle record provided'
+      bufferPercentage: 0,
+      reason: 'Standard vehicle fallback rate'
     };
   }
 
+  // Pure fallback rate per kilometer — all 90-day rolling formulas removed per institutional policy
   const fallback = Number(vehicle.fallback_rate_per_km) > 0 ? Number(vehicle.fallback_rate_per_km) : 15.00;
-  const bufferPercentage = vehicle.buffer_percentage !== undefined && vehicle.buffer_percentage !== null 
-    ? Number(vehicle.buffer_percentage) 
-    : 10;
 
-  const refTime = referenceDate instanceof Date ? referenceDate.getTime() : new Date(referenceDate).getTime();
-  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-  const cutoffTime = refTime - ninetyDaysMs;
-
-  // 1. Total expenses in the last 90 days for this vehicle
-  const recentExpenses = (allExpenses || []).filter(exp => {
-    if (exp.vehicle_id !== vehicle.id) return false;
-    const t = new Date(exp.date || exp.created_at).getTime();
-    return !isNaN(t) && t >= cutoffTime && t <= refTime;
-  });
-  const totalExpenses = recentExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
-
-  // 2. Total KM driven in the last 90 days from completed trips for this vehicle
-  const recentTrips = (allTrips || []).filter(trip => {
-    if (trip.vehicle_id !== vehicle.id || trip.status !== 'Completed') return false;
-    const t = new Date(trip.end_time || trip.completed_at || trip.created_at).getTime();
-    return !isNaN(t) && t >= cutoffTime && t <= refTime;
-  });
-  const totalKm = recentTrips.reduce((sum, trip) => sum + (Number(trip.total_km) || 0), 0);
-
-  // 3. Apply rolling 90-day formula if data is available
-  if (totalKm > 0 && totalExpenses > 0) {
-    const baseRate = totalExpenses / totalKm;
-    const rateWithBuffer = baseRate * (1 + (bufferPercentage / 100));
-    const finalRate = Math.round(rateWithBuffer * 100) / 100;
-
-    return {
-      rate: finalRate,
-      baseRate: Math.round(baseRate * 100) / 100,
-      isFallback: false,
-      totalExpenses: Math.round(totalExpenses * 100) / 100,
-      totalKm,
-      bufferPercentage,
-      reason: `Calculated from 90-day history (₹${totalExpenses.toFixed(2)} / ${totalKm} km + ${bufferPercentage}% buffer)`
-    };
-  }
-
-  // 4. Fallback to predefined fallback_rate_per_km
   return {
     rate: fallback,
     baseRate: fallback,
     isFallback: true,
-    totalExpenses: Math.round(totalExpenses * 100) / 100,
-    totalKm,
-    bufferPercentage,
-    reason: `Fallback rate applied (insufficient 90-day usage history)`
+    totalExpenses: 0,
+    totalKm: 0,
+    bufferPercentage: 0,
+    reason: `Rate per KM: ₹${fallback.toFixed(2)} (Standard rate)`
   };
 }
 

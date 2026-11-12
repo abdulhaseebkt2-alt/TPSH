@@ -373,7 +373,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #065F46; margin-bottom: 0.25rem;">
                 Starting Odometer (KM) * (Vehicle: ${minOdo} KM)
               </label>
-              <input type="number" id="start-km-input" class="form-control" required min="${minOdo}" value="${minOdo}" style="width: 220px; font-weight: 700; font-family: monospace;" />
+              <input type="number" id="start-km-input" class="form-control" required min="${minOdo}" step="any" value="${minOdo}" style="width: 220px; font-weight: 700; font-family: monospace;" />
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
               <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; padding: 0.55rem 1.25rem; font-weight: 700;">
@@ -432,7 +432,7 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
                 <label style="display: block; font-size: 0.78rem; font-weight: 700; color: #1E40AF; margin-bottom: 0.25rem;">
                   Ending Odometer Reading (KM) * (>= ${startKm + 1} KM)
                 </label>
-                <input type="number" id="end-km-input" class="form-control" required min="${startKm + 1}" value="${startKm + 1}" placeholder="e.g. ${startKm + 45}" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1rem;" />
+                <input type="number" id="end-km-input" class="form-control" required min="${startKm}" step="any" value="${(startKm + 1).toFixed(1)}" placeholder="e.g. ${(startKm + 10).toFixed(1)}" style="width: 100%; font-weight: 700; font-family: monospace; font-size: 1rem;" />
               </div>
 
               <!-- Live bill computation preview -->
@@ -1090,13 +1090,13 @@ export async function renderUserVehicleTripsModule(container, { onNavigate } = {
               <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E293B; margin-bottom: 0.25rem;">
                 Start Kilometer (KM) *
               </label>
-              <input type="number" id="block-start-km" class="form-control" required value="${minOdo}" min="${minOdo}" style="width: 100%; font-weight: 700; font-family: monospace;" />
+              <input type="number" id="block-start-km" class="form-control" required step="any" value="${minOdo}" min="${minOdo}" style="width: 100%; font-weight: 700; font-family: monospace;" />
             </div>
             <div>
               <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #1E293B; margin-bottom: 0.25rem;">
                 End Kilometer (KM) * (>= ${minOdo + 1})
               </label>
-              <input type="number" id="block-end-km" class="form-control" required value="${minOdo + 1}" min="${minOdo + 1}" style="width: 100%; font-weight: 700; font-family: monospace;" />
+              <input type="number" id="block-end-km" class="form-control" required step="any" value="${(minOdo + 1).toFixed(1)}" min="${minOdo}" style="width: 100%; font-weight: 700; font-family: monospace;" />
             </div>
           </div>
 

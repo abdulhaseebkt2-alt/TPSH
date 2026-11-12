@@ -63,15 +63,15 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
 
       <!-- Navigation Tabs (Responsive Segmented Bar) -->
       <div class="destinations-tabs-bar">
-        <button class="tab-item dest-tab-btn ${activeTab === 'destinations' ? 'active' : ''}" data-tab="destinations">
+        <button type="button" class="tab-item dest-tab-btn ${activeTab === 'destinations' ? 'active' : ''}" data-tab="destinations" data-no-auto-tab="true">
           <span>Destinations</span>
           <span class="tab-badge">${destinations.length}</span>
         </button>
-        <button class="tab-item dest-tab-btn ${activeTab === 'pending_reviews' ? 'active' : ''}" data-tab="pending_reviews">
+        <button type="button" class="tab-item dest-tab-btn ${activeTab === 'pending_reviews' ? 'active' : ''}" data-tab="pending_reviews" data-no-auto-tab="true">
           <span>Pending</span>
           <span class="tab-badge ${pendingTrips.length > 0 ? 'warning' : ''}">${pendingTrips.length}</span>
         </button>
-        <button class="tab-item dest-tab-btn ${activeTab === 'history' ? 'active' : ''}" data-tab="history">
+        <button type="button" class="tab-item dest-tab-btn ${activeTab === 'history' ? 'active' : ''}" data-tab="history" data-no-auto-tab="true">
           <span>History</span>
           <span class="tab-badge">${reviewedTrips.length}</span>
         </button>
@@ -385,11 +385,16 @@ export async function renderVehicleDestinationsModule(container, options = {}) {
   }
 
   function attachEvents() {
-    // Tab switching
-    container.querySelectorAll('.tab-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        activeTab = btn.getAttribute('data-tab');
-        render();
+    // Tab switching (Destinations, Pending, History)
+    container.querySelectorAll('.dest-tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetTab = btn.getAttribute('data-tab');
+        if (targetTab && targetTab !== activeTab) {
+          activeTab = targetTab;
+          render();
+        }
       });
     });
 

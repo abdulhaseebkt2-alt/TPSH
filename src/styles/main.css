@@ -9527,6 +9527,13 @@ aside.sidebar .sidebar-role-preview .tps-custom-select-trigger .tps-dropdown-che
   justify-content: center;
   gap: 0.35rem;
   white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.destinations-tabs-bar .dest-tab-btn * {
+  pointer-events: none;
 }
 
 .destinations-tabs-bar .dest-tab-btn.active {

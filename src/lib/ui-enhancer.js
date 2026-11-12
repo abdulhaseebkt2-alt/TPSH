@@ -14,6 +14,7 @@ export function enhanceTabButtons(root = document.body) {
   const tabButtons = root.querySelectorAll ? root.querySelectorAll('button[data-tab], .tab-item[data-tab], .filter-btn[data-tab], .att-timetable-tab-btn[data-tab], [data-filter-tab]') : [];
 
   tabButtons.forEach(btn => {
+    if (btn.getAttribute('data-no-auto-tab') === 'true' || btn.classList.contains('dest-tab-btn')) return;
     if (btn.hasAttribute('data-tps-tab-memory-applied')) return;
     btn.setAttribute('data-tps-tab-memory-applied', 'true');
 
@@ -28,24 +29,27 @@ export function enhanceTabButtons(root = document.body) {
     const mod = window.location.hash.replace('#', '') || 'app';
     const storageKey = `tps_tab_mem_${mod}_${groupKey}`;
 
-    // Restore saved active tab on load if available
-    try {
-      const savedTab = localStorage.getItem(storageKey);
-      if (savedTab && savedTab === tabValue && !btn.classList.contains('active') && !btn.classList.contains('is-active')) {
-        setTimeout(() => {
-          if (!btn.classList.contains('active') && !btn.classList.contains('is-active')) {
-            btn.click();
-          }
-        }, 40);
-      }
-    } catch {}
-
-    // Save user tab choice on click
+    // Save user tab choice on click immediately
     btn.addEventListener('click', () => {
       try {
         localStorage.setItem(storageKey, tabValue);
       } catch {}
-    });
+    }, { capture: true });
+
+    // Restore saved active tab on load only once per container mount
+    if (!container.hasAttribute('data-tps-tab-restored')) {
+      container.setAttribute('data-tps-tab-restored', 'true');
+      try {
+        const savedTab = localStorage.getItem(storageKey);
+        if (savedTab && savedTab === tabValue && !btn.classList.contains('active') && !btn.classList.contains('is-active')) {
+          setTimeout(() => {
+            if (!btn.classList.contains('active') && !btn.classList.contains('is-active')) {
+              btn.click();
+            }
+          }, 30);
+        }
+      } catch {}
+    }
   });
 }
 

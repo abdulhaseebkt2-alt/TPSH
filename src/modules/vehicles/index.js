@@ -239,8 +239,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                       <div style="font-size: 0.95rem; font-weight: 800; color: #4F46E5; line-height: 1.1;">
                         ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">/km</span>
                       </div>
-                      <span class="badge" style="font-size: 0.64rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'}; padding: 1px 4px; margin-top: 2px;">
-                        ${dynamicRateInfo.isFallback ? 'Fallback' : 'Rolling 90d'}
+                      <span class="badge" style="font-size: 0.64rem; background: #EEF2FF; color: #4F46E5; padding: 1px 4px; margin-top: 2px;">
+                        Rate / KM
                       </span>
                     </td>
                     <td style="padding: 0.75rem 0.65rem;">
@@ -333,8 +333,8 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                           <div style="font-size: 1.05rem; font-weight: 800; color: #4F46E5; line-height: 1.1;">
                             ₹${dynamicRateInfo.rate.toFixed(2)}<span style="font-size: 0.68rem; font-weight: 600; color: var(--text-muted);">/km</span>
                           </div>
-                          <span class="badge" style="font-size: 0.62rem; background: ${dynamicRateInfo.isFallback ? '#F1F5F9' : '#EEF2FF'}; color: ${dynamicRateInfo.isFallback ? '#64748B' : '#4F46E5'}; padding: 1px 4px;">
-                            ${dynamicRateInfo.isFallback ? 'Fallback' : 'Rolling 90d'}
+                          <span class="badge" style="font-size: 0.62rem; background: #EEF2FF; color: #4F46E5; padding: 1px 4px;">
+                            Rate / KM
                           </span>
                         </div>
                       </div>
@@ -599,7 +599,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
                       <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label required" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Odometer (KM)</label>
-                        <input type="number" id="exp-odometer" class="form-control" min="0" placeholder="e.g. 32609" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                        <input type="number" id="exp-odometer" class="form-control" min="0" step="any" placeholder="e.g. 32609.3" style="width: 100%; height: 40px; font-size: 0.84rem;" />
                       </div>
                     </div>
 
@@ -1522,11 +1522,11 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
               <div>
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
-                <input type="number" id="v-odo" class="form-control" required min="0" placeholder="e.g. 45000" style="width: 100%;" />
+                <input type="number" id="v-odo" class="form-control" required min="0" step="any" placeholder="e.g. 45000.5" style="width: 100%;" />
               </div>
               <div>
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Fallback Rate (₹/KM) *</label>
-                <input type="number" id="v-rate" class="form-control" required min="1" step="0.5" value="16.00" style="width: 100%;" />
+                <input type="number" id="v-rate" class="form-control" required min="0.5" step="any" value="16.00" style="width: 100%;" />
               </div>
             </div>
 
@@ -1684,11 +1684,11 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
               <div>
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Current Odometer (KM) *</label>
-                <input type="number" id="ev-odo" class="form-control" required min="0" value="${v.current_odometer || 0}" style="width: 100%;" />
+                <input type="number" id="ev-odo" class="form-control" required min="0" step="any" value="${v.current_odometer !== undefined && v.current_odometer !== null ? v.current_odometer : 0}" style="width: 100%;" />
               </div>
               <div>
                 <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">Fallback Rate (₹/KM) *</label>
-                <input type="number" id="ev-rate" class="form-control" required min="1" step="0.5" value="${v.fallback_rate_per_km || 15}" style="width: 100%;" />
+                <input type="number" id="ev-rate" class="form-control" required min="0.5" step="any" value="${v.fallback_rate_per_km || 15}" style="width: 100%;" />
               </div>
             </div>
 

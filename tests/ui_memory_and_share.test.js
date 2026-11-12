@@ -80,5 +80,22 @@ describe('UI/UX Enhancements: Hero Card, Share Feature & Universal Memory', () =
       mockLocalStorage.setItem('tps_attendance_filter_tab', 'weekly');
       expect(mockLocalStorage.getItem('tps_attendance_filter_tab')).toBe('weekly');
     });
+
+    it('supports decimal point odometers and direct fallback rate without 90-day rolling', async () => {
+      // 1. Odometer decimal support
+      const vehicle = await db.saveVehicle({
+        vehicle_name: 'Decimal Unicorn Test',
+        reg_number: 'WB 66 V 0909',
+        vehicle_type: '2 Wheeler',
+        current_odometer: 32610.3,
+        fallback_rate_per_km: 7.5
+      });
+      expect(vehicle.current_odometer).toBe(32610.3);
+
+      // 2. Direct rate from fallback
+      const { calculateDynamicRatePerKm } = await import('../src/lib/fleet-engine.js');
+      const rateInfo = calculateDynamicRatePerKm(vehicle, [{ amount: 99999 }], []);
+      expect(rateInfo.rate).toBe(7.5);
+    });
   });
 });

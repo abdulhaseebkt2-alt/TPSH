@@ -8003,20 +8003,19 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
       expect(thirdResult.mileage).toBe(14.86);
     });
 
-    it('Formula B: Rolling 3-Month (90-Day) Cost-Per-KM Billing Formula dynamically computes rate with buffer and fallback', () => {
+    it('Formula B: Strictly uses Vehicle Fallback Rate per KM without 90-day rolling rules', () => {
       const vehicle = {
         id: 'v-test',
         fallback_rate_per_km: 12.0,
         buffer_percentage: 10.0 // 10% markup buffer
       };
 
-      // Case 1: Empty history -> defaults to fallback_rate_per_km
+      // In the simplified institutional model, all 90-day rolling calculations are removed
+      // and rate is strictly determined by fallback_rate_per_km
       const fallbackRate = calculateDynamicRatePerKm(vehicle, [], []);
       expect(fallbackRate.isFallback).toBe(true);
       expect(fallbackRate.rate).toBe(12.0);
 
-      // Case 2: Expenses = ₹12,000, Total KM = 1,000 km in last 90 days
-      const now = new Date('2026-11-05T12:00:00Z');
       const recentExpenses = [
         { vehicle_id: 'v-test', amount: 8000, date: '2026-10-10' },
         { vehicle_id: 'v-test', amount: 4000, date: '2026-09-15' }
@@ -8026,23 +8025,8 @@ describe('15. Teacher Assigned Class, Locked Attendance Window, & Multi-Dimensio
         { vehicle_id: 'v-test', status: 'Completed', total_km: 400, end_time: '2026-09-20T09:00:00Z' }
       ];
 
-      // Base rate = 12000 / 1000 = ₹12.00
-      // With 10% buffer = 12.00 * 1.10 = ₹13.20/km
-      const dynamicRate = calculateDynamicRatePerKm(vehicle, recentExpenses, recentTrips, now);
-      expect(dynamicRate.isFallback).toBe(false);
-      expect(dynamicRate.baseRate).toBe(12.0);
-      expect(dynamicRate.rate).toBe(13.2);
-
-      // Case 3: Expenses older than 90 days are excluded
-      const staleExpenses = [
-        { vehicle_id: 'v-test', amount: 50000, date: '2026-05-01' } // > 180 days ago
-      ];
-      const staleTrips = [
-        { vehicle_id: 'v-test', status: 'Completed', total_km: 500, end_time: '2026-05-02T09:00:00Z' }
-      ];
-      const expiredRate = calculateDynamicRatePerKm(vehicle, staleExpenses, staleTrips, now);
-      expect(expiredRate.isFallback).toBe(true);
-      expect(expiredRate.rate).toBe(12.0);
+      const dynamicRate = calculateDynamicRatePerKm(vehicle, recentExpenses, recentTrips);
+      expect(dynamicRate.rate).toBe(12.0);
     });
 
     it('Document Compliance Engine returns warning when <30 days and expired when past due date', () => {
