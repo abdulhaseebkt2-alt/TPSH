@@ -1,4 +1,4 @@
-import { confirmDialog } from '../../lib/dialog.js';
+import { openModal, confirmDialog } from '../../lib/dialog.js';
 import { db } from '../../lib/db.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { toast } from '../../lib/toast.js';
@@ -55,6 +55,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
     }
   }
 
+  let selectedVehicleId = options.vehicleId || '';
   let activeFilter = 'all'; // 'all', 'unpaid', 'paid', 'active'
 
   function render() {
@@ -62,14 +63,23 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
       ? (eligibleUsers.find(u => u.id === selectedDriverId) || { id: selectedDriverId, full_name: selectedDriverId })
       : null;
 
+    const selectedVeh = selectedVehicleId
+      ? vehicles.find(v => v.id === selectedVehicleId)
+      : null;
+
     // Filter by Selected Driver (or all)
-    let driverTrips = allTrips;
+    let targetTrips = allTrips;
     if (selectedDriverUser) {
-      driverTrips = allTrips.filter(t => isTripForUser(t, selectedDriverUser));
+      targetTrips = targetTrips.filter(t => isTripForUser(t, selectedDriverUser));
+    }
+
+    // Filter by Selected Vehicle (or all)
+    if (selectedVehicleId) {
+      targetTrips = targetTrips.filter(t => t.vehicle_id === selectedVehicleId);
     }
 
     // Sort descending by date
-    let filteredTrips = [...driverTrips].sort(
+    let filteredTrips = [...targetTrips].sort(
       (a, b) => new Date(b.created_at || b.start_time || 0) - new Date(a.created_at || a.start_time || 0)
     );
 
@@ -82,8 +92,8 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
       filteredTrips = filteredTrips.filter(t => ['In Progress', 'Approved', 'Pending Approval'].includes(t.status));
     }
 
-    // KPI Summary (calculated for driverTrips)
-    const completedList = driverTrips.filter(t => t.status === 'Completed');
+    // KPI Summary (calculated for targetTrips)
+    const completedList = targetTrips.filter(t => t.status === 'Completed');
     const totalBilled = completedList.reduce((sum, t) => sum + (Number(t.total_amount) || 0), 0);
     const totalPaid = completedList.reduce((sum, t) => sum + (Number(t.amount_paid) || (t.payment_status === 'Paid' ? Number(t.total_amount) || 0 : 0)), 0);
     const totalUnpaid = Math.max(0, totalBilled - totalPaid);
@@ -91,56 +101,87 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
     const unpaidCount = completedList.filter(t => t.payment_status !== 'Paid').length;
 
     container.innerHTML = `
-      <!-- Header -->
-      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+      <!-- Header (Top buttons removed per request) -->
+      <div class="page-header" style="margin-bottom: 0.85rem;">
         <div class="page-title-group">
           <div style="display: flex; align-items: center; gap: 0.65rem;">
-            <div style="width: 38px; height: 38px; border-radius: 10px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #EEF2FF; color: #4F46E5; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15); flex-shrink: 0;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             </div>
             <div>
-              <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700;">All Vehicle Trips Master Ledger</h2>
-              <p style="margin: 0.15rem 0 0; color: var(--text-muted); font-size: 0.85rem;">
-                Consolidated master log of all driver & staff trips, mileage, and settlements
+              <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700;">All Vehicle Trips Master Ledger</h2>
+              <p style="margin: 0.15rem 0 0; color: var(--text-muted); font-size: 0.82rem;">
+                Consolidated master log of driver & staff trips, mileage, and settlements
               </p>
             </div>
           </div>
         </div>
-
-        <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button class="btn btn-outline" id="btn-alltrips-user-card" style="font-weight: 600; color: #4F46E5; border-color: #C7D2FE; background: #EEF2FF;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M14 10h4"/><path d="M14 14h3"/></svg>
-            User Card
-          </button>
-          <button class="btn btn-outline" id="btn-alltrips-book" style="font-weight: 600;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Book Trip
-          </button>
-          <button class="btn btn-secondary" id="btn-alltrips-fleet" style="font-weight: 600;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-            Fleet Console
-          </button>
-        </div>
       </div>
 
-      <!-- Quick KPI Strip -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
-        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Trips</div>
-          <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">${driverTrips.length}</div>
+      <!-- Vehicle Selection Trigger Card (Screenshot 6 Pattern with All Vehicles support) -->
+      <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0.65rem;">
+        <button type="button" class="rbac-mobile-role-trigger" id="sec-alltrips-vehicle-trigger" aria-label="Filter trips by vehicle">
+          <div class="rbac-trigger-left" style="gap: 0.75rem;">
+            <div class="rbac-trigger-icon" style="background: #EEF2FF; color: #4F46E5; border: 1.5px solid #C7D2FE; overflow: hidden; padding: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px;">
+              ${selectedVeh ? (
+                selectedVeh.photo_url ? `
+                  <img src="${selectedVeh.photo_url}" alt="${selectedVeh.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                ` : `
+                  <span style="font-size: 1.35rem;">${getVehicleTypeIcon(selectedVeh.vehicle_type)}</span>
+                `
+              ) : `
+                <span style="font-size: 1.35rem;">🚐</span>
+              `}
+            </div>
+            <div class="rbac-trigger-text">
+              <span class="rbac-trigger-kicker">SELECTED VEHICLE</span>
+              <div class="rbac-trigger-name-row" style="gap: 0.45rem; flex-wrap: wrap;">
+                <span class="rbac-trigger-name" style="font-size: 0.95rem; font-weight: 700;">${selectedVeh ? selectedVeh.vehicle_name : 'All Vehicles'}</span>
+                ${selectedVeh ? `
+                  <span class="badge" style="font-size: 0.68rem; font-family: monospace; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
+                    ${selectedVeh.reg_number}
+                  </span>
+                  <span class="badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-size: 0.68rem; font-weight: 700;">
+                    ${normalizeVehicleCategory(selectedVeh.vehicle_type)}
+                  </span>
+                ` : `
+                  <span class="badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-size: 0.68rem; font-weight: 700;">
+                    ${vehicles.length} Vehicles in Fleet
+                  </span>
+                  <span class="badge" style="font-size: 0.68rem; background: #0F172A; color: #FFFFFF; padding: 2px 6px;">
+                    All Fleet
+                  </span>
+                `}
+              </div>
+            </div>
+          </div>
+          <div class="rbac-trigger-right">
+            <span class="rbac-trigger-action-pill">
+              <span>Switch</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Quick KPI Strip (Equal size rectangles, close gap, zero excess spacing) -->
+      <div class="alltrips-kpi-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin-bottom: 0.75rem;">
+        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Total Trips</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem; line-height: 1.2;">${targetTrips.length}</div>
         </div>
-        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Distance</div>
-          <div style="font-size: 1.2rem; font-weight: 800; color: #4F46E5; font-family: monospace; margin-top: 0.2rem;">${totalKm.toLocaleString('en-IN')} KM</div>
+        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Total Distance</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #4F46E5; font-family: monospace; margin-top: 0.2rem; line-height: 1.2;">${totalKm.toLocaleString('en-IN')} KM</div>
         </div>
-        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Billed</div>
-          <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">${formatCurrency(totalBilled)}</div>
+        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Total Billed</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem; line-height: 1.2;">${formatCurrency(totalBilled)}</div>
         </div>
-        <div class="card-panel" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Outstanding Dues</div>
-          <div style="font-size: 1.2rem; font-weight: 800; color: ${totalUnpaid > 0 ? '#DC2626' : '#059669'}; margin-top: 0.2rem;">${formatCurrency(totalUnpaid)}</div>
-          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem;">${unpaidCount} unpaid trip(s)</div>
+        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Outstanding Dues</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: ${totalUnpaid > 0 ? '#DC2626' : '#059669'}; margin-top: 0.2rem; line-height: 1.2;">${formatCurrency(totalUnpaid)}</div>
+          <div style="font-size: 0.62rem; color: var(--text-muted); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${unpaidCount} unpaid trip(s)</div>
         </div>
       </div>
 
@@ -149,7 +190,7 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
         <!-- Filter Tabs: 4-Column Equal Grid fitting 100% on any mobile screen -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; background: #F1F5F9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-medium); gap: 3px; box-sizing: border-box;">
           <button type="button" class="btn-alltrips-filter ${activeFilter === 'all' ? 'active' : ''}" data-filter="all" style="border: none; background: ${activeFilter === 'all' ? '#4F46E5' : 'transparent'}; color: ${activeFilter === 'all' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'all' ? '700' : '600'}; font-size: 0.76rem; padding: 6px 2px; border-radius: 6px; cursor: pointer; white-space: nowrap; text-align: center; display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;">
-            All ${driverTrips.length > 0 ? `(${driverTrips.length})` : ''}
+            All ${targetTrips.length > 0 ? `(${targetTrips.length})` : ''}
           </button>
           <button type="button" class="btn-alltrips-filter ${activeFilter === 'unpaid' ? 'active' : ''}" data-filter="unpaid" style="border: none; background: ${activeFilter === 'unpaid' ? '#DC2626' : 'transparent'}; color: ${activeFilter === 'unpaid' ? '#FFF' : '#64748B'}; font-weight: ${activeFilter === 'unpaid' ? '700' : '600'}; font-size: 0.76rem; padding: 6px 2px; border-radius: 6px; cursor: pointer; white-space: nowrap; text-align: center; display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box;">
             Unpaid ${unpaidCount > 0 ? `(${unpaidCount})` : ''}
@@ -329,6 +370,96 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
   }
 
   function attachEvents() {
+    // 1. Vehicle Filter Selector Modal Dialog (All Vehicles + individual vehicles)
+    container.querySelector('#sec-alltrips-vehicle-trigger')?.addEventListener('click', () => {
+      openModal({
+        title: 'Filter Ledger by Vehicle',
+        modalClass: 'role-picker-modal-dialog',
+        contentHtml: `
+          <div style="margin-bottom: 0.5rem;">
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+              Select a vehicle to filter the master ledger, or choose All Vehicles for fleet-wide records:
+            </p>
+            <div class="role-picker-list">
+              <!-- All Vehicles Option -->
+              <div class="role-picker-item ${!selectedVehicleId ? 'active' : ''}" data-veh-id="" role="button" tabindex="0" style="cursor: pointer; padding: 0.85rem 1rem;">
+                <div class="role-picker-item-left" style="gap: 0.85rem;">
+                  <div class="role-picker-item-icon" style="background: #EEF2FF; color: #4F46E5; border: 1.5px solid #C7D2FE; width: 44px; height: 44px; border-radius: 8px; overflow: hidden; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <span style="font-size: 1.35rem;">🚐</span>
+                  </div>
+                  <div class="role-picker-item-info">
+                    <div class="role-picker-item-title-row" style="gap: 0.45rem; flex-wrap: wrap;">
+                      <span class="role-picker-item-name" style="font-weight: 700; font-size: 0.92rem;">All Vehicles</span>
+                      <span class="badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-size: 0.65rem; font-weight: 700;">Fleet-wide</span>
+                      ${!selectedVehicleId ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">SELECTED</span>` : ''}
+                    </div>
+                    <div class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem;">
+                      Show consolidated trips across all ${vehicles.length} vehicles
+                    </div>
+                  </div>
+                </div>
+                <div class="role-picker-item-radio">
+                  <div class="role-radio-circle ${!selectedVehicleId ? 'active' : ''}">
+                    ${!selectedVehicleId ? `<div class="role-radio-dot"></div>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Individual Vehicles -->
+              ${vehicles.filter(v => v.status !== 'Inactive').map(v => {
+                const isSelected = v.id === selectedVehicleId;
+                const vehCategory = normalizeVehicleCategory(v.vehicle_type);
+                const vehIcon = getVehicleTypeIcon(v.vehicle_type);
+
+                return `
+                  <div class="role-picker-item ${isSelected ? 'active' : ''}" data-veh-id="${v.id}" role="button" tabindex="0" style="cursor: pointer; padding: 0.85rem 1rem;">
+                    <div class="role-picker-item-left" style="gap: 0.85rem;">
+                      <div class="role-picker-item-icon" style="background: #EEF2FF; color: #4F46E5; border: 1.5px solid #C7D2FE; width: 44px; height: 44px; border-radius: 8px; overflow: hidden; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        ${v.photo_url ? `
+                          <img src="${v.photo_url}" alt="${v.vehicle_name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🚗';" />
+                        ` : `
+                          <span style="font-size: 1.35rem;">${vehIcon}</span>
+                        `}
+                      </div>
+                      <div class="role-picker-item-info">
+                        <div class="role-picker-item-title-row" style="gap: 0.45rem; flex-wrap: wrap;">
+                          <span class="role-picker-item-name" style="font-weight: 700; font-size: 0.92rem;">${v.vehicle_name}</span>
+                          <span class="badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-size: 0.65rem; font-weight: 700;">${vehCategory}</span>
+                          ${isSelected ? `<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">SELECTED</span>` : ''}
+                          <span class="badge" style="font-size: 0.65rem; font-family: monospace; background: #0F172A; color: #FFF; padding: 1px 5px;">${v.reg_number}</span>
+                        </div>
+                        <div class="role-picker-item-desc" style="font-size: 0.78rem; color: #64748B; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                          <strong style="color: #4F46E5;">₹${Number(v.fallback_rate_per_km || 15).toFixed(2)} / KM</strong>
+                          <span>•</span>
+                          <span>Odo: ${Number(v.current_odometer || 0).toLocaleString('en-IN')} KM</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="role-picker-item-radio">
+                      <div class="role-radio-circle ${isSelected ? 'active' : ''}">
+                        ${isSelected ? `<div class="role-radio-dot"></div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `,
+        onRender: (modalEl) => {
+          modalEl.querySelectorAll('.role-picker-item').forEach(item => {
+            item.addEventListener('click', () => {
+              selectedVehicleId = item.getAttribute('data-veh-id') || '';
+              const closeBtn = modalEl.querySelector('.modal-close-btn') || modalEl.querySelector('.btn-close-modal');
+              if (closeBtn) closeBtn.click();
+              else modalEl.remove();
+              render();
+            });
+          });
+        }
+      });
+    });
+
     // Header navigations
     container.querySelector('#btn-alltrips-user-card')?.addEventListener('click', () => {
       if (onNavigate) {

@@ -110,16 +110,14 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
           </div>
         </div>
 
-        <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button class="btn btn-secondary" id="btn-open-my-trips">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-            My Vehicle Trips
-          </button>
-          <button class="btn btn-primary" id="btn-add-vehicle-top">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Add New Vehicle
-          </button>
-        </div>
+        ${activeTab === 'fleet' ? `
+          <div class="page-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="btn-add-vehicle-top">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Add New Vehicle
+            </button>
+          </div>
+        ` : ''}
       </div>
 
       <div style="margin: 0.75rem 0 1.25rem;"></div>

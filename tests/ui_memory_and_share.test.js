@@ -257,5 +257,67 @@ Total Hostel Occupancy:
       expect(container.innerHTML).toContain('min-height: 42px');
       expect(container.innerHTML).toContain('font-size: 0.76rem');
     });
+
+    it('verifies vehicle action headers are streamlined across tabs (Sc:1-4)', async () => {
+      const { renderVehicleManagementModule } = await import('../src/modules/vehicles/index.js');
+      const { switchDevRole } = await import('../src/lib/auth.js');
+      switchDevRole('admin');
+
+      // Tab 1: requests (Trip Approval Queue) -> No buttons
+      const cRequests = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderVehicleManagementModule(cRequests, { initialTab: 'requests' });
+      expect(cRequests.innerHTML).not.toContain('My Vehicle Trips');
+      expect(cRequests.innerHTML).not.toContain('Add New Vehicle');
+
+      // Tab 2: fleet (Fleet Overview & Documents) -> Only Add New Vehicle
+      const cFleet = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderVehicleManagementModule(cFleet, { initialTab: 'fleet' });
+      expect(cFleet.innerHTML).not.toContain('My Vehicle Trips');
+      expect(cFleet.innerHTML).toContain('Add New Vehicle');
+
+      // Tab 3: expenses (Log Vehicle Expense) -> No buttons
+      const cExpenses = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderVehicleManagementModule(cExpenses, { initialTab: 'expenses' });
+      expect(cExpenses.innerHTML).not.toContain('My Vehicle Trips');
+      expect(cExpenses.innerHTML).not.toContain('Add New Vehicle');
+
+      // Tab 4: billing (Usage Billing & Settlement Ledger) -> No buttons
+      const cBilling = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+      await renderVehicleManagementModule(cBilling, { initialTab: 'billing' });
+      expect(cBilling.innerHTML).not.toContain('My Vehicle Trips');
+      expect(cBilling.innerHTML).not.toContain('Add New Vehicle');
+    });
+
+    it('verifies all trips master ledger has equalized KPI rectangles, vehicle trigger card, and top buttons removed (Sc:5-6)', async () => {
+      const { renderAllVehicleTripsModule } = await import('../src/modules/vehicles/all-trips.js');
+      const { switchDevRole } = await import('../src/lib/auth.js');
+      switchDevRole('super_admin');
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderAllVehicleTripsModule(container, { onNavigate: () => {} });
+
+      // 1. Top 3 buttons removed from header
+      expect(container.innerHTML).not.toContain('id="btn-alltrips-user-card"');
+      expect(container.innerHTML).not.toContain('id="btn-alltrips-book"');
+      expect(container.innerHTML).not.toContain('id="btn-alltrips-fleet"');
+
+      // 2. Vehicle trigger card exists with All Vehicles default
+      expect(container.innerHTML).toContain('id="sec-alltrips-vehicle-trigger"');
+      expect(container.innerHTML).toContain('All Vehicles');
+      expect(container.innerHTML).toContain('SELECTED VEHICLE');
+
+      // 3. KPI rectangles equalized in grid with tight spacing
+      expect(container.innerHTML).toContain('alltrips-kpi-grid');
+      expect(container.innerHTML).toContain('alltrips-kpi-card');
+      expect(container.innerHTML).toContain('Total Trips');
+      expect(container.innerHTML).toContain('Total Distance');
+      expect(container.innerHTML).toContain('Total Billed');
+      expect(container.innerHTML).toContain('Outstanding Dues');
+    });
   });
 });
