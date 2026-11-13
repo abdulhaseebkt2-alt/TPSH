@@ -164,24 +164,26 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
         </button>
       </div>
 
-      <!-- Quick KPI Strip (Equal size rectangles, close gap, zero excess spacing) -->
-      <div class="alltrips-kpi-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin-bottom: 0.75rem;">
-        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Total Trips</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem; line-height: 1.2;">${targetTrips.length}</div>
+      <!-- Quick KPI Strip (Equal size rectangles, close uniform gap, identical font sizes) -->
+      <div class="alltrips-kpi-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; margin-bottom: 0.65rem;">
+        <div class="alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.6rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: center; min-height: 58px; margin: 0 !important; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1;">Total Trips</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem; line-height: 1.1;">${targetTrips.length}</div>
         </div>
-        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Total Distance</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #4F46E5; font-family: monospace; margin-top: 0.2rem; line-height: 1.2;">${totalKm.toLocaleString('en-IN')} KM</div>
+        <div class="alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.6rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: center; min-height: 58px; margin: 0 !important; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1;">Total Distance</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #4F46E5; margin-top: 0.25rem; line-height: 1.1;">${totalKm.toLocaleString('en-IN')} KM</div>
         </div>
-        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Total Billed</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem; line-height: 1.2;">${formatCurrency(totalBilled)}</div>
+        <div class="alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.6rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: center; min-height: 58px; margin: 0 !important; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1;">Total Billed</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem; line-height: 1.1;">${formatCurrency(totalBilled)}</div>
         </div>
-        <div class="card-panel alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 62px; box-sizing: border-box;">
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">Outstanding Dues</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: ${totalUnpaid > 0 ? '#DC2626' : '#059669'}; margin-top: 0.2rem; line-height: 1.2;">${formatCurrency(totalUnpaid)}</div>
-          <div style="font-size: 0.62rem; color: var(--text-muted); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${unpaidCount} unpaid trip(s)</div>
+        <div class="alltrips-kpi-card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.6rem 0.75rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: center; min-height: 58px; margin: 0 !important; box-sizing: border-box;">
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1; display: flex; justify-content: space-between; align-items: center;">
+            <span>Outstanding Dues</span>
+            ${unpaidCount > 0 ? `<span style="color: #DC2626; font-size: 0.62rem; font-weight: 700;">${unpaidCount} due</span>` : ''}
+          </div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: ${totalUnpaid > 0 ? '#DC2626' : '#059669'}; margin-top: 0.25rem; line-height: 1.1;">${formatCurrency(totalUnpaid)}</div>
         </div>
       </div>
 
