@@ -446,13 +446,12 @@ export async function renderAllVehicleTripsModule(container, options = {}) {
             </div>
           </div>
         `,
-        onRender: (modalEl) => {
-          modalEl.querySelectorAll('.role-picker-item').forEach(item => {
+        onMount: ({ container: modalBody, close }) => {
+          modalBody.querySelectorAll('.role-picker-item').forEach(item => {
             item.addEventListener('click', () => {
-              selectedVehicleId = item.getAttribute('data-veh-id') || '';
-              const closeBtn = modalEl.querySelector('.modal-close-btn') || modalEl.querySelector('.btn-close-modal');
-              if (closeBtn) closeBtn.click();
-              else modalEl.remove();
+              const vid = item.getAttribute('data-veh-id') || '';
+              selectedVehicleId = vid;
+              close();
               render();
             });
           });

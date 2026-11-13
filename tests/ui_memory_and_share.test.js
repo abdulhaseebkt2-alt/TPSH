@@ -318,6 +318,16 @@ Total Hostel Occupancy:
       expect(container.innerHTML).toContain('Total Distance');
       expect(container.innerHTML).toContain('Total Billed');
       expect(container.innerHTML).toContain('Outstanding Dues');
+
+      // 4. Test filtering when vehicleId option is passed or changed
+      const cUnicorn = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+      await renderAllVehicleTripsModule(cUnicorn, { vehicleId: 'veh-1', onNavigate: () => {} });
+      expect(cUnicorn.innerHTML).toContain('Honda Unicorn');
+      expect(cUnicorn.innerHTML).toContain('WB 66 V 0909');
     });
   });
 });
