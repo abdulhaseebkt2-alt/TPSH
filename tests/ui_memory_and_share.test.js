@@ -227,5 +227,35 @@ Total Hostel Occupancy:
       expect(container.innerHTML).toContain('Short Ride (Local / Campus)');
       expect(container.innerHTML).toContain('2 recorded trip(s)');
     });
+
+    it('verifies vehicle expense form eliminates double asterisks, provides Amount of Liter field, and compact notes', async () => {
+      const { renderVehicleManagementModule } = await import('../src/modules/vehicles/index.js');
+      const { switchDevRole } = await import('../src/lib/auth.js');
+      switchDevRole('admin');
+
+      const container = {
+        innerHTML: '',
+        querySelector: () => null,
+        querySelectorAll: () => []
+      };
+
+      await renderVehicleManagementModule(container, { initialTab: 'expenses' });
+
+      // Verify no double asterisks in HTML labels
+      expect(container.innerHTML).not.toContain('Expense Type *');
+      expect(container.innerHTML).not.toContain('Amount (₹) *');
+      expect(container.innerHTML).not.toContain('Date of Expense *');
+      expect(container.innerHTML).not.toContain('Assigned Vehicle *');
+
+      // Verify "Amount of Liter (₹)" input replaces "Fuel Liters Added"
+      expect(container.innerHTML).toContain('Amount of Liter (₹)');
+      expect(container.innerHTML).toContain('id="exp-fuel-rate"');
+      expect(container.innerHTML).toContain('id="calc-liters-badge"');
+
+      // Verify compact notes textarea height and small font
+      expect(container.innerHTML).toContain('id="exp-notes"');
+      expect(container.innerHTML).toContain('min-height: 42px');
+      expect(container.innerHTML).toContain('font-size: 0.76rem');
+    });
   });
 });

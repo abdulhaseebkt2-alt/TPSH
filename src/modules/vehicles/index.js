@@ -517,7 +517,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
                   <!-- Assigned Vehicle Trigger Card -->
                   <div class="form-group" style="margin-bottom: 0.85rem;">
-                    <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Assigned Vehicle *</label>
+                    <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Assigned Vehicle</label>
                     <input type="hidden" id="exp-vehicle-id" value="${selectedVeh ? selectedVeh.id : ''}" />
                     
                     <div class="sections-mobile-card rbac-mobile-role-card" style="margin-bottom: 0;">
@@ -555,7 +555,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
 
                   <!-- Expense Type -->
                   <div class="form-group" style="margin-bottom: 0.85rem;">
-                    <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Expense Type *</label>
+                    <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Expense Type</label>
                     <select id="exp-type" class="form-control" required style="width: 100%; height: 40px; font-size: 0.84rem;">
                       <option value="Fuel">Fuel (Petrol / Diesel / CNG)</option>
                       <option value="Maintenance">Maintenance & Service</option>
@@ -568,12 +568,12 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                   <!-- Amount & Date (2 columns) -->
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem;">
                     <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Amount (₹) *</label>
+                      <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Amount (₹)</label>
                       <input type="number" id="exp-amount" class="form-control" step="0.01" min="1" required placeholder="e.g. 500" style="width: 100%; height: 40px; font-size: 0.84rem;" />
                     </div>
 
                     <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Date of Expense *</label>
+                      <label class="form-label required" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Date of Expense</label>
                       <input type="date" id="exp-date" class="form-control" required value="${new Date().toISOString().split('T')[0]}" style="width: 100%; height: 40px; font-size: 0.84rem;" />
                     </div>
                   </div>
@@ -586,32 +586,39 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
                   </h4>
 
                   <!-- CONDITIONAL BILL-TO-BILL FUEL METRICS (NO EMOJI/SVG) -->
-                  <div id="fuel-fields-box" style="background: #F8FAFC; border: 1.5px solid var(--border-medium); border-radius: 10px; padding: 1rem; margin-bottom: 0.85rem;">
-                    <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A; margin-bottom: 0.65rem;">
+                  <div id="fuel-fields-box" style="background: #F8FAFC; border: 1.5px solid var(--border-medium); border-radius: 10px; padding: 0.85rem; margin-bottom: 0.85rem;">
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #0F172A; margin-bottom: 0.55rem;">
                       Fuel Metrics (Auto Mileage Calculation)
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                       <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label required" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Fuel Liters Added</label>
-                        <input type="number" id="exp-liters" class="form-control" step="0.01" min="0.1" placeholder="e.g. 4.42" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                        <label class="form-label required" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Amount of Liter (₹)</label>
+                        <input type="number" id="exp-fuel-rate" class="form-control" step="any" min="0.1" placeholder="e.g. 105.50" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                        <input type="hidden" id="exp-liters" />
                       </div>
 
                       <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label required" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Odometer (KM)</label>
-                        <input type="number" id="exp-odometer" class="form-control" min="0" step="any" placeholder="e.g. 32609.3" style="width: 100%; height: 40px; font-size: 0.84rem;" />
+                        <input type="number" id="exp-odometer" class="form-control" min="0" step="any" placeholder="e.g. 32609" style="width: 100%; height: 40px; font-size: 0.84rem;" />
                       </div>
                     </div>
 
-                    <div id="mileage-live-preview" style="font-size: 0.8rem; color: #059669; font-weight: 600; padding: 6px 10px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; display: none; margin-top: 0.65rem;">
+                    <!-- Live Calculated Fuel Liters Badge -->
+                    <div id="calc-liters-badge" style="display: none; font-size: 0.76rem; font-weight: 700; color: #3730A3; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 6px; padding: 5px 8px; margin-top: 0.55rem; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.35rem;">
+                      <span>⛽ Fuel: <strong id="calc-liters-num" style="color: #4338CA; font-size: 0.84rem;">0.00</strong> Liters</span>
+                      <span id="calc-liters-formula" style="font-size: 0.7rem; color: #6366F1; font-weight: 600;"></span>
+                    </div>
+
+                    <div id="mileage-live-preview" style="font-size: 0.78rem; color: #059669; font-weight: 600; padding: 6px 10px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; display: none; margin-top: 0.55rem;">
                       <!-- Real-time mileage calculation preview -->
                     </div>
                   </div>
 
-                  <!-- NOTES & REFERENCE -->
+                  <!-- NOTES & REFERENCE (Compact, reduced height & small font) -->
                   <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label" style="display: block; font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Notes / Invoice Reference</label>
-                    <textarea id="exp-notes" class="form-control" rows="3" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%; font-size: 0.84rem;"></textarea>
+                    <label class="form-label" style="display: block; font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 0.25rem;">Notes / Invoice Reference</label>
+                    <textarea id="exp-notes" class="form-control" rows="1" placeholder="e.g. Indian Oil Fuel Pump invoice #4812" style="width: 100%; min-height: 42px; height: 42px; font-size: 0.76rem; padding: 0.45rem 0.65rem; line-height: 1.35; resize: vertical;"></textarea>
                   </div>
                 </div>
               </div>
@@ -1290,14 +1297,35 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
     const expTypeSelect = container.querySelector('#exp-type');
     const fuelBox = container.querySelector('#fuel-fields-box');
     const vehicleSelect = container.querySelector('#exp-vehicle-id');
+    const amountInput = container.querySelector('#exp-amount');
+    const fuelRateInput = container.querySelector('#exp-fuel-rate');
     const litersInput = container.querySelector('#exp-liters');
     const odoInput = container.querySelector('#exp-odometer');
+    const calcLitersBadge = container.querySelector('#calc-liters-badge');
+    const calcLitersNum = container.querySelector('#calc-liters-num');
+    const calcLitersFormula = container.querySelector('#calc-liters-formula');
     const liveMileagePreview = container.querySelector('#mileage-live-preview');
 
-    function updateLiveMileage() {
+    function updateLiveFuelAndMileage() {
       if (!expTypeSelect || expTypeSelect.value !== 'Fuel') return;
+      const amount = parseFloat(amountInput?.value) || 0;
+      const rate = parseFloat(fuelRateInput?.value) || 0;
+      let lit = parseFloat(litersInput?.value) || 0;
+
+      // Auto-calculate fuel liters from total amount and amount of 1 liter
+      if (amount > 0 && rate > 0) {
+        lit = Math.round((amount / rate) * 100) / 100;
+        if (litersInput) litersInput.value = lit;
+        if (calcLitersBadge && calcLitersNum && calcLitersFormula) {
+          calcLitersBadge.style.display = 'flex';
+          calcLitersNum.textContent = lit.toFixed(2);
+          calcLitersFormula.textContent = `(₹${amount} ÷ ₹${rate}/L)`;
+        }
+      } else {
+        if (calcLitersBadge) calcLitersBadge.style.display = 'none';
+      }
+
       const vId = vehicleSelect?.value;
-      const lit = parseFloat(litersInput?.value);
       const odo = parseFloat(odoInput?.value);
 
       if (vId && lit > 0 && odo > 0) {
@@ -1327,9 +1355,11 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       }
     });
 
-    vehicleSelect?.addEventListener('change', updateLiveMileage);
-    litersInput?.addEventListener('input', updateLiveMileage);
-    odoInput?.addEventListener('input', updateLiveMileage);
+    vehicleSelect?.addEventListener('change', updateLiveFuelAndMileage);
+    amountInput?.addEventListener('input', updateLiveFuelAndMileage);
+    fuelRateInput?.addEventListener('input', updateLiveFuelAndMileage);
+    litersInput?.addEventListener('input', updateLiveFuelAndMileage);
+    odoInput?.addEventListener('input', updateLiveFuelAndMileage);
 
     const expDateEl = container.querySelector('#exp-date');
     if (expDateEl) enhanceDateInput(expDateEl);
@@ -1347,18 +1377,25 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
       const date = container.querySelector('#exp-date').value;
       const notes = container.querySelector('#exp-notes').value.trim();
 
+      let fuelRate = null;
       let fuelLiters = null;
       let odometer = null;
       let calculatedMileage = null;
 
       if (type === 'Fuel') {
-        fuelLiters = parseFloat(litersInput.value);
-        odometer = parseFloat(odoInput.value);
+        fuelRate = parseFloat(container.querySelector('#exp-fuel-rate')?.value);
+        fuelLiters = parseFloat(litersInput?.value);
+        odometer = parseFloat(odoInput?.value);
+
+        if ((isNaN(fuelLiters) || fuelLiters <= 0) && fuelRate > 0 && amount > 0) {
+          fuelLiters = Math.round((amount / fuelRate) * 100) / 100;
+        }
+
         if (isNaN(fuelLiters) || fuelLiters <= 0) {
-          toast.error('Please enter valid fuel liters added.');
+          toast.error('Please enter Amount of Liter (₹) to calculate fuel quantity.');
           return;
         }
-        if (isNaN(odometer) || odometer <= 0) {
+        if (isNaN(odometer) || odometer < 0) {
           toast.error('Please enter the vehicle odometer reading at fueling.');
           return;
         }
@@ -1372,6 +1409,7 @@ export async function renderVehicleManagementModule(container, { onNavigate, ini
         expense_type: type,
         amount,
         date,
+        fuel_rate_per_liter: fuelRate || (amount && fuelLiters ? Math.round((amount / fuelLiters) * 100) / 100 : null),
         fuel_liters: fuelLiters,
         odometer_at_expense: odometer,
         calculated_mileage_kmpl: calculatedMileage,
