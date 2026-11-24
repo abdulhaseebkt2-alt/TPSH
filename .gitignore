@@ -37,4 +37,4 @@ android/app/build/
 android/build/
 android/local.properties
 android/capacitor-cordova-android-plugins/build/
-TPS_Hostel_ERP_v1.*.apk
+*.apk

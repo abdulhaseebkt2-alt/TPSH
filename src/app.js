@@ -7,6 +7,7 @@ import { renderSidebar } from './components/sidebar.js';
 import { renderBottomNav } from './components/bottom-nav.js';
 import { toast } from './lib/toast.js';
 import { initGlobalUIObserver, enhanceAllUI } from './lib/ui-enhancer.js';
+import { scheduleClassTimetableNotifications, initNotificationChannel } from './lib/class-notifications.js';
 
 // Import modules
 import { renderDashboard } from './modules/dashboard/index.js';
@@ -271,7 +272,19 @@ class App {
     db.reconcileStudentLeaveStatuses();
 
     // Subscribe to auth state
+    initNotificationChannel().catch(() => {});
+    scheduleClassTimetableNotifications().catch(() => {});
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          scheduleClassTimetableNotifications().catch(() => {});
+        }
+      });
+    }
     onAuthStateChanged(({ session, profile }) => {
+      if (profile) {
+        scheduleClassTimetableNotifications().catch(() => {});
+      }
       this.render(profile);
     });
 

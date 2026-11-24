@@ -2,6 +2,7 @@ import { db } from '../../lib/db.js';
 import { toast } from '../../lib/toast.js';
 import { getCurrentUser } from '../../lib/auth.js';
 import { formatTime, formatDaysSingleLetters, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
+import { triggerTestClassNotification, scheduleClassTimetableNotifications } from '../../lib/class-notifications.js';
 
 const DAYS_MAP = {
   Sun: 'Sunday',
@@ -118,6 +119,35 @@ export async function renderTimetableModule(container, { onNavigate }) {
         <div class="page-title-group">
           <h2>${isTeacher ? 'My Teaching Timetable' : 'Faculty Timetable & Schedule Governance'}</h2>
           <p>${isTeacher ? `Personal weekly teaching schedule and class timetable for ${user?.full_name || 'Faculty'}` : 'Institutional visual timetable builder with double-booking prevention and attendance window rules'}</p>
+        </div>
+      </div>
+
+      
+      <!-- ANDROID NOTIFICATION BAR CLASS ALERTS CARD -->
+      <div class="card-panel" style="background: linear-gradient(135deg, #EEF2FF 0%, #FFFFFF 100%); border: 1.5px solid #C7D2FE; border-radius: 14px; padding: 0.95rem 1.15rem; margin-bottom: 1.25rem; box-shadow: 0 2px 8px -2px rgba(79, 70, 229, 0.08);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #4F46E5; color: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3); font-size: 1.25rem; flex-shrink: 0;">
+              🔔
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <strong style="color: #1E1B4B; font-size: 0.92rem;">Class Notification Bar Alerts</strong>
+                <span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-size: 0.65rem; font-weight: 700;">Active</span>
+              </div>
+              <p style="font-size: 0.78rem; color: #4338CA; margin: 0.2rem 0 0; line-height: 1.35;">
+                Pop-up alarms appear on your phone's notification bar 5 minutes before and right at class start time.
+              </p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-outline" id="btn-test-class-notif" style="background: #FFFFFF; color: #4F46E5; border-color: #C7D2FE; font-weight: 700; border-radius: 8px; font-size: 0.78rem;">
+              Test Notification
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-sync-class-notif" style="background: #4F46E5; border-color: #4F46E5; color: #FFF; font-weight: 700; border-radius: 8px; font-size: 0.78rem;">
+              Sync Class Alarms
+            </button>
+          </div>
         </div>
       </div>
 
@@ -354,6 +384,16 @@ export async function renderTimetableModule(container, { onNavigate }) {
         }
         onNavigate('attendance');
       });
+    });
+
+    
+    container.querySelector('#btn-test-class-notif')?.addEventListener('click', async () => {
+      await triggerTestClassNotification();
+    });
+
+    container.querySelector('#btn-sync-class-notif')?.addEventListener('click', async () => {
+      await scheduleClassTimetableNotifications();
+      toast.success('All class timetable alarms scheduled on Android notification bar!');
     });
 
     container.querySelector('#btn-quick-att-shortcut')?.addEventListener('click', () => onNavigate('attendance'));

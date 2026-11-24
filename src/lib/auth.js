@@ -660,8 +660,10 @@ export async function switchDevRole(role) {
   const profile = getDevProfile(role);
   currentProfile = profile;
   currentSession = { user: { id: profile.id, email: profile.email } };
-  localStorage.setItem('tps_dev_profile', JSON.stringify(profile));
-  localStorage.setItem('tps_current_user', JSON.stringify(profile));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('tps_dev_profile', JSON.stringify(profile));
+    localStorage.setItem('tps_current_user', JSON.stringify(profile));
+  }
   notifyListeners();
 }
 
