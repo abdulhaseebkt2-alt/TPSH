@@ -1,0 +1,183 @@
+/* ==========================================================================
+   TPS ERP — Special Native Android UI System
+   Pull-to-refresh, floating glassmorphic nav dock, status island pill
+   ========================================================================== */
+
+/* 1. Pull-to-Refresh Floating Pill */
+.tps-pull-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -60px);
+  z-index: 99999;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+}
+
+.tps-pull-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35), 0 0 15px rgba(16, 185, 129, 0.2);
+  color: #F8FAFC;
+  font-size: 0.78rem;
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tps-pull-spinner {
+  color: #10B981;
+  transition: transform 0.2s ease;
+}
+
+.tps-pull-indicator.is-ready .tps-pull-spinner {
+  transform: rotate(180deg);
+  color: #F59E0B;
+}
+
+.tps-pull-indicator.is-refreshing .tps-pull-spinner {
+  animation: tpsPullSpin 0.8s linear infinite;
+  color: #10B981;
+}
+
+@keyframes tpsPullSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 2. Top App Bar Connectivity Island Status Pill */
+.navbar-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  user-select: none;
+  background: #F1F5F9;
+}
+
+.navbar-status-pill.is-online {
+  background: #ECFDF5;
+  color: #065F46;
+  border-color: #A7F3D0;
+}
+
+.navbar-status-pill.is-online .status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+  animation: tpsGreenPulse 2.2s infinite;
+}
+
+.navbar-status-pill.is-offline {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border-color: #BFDBFE;
+}
+
+.navbar-status-pill.is-offline .status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3B82F6;
+  box-shadow: 0 0 8px #3B82F6;
+}
+
+.navbar-status-pill.is-pending {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FDE68A;
+}
+
+.navbar-status-pill.is-pending .status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 8px #F59E0B;
+  animation: tpsAmberPulse 1.5s infinite;
+}
+
+@keyframes tpsGreenPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+@keyframes tpsAmberPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* 3. Floating Glassmorphic Bottom Navigation Dock */
+@media (max-width: 768px) {
+  .bottom-nav {
+    position: fixed;
+    bottom: 10px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    border-radius: 22px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+    z-index: 9999 !important;
+    padding: 0.35rem 0.5rem !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Active Tab Neon Pip */
+  .m-nav-pill-btn {
+    position: relative;
+    transition: transform 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .m-nav-pill-btn:active {
+    transform: scale(0.92);
+  }
+
+  .m-nav-pill-btn.active {
+    color: #059669 !important;
+  }
+
+  .m-nav-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .m-nav-active-pip {
+    position: absolute;
+    bottom: -4px;
+    width: 4px;
+    height: 4px;
+    background: #059669;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(5, 150, 105, 0.8);
+    animation: tpsPipPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes tpsPipPop {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+}

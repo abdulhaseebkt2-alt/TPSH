@@ -14,6 +14,38 @@
     <link rel="stylesheet" href="/src/styles/main.css" />
   </head>
   <body>
+    <!-- Initial Luxury Opening Splash Screen & Animated Loader -->
+    <div id="tps-opening-splash" class="tps-opening-splash">
+      <div class="tps-splash-backdrop">
+        <div class="tps-splash-aura aura-emerald"></div>
+        <div class="tps-splash-aura aura-gold"></div>
+        <div class="tps-splash-content">
+          <div class="tps-splash-emblem-wrap">
+            <div class="tps-splash-ring ring-outer"></div>
+            <div class="tps-splash-ring ring-mid"></div>
+            <div class="tps-splash-emblem">
+              <img src="/tps-emblem.png" alt="Thaiba Public School" onerror="this.src='/tps-logo.png'" />
+              <div class="tps-emblem-shimmer"></div>
+            </div>
+          </div>
+          <div class="tps-splash-text">
+            <div class="tps-splash-institution">THAIBA PUBLIC SCHOOL</div>
+            <div class="tps-splash-tagline">Modern Education with Morality</div>
+          </div>
+          <div class="tps-splash-loader-track">
+            <div class="tps-splash-loader-bar"></div>
+          </div>
+          <div class="tps-splash-status" id="tps-splash-status-text">
+            Initializing Institutional Engine...
+          </div>
+          <div class="tps-splash-security-badge">
+            <span class="badge-dot"></span>
+            <span>Offline-First Enterprise • v1.9.79</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="app"></div>
     <script type="module" src="/src/app.js"></script>
   </body>

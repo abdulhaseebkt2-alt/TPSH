@@ -9,6 +9,8 @@ import { toast } from './lib/toast.js';
 import { initGlobalUIObserver, enhanceAllUI } from './lib/ui-enhancer.js';
 import { scheduleClassTimetableNotifications, initNotificationChannel } from './lib/class-notifications.js';
 import { initAllNativeServices, triggerHaptic } from './lib/native-bridge.js';
+import { dismissSplashScreen } from './components/splash-screen.js';
+import { initPullToRefresh } from './components/pull-to-refresh.js';
 
 // Import modules
 import { renderDashboard } from './modules/dashboard/index.js';
@@ -280,6 +282,13 @@ class App {
       db.flushOfflineOutbox().catch(() => {});
     }
 
+    // Initialize native pull to refresh
+    initPullToRefresh(async () => {
+      if (this.activeModule) {
+        await this.navigate(this.activeModule);
+      }
+    });
+
     // Initialize native Android specs: status bar, back button, keyboard, network monitor, splash
     initAllNativeServices(this.navigate.bind(this)).catch(() => {});
 
@@ -301,6 +310,7 @@ class App {
         scheduleClassTimetableNotifications().catch(() => {});
       }
       this.render(profile);
+      dismissSplashScreen(400);
     });
 
     // Initialize global UI enhancer observer for dynamic & upcoming UI (calendar & custom dropdown)

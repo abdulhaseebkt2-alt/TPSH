@@ -1,4 +1,5 @@
 import { canAccessModule } from '../lib/permissions.js';
+import { triggerHaptic } from '../lib/native-bridge.js';
 
 /**
  * Mobile Bottom Navigation Component
@@ -149,6 +150,7 @@ export function renderBottomNav(container, { profile, activeModule = 'dashboard'
       <button class="m-nav-pill-btn ${isActive ? 'active' : ''}" data-nav="${item.key}" type="button" title="${item.label}">
         <span class="m-nav-icon-wrap">
           ${getIconSvg(item.icon)}
+          ${isActive ? '<span class="m-nav-active-pip"></span>' : ''}
         </span>
         <span>${item.label}</span>
       </button>
@@ -157,6 +159,7 @@ export function renderBottomNav(container, { profile, activeModule = 'dashboard'
 
   container.querySelectorAll('.m-nav-pill-btn[data-nav]').forEach(btn => {
     btn.addEventListener('click', () => {
+      triggerHaptic('light').catch(() => {});
       const target = btn.getAttribute('data-nav');
       if (target && onNavigate) {
         onNavigate(target);

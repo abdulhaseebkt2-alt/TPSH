@@ -1,5 +1,8 @@
 import { getCurrentUser } from '../lib/auth.js';
 import { openProfileModal } from './profile-modal.js';
+import { db } from '../lib/db.js';
+import { toast } from '../lib/toast.js';
+import { triggerHaptic } from '../lib/native-bridge.js';
 
 const ROLE_POSITION_TITLES = {
   super_admin: 'Super Admin',
@@ -23,6 +26,9 @@ export function renderNavbar(container, { onToggleSidebar, onNavigate }) {
     : (user?.is_super_admin ? 'Super Admin' : (user?.role || 'User').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()));
 
   const avatarLetter = (displayName || 'U')[0].toUpperCase();
+  const isOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
+  const outbox = db.getOfflineOutbox ? db.getOfflineOutbox() : [];
+  const pendingCount = outbox.length;
 
   container.innerHTML = `
     <header class="navbar">
@@ -37,6 +43,14 @@ export function renderNavbar(container, { onToggleSidebar, onNavigate }) {
       </div>
 
       <div class="navbar-right">
+        <!-- Live Native Connectivity & Outbox Island Pill -->
+        <button type="button" class="navbar-status-pill ${!isOnline ? 'is-offline' : (pendingCount > 0 ? 'is-pending' : 'is-online')}" id="nav-island-pill" title="Tap to check connection & sync outbox">
+          <span class="status-pulse-dot"></span>
+          <span class="status-pill-text">
+            ${!isOnline ? 'Offline' : (pendingCount > 0 ? `${pendingCount} Pending` : 'Online')}
+          </span>
+        </button>
+
         <!-- Profile Widget: Name & Position before Photo -->
         <div class="user-profile-widget" id="user-profile-btn" style="cursor: pointer;" title="Click to view & edit your institutional profile">
           <div class="user-meta">
@@ -52,6 +66,23 @@ export function renderNavbar(container, { onToggleSidebar, onNavigate }) {
   `;
 
   container.querySelector('#menu-toggle')?.addEventListener('click', onToggleSidebar);
+
+  // Live Connectivity Island Pill Trigger
+  container.querySelector('#nav-island-pill')?.addEventListener('click', async () => {
+    triggerHaptic('light').catch(() => {});
+    const nowOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
+    const currentOutbox = db.getOfflineOutbox ? db.getOfflineOutbox() : [];
+    if (!nowOnline) {
+      toast.info(`📶 Offline Mode: ${currentOutbox.length} record(s) pending sync safely stored on device.`);
+    } else if (currentOutbox.length > 0) {
+      toast.info(`🔄 Syncing ${currentOutbox.length} pending offline record(s) to cloud...`);
+      await db.flushOfflineOutbox();
+      toast.success('Sync complete! All device records updated to cloud.');
+      renderNavbar(container, { onToggleSidebar, onNavigate });
+    } else {
+      toast.success('🟢 Device connected and fully synchronized with Supabase.');
+    }
+  });
 
   // Open Institutional Profile Window when clicking the avatar / profile widget
   container.querySelector('#user-profile-btn')?.addEventListener('click', () => {

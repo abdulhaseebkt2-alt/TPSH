@@ -1,0 +1,276 @@
+/* ==========================================================================
+   TPS ERP — Luxury Opening Splash Screen & Animated Loader
+   ========================================================================== */
+
+.tps-opening-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #070B14;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), filter 0.45s ease;
+}
+
+.tps-opening-splash.is-dismissing {
+  opacity: 0;
+  transform: scale(1.05);
+  filter: blur(14px);
+  pointer-events: none;
+}
+
+.tps-splash-backdrop {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 45%, #0F172A 0%, #090E1A 60%, #050811 100%);
+}
+
+/* Ambient Radial Auras */
+.tps-splash-aura {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.45;
+  animation: tpsAuraPulse 4s ease-in-out infinite alternate;
+}
+
+.tps-splash-aura.aura-emerald {
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, transparent 70%);
+  top: 32%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tps-splash-aura.aura-gold {
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.25) 0%, transparent 70%);
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: -2s;
+}
+
+/* Main Content Centerpiece */
+.tps-splash-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  max-width: 360px;
+  width: 100%;
+}
+
+/* Emblem Wrap & Pulsing Rings */
+.tps-splash-emblem-wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.75rem;
+}
+
+.tps-splash-ring {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.tps-splash-ring.ring-outer {
+  width: 128px;
+  height: 128px;
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  animation: tpsRingRotate 18s linear infinite;
+}
+
+.tps-splash-ring.ring-mid {
+  width: 110px;
+  height: 110px;
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+  animation: tpsRingPulse 2.8s ease-in-out infinite;
+}
+
+.tps-splash-emblem {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #1E293B, #0F172A);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(245, 158, 11, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  animation: tpsEmblemFloat 3.5s ease-in-out infinite alternate;
+}
+
+.tps-splash-emblem img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+}
+
+.tps-emblem-shimmer {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 65%
+  );
+  transform: rotate(25deg);
+  animation: tpsShimmerSweep 3s infinite ease-in-out;
+  pointer-events: none;
+}
+
+/* Shimmering Brand Typography */
+.tps-splash-text {
+  margin-bottom: 2rem;
+}
+
+.tps-splash-institution {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  background: linear-gradient(135deg, #FFFFFF 0%, #FDE68A 35%, #F59E0B 70%, #10B981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+  filter: drop-shadow(0 2px 10px rgba(245, 158, 11, 0.2));
+  animation: tpsTitleGlow 3s ease-in-out infinite alternate;
+}
+
+.tps-splash-tagline {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: #94A3B8;
+  font-style: italic;
+}
+
+/* Dynamic Neon Loading Capsule */
+.tps-splash-loader-track {
+  width: 190px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  margin-bottom: 1rem;
+}
+
+.tps-splash-loader-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10B981 0%, #3B82F6 50%, #F59E0B 100%);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.8), 0 0 6px rgba(245, 158, 11, 0.6);
+  animation: tpsProgressFill 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Micro-Status Caption */
+.tps-splash-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748B;
+  letter-spacing: 0.04em;
+  margin-bottom: 1.75rem;
+  min-height: 1.1rem;
+  transition: color 0.3s ease;
+}
+
+/* Security & Version Badge */
+.tps-splash-security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.85rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94A3B8;
+  backdrop-filter: blur(10px);
+}
+
+.tps-splash-security-badge .badge-dot {
+  width: 6px;
+  height: 6px;
+  background: #10B981;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #10B981;
+}
+
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+
+@keyframes tpsAuraPulse {
+  0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.35; }
+  100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.55; }
+}
+
+@keyframes tpsRingRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes tpsRingPulse {
+  0% { transform: scale(0.94); opacity: 0.4; }
+  50% { transform: scale(1.05); opacity: 0.85; }
+  100% { transform: scale(0.94); opacity: 0.4; }
+}
+
+@keyframes tpsEmblemFloat {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-6px); }
+}
+
+@keyframes tpsShimmerSweep {
+  0% { transform: translate(-100%, -100%) rotate(25deg); }
+  60%, 100% { transform: translate(100%, 100%) rotate(25deg); }
+}
+
+@keyframes tpsProgressFill {
+  0% { width: 0%; }
+  35% { width: 45%; }
+  75% { width: 85%; }
+  100% { width: 100%; }
+}
+
+@keyframes tpsTitleGlow {
+  0% { filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.15)); }
+  100% { filter: drop-shadow(0 2px 14px rgba(16, 185, 129, 0.35)); }
+}
