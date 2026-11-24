@@ -8,6 +8,7 @@ import { renderBottomNav } from './components/bottom-nav.js';
 import { toast } from './lib/toast.js';
 import { initGlobalUIObserver, enhanceAllUI } from './lib/ui-enhancer.js';
 import { scheduleClassTimetableNotifications, initNotificationChannel } from './lib/class-notifications.js';
+import { initAllNativeServices, triggerHaptic } from './lib/native-bridge.js';
 
 // Import modules
 import { renderDashboard } from './modules/dashboard/index.js';
@@ -278,6 +279,9 @@ class App {
       });
       db.flushOfflineOutbox().catch(() => {});
     }
+
+    // Initialize native Android specs: status bar, back button, keyboard, network monitor, splash
+    initAllNativeServices(this.navigate.bind(this)).catch(() => {});
 
     // Subscribe to auth state
     initNotificationChannel().catch(() => {});

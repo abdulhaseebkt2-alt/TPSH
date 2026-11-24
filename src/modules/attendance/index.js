@@ -6,6 +6,7 @@ import { getCurrentUser } from '../../lib/auth.js';
 import { canPerformAction, isViewOnlyModule, getMentorGenderScope, isMentorRole } from '../../lib/permissions.js';
 import { formatDate, formatTime, normalizeClassPattern, formatDaysSingleLetters, getTodayDateStr, isStudentActive } from '../../lib/utils.js';
 import { openMobileWheelPicker, formatDateYMD } from '../../components/date-picker.js';
+import { triggerHaptic } from '../../lib/native-bridge.js';
 
 function parseMinutes(timeStr) {
   if (!timeStr) return 0;
@@ -1786,6 +1787,7 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
           });
 
           const isOfflineNow = typeof navigator !== 'undefined' && !navigator.onLine;
+          triggerHaptic('success');
           toast.success(isOfflineNow
             ? (hasExistingSession 
                 ? 'Attendance updated locally (Offline Mode). Will auto-sync when online.' 
