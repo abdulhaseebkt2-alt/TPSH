@@ -1379,6 +1379,12 @@ class DatabaseService {
     this._usersCacheTime = 0;
     this._usersInFlightPromise = null;
     this.initStore();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.flushOfflineOutbox().catch(() => {});
+      });
+    }
   }
 
   invalidateCache(type = 'all') {
@@ -1672,6 +1678,110 @@ class DatabaseService {
     }
   }
 
+  isOnline() {
+    return typeof navigator === 'undefined' || navigator.onLine !== false;
+  }
+
+  getOfflineOutbox() {
+    return this.get('tps_offline_outbox') || [];
+  }
+
+  addToOfflineOutbox(item) {
+    if (!item || !item.key) return;
+    const outbox = this.getOfflineOutbox();
+    const exists = outbox.some(o => o.key === item.key && (!item.id || o.id === item.id));
+    if (!exists) {
+      outbox.push({
+        id: item.id || ('outbox-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+        key: item.key,
+        type: item.type || 'data',
+        timestamp: Date.now()
+      });
+      this.setStorageItem('tps_offline_outbox', JSON.stringify(outbox));
+    }
+  }
+
+  removeFromOfflineOutbox(keyOrId) {
+    let outbox = this.getOfflineOutbox();
+    outbox = outbox.filter(o => o.id !== keyOrId && o.key !== keyOrId);
+    this.setStorageItem('tps_offline_outbox', JSON.stringify(outbox));
+  }
+
+  async flushOfflineOutbox() {
+    if (!this.isOnline() || !supabase || isTestEnv) return false;
+    const outbox = this.getOfflineOutbox();
+    const attendance = this.get('tps_attendance') || [];
+    const teacherAttendance = this.get('tps_teacher_attendance') || [];
+    const pendingSessions = attendance.filter(s => s.sync_status === 'pending_sync');
+
+    if (outbox.length === 0 && pendingSessions.length === 0) return true;
+
+    let hasSynced = false;
+    try {
+      // Sync Attendance Sessions
+      if (pendingSessions.length > 0 || outbox.some(o => o.key === 'tps_attendance')) {
+        const updatedAttendance = attendance.map(s => {
+          if (s.sync_status === 'pending_sync') {
+            return { ...s, sync_status: 'synced', synced_at: new Date().toISOString() };
+          }
+          return s;
+        });
+
+        const { error } = await supabase.from('app_settings').upsert({
+          key: 'tps_attendance',
+          value: updatedAttendance,
+          updated_at: new Date().toISOString()
+        });
+
+        if (!error) {
+          this.setStorageItem('tps_attendance', JSON.stringify(updatedAttendance));
+          this.removeFromOfflineOutbox('tps_attendance');
+          hasSynced = true;
+        }
+      }
+
+      // Sync Teacher Attendance
+      if (outbox.some(o => o.key === 'tps_teacher_attendance')) {
+        const { error } = await supabase.from('app_settings').upsert({
+          key: 'tps_teacher_attendance',
+          value: teacherAttendance,
+          updated_at: new Date().toISOString()
+        });
+        if (!error) {
+          this.removeFromOfflineOutbox('tps_teacher_attendance');
+          hasSynced = true;
+        }
+      }
+
+      // Sync other outbox keys
+      const remainingOutbox = this.getOfflineOutbox();
+      for (const item of remainingOutbox) {
+        if (item.key && item.key !== 'tps_attendance' && item.key !== 'tps_teacher_attendance') {
+          const val = this.get(item.key);
+          if (val !== undefined && val !== null) {
+            const { error } = await supabase.from('app_settings').upsert({
+              key: item.key,
+              value: val,
+              updated_at: new Date().toISOString()
+            });
+            if (!error) {
+              this.removeFromOfflineOutbox(item.id || item.key);
+              hasSynced = true;
+            }
+          }
+        }
+      }
+
+      if (hasSynced && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tps:offline_synced', { detail: { timestamp: Date.now() } }));
+      }
+      return true;
+    } catch (err) {
+      console.warn('flushOfflineOutbox error:', err);
+      return false;
+    }
+  }
+
   set(key, val) {
     this.setStorageItem(key, JSON.stringify(val));
     this._pulledKeysTime.set(key, Date.now());
@@ -1685,13 +1795,23 @@ class DatabaseService {
       this._usersInFlightPromise = null;
     }
     if (supabase && !isTestEnv) {
+      if (!this.isOnline()) {
+        this.addToOfflineOutbox({ key, type: 'app_settings' });
+        return;
+      }
       supabase.from('app_settings').upsert({
         key,
         value: val,
         updated_at: new Date().toISOString()
       }).then(({ error }) => {
-        if (error) console.warn('Supabase app_settings sync error for ' + key + ':', error);
-      }).catch(e => console.warn('Supabase app_settings sync warning:', e));
+        if (error) {
+          console.warn('Supabase app_settings sync error for ' + key + ':', error);
+          this.addToOfflineOutbox({ key, type: 'app_settings' });
+        }
+      }).catch(e => {
+        console.warn('Supabase app_settings sync warning:', e);
+        this.addToOfflineOutbox({ key, type: 'app_settings' });
+      });
     }
   }
 
@@ -1705,6 +1825,10 @@ class DatabaseService {
     }
     this._pulledKeysTime.set(key, Date.now());
     if (supabase && !isTestEnv) {
+      if (!this.isOnline()) {
+        this.addToOfflineOutbox({ key, type: 'cloud_key' });
+        return;
+      }
       try {
         const { error } = await supabase.from('app_settings').upsert({
           key,
@@ -1713,9 +1837,11 @@ class DatabaseService {
         });
         if (error) {
           console.warn('Supabase pushCloudKey error for ' + key + ':', error);
+          this.addToOfflineOutbox({ key, type: 'cloud_key' });
         }
       } catch (err) {
         console.warn('Supabase pushCloudKey exception for ' + key + ':', err);
+        this.addToOfflineOutbox({ key, type: 'cloud_key' });
       }
     }
   }
@@ -1752,6 +1878,7 @@ class DatabaseService {
     'tps_user_passwords'
   ], force = false) {
     if (!supabase || isTestEnv) return;
+    if (!this.isOnline()) return;
 
     // Strict multi-tenant isolation: check if current user is an administrator
     let isAdmin = false;
@@ -1786,7 +1913,9 @@ class DatabaseService {
       keys = needed;
     }
     try {
-      const { data, error } = await supabase.from('app_settings').select('key, value').in('key', keys);
+      const selectPromise = supabase.from('app_settings').select('key, value').in('key', keys);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud sync timeout')), 3000));
+      const { data, error } = await Promise.race([selectPromise, timeoutPromise]);
       if (!error && Array.isArray(data)) {
         let hasLogoUpdate = false;
         for (const row of data) {
@@ -1803,6 +1932,81 @@ class DatabaseService {
                   cleanVal = cleanVal.slice(1, -1).trim();
                 }
               }
+            }
+
+            // CRITICAL OFFLINE ATTENDANCE MERGE: Never overwrite locally recorded pending sessions
+            if (row.key === 'tps_attendance') {
+              let cloudSessions = [];
+              try {
+                cloudSessions = typeof cleanVal === 'string' ? JSON.parse(cleanVal) : cleanVal;
+                if (!Array.isArray(cloudSessions)) cloudSessions = [];
+              } catch {
+                cloudSessions = [];
+              }
+              const localAttendance = this.get('tps_attendance') || [];
+              const mergedMap = new Map();
+              // Cloud sessions first
+              for (const cs of cloudSessions) {
+                const k = cs.id || (cs.classroom_id + '_' + cs.session_date);
+                mergedMap.set(k, cs);
+              }
+              // Local sessions merge with Last-Write-Wins and pending_sync preservation
+              for (const ls of localAttendance) {
+                const k = ls.id || (ls.classroom_id + '_' + ls.session_date);
+                const existing = mergedMap.get(k);
+                if (!existing) {
+                  // Offline-recorded session not yet in cloud: PRESERVE IT!
+                  mergedMap.set(k, ls);
+                } else if (ls.sync_status === 'pending_sync') {
+                  mergedMap.set(k, ls);
+                } else {
+                  const localTime = new Date(ls.updated_at || ls.recorded_at || 0).getTime();
+                  const cloudTime = new Date(existing.updated_at || existing.recorded_at || 0).getTime();
+                  if (localTime > cloudTime) {
+                    mergedMap.set(k, ls);
+                  }
+                }
+              }
+              const mergedAttendance = Array.from(mergedMap.values());
+              this.setStorageItem('tps_attendance', JSON.stringify(mergedAttendance));
+              this._pulledKeysTime.set('tps_attendance', Date.now());
+              continue;
+            }
+
+            // CRITICAL TEACHER ATTENDANCE MERGE
+            if (row.key === 'tps_teacher_attendance') {
+              let cloudLogs = [];
+              try {
+                cloudLogs = typeof cleanVal === 'string' ? JSON.parse(cleanVal) : cleanVal;
+                if (!Array.isArray(cloudLogs)) cloudLogs = [];
+              } catch {
+                cloudLogs = [];
+              }
+              const localTeacherAtt = this.get('tps_teacher_attendance') || [];
+              const mergedMap = new Map();
+              for (const cl of cloudLogs) {
+                const k = cl.id || (cl.session_id || '') + '_' + (cl.classroom_id || '') + '_' + (cl.session_date || '');
+                mergedMap.set(k, cl);
+              }
+              for (const ll of localTeacherAtt) {
+                const k = ll.id || (ll.session_id || '') + '_' + (ll.classroom_id || '') + '_' + (ll.session_date || '');
+                if (!mergedMap.has(k)) {
+                  mergedMap.set(k, ll);
+                } else {
+                  const localTime = new Date(ll.recorded_at || 0).getTime();
+                  const cloudTime = new Date(mergedMap.get(k).recorded_at || 0).getTime();
+                  if (localTime >= cloudTime) {
+                    mergedMap.set(k, ll);
+                  }
+                }
+              }
+              const mergedTeacherAttendance = Array.from(mergedMap.values());
+              this.setStorageItem('tps_teacher_attendance', JSON.stringify(mergedTeacherAttendance));
+              this._pulledKeysTime.set('tps_teacher_attendance', Date.now());
+              continue;
+            }
+
+            if (typeof cleanVal === 'string') {
               this.setStorageItem(row.key, cleanVal);
             } else {
               this.setStorageItem(row.key, JSON.stringify(cleanVal));
@@ -1971,12 +2175,14 @@ class DatabaseService {
     this._studentsInFlightPromise = (async () => {
       try {
         let supabaseStudents = null;
-        if (supabase) {
+        if (supabase && this.isOnline()) {
           try {
-            const { data, error } = await supabase
+            const queryPromise = supabase
               .from('students')
               .select('*')
               .order('admission_number');
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Students fetch timeout')), 3000));
+            const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
             if (!error && Array.isArray(data)) {
               supabaseStudents = data.filter(s => !isDummyStudent(s)).map(s => {
                 const mappedStatus = s.status === 'Withdrawn' ? 'Dropped Out' : normalizeStatus(s.status);
@@ -3558,6 +3764,8 @@ class DatabaseService {
   async saveAttendanceSession({ program_id, classroom_id, session_date, teacher_id, records, teacher_name, recorded_at, submission_punctuality = 'punctual', late_submission_minutes = 0, class_start_time = '', submitted_by_name = '' }) {
     const attendance = this.get('tps_attendance') || [];
     const nowIso = recorded_at || new Date().toISOString();
+    const isOnline = this.isOnline();
+    const syncStatus = isOnline ? 'synced' : 'pending_sync';
 
     // Check if an attendance session already exists for this classroom and date (Editing scenario)
     const existingIndex = attendance.findIndex(s => s.classroom_id === classroom_id && s.session_date === session_date);
@@ -3599,6 +3807,8 @@ class DatabaseService {
         recorded_at: prev.recorded_at || nowIso,
         first_recorded_at: firstRecordedAt,
         updated_at: nowIso,
+        sync_status: syncStatus,
+        offline_recorded: !isOnline,
         submission_punctuality: firstPunctuality,
         late_submission_minutes: firstLateMinutes,
         first_submission_punctuality: firstPunctuality,
@@ -3624,6 +3834,8 @@ class DatabaseService {
         recorded_at: nowIso,
         created_at: nowIso,
         first_recorded_at: nowIso,
+        sync_status: syncStatus,
+        offline_recorded: !isOnline,
         submission_punctuality: submission_punctuality || 'punctual',
         late_submission_minutes: Number(late_submission_minutes) || 0,
         first_submission_punctuality: submission_punctuality || 'punctual',
@@ -3636,6 +3848,9 @@ class DatabaseService {
       attendance.push(targetSession);
     }
     this.set('tps_attendance', attendance);
+    if (!isOnline) {
+      this.addToOfflineOutbox({ key: 'tps_attendance', id: targetSession.id, type: 'attendance' });
+    }
 
     // Automatically record or update teacher's duty attendance
     if (teacher_id) {
@@ -3673,6 +3888,9 @@ class DatabaseService {
         });
       }
       this.set('tps_teacher_attendance', teacherAttendance);
+      if (!isOnline) {
+        this.addToOfflineOutbox({ key: 'tps_teacher_attendance', id: targetSession.id, type: 'teacher_attendance' });
+      }
     }
 
     this.logAudit('SUBMIT_ATTENDANCE', 'attendance_sessions', targetSession.id, `Attendance ${existingIndex >= 0 ? 'updated' : 'submitted'} for ${session_date} at ${nowIso}`);
@@ -5586,12 +5804,14 @@ class DatabaseService {
         const parentAssignmentsMap = this.get('tps_parent_assignments') || {};
         const vehicleHeadAssignmentsMap = this.get('tps_vehicle_head_assignments') || {};
 
-        if (supabase) {
+        if (supabase && this.isOnline()) {
           try {
             // 1. Fetch full remote profiles including metadata
             let remoteProfiles = [];
             try {
-              const { data: profs, error: pErr } = await supabase.from('profiles').select('*');
+              const queryPromise = supabase.from('profiles').select('*');
+              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Profiles fetch timeout')), 3000));
+              const { data: profs, error: pErr } = await Promise.race([queryPromise, timeoutPromise]);
               if (!pErr && Array.isArray(profs) && profs.length > 0) {
                 remoteProfiles = profs;
               }
@@ -5606,7 +5826,9 @@ class DatabaseService {
             });
 
             // 2. Fetch manageable users via RPC or fallback to remoteProfiles
-            const { data, error } = await supabase.rpc('get_manageable_users');
+            const rpcPromise = supabase.rpc('get_manageable_users');
+            const rpcTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('RPC fetch timeout')), 3000));
+            const { data, error } = await Promise.race([rpcPromise, rpcTimeout]);
             const sourceUsers = (!error && Array.isArray(data) && data.length > 0)
               ? data
               : (remoteProfiles.length > 0 ? remoteProfiles : []);

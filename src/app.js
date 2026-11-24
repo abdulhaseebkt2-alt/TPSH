@@ -271,12 +271,23 @@ class App {
     // Self-heal orphaned student statuses across all modules
     db.reconcileStudentLeaveStatuses();
 
+    // Automatic offline outbox sync
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        db.flushOfflineOutbox().catch(() => {});
+      });
+      db.flushOfflineOutbox().catch(() => {});
+    }
+
     // Subscribe to auth state
     initNotificationChannel().catch(() => {});
     scheduleClassTimetableNotifications().catch(() => {});
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            db.flushOfflineOutbox().catch(() => {});
+          }
           scheduleClassTimetableNotifications().catch(() => {});
         }
       });

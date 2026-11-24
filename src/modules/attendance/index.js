@@ -489,6 +489,8 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
   async function renderTimetableCardsUI() {
     const allSessions = await db.getAttendanceRecords();
     const unlocks = await db.getAttendanceUnlocks();
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const pendingSessions = (allSessions || []).filter(s => s.sync_status === 'pending_sync');
 
     // Determine classrooms to show
     let displayList = availableClassrooms;
@@ -523,6 +525,33 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
     container.innerHTML = `
       <div class="attendance-module-container" style="padding-bottom: 2.5rem;">
         
+        <!-- OFFLINE STATUS / PENDING SYNC BANNER -->
+        ${isOffline ? `
+          <div class="offline-attendance-banner" style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span style="font-size: 1.25rem;">📶</span>
+              <div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: #1E40AF;">Offline Mode Active</div>
+                <div style="font-size: 0.75rem; color: #3B82F6;">Attendance works 100% without internet. Records are safely stored on device and will auto-sync when online.</div>
+              </div>
+            </div>
+            <span class="badge" style="background: #DBEAFE; color: #1E40AF; font-weight: 700; font-size: 0.72rem; padding: 0.35rem 0.65rem;">Device Storage</span>
+          </div>
+        ` : (pendingSessions.length > 0 ? `
+          <div class="pending-sync-banner" style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span style="font-size: 1.25rem;">🔄</span>
+              <div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: #92400E;">Pending Cloud Sync (${pendingSessions.length} Session${pendingSessions.length > 1 ? 's' : ''})</div>
+                <div style="font-size: 0.75rem; color: #B45309;">Offline attendance recorded on this device is ready to upload to cloud.</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-sync-offline-now" style="font-weight: 700; font-size: 0.78rem; padding: 0.4rem 0.85rem; border-radius: 8px; background: #D97706; border-color: #B45309;">
+              Sync Now
+            </button>
+          </div>
+        ` : '')}
+
         <!-- HEADER -->
         <div class="page-header" style="margin-bottom: 1.25rem;">
           <div class="page-title-group">
@@ -888,6 +917,22 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
 
   function attachTimetableCardsListeners() {
     if (!container || typeof container.querySelector !== 'function') return;
+
+    // Offline Sync Now button trigger
+    container.querySelector('#btn-sync-offline-now')?.addEventListener('click', async () => {
+      const btn = container.querySelector('#btn-sync-offline-now');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Syncing...';
+      }
+      const success = await db.flushOfflineOutbox();
+      if (success) {
+        toast.success('Offline attendance records successfully synced to cloud!');
+      } else {
+        toast.warning('Sync incomplete. Will retry automatically when internet is stable.');
+      }
+      renderTimetableCardsUI();
+    });
 
     // Date badge picker trigger
     container.querySelector('#att-cards-date-trigger')?.addEventListener('click', () => {
@@ -1740,9 +1785,14 @@ export async function renderAttendanceModule(container, { onNavigate, initialCla
             records
           });
 
-          toast.success(hasExistingSession
-            ? 'Attendance updated! Late-arriving students recorded and faculty punctuality preserved.'
-            : `Attendance submitted! Exact time (${formatTime(new Date().toTimeString().slice(0, 5))}) stored and faculty duty marked Present.`);
+          const isOfflineNow = typeof navigator !== 'undefined' && !navigator.onLine;
+          toast.success(isOfflineNow
+            ? (hasExistingSession 
+                ? 'Attendance updated locally (Offline Mode). Will auto-sync when online.' 
+                : 'Attendance recorded locally (Offline Mode)! Will auto-sync when online.')
+            : (hasExistingSession
+                ? 'Attendance updated! Late-arriving students recorded and faculty punctuality preserved.'
+                : `Attendance submitted! Exact time (${formatTime(new Date().toTimeString().slice(0, 5))}) stored and faculty duty marked Present.`));
           hasExistingSession = true;
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.removeItem('tps_active_att_cls');
